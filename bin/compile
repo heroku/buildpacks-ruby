@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+# bin/compile BUILD_DIR CACHE_DIR ENV_DIR
+
+BUILD_DIR=$1
+CACHE_DIR=$2
+ENV_DIR=$3
+
+BIN_DIR=$(cd $(dirname $0); pwd)
+BUILDPACK_DIR=$(dirname $BIN_DIR)
+
+source "$BIN_DIR/support/bash_functions.sh"
+bootstrap_ruby_to_buildpack_dir
+
+cat <<EOF | $(buildpack_ruby_path) -Ilib -rheroku_buildpack_ruby
+  HerokuBuildpackRuby.compile_legacy(
+    build_dir: '$BUILD_DIR',
+    cache_dir: '$CACHE_DIR',
+    env_dir: '$ENV_DIR',
+    buildpack_ruby_path: '$(buildpack_ruby_path)',
+   )
+EOF
+

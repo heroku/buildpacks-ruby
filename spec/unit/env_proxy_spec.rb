@@ -1,0 +1,139 @@
+require_relative "../spec_helper.rb"
+
+require 'heroku_buildpack_ruby/env_proxy'
+
+RSpec.describe "env proxy" do
+  before(:all) do
+    HerokuBuildpackRuby::EnvProxy.register_layer(:foo, build: true, cache: true,  launch: true)
+    HerokuBuildpackRuby::EnvProxy.register_layer(:bar, build: true, cache: true,  launch: true)
+  end
+
+  after(:all) do
+    HerokuBuildpackRuby::EnvProxy.delete_layer(:foo)
+    HerokuBuildpackRuby::EnvProxy.delete_layer(:bar)
+  end
+
+  def unique_env_key
+    while key = SecureRandom.hex and ENV.key?(key)
+    end
+    key
+  end
+
+  it "exports to a file" do
+    env_var_1 = HerokuBuildpackRuby::EnvProxy.value(unique_env_key)
+    env_var_1.set(
+      bar: "/app/cinco"
+    )
+
+    env_var_2 = HerokuBuildpackRuby::EnvProxy.path(unique_env_key)
+    env_var_2.prepend(
+      bar: "/app/river"
+    )
+    profile_d = Tempfile.new
+    export = Tempfile.new
+    HerokuBuildpackRuby::EnvProxy.export(profile_d: profile_d.path, export: export.path, app_dir: "/app")
+
+    expect(File.read(export.path).strip).to include(%Q{export #{env_var_1.key}="/app/cinco"})
+    expect(File.read(export.path).strip).to include(%Q{export #{env_var_2.key}="/app/river:$#{env_var_2.key}"})
+
+    expect(File.read(profile_d.path).strip).to include(%Q{export #{env_var_1.key}="$HOME/cinco"})
+    expect(File.read(profile_d.path).strip).to include(%Q{export #{env_var_2.key}="$HOME/river:$#{env_var_2.key}"})
+
+    Dir.mktmpdir do |dir|
+      layers_dir = Pathname.new(dir)
+      HerokuBuildpackRuby::EnvProxy.write_layers(
+        layers_dir: layers_dir,
+      )
+
+      toml_hash = HerokuBuildpackRuby::TOML.load(layers_dir.join("foo.toml").read)
+      expect(toml_hash).to eq({build: true, cache: true, launch: true})
+
+      expect(layers_dir.join("bar/env.launch").entries.map(&:to_s)).to include("#{env_var_1.key}.override")
+
+      expect(layers_dir.join("bar/env.launch/#{env_var_1.key}.override").read).to eq("/app/cinco")
+      expect(layers_dir.join("bar/env.launch/#{env_var_2.key}").read).to eq("/app/river")
+
+      expect(layers_dir.join("bar/env.build/#{env_var_1.key}.override").read).to eq("/app/cinco")
+      expect(layers_dir.join("bar/env.build/#{env_var_2.key}").read).to eq("/app/river")
+    end
+  ensure
+    HerokuBuildpackRuby::EnvProxy.delete(env_var_1) if env_var_1
+    HerokuBuildpackRuby::EnvProxy.delete(env_var_2) if env_var_2
+  end
+
+  it "value acts like an value-ish" do
+    env_var = HerokuBuildpackRuby::EnvProxy.value(unique_env_key)
+    env_var.set(
+      foo: "/hi/there/hi",
+    )
+
+    expect(HerokuBuildpackRuby::EnvProxy).to include(env_var)
+
+    # Modifies ENV
+    expect(ENV[env_var.key]).to eq("/hi/there/hi")
+
+    # Exports for legacy/v2 interface
+    expect(env_var.to_export).to eq(%Q{export #{env_var.key}="/hi/there/hi"})
+
+    expect(env_var.to_export).to eq(%Q{export #{env_var.key}="/hi/there/hi"})
+    expect(env_var.to_export(replace_app_dir: "/hi")).to eq(%Q{export #{env_var.key}="$HOME/there/hi"})
+
+    # Can write to layers for CNB interface
+    Dir.mktmpdir do |dir|
+      layers_dir = Pathname.new(dir)
+
+      env_var.write_layer(layers_dir: layers_dir,  name: :foo)
+
+
+      expect(layers_dir.entries.map(&:to_s)).to include("foo")
+      expect(layers_dir.join("foo").entries.map(&:to_s)).to include("env.launch")
+      expect(layers_dir.join("foo").entries.map(&:to_s)).to include("env.build")
+
+      expect(layers_dir.join("foo/env.launch/#{env_var.key}.override").read).to eq("/hi/there/hi")
+      expect(layers_dir.join("foo/env.build/#{env_var.key}.override").read).to eq("/hi/there/hi")
+    end
+  ensure
+    HerokuBuildpackRuby::EnvProxy.delete(env_var) if env_var
+  end
+
+  it "path acts like an array-ish" do
+    env_var = HerokuBuildpackRuby::EnvProxy.path(unique_env_key)
+    env_var.prepend(
+      foo: ["/hi/you", "there"],
+      bar: ["how", "are_you"]
+    )
+    expect(HerokuBuildpackRuby::EnvProxy).to include(env_var)
+
+    # Modifies ENV
+    expect(ENV[env_var.key]).to eq("/hi/you:there:how:are_you")
+
+    # Exports for legacy/v2 interface
+    expect(env_var.to_export).to include(%Q{export #{env_var.key}="/hi/you:there:$#{env_var.key}"})
+    expect(env_var.to_export).to include(%Q{export #{env_var.key}="how:are_you:$#{env_var.key}"})
+
+    expect(env_var.to_export(replace_app_dir: "/hi")).to include(%Q{export #{env_var.key}="$HOME/you:there:$#{env_var.key}"})
+
+    # Can write to layers for CNB interface
+    Dir.mktmpdir do |dir|
+      layers_dir = Pathname.new(dir)
+
+      env_var.write_layer(layers_dir: layers_dir, name: :foo)
+
+      expect(layers_dir.entries.map(&:to_s)).to include("foo")
+      expect(layers_dir.join("foo").entries.map(&:to_s)).to include("env.launch")
+      expect(layers_dir.join("foo").entries.map(&:to_s)).to include("env.build")
+
+      expect(layers_dir.join("foo/env.launch/#{env_var.key}").read).to eq("/hi/you:there")
+      expect(layers_dir.join("foo/env.build/#{env_var.key}").read).to eq("/hi/you:there")
+
+      env_var.write_layer(layers_dir: layers_dir, name: :bar)
+      expect(layers_dir.join("bar").entries.map(&:to_s)).to include("env.launch")
+      expect(layers_dir.join("bar").entries.map(&:to_s)).to include("env.build")
+
+      expect(layers_dir.join("bar/env.launch/#{env_var.key}").read).to eq("how:are_you")
+      expect(layers_dir.join("bar/env.build/#{env_var.key}").read).to eq("how:are_you")
+    end
+  ensure
+    HerokuBuildpackRuby::EnvProxy.delete(env_var) if env_var
+  end
+end

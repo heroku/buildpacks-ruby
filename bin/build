@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+set -eu
+
+LAYERS_DIR=$1
+PLATFORM_DIR=$2
+ENV_DIR="$PLATFORM_DIR/env"
+PLAN=$3
+APP_DIR=$(pwd)
+BIN_DIR=$(cd $(dirname $0); pwd)
+BUILDPACK_DIR=$(dirname $BIN_DIR)
+
+# legacy buildpack uses $STACK
+export STACK=$CNB_STACK_ID
+
+source "$BIN_DIR/support/bash_functions.sh"
+bootstrap_ruby_to_buildpack_dir
+
+cat <<EOF | $(buildpack_ruby_path) -I"$BUILDPACK_DIR/lib" -rheroku_buildpack_ruby
+  HerokuBuildpackRuby.build_cnb(
+    layers_dir: '$LAYERS_DIR',
+    platform_dir: '$PLATFORM_DIR',
+    env_dir: '$ENV_DIR',
+    plan: '$PLAN',
+    app_dir: '$APP_DIR',
+    buildpack_ruby_path: '$(buildpack_ruby_path)',
+   )
+EOF
+

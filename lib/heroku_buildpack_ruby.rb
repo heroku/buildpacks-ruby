@@ -31,9 +31,9 @@ module HerokuBuildpackRuby
     ).call
 
     EnvProxy.export(
-      export: export,
       app_dir: app_dir,
-      profile_d: profile_d_path,
+      export_path: export,
+      profile_d_path: profile_d_path,
     )
   end
 

@@ -19,6 +19,26 @@ RSpec.describe "env proxy" do
     key
   end
 
+  it "lol example" do
+    env_var = HerokuBuildpackRuby::EnvProxy.path(unique_env_key)
+    env_var.prepend(foo: ["/app/lol", "haha"])
+    env_var.prepend(bar: "/app/rofl")
+
+    profile_d = Tempfile.new
+    export = Tempfile.new
+    env_var.write_exports(
+      profile_d_path: profile_d.path,
+      export_path: export.path,
+      app_dir: "/app"
+    )
+
+    expect(
+      File.read(profile_d) # => '
+    ).to eq(%Q{export #{env_var.key}="$HOME/rofl:$HOME/lol:haha:$#{env_var.key}"})
+  ensure
+    HerokuBuildpackRuby::EnvProxy.delete(env_var)
+  end
+
   it "exports to a file" do
     env_var_1 = HerokuBuildpackRuby::EnvProxy.value(unique_env_key)
     env_var_1.set(
@@ -31,7 +51,11 @@ RSpec.describe "env proxy" do
     )
     profile_d = Tempfile.new
     export = Tempfile.new
-    HerokuBuildpackRuby::EnvProxy.export(profile_d: profile_d.path, export: export.path, app_dir: "/app")
+    HerokuBuildpackRuby::EnvProxy.export(
+      profile_d_path: profile_d.path,
+      export_path: export.path,
+      app_dir: "/app"
+    )
 
     expect(File.read(export.path).strip).to include(%Q{export #{env_var_1.key}="/app/cinco"})
     expect(File.read(export.path).strip).to include(%Q{export #{env_var_2.key}="/app/river:$#{env_var_2.key}"})
@@ -61,6 +85,16 @@ RSpec.describe "env proxy" do
     HerokuBuildpackRuby::EnvProxy.delete(env_var_2) if env_var_2
   end
 
+  it "prevents setting values to two different env vars" do
+    env_var = HerokuBuildpackRuby::EnvProxy.value(unique_env_key)
+    expect {
+      env_var.set(
+        foo: "/hi/there/hi",
+        bar: "i am different"
+      )
+    }.to raise_error(/cannot set the same ENV var/)
+  end
+
   it "value acts like an value-ish" do
     env_var = HerokuBuildpackRuby::EnvProxy.value(unique_env_key)
     env_var.set(
@@ -76,13 +110,13 @@ RSpec.describe "env proxy" do
     expect(env_var.to_export).to eq(%Q{export #{env_var.key}="/hi/there/hi"})
 
     expect(env_var.to_export).to eq(%Q{export #{env_var.key}="/hi/there/hi"})
-    expect(env_var.to_export(replace_app_dir: "/hi")).to eq(%Q{export #{env_var.key}="$HOME/there/hi"})
+    expect(env_var.to_export(replace: "/hi", with: "$HOME")).to eq(%Q{export #{env_var.key}="$HOME/there/hi"})
 
     # Can write to layers for CNB interface
     Dir.mktmpdir do |dir|
       layers_dir = Pathname.new(dir)
 
-      env_var.write_layer(layers_dir: layers_dir,  name: :foo)
+      env_var.write_layer(layers_dir: layers_dir)
 
 
       expect(layers_dir.entries.map(&:to_s)).to include("foo")
@@ -108,30 +142,27 @@ RSpec.describe "env proxy" do
     expect(ENV[env_var.key]).to eq("/hi/you:there:how:are_you")
 
     # Exports for legacy/v2 interface
-    expect(env_var.to_export).to include(%Q{export #{env_var.key}="/hi/you:there:$#{env_var.key}"})
-    expect(env_var.to_export).to include(%Q{export #{env_var.key}="how:are_you:$#{env_var.key}"})
+    expect(env_var.to_export).to include(%Q{export #{env_var.key}="how:are_you:/hi/you:there:$#{env_var.key}"})
 
-    expect(env_var.to_export(replace_app_dir: "/hi")).to include(%Q{export #{env_var.key}="$HOME/you:there:$#{env_var.key}"})
+    expect(env_var.to_export(replace: "/hi", with: "$HOME")).to include(%Q{export #{env_var.key}="how:are_you:$HOME/you:there:$#{env_var.key}"})
 
     # Can write to layers for CNB interface
     Dir.mktmpdir do |dir|
       layers_dir = Pathname.new(dir)
 
-      env_var.write_layer(layers_dir: layers_dir, name: :foo)
+      env_var.write_layer(layers_dir: layers_dir)
 
       expect(layers_dir.entries.map(&:to_s)).to include("foo")
       expect(layers_dir.join("foo").entries.map(&:to_s)).to include("env.launch")
       expect(layers_dir.join("foo").entries.map(&:to_s)).to include("env.build")
 
       expect(layers_dir.join("foo/env.launch/#{env_var.key}").read).to eq("/hi/you:there")
-      expect(layers_dir.join("foo/env.build/#{env_var.key}").read).to eq("/hi/you:there")
 
-      env_var.write_layer(layers_dir: layers_dir, name: :bar)
+      env_var.write_layer(layers_dir: layers_dir)
       expect(layers_dir.join("bar").entries.map(&:to_s)).to include("env.launch")
       expect(layers_dir.join("bar").entries.map(&:to_s)).to include("env.build")
 
       expect(layers_dir.join("bar/env.launch/#{env_var.key}").read).to eq("how:are_you")
-      expect(layers_dir.join("bar/env.build/#{env_var.key}").read).to eq("how:are_you")
     end
   ensure
     HerokuBuildpackRuby::EnvProxy.delete(env_var) if env_var

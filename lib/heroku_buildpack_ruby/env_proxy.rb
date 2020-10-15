@@ -180,9 +180,10 @@ module HerokuBuildpackRuby
     end
   end
 
-  require_relative "env_proxy/prepend.rb"
-  require_relative "env_proxy/override.rb"
   PATH_ENV = EnvProxy.path("PATH")
   GEM_PATH_ENV = EnvProxy.path("GEM_PATH")
   BUNDLE_GEMFILE_ENV = EnvProxy.value("BUNDLE_GEMFILE")
 end
+
+require_relative "env_proxy/prepend.rb"
+require_relative "env_proxy/override.rb"

@@ -49,5 +49,4 @@ module HerokuBuildpackRuby
       [values, "$#{key}"].join(":")
     end
   end
-
 end

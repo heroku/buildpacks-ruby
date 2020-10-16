@@ -31,6 +31,8 @@ module HerokuBuildpackRuby
       buildpack_ruby_path: buildpack_ruby_path,
     ).call
 
+    # TODO detect and install binary dependencies here
+
     BundleInstall.new(
       app_dir: app_dir,
       user_comms: user_comms,
@@ -57,6 +59,8 @@ module HerokuBuildpackRuby
       user_comms: user_comms,
       buildpack_ruby_path: buildpack_ruby_path,
     ).call
+
+    # TODO detect and install binary dependencies here
 
     BundleInstall.new(
       app_dir: app_dir,

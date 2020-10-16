@@ -27,6 +27,8 @@ module HerokuBuildpackRuby
   #   attr_reader :key
   #
   #   def initialize(key)
+  #   def value
+  #   def to_env
   #   def write_layer(layers_dir: )
   #   def write_exports(profile_d_path: , export_path: , app_dir: )
   #   def to_export(replace: "", with: "")
@@ -46,6 +48,24 @@ module HerokuBuildpackRuby
       @layer_env_hash = {}
     end
 
+    # Returns the value of the env ke and value in a bash format
+    #
+    # Example:
+    #
+    #
+    #   LOL_PATH_ENV = EnvProxy.path("LOL_PATH")
+    #   LOL_PATH_ENV.prepend(ruby: "/app/lol")
+    #
+    #   puts LOL_PATH_ENV.to_env # => 'LOL_PATH="/app/lol" '
+    def to_env
+      %Q{#{key}="#{ENV[key]}" }
+    end
+
+    # Returns the currently set env var
+    def value
+      ENV[key]
+    end
+
     # Returns one of [:prepend, :append, :override, :default]
     private def layer_env_type
       raise "Must subclass"
@@ -63,12 +83,12 @@ module HerokuBuildpackRuby
     #
     # Example:
     #
-    #  LOL_PATH_ENV = EnvProxy.path("LOL_PATH")
-    #  LOL_PATH_ENV.prepend(ruby: "/app/lol")
-    #  LOL_PATH_ENV.prepend(gems: "/app/rofl")
+    #   LOL_PATH_ENV = EnvProxy.path("LOL_PATH")
+    #   LOL_PATH_ENV.prepend(ruby: "/app/lol")
+    #   LOL_PATH_ENV.prepend(gems: "/app/rofl")
     #
-    #  puts LOL_PATH.to_export # => 'export LOL_PATH="/app/rofl:/app/lol:$LOL_PATH"
-    #  puts LOL_PATH.to_export(replace: "/app", with: "$HOME") # => 'export LOL_PATH="$HOME/rofl:$HOME/lol:$LOL_PATH"
+    #   puts LOL_PATH.to_export # => 'export LOL_PATH="/app/rofl:/app/lol:$LOL_PATH"
+    #   puts LOL_PATH.to_export(replace: "/app", with: "$HOME") # => 'export LOL_PATH="$HOME/rofl:$HOME/lol:$LOL_PATH"
     #
     def to_export(replace: "", with: "")
       value = value_for_export(replace: replace, with: with)
@@ -103,11 +123,11 @@ module HerokuBuildpackRuby
 
         build_dir = layer.join("env.build").tap(&:mkpath)
         value = Array(v).join(":")
-        build_dir.join(self.layer_key).open("w+") do |f|
+        build_dir.join(layer_key).open("w+") do |f|
           f.write(value)
         end
 
-        launch_dir.join(self.layer_key).open("w+") do |f|
+        launch_dir.join(layer_key).open("w+") do |f|
           f.write(value)
         end
       end

@@ -11,7 +11,11 @@ module HerokuBuildpackRuby
   #
   #   Bash.new("this command does not exist").run! # => <# BashError>
   class Bash
-    class BashError < StandardError; end
+    class BashError < StandardError
+      def initialize(bash, out: )
+        super "Command: '#{@command}' failed unexpectedly:\n#{out}"
+      end
+    end
 
     def initialize(raw_command, max_attempts: 0, redirect: "2>&1")
       @raw_command = raw_command
@@ -27,11 +31,24 @@ module HerokuBuildpackRuby
 
     def run!
       out = run
-      raise BashError, "Command: '#{@command}' failed unexpectedly:\n#{out}" unless $?.success?
+      raise BashError.new(self, out: out)  unless $?.success?
       out
     end
 
-    # TODO  bash shellscaping fun-ness
+    def stream
+      out = String.new
+      IO.popen(@command) do |io|
+        until io.eof?
+          buffer = io.gets
+          out << buffer
+
+          yield buffer if block_given?
+        end
+      end
+
+      out
+    end
+
     private def build_command
       "/usr/bin/env bash -c #{@raw_command.shellescape} #{@redirect} "
     end

@@ -1,7 +1,7 @@
 require_relative "env_proxy.rb"
 require_relative "bash.rb"
 require_relative "curl_fetch.rb"
-require_relative "user_output.rb"
+require_relative "user_comms.rb"
 
 require_relative "ruby_detect_version.rb"
 require_relative "ruby_download.rb"
@@ -32,8 +32,11 @@ module HerokuBuildpackRuby
   #   puts ENV["PATH"].split(":").include?(vendor_dir.join("bundler/bin").to_s)
   #   # => true
   class PrepareAppBundlerAndRuby
-    def initialize(vendor_dir: , app_dir: , buildpack_ruby_path: , user_output: UserOutput::V2.new)
-      @user_output = user_output
+    private; attr_reader :user_comms, :vendor_dir, :app_dir, :ruby_install_dir, :bundler_install_dir, :bundler_detect_version, :ruby_detect_version; public
+    public; attr_reader :gem_install_dir
+
+    def initialize(vendor_dir: , app_dir: , buildpack_ruby_path: , user_comms: UserComms::V2.new)
+      @user_comms = user_comms
       @vendor_dir = Pathname.new(vendor_dir)
       @app_dir = Pathname.new(app_dir)
 
@@ -67,7 +70,7 @@ module HerokuBuildpackRuby
     def detect_bundler_version!
       @bundler_detect_version.call
       bundler_version = @bundler_detect_version.version
-      @user_output.topic("Installing bundler #{bundler_version}")
+      @user_comms.topic("Installing bundler #{bundler_version}")
       # @user.topic("Removing BUNDLED WITH version in the Gemfile.lock")
       bundler_version
     end
@@ -97,11 +100,10 @@ module HerokuBuildpackRuby
         bundler: @bundler_install_dir.join("bin")
       )
       GEM_PATH_ENV.prepend(
-        gems: @gem_install_dir,
         bundler: @bundler_install_dir
       )
       BUNDLE_GEMFILE_ENV.set(
-        gems: @gem_install_dir.join("Gemfile").to_s
+        gems: @app_dir.join("Gemfile").to_s
       )
     end
   end

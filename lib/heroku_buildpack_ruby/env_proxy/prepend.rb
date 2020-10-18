@@ -17,6 +17,8 @@ module HerokuBuildpackRuby
   #   attr_reader :key
   #
   #   def initialize(key)
+  #   def value
+  #   def to_env
   #   def write_layer(layers_dir: )
   #   def write_exports(profile_d_path: , export_path: , app_dir: )
   #   def to_export(replace: "", with: "")
@@ -40,6 +42,8 @@ module HerokuBuildpackRuby
       end
 
       ENV[@key] = [all_values, ENV[key]].compact.join(":")
+
+      self
     end
 
     # Implement interface used by `for_export()` method to write profile_d and export files

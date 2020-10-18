@@ -1,4 +1,5 @@
 require_relative "heroku_buildpack_ruby/prepare_app_bundler_and_ruby.rb"
+require_relative "heroku_buildpack_ruby/bundle_install.rb"
 
 # This is the main entry point for the Ruby buildpack
 #
@@ -20,14 +21,23 @@ module HerokuBuildpackRuby
     export = BUILDPACK_DIR.join("export")
     app_dir = Pathname.new(build_dir)
     vendor_dir = app_dir.join(".heroku/ruby")
-    user_output = UserOutput::V2.new
+    user_comms = UserComms::V2.new
     profile_d_path = app_dir.join(".profile.d/ruby.sh")
 
     PrepareAppBundlerAndRuby.new(
       app_dir: app_dir,
       vendor_dir: vendor_dir,
-      user_output: user_output,
+      user_comms: user_comms,
       buildpack_ruby_path: buildpack_ruby_path,
+    ).call
+
+    # TODO detect and install binary dependencies here
+
+    BundleInstall.new(
+      app_dir: app_dir,
+      user_comms: user_comms,
+      bundle_without_default: "development:test",
+      bundle_install_gems_dir: vendor_dir.join("gems"),
     ).call
 
     EnvProxy.export(
@@ -41,13 +51,22 @@ module HerokuBuildpackRuby
     app_dir = Pathname.new(app_dir)
     layers_dir = Pathname.new(layers_dir)
     vendor_dir = app_dir.join(".heroku/ruby")
-    user_output = UserOutput::CNB.new
+    user_comms = UserComms::CNB.new
 
     PrepareAppBundlerAndRuby.new(
       app_dir: app_dir,
       vendor_dir: vendor_dir,
-      user_output: user_output,
+      user_comms: user_comms,
       buildpack_ruby_path: buildpack_ruby_path,
+    ).call
+
+    # TODO detect and install binary dependencies here
+
+    BundleInstall.new(
+      app_dir: app_dir,
+      user_comms: user_comms,
+      bundle_without_default: "development:test",
+      bundle_install_gems_dir: vendor_dir.join("gems"),
     ).call
 
     EnvProxy.write_layers(

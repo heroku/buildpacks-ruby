@@ -42,3 +42,8 @@ Share behavior by sharing objects when possible. Relatedly: Strive for DRY conce
 ## Initialize values, call behavior
 
 In general it's prefered to initialize all values when creating an object rather than passing values in later. We also want to decouple actions from initialization. The pattern here is to have actions respond when executintg `call` on the object. In general it allows us to be flexible with when we create our objets and when we use them.
+
+### Ideas
+
+- A "HEROKU_DEBUG_DEPLOY" mode that stops execution but still attempts to write out env vars for what it's got so far so that the results on disk can be interactively inspected
+- The ability to record and replay the actions of the buildpack as bash commands. This could be useful for reproducing and reporting issues for maintainers of other projects, for example we could give rubygems or bundler a repro with docker and bash commands.

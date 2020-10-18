@@ -9,6 +9,7 @@ class CnbRun
     @builder = builder
     @buildpack_paths = Array.new(buildpack_paths)
     @build_output = ""
+    @threads = []
   end
 
   def call
@@ -17,6 +18,8 @@ class CnbRun
       command << " --buildpack #{path}"
     end
 
+    puts command
+
     @output = run_local!(command)
     yield self
   ensure
@@ -24,7 +27,11 @@ class CnbRun
   end
 
   def teardown
+    @threads.map(&:join)
+
+  ensure
     return unless image_name
+
     repo_name, tag_name = image_name.split(":")
 
     docker_list = `docker images --no-trunc | grep #{repo_name} | grep #{tag_name}`.strip
@@ -33,7 +40,8 @@ class CnbRun
   end
 
   def run(cmd)
-    `docker run #{image_name} '#{cmd}'`.strip
+    command = %Q{docker run #{image_name} #{cmd.to_s.shellescape} 2>&1}
+    `#{command}`.strip
   end
 
   def run!(cmd)
@@ -47,13 +55,34 @@ class CnbRun
     raise "Command #{cmd.inspect} failed. Output: #{out}" unless $?.success?
     out
   end
+
+  def run_multi!(cmd)
+    @threads << Thread.new do
+      out = run!(cmd)
+      status = $?
+      yield out, status
+    end
+  end
 end
 
 RSpec.describe "Cloud Native Buildpack" do
   it "locally runs default_ruby app" do
     CnbRun.new(hatchet_path("ruby_apps/default_ruby"), buildpack_paths: [buildpack_path]).call do |app|
-      run_out = app.run!("ruby -v")
-      expect(run_out).to match(HerokuBuildpackRuby::RubyDetectVersion::DEFAULT)
+      app.run_multi!("ruby -v") do |out|
+        expect(out).to match(HerokuBuildpackRuby::RubyDetectVersion::DEFAULT)
+      end
+
+      app.run_multi!("bundle list") do |out|
+        expect(out).to match("rack")
+      end
+
+      app.run_multi!("gem list") do |out|
+        expect(out).to match("rack")
+      end
+
+      app.run_multi!(%Q{ruby -e "require 'rack'; puts 'done'"}) do |out|
+        expect(out).to match("done")
+      end
     end
   end
 end

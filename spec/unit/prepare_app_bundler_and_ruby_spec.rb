@@ -9,12 +9,12 @@ RSpec.describe "PrepareAppBundlerAndRuby" do
            2.1.4
       EOM
       )
-      user_output = HerokuBuildpackRuby::UserOutput::V2.new(StringIO.new)
+      user_comms = HerokuBuildpackRuby::UserComms::V2.new(StringIO.new)
       bootstrap = HerokuBuildpackRuby::PrepareAppBundlerAndRuby.new(
         buildpack_ruby_path: which_ruby,
         vendor_dir: "./heroku/ruby/",
         app_dir: dir,
-        user_output: user_output
+        user_comms: user_comms
       )
       bundler_version = bootstrap.detect_bundler_version!
 
@@ -26,12 +26,12 @@ RSpec.describe "PrepareAppBundlerAndRuby" do
     Dir.mktmpdir do |dir|
       FileUtils.touch("#{dir}/Gemfile.lock")
 
-      user_output = HerokuBuildpackRuby::UserOutput::V2.new(StringIO.new)
+      user_comms = HerokuBuildpackRuby::UserComms::V2.new(StringIO.new)
       bootstrap = HerokuBuildpackRuby::PrepareAppBundlerAndRuby.new(
         buildpack_ruby_path: which_ruby,
         vendor_dir: "./heroku/ruby/bundler",
         app_dir: dir,
-        user_output: user_output
+        user_comms: user_comms
       )
       bundler_version = bootstrap.detect_bundler_version!
 
@@ -44,12 +44,12 @@ RSpec.describe "PrepareAppBundlerAndRuby" do
       Dir.mktmpdir do |app_dir|
         FileUtils.touch("#{app_dir}/Gemfile.lock")
 
-      user_output = HerokuBuildpackRuby::UserOutput::V2.new(StringIO.new)
+      user_comms = HerokuBuildpackRuby::UserComms::V2.new(StringIO.new)
         bootstrap = HerokuBuildpackRuby::PrepareAppBundlerAndRuby.new(
           buildpack_ruby_path: which_ruby,
           vendor_dir: bundler_dest_dir,
           app_dir: app_dir,
-          user_output: user_output
+          user_comms: user_comms
         )
 
         bootstrap.detect_bundler_version!

@@ -95,6 +95,43 @@ RSpec.describe "env proxy" do
     }.to raise_error(/cannot set the same ENV var/)
   end
 
+  it "default acts like a default" do
+    env_var = HerokuBuildpackRuby::EnvProxy.default(unique_env_key)
+    env_var.set_default(
+      foo: "/hi/there/hi",
+    )
+
+    expect(HerokuBuildpackRuby::EnvProxy).to include(env_var)
+
+    # Modifies ENV
+    expect(ENV[env_var.key]).to eq("/hi/there/hi")
+    expect(env_var.value).to eq("/hi/there/hi")
+    expect(env_var.to_env).to eq(%Q{#{env_var.key}="/hi/there/hi" })
+
+    # Exports for legacy/v2 interface
+    expect(env_var.to_export).to eq(%Q{export #{env_var.key}="${#{env_var.key}:-/hi/there/hi}"})
+
+    expect(env_var.to_export).to eq(%Q{export #{env_var.key}="${#{env_var.key}:-/hi/there/hi}"})
+    expect(env_var.to_export(replace: "/hi", with: "$HOME")).to eq(%Q{export #{env_var.key}="${#{env_var.key}:-$HOME/there/hi}"})
+
+    # Can write to layers for CNB interface
+    Dir.mktmpdir do |dir|
+      layers_dir = Pathname.new(dir)
+
+      env_var.write_layer(layers_dir: layers_dir)
+
+
+      expect(layers_dir.entries.map(&:to_s)).to include("foo")
+      expect(layers_dir.join("foo").entries.map(&:to_s)).to include("env.launch")
+      expect(layers_dir.join("foo").entries.map(&:to_s)).to include("env.build")
+
+      expect(layers_dir.join("foo/env.launch/#{env_var.key}.default").read).to eq("/hi/there/hi")
+      expect(layers_dir.join("foo/env.build/#{env_var.key}.default").read).to eq("/hi/there/hi")
+    end
+  ensure
+    HerokuBuildpackRuby::EnvProxy.delete(env_var) if env_var
+  end
+
   it "value acts like an value-ish" do
     env_var = HerokuBuildpackRuby::EnvProxy.value(unique_env_key)
     env_var.set(
@@ -102,6 +139,8 @@ RSpec.describe "env proxy" do
     )
 
     expect(HerokuBuildpackRuby::EnvProxy).to include(env_var)
+    expect(env_var.value).to eq("/hi/there/hi")
+    expect(env_var.to_env).to eq(%Q{#{env_var.key}="/hi/there/hi" })
 
     # Modifies ENV
     expect(ENV[env_var.key]).to eq("/hi/there/hi")
@@ -140,6 +179,8 @@ RSpec.describe "env proxy" do
 
     # Modifies ENV
     expect(ENV[env_var.key]).to eq("/hi/you:there:how:are_you")
+    expect(env_var.value).to eq("/hi/you:there:how:are_you")
+    expect(env_var.to_env).to eq(%Q{#{env_var.key}="/hi/you:there:how:are_you" })
 
     # Exports for legacy/v2 interface
     expect(env_var.to_export).to include(%Q{export #{env_var.key}="how:are_you:/hi/you:there:$#{env_var.key}"})

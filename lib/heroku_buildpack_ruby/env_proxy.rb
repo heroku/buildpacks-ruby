@@ -119,6 +119,27 @@ module HerokuBuildpackRuby
     # Creates an instance of EnvProxy and
     # tracks it globally.
     #
+    # Use `default` for setting a user override-able value on
+    # env vars
+    #
+    # Example:
+    #
+    #   puts ENV["LOL"] #=> "haha"
+    #   LOL_ENV = EnvProxy.default("LOL")
+    #   LOL_ENV.set_default(ruby: "hehe")
+    #
+    #   puts ENV["LOL"] #=> "haha"
+    #
+    #   > Note: The value didn't change since it was already set
+    def self.default(key)
+      value = EnvProxy::Default.new(key)
+      @env_array << value
+      value
+    end
+
+    # Creates an instance of EnvProxy and
+    # tracks it globally.
+    #
     # Use `path` for "PATH" like env vars that are prepended
     # to the current value and delimited by ":"
     #
@@ -180,10 +201,12 @@ module HerokuBuildpackRuby
     end
   end
 
+  require_relative "env_proxy/default.rb"
+  require_relative "env_proxy/prepend.rb"
+  require_relative "env_proxy/override.rb"
+
   PATH_ENV = EnvProxy.path("PATH")
   GEM_PATH_ENV = EnvProxy.path("GEM_PATH")
   BUNDLE_GEMFILE_ENV = EnvProxy.value("BUNDLE_GEMFILE")
 end
 
-require_relative "env_proxy/prepend.rb"
-require_relative "env_proxy/override.rb"

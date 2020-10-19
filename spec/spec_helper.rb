@@ -2,7 +2,7 @@ require "bundler/setup"
 
 require 'rspec/retry'
 
-ENV["HATCHET_BUILDPACK_BASE"] = "https://github.com/schneems/minimal-ruby.git"
+ENV["HATCHET_BUILDPACK_BASE"] = "https://github.com/heroku/heroku-buildpack-ruby-experimental.git"
 
 require 'hatchet'
 require 'pathname'

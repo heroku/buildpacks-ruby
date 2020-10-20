@@ -16,7 +16,7 @@ RSpec.describe "PrepareAppBundlerAndRuby" do
         app_dir: dir,
         user_comms: user_comms
       )
-      bundler_version = bootstrap.detect_bundler_version!
+      bundler_version = bootstrap.bundler_detect_version
 
       expect(bundler_version).to eq(HerokuBuildpackRuby::BundlerDetectVersion::BUNDLER_VERSIONS["2"])
     end
@@ -33,7 +33,7 @@ RSpec.describe "PrepareAppBundlerAndRuby" do
         app_dir: dir,
         user_comms: user_comms
       )
-      bundler_version = bootstrap.detect_bundler_version!
+      bundler_version = bootstrap.bundler_detect_version
 
       expect(bundler_version).to eq(HerokuBuildpackRuby::BundlerDetectVersion::BUNDLER_VERSIONS["1"])
     end
@@ -52,8 +52,8 @@ RSpec.describe "PrepareAppBundlerAndRuby" do
           user_comms: user_comms
         )
 
-        bootstrap.detect_bundler_version!
-        bootstrap.download_bundler_version!
+        bootstrap.bundler_detect_version
+        bootstrap.bundler_download_version
         entries = Dir.entries("#{bundler_dest_dir}/bundler") - [".", ".."]
         expect(entries).to include("bin")
         expect(entries).to include("gems")

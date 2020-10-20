@@ -59,11 +59,11 @@ module HerokuBuildpackRuby
     end
 
     def call
-      detect_bundler_version!
-      download_bundler_version!
+      bundler_detect_version
+      bundler_download_version
 
-      detect_ruby_version!
-      download_ruby_version!
+      ruby_detect_version
+      ruby_download_version
 
       configure_ruby_and_bundler_env_vars!
 

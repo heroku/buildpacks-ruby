@@ -53,6 +53,7 @@ module HerokuBuildpackRuby
       export_path: export,
       profile_d_path: profile_d_path,
     )
+    user_comms.close
   end
 
   def self.build_cnb(layers_dir: , platform_dir: , env_dir: , plan: , app_dir: , buildpack_ruby_path:)
@@ -85,5 +86,6 @@ module HerokuBuildpackRuby
     EnvProxy.write_layers(
       layers_dir: layers_dir
     )
+    user_comms.close
   end
 end

@@ -73,16 +73,14 @@ module HerokuBuildpackRuby
     def detect_bundler_version!
       @bundler_detect_version.call
       bundler_version = @bundler_detect_version.version
-      @user_comms.topic("Installing bundler #{bundler_version}")
-
-      # TODO remove BUNDLE WITH version in Gemfile.lock
-      # @user.topic("Removing BUNDLED WITH version in the Gemfile.lock")
       bundler_version
     end
 
     def download_bundler_version!
       BundlerDownload.new(
         version: @bundler_detect_version.version,
+        metadata: metadata,
+        user_comms: user_comms,
         install_dir: @bundler_install_dir
       ).call
     end
@@ -94,6 +92,8 @@ module HerokuBuildpackRuby
     def download_ruby_version!
       RubyDownload.new(
         version: @ruby_detect_version.version,
+        metadata: metadata,
+        user_comms: user_comms,
         install_dir: @ruby_install_dir
       ).call
     end

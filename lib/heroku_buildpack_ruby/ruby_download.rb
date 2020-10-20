@@ -4,15 +4,18 @@ require "pathname"
 module HerokuBuildpackRuby
   # Downloads a folder containing compiled ruby to the designated directory
   class RubyDownload
-    attr_reader :version, :install_dir, :stack
+    private; attr_reader :user_comms, :version, :install_dir, :stack; public;
 
-    def initialize(version: , install_dir: , stack: ENV["STACK"])
-      @install_dir = Pathname.new(install_dir).tap(&:mkpath)
-      @version = version
+    def initialize(version: , install_dir: , stack: ENV["STACK"], user_comms: UserComms::Null.new)
       @stack = stack
+      @version = version
+      @user_comms = user_comms
+      @install_dir = Pathname.new(install_dir).tap(&:mkpath)
     end
 
     def call
+      user_comms.topic("Using Ruby version: #{version}")
+
       CurlFetch.new(
         "ruby-#{version}.tgz",
         folder: stack,

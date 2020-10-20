@@ -11,6 +11,8 @@ module HerokuBuildpackRuby
       @version = version
       @user_comms = user_comms
       @install_dir = Pathname.new(install_dir).tap(&:mkpath)
+
+      raise "Must provide a stack #{@stack} to download a Ruby version" if @stack.to_s.empty?
     end
 
     def call

@@ -33,6 +33,7 @@ module HerokuBuildpackRuby
         major_version = match ? match[:major_version] : nil
         BUNDLER_VERSIONS[major_version]
       end
+      self
     end
 
     def version

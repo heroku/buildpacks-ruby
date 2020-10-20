@@ -27,6 +27,7 @@ module HerokuBuildpackRuby
       @warnings.each do |message|
         warn_now(message)
       end
+      self
     end
 
     def warn_later(message)
@@ -67,6 +68,11 @@ module HerokuBuildpackRuby
   class UserComms::Null < UserComms::V2
     def initialize(io = StringIO.new)
       super
+    end
+
+    # Only available on UserComms::Null for testing
+    def to_string
+      io.string
     end
   end
 end

@@ -53,3 +53,23 @@ end
 def hatchet_path(path = "")
   Pathname.new(__FILE__).join("../../repos").expand_path.join(path)
 end
+
+def isolate_in_fork
+  Tempfile.create("stdout") do |tmp_file|
+    pid = fork do
+      $stdout.reopen(tmp_file, "a")
+      $stderr.reopen(tmp_file, "a")
+      $stdout.sync = true
+      $stderr.sync = true
+      yield
+      Kernel.exit!(0) # needed for https://github.com/seattlerb/minitest/pull/683
+    end
+    Process.waitpid(pid)
+
+    if $?.success?
+      print File.read(tmp_file)
+    else
+      raise File.read(tmp_file)
+    end
+  end
+end

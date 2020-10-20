@@ -59,6 +59,7 @@ module HerokuBuildpackRuby
         @version = ruby_metadata.fetch(:default_version) { default_version }
         warn_default_ruby
       end
+      self
     end
 
     private def bundler_output

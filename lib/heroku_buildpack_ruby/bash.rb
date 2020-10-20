@@ -13,9 +13,17 @@ module HerokuBuildpackRuby
   class Bash
     class BashError < StandardError
       def initialize(bash, out: )
-        super "Command: '#{@command}' failed unexpectedly:\n#{out}"
+        super <<~EOM
+          Bash command failed
+
+          Original: #{bash.raw_command}
+          Escaped: #{bash.command}
+          Out: "#{out}"
+        EOM
       end
     end
+
+    attr_reader :command, :raw_command
 
     def initialize(raw_command, max_attempts: 0, redirect: "2>&1")
       @raw_command = raw_command

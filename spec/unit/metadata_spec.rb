@@ -33,7 +33,12 @@ RSpec.describe "metadata" do
         out = engine.fetch(:lol) do
           "haha"
         end
+        expect(out).to eq("haha")
+        expect(engine.get(:lol)).to eq("haha")
 
+        out = engine.fetch(:lol) do
+          "hehe"
+        end
         expect(out).to eq("haha")
         expect(engine.get(:lol)).to eq("haha")
       end
@@ -53,7 +58,12 @@ RSpec.describe "metadata" do
         out = engine.fetch(:lol) do
           "haha"
         end
+        expect(out).to eq("haha")
+        expect(engine.get(:lol)).to eq("haha")
 
+        out = engine.fetch(:lol) do
+          "hehe"
+        end
         expect(out).to eq("haha")
         expect(engine.get(:lol)).to eq("haha")
 
@@ -81,7 +91,12 @@ RSpec.describe "metadata" do
         out = engine.fetch(:lol) do
           "haha"
         end
+        expect(out).to eq("haha")
+        expect(engine.get(:lol)).to eq("haha")
 
+        out = engine.fetch(:lol) do
+          "hehe"
+        end
         expect(out).to eq("haha")
         expect(engine.get(:lol)).to eq("haha")
 

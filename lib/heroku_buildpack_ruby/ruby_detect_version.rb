@@ -19,6 +19,7 @@ module HerokuBuildpackRuby
   #   ruby_detect.call
   #   ruby_detect.version #=> "2.7.2"
   #
+  # Metadata: [:ruby][:default_version]
   class RubyDetectVersion
     DEFAULT = "2.6.6".freeze
 
@@ -35,14 +36,18 @@ module HerokuBuildpackRuby
     # Matches raw lockfile regex
     RUBY_GEMFILE_LOCK_REGEX = /^RUBY VERSION$(\r?\n)   (?<raw_bundler_output>ruby .*$)/
 
-    attr_reader :version, :gemfile_path, :buildpack_ruby_path, :bundler_path, :lockfile_path
+    private; attr_reader :ruby_metadata, :default_version, :gemfile_path, :buildpack_ruby_path, :bundler_path, :lockfile_path; public
+    public; attr_reader :version
 
-    def initialize(gemfile_dir: , buildpack_ruby_path: , bundler_path: )
-      @gemfile_dir = Pathname.new(gemfile_dir)
-      @buildpack_ruby_path = Pathname.new(buildpack_ruby_path)
+    def initialize(gemfile_dir: , buildpack_ruby_path: , bundler_path: , metadata: MetadataNull.new, default_version: DEFAULT)
+      gemfile_dir = Pathname.new(gemfile_dir)
       @bundler_path = Pathname.new(bundler_path)
-      @gemfile_path = Pathname.new(@gemfile_dir).join("Gemfile")
-      @lockfile_path = Pathname.new(@gemfile_dir).join("Gemfile.lock")
+      @gemfile_path = gemfile_dir.join("Gemfile")
+      @lockfile_path = gemfile_dir.join("Gemfile.lock")
+      @buildpack_ruby_path = Pathname.new(buildpack_ruby_path)
+
+      @ruby_metadata = metadata.layer(:ruby)
+      @default_version = default_version
     end
 
     def call
@@ -50,7 +55,7 @@ module HerokuBuildpackRuby
       if (md = RUBY_VERSION_REGEX.match(out))
         @version = md[:ruby_version]
       else
-        @version   = DEFAULT
+        @version = ruby_metadata.fetch(:default_version) { default_version }
       end
     end
 

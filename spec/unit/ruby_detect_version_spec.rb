@@ -70,4 +70,42 @@ RSpec.describe "detect ruby version" do
       end
     end
   end
+
+  it "has a sticky default" do
+    Dir.mktmpdir do |dir|
+
+      FileUtils.touch("#{dir}/Gemfile.lock")
+      FileUtils.touch("#{dir}/Gemfile")
+
+      metadata = HerokuBuildpackRuby::MetadataNull.new
+      ruby_version = HerokuBuildpackRuby::RubyDetectVersion.new(
+        metadata: metadata,
+        gemfile_dir: dir,
+        bundler_path: which_bundle,
+        default_version: "2.7.1",
+        buildpack_ruby_path: which_ruby,
+      )
+
+      # We need a clean environment, we don't want to run bundler inside of another bundler
+      Bundler.with_unbundled_env do
+        ruby_version.call
+        expect(ruby_version.version).to eq("2.7.1")
+        expect(metadata.layer(:ruby).get(:default_version)).to eq("2.7.1")
+      end
+
+      # It should be stickey
+      ruby_version = HerokuBuildpackRuby::RubyDetectVersion.new(
+        metadata: metadata,
+        gemfile_dir: dir,
+        bundler_path: which_bundle,
+        default_version: "2.2.2",
+        buildpack_ruby_path: which_ruby,
+      )
+
+      Bundler.with_unbundled_env do
+        ruby_version.call
+        expect(ruby_version.version).to eq("2.7.1")
+      end
+    end
+  end
 end

@@ -57,10 +57,12 @@ RSpec.describe "detect ruby version" do
       FileUtils.touch("#{dir}/Gemfile.lock")
       FileUtils.touch("#{dir}/Gemfile")
 
+      user_comms = HerokuBuildpackRuby::UserComms::Null.new
       ruby_version = HerokuBuildpackRuby::RubyDetectVersion.new(
-        buildpack_ruby_path: which_ruby,
+        user_comms: user_comms,
+        gemfile_dir: dir,
         bundler_path: which_bundle,
-        gemfile_dir: dir
+        buildpack_ruby_path: which_ruby,
       )
 
       # We need a clean environment, we don't want to run bundler inside of another bundler
@@ -68,6 +70,9 @@ RSpec.describe "detect ruby version" do
         ruby_version.call
         expect(ruby_version.version).to eq(HerokuBuildpackRuby::RubyDetectVersion::DEFAULT)
       end
+
+      user_comms.close
+      expect(user_comms.io.string).to include("You have not declared a Ruby version in your Gemfile")
     end
   end
 

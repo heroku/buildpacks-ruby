@@ -36,16 +36,17 @@ module HerokuBuildpackRuby
     # Matches raw lockfile regex
     RUBY_GEMFILE_LOCK_REGEX = /^RUBY VERSION$(\r?\n)   (?<raw_bundler_output>ruby .*$)/
 
-    private; attr_reader :ruby_metadata, :default_version, :gemfile_path, :buildpack_ruby_path, :bundler_path, :lockfile_path; public
+    private; attr_reader :user_comms, :ruby_metadata, :default_version, :gemfile_path, :buildpack_ruby_path, :bundler_path, :lockfile_path; public
     public; attr_reader :version
 
-    def initialize(gemfile_dir: , buildpack_ruby_path: , bundler_path: , metadata: MetadataNull.new, default_version: DEFAULT)
+    def initialize(gemfile_dir: , buildpack_ruby_path: , bundler_path: , metadata: MetadataNull.new, default_version: DEFAULT, user_comms: UserComms::Null.new)
       gemfile_dir = Pathname.new(gemfile_dir)
       @bundler_path = Pathname.new(bundler_path)
       @gemfile_path = gemfile_dir.join("Gemfile")
       @lockfile_path = gemfile_dir.join("Gemfile.lock")
       @buildpack_ruby_path = Pathname.new(buildpack_ruby_path)
 
+      @user_comms = user_comms
       @ruby_metadata = metadata.layer(:ruby)
       @default_version = default_version
     end
@@ -56,6 +57,7 @@ module HerokuBuildpackRuby
         @version = md[:ruby_version]
       else
         @version = ruby_metadata.fetch(:default_version) { default_version }
+        warn_default_ruby
       end
     end
 
@@ -83,6 +85,23 @@ module HerokuBuildpackRuby
     def bundler_output_from_lockfile!
       md = RUBY_GEMFILE_LOCK_REGEX.match(lockfile_path.read)
       md[:raw_bundler_output] if md
+    end
+
+    private def warn_default_ruby
+      warning = <<~WARNING
+        You have not declared a Ruby version in your Gemfile.
+
+        To declare a Ruby version add this line to your Gemfile:
+
+        ```
+        ruby "#{default_version}"
+        ```
+
+        For more information see:
+          https://devcenter.heroku.com/articles/ruby-versions
+      WARNING
+
+      user_comms.warn_later(warning)
     end
   end
 end

@@ -23,6 +23,12 @@ module HerokuBuildpackRuby
       io.puts "-----> #{message}"
     end
 
+    def close
+      @warnings.each do |message|
+        warn_now(message)
+      end
+    end
+
     def warn_later(message)
       @warnings << message
     end
@@ -56,5 +62,11 @@ module HerokuBuildpackRuby
 
   # Like V2 output, but meant for the CNB interface
   class UserComms::CNB < UserComms::V2
+  end
+
+  class UserComms::Null < UserComms::V2
+    def initialize(io = StringIO.new)
+      super
+    end
   end
 end

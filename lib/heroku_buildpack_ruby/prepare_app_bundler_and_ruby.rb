@@ -35,7 +35,7 @@ module HerokuBuildpackRuby
     private; attr_reader :user_comms, :vendor_dir, :app_dir, :ruby_install_dir, :bundler_install_dir, :bundler_detect_version, :ruby_detect_version; public
     public; attr_reader :gem_install_dir
 
-    def initialize(vendor_dir: , app_dir: , buildpack_ruby_path: , user_comms: UserComms::V2.new, metadata: MetadataNull.new)
+    def initialize(vendor_dir: , app_dir: , buildpack_ruby_path: , user_comms: UserComms::Null.new, metadata: MetadataNull.new)
       @app_dir = Pathname.new(app_dir)
       @metadata = metadata
       @vendor_dir = Pathname.new(vendor_dir)
@@ -51,6 +51,7 @@ module HerokuBuildpackRuby
 
       @ruby_detect_version = RubyDetectVersion.new(
         metadata: metadata,
+        user_comms: user_comms,
         gemfile_dir: @app_dir,
         buildpack_ruby_path: Pathname.new(buildpack_ruby_path),
         bundler_path: @bundler_install_dir.join("bin/bundle")

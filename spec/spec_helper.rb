@@ -22,6 +22,35 @@ RSpec.configure do |config|
   config.expect_with :rspec do |c|
     c.syntax = :expect
   end
+
+  ## ENV var set and persist
+  config.before(:suite) do
+    SKIP_ENV_CHECK_KEYS = [
+      "HEROKU_API_KEY",
+    ].freeze
+
+    BEFORE_ENV_DUP = ENV.to_h
+  end
+
+  ## ENV var check
+  config.after(:suite) do
+    env_keys = (BEFORE_ENV_DUP.keys + ENV.keys) - SKIP_ENV_CHECK_KEYS
+    diff_array = env_keys.uniq.map do |k|
+      next if BEFORE_ENV_DUP[k] == ENV[k]
+
+      "  ENV['#{k}'] changed from '#{BEFORE_ENV_DUP[k]}' to '#{ENV[k]}'"
+    end.compact
+
+    if diff_array.any?
+      environment_mutated_message = <<~EOM
+        Something mutated the environment on accident.
+
+        Diff:
+        #{diff_array.join("\n")}
+      EOM
+      raise environment_mutated_message
+    end
+  end
 end
 
 def run!(cmd)

@@ -35,10 +35,11 @@ module HerokuBuildpackRuby
     private; attr_reader :user_comms, :vendor_dir, :app_dir, :ruby_install_dir, :bundler_install_dir, :bundler_detect_version, :ruby_detect_version; public
     public; attr_reader :gem_install_dir
 
-    def initialize(vendor_dir: , app_dir: , buildpack_ruby_path: , user_comms: UserComms::V2.new)
-      @user_comms = user_comms
-      @vendor_dir = Pathname.new(vendor_dir)
+    def initialize(vendor_dir: , app_dir: , buildpack_ruby_path: , user_comms: UserComms::V2.new, metadata: MetadataNull.new)
       @app_dir = Pathname.new(app_dir)
+      @metadata = metadata
+      @vendor_dir = Pathname.new(vendor_dir)
+      @user_comms = user_comms
 
       @gem_install_dir = @vendor_dir.join("gems")
       @ruby_install_dir = @vendor_dir.join("dir")
@@ -71,6 +72,8 @@ module HerokuBuildpackRuby
       @bundler_detect_version.call
       bundler_version = @bundler_detect_version.version
       @user_comms.topic("Installing bundler #{bundler_version}")
+
+      # TODO remove BUNDLE WITH version in Gemfile.lock
       # @user.topic("Removing BUNDLED WITH version in the Gemfile.lock")
       bundler_version
     end
@@ -93,7 +96,6 @@ module HerokuBuildpackRuby
       ).call
     end
 
-    # TODO: Cloud native buildpack
     def configure_ruby_and_bundler_env_vars!
       PATH_ENV.prepend(
         ruby: @ruby_install_dir.join("bin"),
@@ -108,5 +110,4 @@ module HerokuBuildpackRuby
     end
   end
 end
-
 

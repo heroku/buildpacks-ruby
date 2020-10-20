@@ -10,9 +10,10 @@ module HerokuBuildpackRuby
 
     private; attr_reader :bundle_output, :bundle_without_default, :bundle_install_gems_dir, :user_comms, :bundle_gems_binsub_dir; public
 
-    def initialize(app_dir: , bundle_without_default: , bundle_install_gems_dir:, user_comms: )
+    def initialize(app_dir: , bundle_without_default: , bundle_install_gems_dir:, user_comms: , metadata: MetadataNull.new)
       @user_comms = user_comms
       @app_dir = Pathname.new(app_dir)
+      @metadata = metadata
       @bundle_without_default = bundle_without_default
       @bundle_install_gems_dir = Pathname.new(bundle_install_gems_dir)
       @bundle_gems_binsub_dir = @bundle_install_gems_dir.join("bin")

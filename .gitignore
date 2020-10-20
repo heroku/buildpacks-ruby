@@ -1,2 +1,3 @@
 .rspec_status
 repos/*
+.DS_Store

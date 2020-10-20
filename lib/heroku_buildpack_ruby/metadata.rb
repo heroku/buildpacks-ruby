@@ -41,8 +41,8 @@ module HerokuBuildpackRuby
   #
   # Values set are stored as a hash but do not persist to disk
   #
-  #   metadata = MetadataNull.new
-  class MetadataNull < Metadata
+  #   metadata = Metadata::Null.new
+  class Metadata::Null < Metadata
     def initialize(dir: nil, type: Metadata::InMemory)
       super
     end

@@ -20,13 +20,16 @@ module HerokuBuildpackRuby
     BUNDLER_VERSIONS[nil] = BUNDLER_VERSIONS["1"]
     BUNDLED_WITH_REGEX = /^BUNDLED WITH$(\r?\n)   (?<major_version>\d+)\.\d+\.\d+/m
 
+    private; attr_reader :lockfile_path; public;
+
     def initialize(lockfile_path: )
       @lockfile_path = Pathname.new(lockfile_path)
+      @version = nil
     end
 
     def call
       @version ||= begin
-        match = @lockfile_path.read(mode: "rt").match(BUNDLED_WITH_REGEX)
+        match = lockfile_path.read(mode: "rt").match(BUNDLED_WITH_REGEX)
         major_version = match ? match[:major_version] : nil
         BUNDLER_VERSIONS[major_version]
       end

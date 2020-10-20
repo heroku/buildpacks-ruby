@@ -14,7 +14,7 @@ RSpec.describe "metadata" do
     end
 
     it "null can be created with no directory or type" do
-      null = HerokuBuildpackRuby::MetadataNull.new
+      null = HerokuBuildpackRuby::Metadata::Null.new
       null.layer(:ruby).set(version: "2.7.2")
       expect(null.layer(:ruby).get(:version)).to eq("2.7.2")
     end

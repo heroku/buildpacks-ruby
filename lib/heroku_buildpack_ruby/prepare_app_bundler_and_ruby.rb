@@ -32,10 +32,10 @@ module HerokuBuildpackRuby
   #   puts ENV["PATH"].split(":").include?(vendor_dir.join("bundler/bin").to_s)
   #   # => true
   class PrepareAppBundlerAndRuby
-    private; attr_reader :user_comms, :vendor_dir, :app_dir, :ruby_install_dir, :bundler_install_dir, :bundler_detect_version, :ruby_detect_version; public
+    private; attr_reader :metadata, :user_comms, :vendor_dir, :app_dir, :ruby_install_dir, :bundler_install_dir, :bundler_detect_version, :ruby_detect_version; public
     public; attr_reader :gem_install_dir
 
-    def initialize(vendor_dir: , app_dir: , buildpack_ruby_path: , user_comms: UserComms::Null.new, metadata: MetadataNull.new)
+    def initialize(vendor_dir: , app_dir: , buildpack_ruby_path: , user_comms: UserComms::Null.new, metadata: Metadata::Null.new)
       @app_dir = Pathname.new(app_dir)
       @metadata = metadata
       @vendor_dir = Pathname.new(vendor_dir)

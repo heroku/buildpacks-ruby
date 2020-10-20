@@ -82,7 +82,7 @@ RSpec.describe "detect ruby version" do
       FileUtils.touch("#{dir}/Gemfile.lock")
       FileUtils.touch("#{dir}/Gemfile")
 
-      metadata = HerokuBuildpackRuby::MetadataNull.new
+      metadata = HerokuBuildpackRuby::Metadata::Null.new
       ruby_version = HerokuBuildpackRuby::RubyDetectVersion.new(
         metadata: metadata,
         gemfile_dir: dir,

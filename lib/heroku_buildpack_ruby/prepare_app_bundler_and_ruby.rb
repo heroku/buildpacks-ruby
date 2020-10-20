@@ -50,6 +50,7 @@ module HerokuBuildpackRuby
       )
 
       @ruby_detect_version = RubyDetectVersion.new(
+        metadata: metadata,
         gemfile_dir: @app_dir,
         buildpack_ruby_path: Pathname.new(buildpack_ruby_path),
         bundler_path: @bundler_install_dir.join("bin/bundle")

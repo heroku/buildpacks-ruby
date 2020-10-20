@@ -47,7 +47,7 @@ module HerokuBuildpackRuby
       end
 
       def fetch(key)
-        @metadata[key] if @metadata.key?(key)
+        return @metadata[key] if @metadata.key?(key)
 
         value = yield
         set(key => value)

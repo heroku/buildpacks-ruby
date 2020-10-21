@@ -35,22 +35,24 @@ module HerokuBuildpackRuby
     end
 
     def warn_now(message)
-      io.puts "## Warning"
-      io.puts
-      io.puts(message)
+      self.puts
+      self.puts "## Warning"
+      self.puts
+      self.puts(message)
+      self.puts
     end
 
     def error_and_exit(message)
-      io.puts "\e[1m\e[31m" # Bold Red
-      io.puts " !"
+      self.puts "\e[1m\e[31m" # Bold Red
+      self.puts " !"
       message.split("\n").each do |line|
-        Kernel.puts " !     #{line.strip}"
+        io.puts " !     #{line.strip}"
       end
-      io.puts " !\e[0m"
+      self.puts " !\e[0m"
       exit(1)
     end
 
-    def puts(message)
+    def puts(message = "")
       message.to_s.each_line do |line|
         if line.end_with?("\n".freeze)
           io.print "       #{line}"

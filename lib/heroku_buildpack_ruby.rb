@@ -1,5 +1,6 @@
 require_relative "heroku_buildpack_ruby/prepare_app_bundler_and_ruby.rb"
 require_relative "heroku_buildpack_ruby/bundle_install.rb"
+require_relative "heroku_buildpack_ruby/cache_copy.rb"
 require_relative "heroku_buildpack_ruby/metadata.rb"
 
 # This is the main entry point for the Ruby buildpack
@@ -26,8 +27,12 @@ module HerokuBuildpackRuby
     metadata_dir = cache_dir.join("vendor/heroku")
     profile_d_path = app_dir.join(".profile.d/ruby.sh")
 
+    gems_cache_dir = cache_dir.join("gems")
+    gems_install_dir = vendor_dir.join("gems")
+
     metadata = Metadata.new(dir: metadata_dir, type: Metadata::V2)
     user_comms = UserComms::V2.new
+    gems_cache_copy = CacheCopy.new(cache_dir: gems_cache_dir, dest_dir: gems_install_dir)
 
     PrepareAppBundlerAndRuby.new(
       app_dir: app_dir,
@@ -38,15 +43,16 @@ module HerokuBuildpackRuby
     ).call
 
     # TODO detect and install binary dependencies here
-    # TODO Gem caching
 
-    BundleInstall.new(
-      app_dir: app_dir,
-      metadata: metadata,
-      user_comms: user_comms,
-      bundle_without_default: "development:test",
-      bundle_install_gems_dir: vendor_dir.join("gems"),
-    ).call
+    gems_cache_copy.call do |gems_dir|
+      BundleInstall.new(
+        app_dir: app_dir,
+        metadata: metadata,
+        user_comms: user_comms,
+        bundle_without_default: "development:test",
+        bundle_install_gems_dir: gems_dir,
+      ).call
+    end
 
     EnvProxy.export(
       app_dir: app_dir,
@@ -60,6 +66,7 @@ module HerokuBuildpackRuby
     app_dir = Pathname.new(app_dir)
     layers_dir = Pathname.new(layers_dir)
     vendor_dir = app_dir.join(".heroku/ruby")
+    gems_install_dir = layers_dir.join("gems")
 
     metadata = Metadata.new(dir: layers_dir, type: Metadata::CNB)
     user_comms = UserComms::CNB.new
@@ -67,20 +74,19 @@ module HerokuBuildpackRuby
     PrepareAppBundlerAndRuby.new(
       app_dir: app_dir,
       metadata: metadata,
-      vendor_dir: vendor_dir,
+      vendor_dir: vendor_dir, # TODO move to layers
       user_comms: user_comms,
       buildpack_ruby_path: buildpack_ruby_path,
     ).call
 
     # TODO detect and install binary dependencies here
-    # TODO Gem caching
 
     BundleInstall.new(
       app_dir: app_dir,
       metadata: metadata,
       user_comms: user_comms,
       bundle_without_default: "development:test",
-      bundle_install_gems_dir: vendor_dir.join("gems"),
+      bundle_install_gems_dir: gems_install_dir,
     ).call
 
     EnvProxy.write_layers(

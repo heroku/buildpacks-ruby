@@ -12,7 +12,13 @@ RSpec.describe "This buildpack" do
       app.deploy do
         # Assert the behavior you desire here
         expect(app.output).to match("deployed to Heroku")
+        expect(app.output).to match("Installing rake")
         expect(app.run("ruby -v")).to match("2.6.6")
+
+        app.commit!
+        app.push!
+
+        expect(app.output).to match("Using rake")
       end
     end
   end

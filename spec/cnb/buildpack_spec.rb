@@ -12,7 +12,7 @@ class CnbRun
     @threads = []
   end
 
-  def call
+  def build!
     command = String.new("pack build #{image_name} --path #{repo_path} --builder heroku/buildpacks:18")
     @buildpack_paths.each do |path|
       command << " --buildpack #{path}"
@@ -21,6 +21,11 @@ class CnbRun
     puts command
 
     @output = run_local!(command)
+  end
+
+  def call
+    build!
+
     yield self
   ensure
     teardown
@@ -68,6 +73,8 @@ end
 RSpec.describe "Cloud Native Buildpack" do
   it "locally runs default_ruby app" do
     CnbRun.new(hatchet_path("ruby_apps/default_ruby"), buildpack_paths: [buildpack_path]).call do |app|
+      expect(app.output).to include("Installing rake")
+
       app.run_multi!("ruby -v") do |out|
         expect(out).to match(HerokuBuildpackRuby::RubyDetectVersion::DEFAULT)
       end
@@ -83,6 +90,10 @@ RSpec.describe "Cloud Native Buildpack" do
       app.run_multi!(%Q{ruby -e "require 'rack'; puts 'done'"}) do |out|
         expect(out).to match("done")
       end
+
+      app.build!
+
+      expect(app.output).to include("Using rake")
     end
   end
 end

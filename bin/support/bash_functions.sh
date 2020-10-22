@@ -102,3 +102,65 @@ buildpack_ruby_path()
 {
   echo $BUILDPACK_DIR/vendor/ruby/$STACK/bin/ruby
 }
+
+
+compile_buildpack_v2()
+{
+  BUILD_DIR=$1
+  CACHE_DIR=$2
+  ENV_DIR=$3
+  BUILDPACK=$4
+  NAME=$5
+
+  dir=$(mktemp -t buildpackXXXXX)
+  rm -rf $dir
+
+  url=${BUILDPACK%#*}
+  branch=${BUILDPACK#*#}
+
+  if [ "$branch" == "$url" ]; then
+    branch=""
+  fi
+
+  if [ "$url" != "" ]; then
+    echo "=====> Downloading Buildpack: ${NAME}"
+
+    if [[ "$url" =~ \.tgz$ ]] || [[ "$url" =~ \.tgz\? ]]; then
+      mkdir -p "$dir"
+      curl -s "$url" | tar xvz -C "$dir" >/dev/null 2>&1
+    else
+      git clone $url $dir >/dev/null 2>&1
+    fi
+    cd $dir
+
+    if [ "$branch" != "" ]; then
+      git checkout $branch >/dev/null 2>&1
+    fi
+
+    # we'll get errors later if these are needed and don't exist
+    chmod -f +x $dir/bin/{detect,compile,release} || true
+
+    framework=$($dir/bin/detect $1)
+
+    if [ $? == 0 ]; then
+      echo "=====> Detected Framework: $framework"
+      $dir/bin/compile $1 $2 $3
+
+      if [ $? != 0 ]; then
+        exit 1
+      fi
+
+      # check if the buildpack left behind an environment for subsequent ones
+      if [ -e $dir/export ]; then
+        source $dir/export
+      fi
+
+      if [ -x $dir/bin/release ]; then
+        $dir/bin/release $1 > $1/last_pack_release.out
+      fi
+    else
+      echo "Couldn't detect any framework for this buildpack. Exiting."
+      exit 1
+    fi
+  fi
+}

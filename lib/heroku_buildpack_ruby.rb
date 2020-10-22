@@ -1,4 +1,5 @@
 require_relative "heroku_buildpack_ruby/prepare_app_bundler_and_ruby.rb"
+require_relative "heroku_buildpack_ruby/bundler_lockfile_parser.rb"
 require_relative "heroku_buildpack_ruby/bundle_install.rb"
 require_relative "heroku_buildpack_ruby/cache_copy.rb"
 require_relative "heroku_buildpack_ruby/metadata.rb"

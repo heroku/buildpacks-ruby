@@ -29,6 +29,8 @@ RSpec.configure do |config|
       "HEROKU_API_KEY",
     ].freeze
 
+    LOAD_PATH_DUP = $LOAD_PATH.dup
+
     BEFORE_ENV_DUP = ENV.to_h
   end
 
@@ -49,6 +51,12 @@ RSpec.configure do |config|
         #{diff_array.join("\n")}
       EOM
       raise environment_mutated_message
+    end
+
+    if LOAD_PATH_DUP != $LOAD_PATH
+      raise <<~EOM
+        LOAD_PATH is mutated
+      EOM
     end
   end
 end

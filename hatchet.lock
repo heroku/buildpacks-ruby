@@ -1,4 +1,6 @@
 ---
+- - "./repos/node_apps/minimal_webpacker"
+  - bca8b8169c553a0f62f0263b621cf3a5813e4023
 - - "./repos/node_apps/node-js-getting-started"
   - a5d0ca5a618f18948652ebbd20b27b6970293d5c
 - - "./repos/python_apps/python-getting-started"

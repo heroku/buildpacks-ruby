@@ -16,6 +16,7 @@ require "heroku_buildpack_ruby"
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"
+  config.display_try_failure_messages = true
   config.verbose_retry       = true # show retry status in spec process
   config.default_retry_count = 2 if ENV['IS_RUNNING_ON_CI'] # retry all tests that fail again
 
@@ -89,6 +90,10 @@ end
 
 def hatchet_path(path = "")
   Pathname.new(__FILE__).join("../../repos").expand_path.join(path)
+end
+
+def bash_functions_file
+  root_dir.join("bin", "support", "bash_functions.sh")
 end
 
 def isolate_in_fork

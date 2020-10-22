@@ -3,7 +3,8 @@
     "sharpstone/default_ruby"
   ],
   "node_apps": [
-    "heroku/node-js-getting-started"
+    "heroku/node-js-getting-started",
+    "sharpstone/minimal_webpacker"
   ],
   "python_apps": [
     "heroku/python-getting-started"

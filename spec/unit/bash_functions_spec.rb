@@ -4,10 +4,6 @@ require_relative "../spec_helper.rb"
 # Log ENV setting and getting
 #
 RSpec.describe "bash_functions.sh" do
-  def bash_functions_file
-    root_dir.join("bin", "support", "bash_functions.sh")
-  end
-
   def exec_with_bash_functions(code, stack: "heroku-18")
     contents = <<~EOM
       #! /usr/bin/env bash

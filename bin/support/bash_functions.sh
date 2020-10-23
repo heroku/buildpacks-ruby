@@ -103,7 +103,12 @@ buildpack_ruby_path()
   echo $BUILDPACK_DIR/vendor/ruby/$STACK/bin/ruby
 }
 
-
+# Runs another buildpack against the build dir
+#
+# Example:
+#
+#   compile_buildpack_v2 "$build_dir" "$cache_dir" "$env_dir" "https://buildpack-registry.s3.amazonaws.com/buildpacks/heroku/nodejs.tgz" "heroku/nodejs"
+#
 compile_buildpack_v2()
 {
   BUILD_DIR=$1
@@ -123,11 +128,11 @@ compile_buildpack_v2()
   fi
 
   if [ "$url" != "" ]; then
-    echo "=====> Downloading Buildpack: ${NAME}"
+    echo "-----> Downloading Buildpack: ${NAME}"
 
     if [[ "$url" =~ \.tgz$ ]] || [[ "$url" =~ \.tgz\? ]]; then
       mkdir -p "$dir"
-      curl -s "$url" | tar xvz -C "$dir" >/dev/null 2>&1
+      curl_retry_on_18 -s "$url" | tar xvz -C "$dir" >/dev/null 2>&1
     else
       git clone $url $dir >/dev/null 2>&1
     fi
@@ -143,7 +148,7 @@ compile_buildpack_v2()
     framework=$($dir/bin/detect $1)
 
     if [ $? == 0 ]; then
-      echo "=====> Detected Framework: $framework"
+      echo "-----> Detected Framework: $framework"
       $dir/bin/compile $1 $2 $3
 
       if [ $? != 0 ]; then
@@ -162,5 +167,82 @@ compile_buildpack_v2()
       echo "Couldn't detect any framework for this buildpack. Exiting."
       exit 1
     fi
+  fi
+}
+
+# A wrapper for `which node` so we can stub it out in tests
+which_node()
+{
+  which node
+}
+
+# Returns truthy if the project needs node installed
+detect_needs_node()
+{
+
+  local needs_node=0
+  local skip_node_install=1
+
+  if [ $(which_node) ]; then
+    return $skip_node_install
+  fi
+
+  local build_dir=$1
+  if [ -f "$build_dir/package.json" ];then
+    return $needs_node
+  else
+    return $skip_node_install
+  fi
+}
+
+# Writes a plan.json that provides and requires ruby as well as asking for node
+write_to_build_plan_ruby_node()
+{
+  local build_plan=$1
+
+cat << EOF > "$build_plan"
+[[provides]]
+name = "ruby"u
+
+[[requires]]
+name = "node"
+
+[[requires]]
+name = "ruby"
+EOF
+}
+
+# Writes a plan.json that provides and requires ruby
+write_to_build_plan_ruby()
+{
+  local build_plan=$1
+
+cat << EOF > "$build_plan"
+[[provides]]
+name = "ruby"
+
+[[requires]]
+name = "ruby"
+EOF
+}
+
+
+# Writes out the build plan according to contents of the
+# app dir.
+#
+# If the app dir contains files indicating that it needs nodejs installed
+# then we output a build plan asking for node otherwise we only ask (and provide)
+# ruby.
+#
+# write_to_build_plan "$PLAN" "$APP_DIR"
+write_to_build_plan()
+{
+  local build_plan=$1
+  local build_dir=$2
+
+  if detect_needs_node "$build_dir"; then
+    write_to_build_plan_ruby_node "$build_plan"
+  else
+    write_to_build_plan_ruby "$build_plan"
   fi
 }

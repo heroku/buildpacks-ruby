@@ -96,4 +96,23 @@ RSpec.describe "Cloud Native Buildpack" do
       expect(app.output).to include("Using rake")
     end
   end
+
+  it "installs node and yarn" do
+    CnbRun.new(hatchet_path("ruby_apps/minimal_webpacker"), buildpack_paths: ["heroku/nodejs", buildpack_path]).call do |app|
+      puts app.output
+      expect(app.output).to include("Installing rake")
+
+      expect(app.output).to include("Installing yarn")
+
+      app.run_multi!("which node") do |out, status|
+        expect(out.strip).to_not be_empty
+        expect(status.success?).to be_truthy
+      end
+
+      app.run_multi!("which yarn") do |out, status|
+        expect(out.strip).to_not be_empty
+        expect(status.success?).to be_truthy
+      end
+    end
+  end
 end

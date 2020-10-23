@@ -64,7 +64,7 @@ RSpec.describe "env proxy" do
     expect(File.read(profile_d.path).strip).to include(%Q{export #{env_var_2.key}="$HOME/river:$#{env_var_2.key}"})
 
     Dir.mktmpdir do |dir|
-      layers_dir = Pathname.new(dir)
+      layers_dir = Pathname(dir)
       HerokuBuildpackRuby::EnvProxy.write_layers(
         layers_dir: layers_dir,
       )
@@ -116,7 +116,7 @@ RSpec.describe "env proxy" do
 
     # Can write to layers for CNB interface
     Dir.mktmpdir do |dir|
-      layers_dir = Pathname.new(dir)
+      layers_dir = Pathname(dir)
 
       env_var.write_layer(layers_dir: layers_dir)
 
@@ -153,7 +153,7 @@ RSpec.describe "env proxy" do
 
     # Can write to layers for CNB interface
     Dir.mktmpdir do |dir|
-      layers_dir = Pathname.new(dir)
+      layers_dir = Pathname(dir)
 
       env_var.write_layer(layers_dir: layers_dir)
 
@@ -189,7 +189,7 @@ RSpec.describe "env proxy" do
 
     # Can write to layers for CNB interface
     Dir.mktmpdir do |dir|
-      layers_dir = Pathname.new(dir)
+      layers_dir = Pathname(dir)
 
       env_var.write_layer(layers_dir: layers_dir)
 

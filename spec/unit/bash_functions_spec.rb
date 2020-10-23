@@ -74,7 +74,7 @@ RSpec.describe "bash_functions.sh" do
 
   it "downloads ruby to BUILDPACK_DIR vendor directory" do
     Dir.mktmpdir do |dir|
-      dir = Pathname.new(dir)
+      dir = Pathname(dir)
 
       exec_with_bash_functions(<<~EOM, stack: "heroku-18")
         BUILDPACK_DIR="#{dir}"
@@ -90,7 +90,7 @@ RSpec.describe "bash_functions.sh" do
 
   it "bootstraps ruby using toml file" do
     Dir.mktmpdir do |dir|
-      dir = Pathname.new(dir)
+      dir = Pathname(dir)
 
       FileUtils.cp(
         root_dir.join("buildpack.toml"), # From

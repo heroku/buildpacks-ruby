@@ -12,10 +12,10 @@ module HerokuBuildpackRuby
 
     def initialize(app_dir: , bundle_without_default: , bundle_install_gems_dir:, user_comms: , metadata: Metadata::Null.new)
       @user_comms = user_comms
-      @app_dir = Pathname.new(app_dir)
+      @app_dir = Pathname(app_dir)
       @metadata = metadata
       @bundle_without_default = bundle_without_default
-      @bundle_install_gems_dir = Pathname.new(bundle_install_gems_dir)
+      @bundle_install_gems_dir = Pathname(bundle_install_gems_dir)
       @bundle_gems_binsub_dir = @bundle_install_gems_dir.join("bin")
       @bundle_output = nil
     end

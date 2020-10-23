@@ -40,11 +40,11 @@ module HerokuBuildpackRuby
     public; attr_reader :version
 
     def initialize(gemfile_dir: , buildpack_ruby_path: , bundler_path: , metadata: Metadata::Null.new, default_version: DEFAULT, user_comms: UserComms::Null.new)
-      gemfile_dir = Pathname.new(gemfile_dir)
-      @bundler_path = Pathname.new(bundler_path)
+      gemfile_dir = Pathname(gemfile_dir)
+      @bundler_path = Pathname(bundler_path)
       @gemfile_path = gemfile_dir.join("Gemfile")
       @lockfile_path = gemfile_dir.join("Gemfile.lock")
-      @buildpack_ruby_path = Pathname.new(buildpack_ruby_path)
+      @buildpack_ruby_path = Pathname(buildpack_ruby_path)
 
       @user_comms = user_comms
       @ruby_metadata = metadata.layer(:ruby)

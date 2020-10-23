@@ -4,7 +4,7 @@ RSpec.describe "BundleInstall" do
   it "sets env vars and does not clear cache if nothing changed" do
     Hatchet::Runner.new("default_ruby").in_directory_fork do
       stringio = StringIO.new
-      app_dir = Pathname.new(Dir.pwd)
+      app_dir = Pathname(Dir.pwd)
       gems_dir = app_dir.join(".heroku/ruby/gems").tap(&:mkpath)
 
       # The Bundler.with_original_env will Reset bundler's env vars since we're running in a `bundle exec` context for tests already
@@ -51,7 +51,7 @@ RSpec.describe "BundleInstall" do
   it "handles BUNDLE_WITHOUT with a space" do
     Hatchet::Runner.new("default_ruby").in_directory_fork do
       stringio = StringIO.new
-      app_dir = Pathname.new(Dir.pwd)
+      app_dir = Pathname(Dir.pwd)
       gems_dir = app_dir.join(".heroku/ruby/gems").tap(&:mkpath)
 
       Bundler.with_original_env do

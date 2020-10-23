@@ -69,11 +69,11 @@ def run!(cmd)
 end
 
 def spec_dir
-  Pathname.new(__dir__)
+  Pathname(__dir__)
 end
 
 def root_dir
-  Pathname.new(__dir__).join("..")
+  Pathname(__dir__).join("..")
 end
 
 def which_ruby
@@ -81,7 +81,7 @@ def which_ruby
 end
 
 def which_bundle
-  @which_bundle_dir ||= Pathname.new(`which bundle`.strip)
+  @which_bundle_dir ||= Pathname(`which bundle`.strip)
 end
 
 def buildpack_path
@@ -89,7 +89,7 @@ def buildpack_path
 end
 
 def hatchet_path(path = "")
-  Pathname.new(__FILE__).join("../../repos").expand_path.join(path)
+  Pathname(__FILE__).join("../../repos").expand_path.join(path)
 end
 
 def bash_functions_file

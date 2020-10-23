@@ -23,7 +23,7 @@ module HerokuBuildpackRuby
     attr_reader :url
 
     def initialize(path, install_dir: , host_url: VENDOR_HOST_URL, folder: ENV["STACK"])
-      @url = Pathname.new(host_url).join(folder.to_s).join(path)
+      @url = Pathname(host_url).join(folder.to_s).join(path)
       @install_dir = install_dir
 
       # TODO support CURL_TIMEOUT and CURL_CONNECT_TIMEOUT

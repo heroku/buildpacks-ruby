@@ -25,7 +25,7 @@ module HerokuBuildpackRuby
   # Later when all layers are written to we can expect to see this environment variable set in the layers dir
   # via the `EnvProxy.write_layers` method:
   #
-  #   layers_dir = Pathname.new(layers_dir)
+  #   layers_dir = Pathname(layers_dir)
   #   EnvProxy.write_layers(layers_dir: layers_dir)
   #
   #   puts layers_dir.join("ruby/launch.env").entries # => "PATH"
@@ -37,8 +37,8 @@ module HerokuBuildpackRuby
   # To write to an export file such as profile.d script or a bash profile you can use the `EnvProxy.export_to` interface
   # which support v2/legacy:
   #
-  #   ruby_sh = Pathname.new("/app").join(".profile.d/ruby.sh")
-  #   export = Pathname.new(BUILDPACK_PATH).join("export")
+  #   ruby_sh = Pathname("/app").join(".profile.d/ruby.sh")
+  #   export = Pathname(BUILDPACK_PATH).join("export")
   #
   #   EnvProxy.export_to(profile_d_path: ruby_sh, export_path: export_path, app_dir: "/app")
   #
@@ -173,8 +173,8 @@ module HerokuBuildpackRuby
     # Top level interface for exporting env vars for profiled
     # and export file to other buildpacks
     def self.export(profile_d_path: , export_path: , app_dir: )
-      profile_d_path = Pathname.new(profile_d_path).tap {|p| p.dirname.mkpath }
-      export_path = Pathname.new(export_path)
+      profile_d_path = Pathname(profile_d_path).tap {|p| p.dirname.mkpath }
+      export_path = Pathname(export_path)
 
       @env_array.each do |env|
         env.write_exports(
@@ -188,7 +188,7 @@ module HerokuBuildpackRuby
     # Used to wrote all ENV vars to their correct env files
     # with cloud native buildpacks
     def self.write_layers(layers_dir: )
-      layers_dir = Pathname.new(layers_dir)
+      layers_dir = Pathname(layers_dir)
 
       @registered_layers.each do |name, config|
         contents = TOML::Dumper.new(config).to_s

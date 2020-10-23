@@ -23,7 +23,7 @@ module HerokuBuildpackRuby
     private; attr_reader :lockfile_path; public;
 
     def initialize(lockfile_path: )
-      @lockfile_path = Pathname.new(lockfile_path)
+      @lockfile_path = Pathname(lockfile_path)
       @version = nil
     end
 

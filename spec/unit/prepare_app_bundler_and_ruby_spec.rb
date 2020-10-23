@@ -6,14 +6,14 @@ RSpec.describe "PrepareAppBundlerAndRuby" do
       Dir.mktmpdir do |app_dir|
         Dir.mktmpdir do |vendor_dir|
           isolate_in_fork do
-            app_dir = Pathname.new(app_dir)
-            vendor_dir = Pathname.new(vendor_dir)
+            app_dir = Pathname(app_dir)
+            vendor_dir = Pathname(vendor_dir)
 
-            gemfile = Pathname.new(app_dir).join("Gemfile")
+            gemfile = Pathname(app_dir).join("Gemfile")
 
             gemfile.write("")
 
-            lockfile = Pathname.new(app_dir).join("Gemfile.lock")
+            lockfile = Pathname(app_dir).join("Gemfile.lock")
             lockfile.write <<~EOM
               RUBY VERSION
                  ruby 2.7.2p146
@@ -47,7 +47,7 @@ RSpec.describe "PrepareAppBundlerAndRuby" do
   describe "ruby" do
     it "detects version" do
       Dir.mktmpdir do |dir|
-        lockfile = Pathname.new(dir).join("Gemfile.lock")
+        lockfile = Pathname(dir).join("Gemfile.lock")
         lockfile.write <<~EOM
           RUBY VERSION
              ruby 2.6.23p146
@@ -68,7 +68,7 @@ RSpec.describe "PrepareAppBundlerAndRuby" do
   describe "bundler" do
     it "detects major bundler version" do
       Dir.mktmpdir do |dir|
-        lockfile = Pathname.new(dir).join("Gemfile.lock")
+        lockfile = Pathname(dir).join("Gemfile.lock")
         lockfile.write <<~EOM
           BUNDLED WITH
              2.1.4

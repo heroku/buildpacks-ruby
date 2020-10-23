@@ -15,15 +15,15 @@ require_relative "heroku_buildpack_ruby/metadata.rb"
 #   HerokuBuildpackRuby.build_cnb(...)
 #
 module HerokuBuildpackRuby
-  BUILDPACK_DIR = Pathname.new(__dir__).join("..")
+  BUILDPACK_DIR = Pathname(__dir__).join("..")
   EnvProxy.register_layer(:gems,    build: true, cache: true,  launch: true)
   EnvProxy.register_layer(:bundler, build: true, cache: false, launch: true)
   EnvProxy.register_layer(:ruby,    build: true, cache: false, launch: true)
 
   def self.compile_legacy(build_dir: , cache_dir:, env_dir: , buildpack_ruby_path:)
     export = BUILDPACK_DIR.join("export")
-    app_dir = Pathname.new(build_dir)
-    cache_dir = Pathname.new(cache_dir)
+    app_dir = Pathname(build_dir)
+    cache_dir = Pathname(cache_dir)
     vendor_dir = app_dir.join(".heroku/ruby")
     metadata_dir = cache_dir.join("vendor/heroku")
     profile_d_path = app_dir.join(".profile.d/ruby.sh")
@@ -64,8 +64,8 @@ module HerokuBuildpackRuby
   end
 
   def self.build_cnb(layers_dir: , platform_dir: , env_dir: , plan: , app_dir: , buildpack_ruby_path:)
-    app_dir = Pathname.new(app_dir)
-    layers_dir = Pathname.new(layers_dir)
+    app_dir = Pathname(app_dir)
+    layers_dir = Pathname(layers_dir)
     vendor_dir = app_dir.join(".heroku/ruby")
     gems_install_dir = layers_dir.join("gems")
 

@@ -108,7 +108,7 @@ module HerokuBuildpackRuby
     #   LOL_PATH_ENV.prepend(ruby: "/app/lol")
     #   LOL_PATH_ENV.prepend(gems: "/app/rofl")
     #
-    #   layers_dir = Pathname.new(Dir.mktmpdir)
+    #   layers_dir = Pathname(Dir.mktmpdir)
     #   LOL_PATH.write_exports(
     #     layers_dir: layers_dir
     #   )
@@ -118,7 +118,7 @@ module HerokuBuildpackRuby
     #
     def write_layer(layers_dir: )
       @layer_env_hash.each do |name, v|
-        layer = Pathname.new(layers_dir).join(name.to_s)
+        layer = Pathname(layers_dir).join(name.to_s)
         launch_dir = layer.join("env.launch").tap(&:mkpath)
 
         build_dir = layer.join("env.build").tap(&:mkpath)
@@ -158,8 +158,8 @@ module HerokuBuildpackRuby
     #  puts File.read(export) # => 'export LOL_PATH="/app/rofl:/app/lol:$LOL_PATH"'
     #
     def write_exports(profile_d_path: , export_path: , app_dir: )
-      profile_d_path = Pathname.new(profile_d_path)
-      export_path = Pathname.new(export_path)
+      profile_d_path = Pathname(profile_d_path)
+      export_path = Pathname(export_path)
 
       profile_d_path.open("a") do |f|
         f.write(to_export(replace: app_dir, with: "$HOME"))

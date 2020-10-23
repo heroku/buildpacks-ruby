@@ -26,7 +26,7 @@ RSpec.describe "bash_functions.sh that need docker" do
         echo "which yarn $(which yarn)"
       EOM
 
-      script = Pathname.new(".").join("script.sh")
+      script = Pathname(".").join("script.sh")
       script.write(contents)
       FileUtils.chmod("+x", script)
 

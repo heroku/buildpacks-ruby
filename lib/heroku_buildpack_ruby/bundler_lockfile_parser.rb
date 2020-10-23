@@ -10,8 +10,8 @@ module HerokuBuildpackRuby
     private; attr_reader :parser, :gemfile_lock_path, :bundler_install_dir; public
 
     def initialize(gemfile_lock_path: , bundler_install_dir: )
-      @bundler_install_dir = Pathname.new(bundler_install_dir)
-      @gemfile_lock_path = Pathname.new(gemfile_lock_path)
+      @bundler_install_dir = Pathname(bundler_install_dir)
+      @gemfile_lock_path = Pathname(gemfile_lock_path)
       @platforms = nil
       @gem_specs = nil
       @parser = nil

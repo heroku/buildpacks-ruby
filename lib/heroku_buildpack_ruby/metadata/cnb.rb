@@ -18,7 +18,7 @@ module HerokuBuildpackRuby
     #   # => "a good boy"
     class CNB
       def initialize(dir: ,name:)
-        @store = Pathname.new(dir).join(name.to_s, "store.toml").tap {|p| p.dirname.mkpath; FileUtils.touch(p) }
+        @store = Pathname(dir).join(name.to_s, "store.toml").tap {|p| p.dirname.mkpath; FileUtils.touch(p) }
         read
       end
 

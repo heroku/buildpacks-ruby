@@ -16,7 +16,7 @@ module HerokuBuildpackRuby
   #
   # Example:
   #
-  #   vendor_dir = Pathname.new("/app/.heroku/ruby")
+  #   vendor_dir = Pathname("/app/.heroku/ruby")
   #   prepare = PrepareAppBundlerAndRuby(
   #     vendor_dir: "/app/.heroku/ruby",
   #     app_dir: "/app",
@@ -39,9 +39,9 @@ module HerokuBuildpackRuby
 
     def initialize(vendor_dir: , app_dir: , buildpack_ruby_path: , user_comms: UserComms::Null.new, metadata: Metadata::Null.new, stack: ENV['STACK'])
       @stack = stack
-      @app_dir = Pathname.new(app_dir)
+      @app_dir = Pathname(app_dir)
       @metadata = metadata
-      vendor_dir = Pathname.new(vendor_dir)
+      vendor_dir = Pathname(vendor_dir)
       @user_comms = user_comms
       lockfile_path = @app_dir.join("Gemfile.lock")
       @ruby_install_dir = vendor_dir.join("ruby")
@@ -61,7 +61,7 @@ module HerokuBuildpackRuby
         user_comms: user_comms,
         gemfile_dir: @app_dir,
         bundler_path: @bundler_install_dir.join("bin/bundle"),
-        buildpack_ruby_path: Pathname.new(buildpack_ruby_path),
+        buildpack_ruby_path: Pathname(buildpack_ruby_path),
       )
     end
 

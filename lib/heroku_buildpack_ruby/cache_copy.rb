@@ -5,8 +5,8 @@ module HerokuBuildpackRuby
   #
   # Example:
   #
-  #   cache_dir = Pathname.new("/tmp/cache")
-  #   dest_dir = Pathname.new("/tmp/foo")
+  #   cache_dir = Pathname("/tmp/cache")
+  #   dest_dir = Pathname("/tmp/foo")
 
   #   puts cache_dir.join("hello.txt").exist? # => false
   #
@@ -16,7 +16,7 @@ module HerokuBuildpackRuby
   #
   #   puts cache_dir.join("hello.txt").exist? # => true
   #
-  #   different_dest_dir = Pathname.new("/tmp/bar")
+  #   different_dest_dir = Pathname("/tmp/bar")
   #   puts different_dest_dir.join("hello.txt").exist? # => false
   #
   #   CacheCopy.new(cache_dir: cache_dir, dest_dir: different_dest_dir).call do
@@ -24,8 +24,8 @@ module HerokuBuildpackRuby
   #   end
   class CacheCopy
     def initialize(cache_dir: , dest_dir:)
-      @cache_dir = Pathname.new(cache_dir).tap(&:mkpath)
-      @dest_dir = Pathname.new(dest_dir).tap(&:mkpath)
+      @cache_dir = Pathname(cache_dir).tap(&:mkpath)
+      @dest_dir = Pathname(dest_dir).tap(&:mkpath)
     end
 
     def call

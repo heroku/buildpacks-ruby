@@ -4,7 +4,7 @@ RSpec.describe "metadata" do
   describe "top level interface" do
     it "works" do
       Dir.mktmpdir do |dir|
-        dir = Pathname.new(dir)
+        dir = Pathname(dir)
         metadata = HerokuBuildpackRuby::Metadata.new(dir: dir, type: HerokuBuildpackRuby::Metadata::CNB)
         expect(metadata.layer(:ruby).class).to eq(HerokuBuildpackRuby::Metadata::CNB)
 
@@ -23,7 +23,7 @@ RSpec.describe "metadata" do
   describe "in memory Engine" do
     it "works" do
       Dir.mktmpdir do |dir|
-        dir = Pathname.new(dir)
+        dir = Pathname(dir)
         engine = HerokuBuildpackRuby::Metadata::InMemory.new(dir: dir, name: :ruby)
         expect(engine.get(:foo)).to be_nil
         engine.set(foo: "bar")
@@ -48,7 +48,7 @@ RSpec.describe "metadata" do
   describe "CNB Engine" do
     it "works" do
       Dir.mktmpdir do |dir|
-        dir = Pathname.new(dir)
+        dir = Pathname(dir)
         engine = HerokuBuildpackRuby::Metadata::CNB.new(dir: dir, name: :ruby)
         expect(engine.get(:foo)).to be_nil
         engine.set(foo: "bar")
@@ -81,7 +81,7 @@ RSpec.describe "metadata" do
   describe "V2 Engine" do
     it "works" do
       Dir.mktmpdir do |dir|
-        dir = Pathname.new(dir)
+        dir = Pathname(dir)
         engine = HerokuBuildpackRuby::Metadata::V2.new(dir: dir, name: :ruby)
         expect(engine.get(:foo)).to be_nil
         engine.set(foo: "bar")

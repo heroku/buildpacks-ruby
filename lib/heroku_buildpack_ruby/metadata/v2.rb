@@ -18,7 +18,7 @@ module HerokuBuildpackRuby
     #   # => "a good boy"
     class V2
       def initialize(dir: ,name:)
-        @dir = Pathname.new(dir).join(name.to_s).tap(&:mkpath)
+        @dir = Pathname(dir).join(name.to_s).tap(&:mkpath)
         @metadata = {}
 
         @dir.entries.each do |entry|

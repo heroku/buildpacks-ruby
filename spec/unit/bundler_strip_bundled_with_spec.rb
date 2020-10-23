@@ -3,7 +3,7 @@ require_relative "../spec_helper.rb"
 RSpec.describe "BundlerStripBundledWith" do
   it "removes bundled with contents from disk" do
     Tempfile.create("Gemfile.lock") do |lockfile|
-      lockfile = Pathname.new(lockfile)
+      lockfile = Pathname(lockfile)
       lockfile.write <<~EOM
         before
         BUNDLED WITH

@@ -3,7 +3,7 @@ require_relative "../spec_helper.rb"
 RSpec.describe "cache copy" do
   it "" do
     Dir.mktmpdir do |dir|
-      dir = Pathname.new(dir)
+      dir = Pathname(dir)
       dest_dir = dir.join("foo").tap(&:mkpath)
       cache_dir = dir.join("cache").tap(&:mkpath)
 

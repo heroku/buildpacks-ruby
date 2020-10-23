@@ -4,7 +4,7 @@ RSpec.describe "lockfile parser" do
   it "can read dependencies" do
     isolate_in_fork do
       Dir.mktmpdir do |dir|
-        dir = Pathname.new(dir)
+        dir = Pathname(dir)
         lockfile = dir.join("Gemfile.lock")
         lockfile.write <<~EOM
           PATH

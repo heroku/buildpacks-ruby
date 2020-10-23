@@ -17,7 +17,7 @@ module HerokuBuildpackRuby
     public; attr_reader :version
 
     def initialize(version:, install_dir: , user_comms: UserComms::Null.new, metadata: Metadata::Null.new)
-      @install_dir = Pathname.new(install_dir).tap(&:mkpath)
+      @install_dir = Pathname(install_dir).tap(&:mkpath)
       @user_comms = user_comms
       @metadata = metadata.layer(:bundler)
       @version = version

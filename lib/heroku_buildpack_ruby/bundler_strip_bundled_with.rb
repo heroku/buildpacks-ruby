@@ -20,7 +20,7 @@ module HerokuBuildpackRuby
   #
   # Example:
   #
-  #   lockfile = Pathname.new("Gemfile.lock")
+  #   lockfile = Pathname("Gemfile.lock")
   #   puts lockfile.include?("BUNDLED WITH") # => true
   #   BundlerStripBundledWith.new(lockfile).call
   #   puts lockfile.include?("BUNDLED WITH") # => false
@@ -31,7 +31,7 @@ module HerokuBuildpackRuby
 
     def initialize(lockfile_path: , user_comms: UserComms::Null.new)
       @user_comms = user_comms
-      @lockfile_path = Pathname.new(lockfile_path)
+      @lockfile_path = Pathname(lockfile_path)
     end
 
     def call

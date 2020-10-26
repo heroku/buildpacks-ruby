@@ -57,7 +57,7 @@ module HerokuBuildpackRuby
 
       private def write
         @toml[:metadata] = @metadata
-        @store.write TOML::Dumper.new(@toml).to_s
+        @store.write TOML.dump(@toml)
       end
 
       private def read

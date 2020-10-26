@@ -191,7 +191,7 @@ module HerokuBuildpackRuby
       layers_dir = Pathname(layers_dir)
 
       @registered_layers.each do |name, config|
-        contents = TOML::Dumper.new(config).to_s
+        contents = TOML.dump(config)
         layers_dir.join("#{name}.toml").write(contents)
       end
 

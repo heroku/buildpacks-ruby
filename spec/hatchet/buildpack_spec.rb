@@ -2,10 +2,6 @@ require_relative "../spec_helper.rb"
 
 RSpec.describe "This buildpack" do
   it "has its own tests" do
-    # Specify where you want your buildpack to go using :default
-    # To deploy a different app modify the hatchet.json or
-    # commit an app to your source control and use a path
-    # instead of "default_ruby" here
     Hatchet::Runner.new("default_ruby").tap do |app|
       app.before_deploy do
       end
@@ -19,6 +15,19 @@ RSpec.describe "This buildpack" do
         app.push!
 
         expect(app.output).to match("Using rake")
+      end
+    end
+  end
+
+  it "installs node and yarn" do
+    Hatchet::Runner.new("minimal_webpacker").tap do |app|
+      app.before_deploy do
+      end
+      app.deploy do
+        expect(app.output).to include("Installing rake")
+
+        expect(app.output).to include("installing node")
+        expect(app.output).to include("installing yarn")
       end
     end
   end

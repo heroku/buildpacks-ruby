@@ -11,7 +11,8 @@ RSpec.describe "bash_functions.sh" do
 
       STACK="#{stack}"
 
-      source #{bash_functions_file}
+      #{bash_functions_file.read}
+
       #{code}
     EOM
 
@@ -33,17 +34,15 @@ RSpec.describe "bash_functions.sh" do
     end
     unless success
       message = <<~EOM
+        Contents:
+
+        #{contents.lines.map.with_index { |line, number| "  #{number.next} #{line.chomp}"}.join("\n") }
+
         Expected running script to succeed, but it did not
 
         Output:
 
           #{out}
-
-        Script name: #{file.path}
-        Contents:
-
-        #{contents.lines.map.with_index { |line, number| "  #{number.next} #{line.chomp}"}.join("\n") }
-
       EOM
 
       raise message
@@ -106,6 +105,68 @@ RSpec.describe "bash_functions.sh" do
       expect(dir.join("vendor").entries.map(&:to_s)).to include("ruby")
       expect(dir.join("vendor", "ruby").entries.map(&:to_s)).to include("heroku-18")
       expect(dir.join("vendor", "ruby", "heroku-18", "bin").entries.map(&:to_s)).to include("ruby")
+    end
+  end
+
+  it "outputs a node+ruby plan when a package.json is present" do
+    Dir.mktmpdir do |dir|
+      build_dir = Pathname(dir)
+
+      build_dir.join("package.json").write "{}"
+
+      plan_path = build_dir.join("plan.toml")
+      exec_with_bash_functions <<~EOM
+        # Stub out the call to `which node` so we can pretend it does NOT exist on the system
+        which_node()
+        {
+          return 1
+        }
+        write_to_build_plan "#{plan_path}" "#{build_dir}"
+      EOM
+
+      expect(plan_path.read).to include(%Q{[[provides]]\nname = "ruby"})
+      expect(plan_path.read).to include(%Q{[[requires]]\nname = "ruby"})
+
+      expect(plan_path.read).to include(%Q{[[requires]]\nname = "node"})
+    end
+  end
+
+  it "does not output node when node is already installed" do
+    Dir.mktmpdir do |dir|
+      build_dir = Pathname(dir)
+
+      build_dir.join("package.json").write "{}"
+
+      plan_path = build_dir.join("plan.toml")
+      plan_path = build_dir.join("plan.toml")
+      exec_with_bash_functions <<~EOM
+        # Stub out the call to `which node` so we can pretend it exists on the system
+        which_node()
+        {
+          echo "foo"
+          return 0
+        }
+        write_to_build_plan "#{plan_path}" "#{build_dir}"
+      EOM
+
+      expect(plan_path.read).to include(%Q{[[provides]]\nname = "ruby"})
+      expect(plan_path.read).to include(%Q{[[requires]]\nname = "ruby"})
+
+      expect(plan_path.read).to_not include(%Q{[[requires]]\nname = "node"})
+    end
+  end
+
+  it "outputs a ruby plan" do
+    Dir.mktmpdir do |dir|
+      build_dir = Pathname(dir)
+
+      plan_path = build_dir.join("plan.toml")
+      exec_with_bash_functions <<~EOM
+        write_to_build_plan "#{plan_path}" "#{build_dir}"
+      EOM
+
+      expect(plan_path.read).to include(%Q{[[provides]]\nname = "ruby"})
+      expect(plan_path.read).to include(%Q{[[requires]]\nname = "ruby"})
     end
   end
 end

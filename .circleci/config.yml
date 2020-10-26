@@ -20,27 +20,20 @@ references:
     run:
       name: Run test suite
       command: PARALLEL_SPLIT_TEST_PROCESSES="4" IS_RUNNING_ON_CI=1 bundle exec parallel_split_test spec/unit
-  restore: &restore
-    restore_cache:
-      keys:
-        - v1_bundler_deps-{{ .Environment.CIRCLE_JOB }}
-  save: &save
-    save_cache:
-      paths:
-        - ./vendor/bundle
-      key: v1_bundler_deps-{{ .Environment.CIRCLE_JOB }} # CIRCLE_JOB e.g. "ruby-2.5"
   hatchet_setup: &hatchet_setup
     run:
       name: Hatchet setup
       command: |
         bundle exec hatchet ci:setup
-  bundle: &bundle
+
+  # Needed because the ruby orb does not work with the machine executor
+  # https://support.circleci.com/hc/en-us/articles/360011595473-How-Do-I-Use-a-Custom-Ruby-Version-When-Using-the-Machine-Executor-
+  ruby_install: &ruby_install
     run:
-      name: install dependencies
+      name: Set Ruby version with RVM
       command: |
-        bundle install --jobs=4 --retry=3 --path vendor/bundle
-        bundle update
-        bundle clean
+                rvm install 2.7.2
+                echo . $(rvm 2.7.2 do rvm env --path) >> $BASH_ENV
 
 jobs:
   unit:
@@ -48,28 +41,23 @@ jobs:
       - image: circleci/ruby:2.7
     steps:
       - checkout
-      - <<: *restore
-      - <<: *bundle
+      - ruby/install-deps
       - <<: *hatchet_setup
       - <<: *unit
-      - <<: *save
   hatchet:
     docker:
       - image: circleci/ruby:2.7
     steps:
       - checkout
-      - <<: *restore
-      - <<: *bundle
+      - ruby/install-deps
       - <<: *hatchet_setup
       - <<: *hatchet
-      - <<: *save
   pack_cnb:
     machine: true
     steps:
       - checkout
       - pack/install-pack
-      - ruby/install:
-          version: '2.7'
+      - <<: *ruby_install
       - ruby/install-deps
       - <<: *hatchet_setup
       - <<: *pack_cnb
@@ -78,8 +66,7 @@ jobs:
     steps:
       - checkout
       - pack/install-pack
-      - ruby/install:
-          version: '2.7'
+      - <<: *ruby_install
       - ruby/install-deps
       - <<: *hatchet_setup
       - <<: *docker_commands

@@ -3,7 +3,7 @@ require_relative "../spec_helper.rb"
 RSpec.describe "detect ruby version" do
   it "matches on lockfile" do
     Dir.mktmpdir do |dir|
-      lockfile = Pathname.new(dir).join("Gemfile.lock")
+      lockfile = Pathname(dir).join("Gemfile.lock")
       lockfile.write <<~EOM
         PLATFORMS
           ruby

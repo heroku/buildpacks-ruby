@@ -4,6 +4,14 @@
 
 If you want to work on this project here are some introduction explanations for several concepts that might be confusing:
 
+### Ruby dependencies
+
+The environment that the Ruby buildpack executes on is minimal and it is intended for an application target, not the Ruby buildpack target. Due to this limitation we want to prefer using as few dependencies as possible, and as little tooling at execution time. This does not mean you cannot use dependencies inside of the buildpack, but it means you must manuallyvendor and manage them. Gems go in the `gems` directory:
+
+- $ gem install tomlrb --install-dir ./gems --no-document
+
+Now it can be manually required. After adding the appropriate directory to the load path.
+
 ### V2 and CNB support
 
 This buildpack supports both the Heroku legacy `/bin/compile` interface, also known as "v2" as well as the newer specification for Cloud Native Buildpacks (CNB). Some concepts present in one interface are not used at all in the other (for instance "v2" has no concept of "layers". For more info see their respective docs:

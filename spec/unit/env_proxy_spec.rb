@@ -33,7 +33,7 @@ RSpec.describe "env proxy" do
     )
 
     expect(
-      File.read(profile_d) # => '
+      File.read(profile_d).strip
     ).to eq(%Q{export #{env_var.key}="$HOME/rofl:$HOME/lol:haha:$#{env_var.key}"})
   ensure
     HerokuBuildpackRuby::EnvProxy.delete(env_var)
@@ -57,11 +57,11 @@ RSpec.describe "env proxy" do
       app_dir: "/app"
     )
 
-    expect(File.read(export.path).strip).to include(%Q{export #{env_var_1.key}="/app/cinco"})
-    expect(File.read(export.path).strip).to include(%Q{export #{env_var_2.key}="/app/river:$#{env_var_2.key}"})
+    expect(File.read(export.path)).to include(%Q{export #{env_var_1.key}="/app/cinco"\n})
+    expect(File.read(export.path)).to include(%Q{export #{env_var_2.key}="/app/river:$#{env_var_2.key}"\n})
 
-    expect(File.read(profile_d.path).strip).to include(%Q{export #{env_var_1.key}="$HOME/cinco"})
-    expect(File.read(profile_d.path).strip).to include(%Q{export #{env_var_2.key}="$HOME/river:$#{env_var_2.key}"})
+    expect(File.read(profile_d.path)).to include(%Q{export #{env_var_1.key}="$HOME/cinco"\n})
+    expect(File.read(profile_d.path)).to include(%Q{export #{env_var_2.key}="$HOME/river:$#{env_var_2.key}"\n})
 
     Dir.mktmpdir do |dir|
       layers_dir = Pathname(dir)

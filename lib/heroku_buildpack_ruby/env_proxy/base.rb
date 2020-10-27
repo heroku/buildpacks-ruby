@@ -123,13 +123,8 @@ module HerokuBuildpackRuby
 
         build_dir = layer.join("env.build").tap(&:mkpath)
         value = Array(v).join(":")
-        build_dir.join(layer_key).open("w+") do |f|
-          f.write(value)
-        end
-
-        launch_dir.join(layer_key).open("w+") do |f|
-          f.write(value)
-        end
+        build_dir.join(layer_key).write(value)
+        launch_dir.join(layer_key).write(value)
       end
     end
 
@@ -162,11 +157,11 @@ module HerokuBuildpackRuby
       export_path = Pathname(export_path)
 
       profile_d_path.open("a") do |f|
-        f.write(to_export(replace: app_dir, with: "$HOME"))
+        f.puts(to_export(replace: app_dir, with: "$HOME"))
       end
 
       export_path.open("a") do |f|
-        f.write(to_export)
+        f.puts(to_export)
       end
     end
 

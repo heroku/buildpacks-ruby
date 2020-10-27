@@ -8,6 +8,8 @@ module HerokuBuildpackRuby
     BUNDLE_DEPLOYMENT_ENV = EnvProxy.value("BUNDLE_DEPLOYMENT")
     BUNDLE_GLOBAL_PATH_APPENDS_RUBY_SCOPE_ENV = EnvProxy.value("BUNDLE_GLOBAL_PATH_APPENDS_RUBY_SOURCE")
 
+    NOKOGIRI_USE_SYSTEM_LIBRARIES_ENV = EnvProxy.value("NOKOGIRI_USE_SYSTEM_LIBRARIES")
+
     private; attr_reader :bundle_output, :bundle_without_default, :bundle_install_gems_dir, :user_comms, :bundle_gems_binsub_dir; public
 
     def initialize(app_dir: , bundle_without_default: , bundle_install_gems_dir:, user_comms: , metadata: Metadata::Null.new)
@@ -21,7 +23,7 @@ module HerokuBuildpackRuby
     end
 
     def call
-      prepare_env
+      bundle_config
       bundle_install
       bundle_clean
     end
@@ -46,7 +48,11 @@ module HerokuBuildpackRuby
       user_comms.puts "Bundle completed (#{"%.2f" % time }s)"
     end
 
-    private def prepare_env
+    private def bundle_config
+      NOKOGIRI_USE_SYSTEM_LIBRARIES_ENV.set(
+        gems: true
+      )
+
       GEM_PATH_ENV.prepend(
         gems: bundle_install_gems_dir,
         bundler: bundle_install_gems_dir

@@ -124,10 +124,10 @@ RSpec.describe "bash_functions.sh" do
         write_to_build_plan "#{plan_path}" "#{build_dir}"
       EOM
 
-      expect(plan_path.read).to include(%Q{[[provides]]\nname = "ruby"})
-      expect(plan_path.read).to include(%Q{[[requires]]\nname = "ruby"})
+      toml = HerokuBuildpackRuby::TOML.load(plan_path.read)
 
-      expect(plan_path.read).to include(%Q{[[requires]]\nname = "node"})
+      expect(toml).to include(provides: [{name: "ruby"}])
+      expect(toml).to include(requires: [{name: "node"}, {name: "ruby"}])
     end
   end
 
@@ -149,10 +149,10 @@ RSpec.describe "bash_functions.sh" do
         write_to_build_plan "#{plan_path}" "#{build_dir}"
       EOM
 
-      expect(plan_path.read).to include(%Q{[[provides]]\nname = "ruby"})
-      expect(plan_path.read).to include(%Q{[[requires]]\nname = "ruby"})
+      toml = HerokuBuildpackRuby::TOML.load(plan_path.read)
 
-      expect(plan_path.read).to_not include(%Q{[[requires]]\nname = "node"})
+      expect(toml).to include(provides: [{name: "ruby"}])
+      expect(toml).to include(requires: [{name: "ruby"}])
     end
   end
 
@@ -165,8 +165,10 @@ RSpec.describe "bash_functions.sh" do
         write_to_build_plan "#{plan_path}" "#{build_dir}"
       EOM
 
-      expect(plan_path.read).to include(%Q{[[provides]]\nname = "ruby"})
-      expect(plan_path.read).to include(%Q{[[requires]]\nname = "ruby"})
+      toml = HerokuBuildpackRuby::TOML.load(plan_path.read)
+
+      expect(toml).to include(provides: [{name: "ruby"}])
+      expect(toml).to include(requires: [{name: "ruby"}])
     end
   end
 end

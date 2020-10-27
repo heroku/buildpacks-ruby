@@ -202,7 +202,7 @@ write_to_build_plan_ruby_node()
 
 cat << EOF > "$build_plan"
 [[provides]]
-name = "ruby"u
+name = "ruby"
 
 [[requires]]
 name = "node"

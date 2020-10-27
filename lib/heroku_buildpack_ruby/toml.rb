@@ -21,6 +21,8 @@ module HerokuBuildpackRuby
   module TOML
     def self.load(string)
       Tomlrb.parse(string, symbolize_keys: true)
+    rescue Tomlrb::ParseError => e
+      raise e, "#{e.message}\n\nCould not parse TOML input. Input:\n\n#{string}"
     end
 
     def self.dump(hash)

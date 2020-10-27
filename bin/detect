@@ -1,20 +1,35 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+# == V2 interface
 
 if [ -z "$CNB_STACK_ID" ]; then
-  # v2 API
   APP_DIR=$1
-else
-  PLATFORM_DIR=$1
-  PLAN=$2
-  # working is the cwd now
-  # v3 API
-  APP_DIR=$(pwd)
+
+  if [ ! -f "$APP_DIR/Gemfile" ]; then
+    echo "no"
+    exit 1
+  else
+    echo "ruby"
+    exit 0
+  fi
 fi
 
-if [ -f "$APP_DIR/Gemfile" ]; then
-  echo "Ruby"
-  exit 0
-else
+# == CNB Interface
+
+set -eu
+PLAN=$2
+APP_DIR=$(pwd)
+
+if [ ! -f "$APP_DIR/Gemfile" ]; then
   echo "no"
   exit 1
+else
+  echo "Ruby"
 fi
+
+BIN_DIR=$(cd "$(dirname "$0")"; pwd)
+source "$BIN_DIR/support/bash_functions.sh"
+
+write_to_build_plan "$PLAN" "$APP_DIR"
+
+exit 0

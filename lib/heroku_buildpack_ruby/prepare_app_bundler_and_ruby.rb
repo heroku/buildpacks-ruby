@@ -18,8 +18,9 @@ module HerokuBuildpackRuby
   #
   #   vendor_dir = Pathname("/app/.heroku/ruby")
   #   prepare = PrepareAppBundlerAndRuby(
-  #     vendor_dir: "/app/.heroku/ruby",
   #     app_dir: "/app",
+  #     ruby_install_dir: vendor_dir.join("ruby"),
+  #     bundler_install_dir: vendor_dir.join("bundler"),
   #     buildpack_ruby_path: `which ruby`.strip
   #   )
   #   prepare.call
@@ -34,18 +35,17 @@ module HerokuBuildpackRuby
   #   # => true
   class PrepareAppBundlerAndRuby
     private; attr_reader :stack, :metadata, :user_comms; public
-    private; attr_reader :vendor_dir, :app_dir, :ruby_install_dir, :bundler_install_dir; public
+    private; attr_reader :ruby_install_dir, :bundler_install_dir, :app_dir, :ruby_install_dir, :bundler_install_dir; public
     private; attr_reader :bundler_detect_version_object, :bundler_strip_bundled_with_object, :ruby_detect_version_object; public
 
-    def initialize(vendor_dir: , app_dir: , buildpack_ruby_path: , user_comms: UserComms::Null.new, metadata: Metadata::Null.new, stack: ENV['STACK'])
+    def initialize(ruby_install_dir:, bundler_install_dir:, app_dir: , buildpack_ruby_path: , user_comms: UserComms::Null.new, metadata: Metadata::Null.new, stack: ENV['STACK'])
       @stack = stack
       @app_dir = Pathname(app_dir)
       @metadata = metadata
-      vendor_dir = Pathname(vendor_dir)
       @user_comms = user_comms
       lockfile_path = @app_dir.join("Gemfile.lock")
-      @ruby_install_dir = vendor_dir.join("ruby")
-      @bundler_install_dir = vendor_dir.join("bundler")
+      @ruby_install_dir = Pathname(ruby_install_dir)
+      @bundler_install_dir = Pathname(bundler_install_dir)
 
       @bundler_detect_version_object = BundlerDetectVersion.new(
         lockfile_path: lockfile_path

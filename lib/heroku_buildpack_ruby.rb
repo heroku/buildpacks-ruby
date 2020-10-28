@@ -30,6 +30,9 @@ module HerokuBuildpackRuby
 
     gems_cache_dir = cache_dir.join("gems")
     gems_install_dir = vendor_dir.join("gems")
+    ruby_install_dir = vendor_dir.join("ruby")
+    gemfile_lock_path = app_dir.join("Gemfile.lock")
+    bundler_install_dir = vendor_dir.join("bundler")
 
     metadata = Metadata.new(dir: metadata_dir, type: Metadata::V2)
     user_comms = UserComms::V2.new
@@ -38,12 +41,12 @@ module HerokuBuildpackRuby
     PrepareAppBundlerAndRuby.new(
       app_dir: app_dir,
       metadata: metadata,
-      vendor_dir: vendor_dir,
       user_comms: user_comms,
+      ruby_install_dir: ruby_install_dir,
+      bundler_install_dir: bundler_install_dir,
       buildpack_ruby_path: buildpack_ruby_path,
     ).call
 
-    # TODO detect and install binary dependencies here
 
     gems_cache_copy.call do |gems_dir|
       BundleInstall.new(
@@ -66,8 +69,10 @@ module HerokuBuildpackRuby
   def self.build_cnb(layers_dir: , platform_dir: , env_dir: , plan: , app_dir: , buildpack_ruby_path:)
     app_dir = Pathname(app_dir)
     layers_dir = Pathname(layers_dir)
-    vendor_dir = app_dir.join(".heroku/ruby")
     gems_install_dir = layers_dir.join("gems")
+    ruby_install_dir = layers_dir.join("ruby")
+    gemfile_lock_path = app_dir.join("Gemfile.lock")
+    bundler_install_dir = layers_dir.join("bundler")
 
     metadata = Metadata.new(dir: layers_dir, type: Metadata::CNB)
     user_comms = UserComms::CNB.new
@@ -75,12 +80,11 @@ module HerokuBuildpackRuby
     PrepareAppBundlerAndRuby.new(
       app_dir: app_dir,
       metadata: metadata,
-      vendor_dir: vendor_dir, # TODO move to layers
       user_comms: user_comms,
+      ruby_install_dir: ruby_install_dir,
+      bundler_install_dir: bundler_install_dir,
       buildpack_ruby_path: buildpack_ruby_path,
     ).call
-
-    # TODO detect and install binary dependencies here
 
     BundleInstall.new(
       app_dir: app_dir,

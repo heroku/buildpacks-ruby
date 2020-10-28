@@ -22,15 +22,36 @@ RSpec.describe "This buildpack" do
     end
   end
 
-  it "installs node and yarn" do
-    Hatchet::Runner.new("minimal_webpacker").tap do |app|
+  it "installs node and yarn and calls assets:precompile" do
+    skip("Must set HATCHET_EXPENSIVE_MODE") unless ENV["HATCHET_EXPENSIVE_MODE"]
+
+    Hatchet::Runner.new("minimal_webpacker", run_multi: true).tap do |app|
       app.before_deploy do
+        Pathname(Dir.pwd).join("Procfile").write <<~EOM
+          web: # No-op, needed so we can scale up for run_multi
+        EOM
       end
       app.deploy do
+        # This output comes from the heroku/nodejs buildpack
+        expect(app.output).to include("installing yarn")
+
+        # This output comes from the Ruby buildpack
         expect(app.output).to include("Installing rake")
 
-        expect(app.output).to include("installing node")
-        expect(app.output).to include("installing yarn")
+        # This output comes from the contents of the Rakefile
+        # https://github.com/sharpstone/minimal_webpacker/blob/master/Rakefile
+        expect(app.output).to include("THE TASK ASSETS:PRECOMPILE WAS CALLED")
+        expect(app.output).to include("THE TASK ASSETS:CLEAN WAS CALLED")
+
+        app.run_multi("which node") do |out, status|
+          expect(out.strip).to_not be_empty
+          expect(status.success?).to be_truthy
+        end
+
+        app.run_multi("which yarn") do |out, status|
+          expect(out.strip).to_not be_empty
+          expect(status.success?).to be_truthy
+        end
       end
     end
   end

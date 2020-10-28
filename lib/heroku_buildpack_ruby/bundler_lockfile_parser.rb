@@ -20,7 +20,9 @@ module HerokuBuildpackRuby
     # Loads the lockfile parser from Bundler source into memory so we can use it
     # to parse Gemfile.lock returns self
     def call
-      require_relative bundler_lib_path.join("bundler/lockfile_parser.rb")
+      $LOAD_PATH.prepend(bundler_lib_path.to_s)
+
+      require 'bundler'
       self
     end
 

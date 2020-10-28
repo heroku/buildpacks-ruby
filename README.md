@@ -47,9 +47,17 @@ Instead of "version_ruby" and "version_bundler" consider "ruby_version" and "rub
 
 Share behavior by sharing objects when possible. Relatedly: Strive for DRY concepts, not DRY source code.
 
-## Initialize values, call behavior
+### Initialize values, call behavior
 
 In general it's prefered to initialize all values when creating an object rather than passing values in later. We also want to decouple actions from initialization. The pattern here is to have actions respond when executintg `call` on the object. In general it allows us to be flexible with when we create our objets and when we use them.
+
+## External concepts
+
+These are external concepts that you may run into while working in this codebase. They're not always immediately self-explanatory, this section might help to understand their intended use cases.
+
+### Bundler.with_original_env do
+
+This invocation is frequently used in tests. It essentially tells bundler to set environment variables back to what they were before bundler was invoked. This is needed when we are wanting to simulate running a ruby command from the command line without bundler invoked yet. It's not always needed in every context, but if you see it, now you know why it's there and what the goal is.
 
 ### Ideas
 

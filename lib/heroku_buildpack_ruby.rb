@@ -4,6 +4,8 @@ require_relative "heroku_buildpack_ruby/bundle_install.rb"
 require_relative "heroku_buildpack_ruby/cache_copy.rb"
 require_relative "heroku_buildpack_ruby/metadata.rb"
 
+require_relative "heroku_buildpack_ruby/rake_detect.rb"
+
 # This is the main entry point for the Ruby buildpack
 #
 # Legacy/V2 interface:
@@ -15,6 +17,8 @@ require_relative "heroku_buildpack_ruby/metadata.rb"
 #   HerokuBuildpackRuby.build_cnb(...)
 #
 module HerokuBuildpackRuby
+  class BuildpackErrorNoBacktrace < StandardError; end
+
   BUILDPACK_DIR = Pathname(__dir__).join("..")
   EnvProxy.register_layer(:gems,    build: true, cache: true,  launch: true)
   EnvProxy.register_layer(:bundler, build: true, cache: false, launch: true)
@@ -64,6 +68,8 @@ module HerokuBuildpackRuby
       profile_d_path: profile_d_path,
     )
     user_comms.close
+  rescue BuildpackErrorNoBacktrace => e
+    user_comms.error_and_exit(e.message)
   end
 
   def self.build_cnb(layers_dir: , platform_dir: , env_dir: , plan: , app_dir: , buildpack_ruby_path:)
@@ -98,5 +104,54 @@ module HerokuBuildpackRuby
       layers_dir: layers_dir
     )
     user_comms.close
+
+  rescue BuildpackErrorNoBacktrace => e
+    user_comms.error_and_exit(e.message)
+  end
+
+  class AssetsPrecompile
+    def initialize(rake: , app_dir: , user_comms: UserComms::Null.new)
+      @rake = rake
+      @user_comms = user_comms
+      @public_dir = Pathname(app_dir).join("public/assets")
+    end
+
+    def call
+      case
+      when assets_manifest
+        @user_comms.puts("Skipping `rake assets:precompile`: Asset manifest found: #{assets_manifest}")
+      else
+        assets_precompile
+        assets_clean
+      end
+    end
+
+    private def assets_precompile
+      if rake.detect?("assets:precompile")
+        @user_comms.topic("Running: rake assets:precompile")
+        RakeTask.new("assets:precompile", stream: @user_comms).call
+      else
+        @user_comms.puts("Asset compilation skipped: `rake assets:precompile` not found")
+      end
+    end
+
+    private def assets_clean
+      if rake.detect?("assets:clean")
+        @user_comms.topic("Running: rake assets:clean")
+
+        RakeTask.new("assets:precompile", stream: @user_comms).call
+      else
+        @user_comms.puts("Asset clean skipped: `rake assets:clean` not found")
+      end
+    end
+
+    private def asset_manifest
+      @public_dir.glob(manifest_glob_pattern).first
+    end
+
+    private def manifest_glob_pattern
+      files_string = [".sprockets-manifest-*.json", "manifest-*.json", "manifest.yml"].join(",")
+      "{#{files_string}}"
+    end
   end
 end

@@ -6,10 +6,15 @@ BUILD_DIR=$1
 CACHE_DIR=$2
 ENV_DIR=$3
 
-BIN_DIR=$(cd $(dirname $0); pwd)
-BUILDPACK_DIR=$(dirname $BIN_DIR)
+BIN_DIR=$(cd $(dirname "$0"); pwd)
+BUILDPACK_DIR=$(dirname "$BIN_DIR")
 
 source "$BIN_DIR/support/bash_functions.sh"
+
+if needs_package_json "$BUILD_DIR"; then
+  echo "      Writing package.json"
+  echo "{}" > "$BUILD_DIR/package.json"
+fi
 
 if detect_needs_node "$BUILD_DIR"; then
   cat <<EOM

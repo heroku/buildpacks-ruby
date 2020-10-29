@@ -1,5 +1,6 @@
 {
   "ruby_apps": [
+    "heroku/ruby-getting-started",
     "sharpstone/default_ruby",
     "sharpstone/minimal_webpacker"
   ],

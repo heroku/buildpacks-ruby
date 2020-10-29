@@ -14,6 +14,13 @@ RSpec.describe "This buildpack" do
     end
   end
 
+  it "getting started guide" do
+    Hatchet::Runner.new("ruby-getting-started").deploy do |app|
+      # TODO: Remove asset fragment cache before runtime for reduced slug size
+      # expect(app.run("ls tmp/cache/assets")).to_not match("sprockets")
+    end
+  end
+
   it "bundler 1.x" do
     Hatchet::Runner.new("default_ruby").tap do |app|
       app.before_deploy do

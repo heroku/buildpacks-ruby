@@ -4,6 +4,9 @@ require_relative "heroku_buildpack_ruby/bundle_install.rb"
 require_relative "heroku_buildpack_ruby/cache_copy.rb"
 require_relative "heroku_buildpack_ruby/metadata.rb"
 
+require_relative "heroku_buildpack_ruby/rake_detect.rb"
+require_relative "heroku_buildpack_ruby/assets_precompile.rb"
+
 # This is the main entry point for the Ruby buildpack
 #
 # Legacy/V2 interface:
@@ -15,84 +18,140 @@ require_relative "heroku_buildpack_ruby/metadata.rb"
 #   HerokuBuildpackRuby.build_cnb(...)
 #
 module HerokuBuildpackRuby
+  class BuildpackErrorNoBacktrace < StandardError; end
+
   BUILDPACK_DIR = Pathname(__dir__).join("..")
   EnvProxy.register_layer(:gems,    build: true, cache: true,  launch: true)
   EnvProxy.register_layer(:bundler, build: true, cache: false, launch: true)
   EnvProxy.register_layer(:ruby,    build: true, cache: false, launch: true)
 
   def self.compile_legacy(build_dir: , cache_dir:, env_dir: , buildpack_ruby_path:)
-    export = BUILDPACK_DIR.join("export")
     app_dir = Pathname(build_dir)
-    cache_dir = Pathname(cache_dir)
-    vendor_dir = app_dir.join(".heroku/ruby")
-    metadata_dir = cache_dir.join("vendor/heroku")
-    profile_d_path = app_dir.join(".profile.d/ruby.sh")
 
-    gems_cache_dir = cache_dir.join("gems")
-    gems_install_dir = vendor_dir.join("gems")
+    Dir.chdir(app_dir) do
+      export = BUILDPACK_DIR.join("export")
+      cache_dir = Pathname(cache_dir)
+      vendor_dir = app_dir.join(".heroku/ruby")
+      metadata_dir = cache_dir.join("vendor/heroku")
+      profile_d_path = app_dir.join(".profile.d/ruby.sh")
 
-    metadata = Metadata.new(dir: metadata_dir, type: Metadata::V2)
-    user_comms = UserComms::V2.new
-    gems_cache_copy = CacheCopy.new(cache_dir: gems_cache_dir, dest_dir: gems_install_dir)
+      gems_cache_dir = cache_dir.join("gems")
+      gems_install_dir = vendor_dir.join("gems")
+      ruby_install_dir = vendor_dir.join("ruby")
+      gemfile_lock_path = app_dir.join("Gemfile.lock")
+      bundler_install_dir = vendor_dir.join("bundler")
 
-    PrepareAppBundlerAndRuby.new(
-      app_dir: app_dir,
-      metadata: metadata,
-      vendor_dir: vendor_dir,
-      user_comms: user_comms,
-      buildpack_ruby_path: buildpack_ruby_path,
-    ).call
+      metadata = Metadata.new(dir: metadata_dir, type: Metadata::V2)
+      user_comms = UserComms::V2.new
+      gems_cache_copy = CacheCopy.new(cache_dir: gems_cache_dir, dest_dir: gems_install_dir)
 
-    # TODO detect and install binary dependencies here
+      PrepareAppBundlerAndRuby.new(
+        app_dir: app_dir,
+        metadata: metadata,
+        user_comms: user_comms,
+        ruby_install_dir: ruby_install_dir,
+        bundler_install_dir: bundler_install_dir,
+        buildpack_ruby_path: buildpack_ruby_path,
+      ).call
 
-    gems_cache_copy.call do |gems_dir|
+      gems_cache_copy.call do |gems_dir|
+        BundleInstall.new(
+          app_dir: app_dir,
+          metadata: metadata,
+          user_comms: user_comms,
+          bundle_without_default: "development:test",
+          bundle_install_gems_dir: gems_dir,
+        ).call
+      end
+
+
+      lockfile = HerokuBuildpackRuby::BundlerLockfileParser.new(
+        gemfile_lock_path: gemfile_lock_path,
+        bundler_install_dir: bundler_install_dir,
+      ).call
+
+      rake = HerokuBuildpackRuby::RakeDetect.new(
+        app_dir: app_dir,
+        user_comms: user_comms,
+        has_rake_gem: lockfile.has_gem?("rake"),
+        error_if_detect_fails: lockfile.has_gem?("sprockets"),
+      ).call
+
+      # TODO caching
+      HerokuBuildpackRuby::AssetsPrecompile.new(
+        app_dir: app_dir,
+        user_comms: user_comms,
+        has_assets_clean: rake.detect?("assets:clean"),
+        has_assets_precompile: rake.detect?("assets:precompile"),
+      ).call
+
+      EnvProxy.export(
+        app_dir: app_dir,
+        export_path: export,
+        profile_d_path: profile_d_path,
+      )
+      user_comms.close
+    rescue BuildpackErrorNoBacktrace => e
+      user_comms.error_and_exit(e.message)
+    end
+  end
+
+  def self.build_cnb(layers_dir: , platform_dir: , env_dir: , plan: , app_dir: , buildpack_ruby_path:)
+    Dir.chdir(app_dir) do
+      app_dir = Pathname(app_dir)
+      layers_dir = Pathname(layers_dir)
+      gems_install_dir = layers_dir.join("gems")
+      ruby_install_dir = layers_dir.join("ruby")
+      gemfile_lock_path = app_dir.join("Gemfile.lock")
+      bundler_install_dir = layers_dir.join("bundler")
+
+      metadata = Metadata.new(dir: layers_dir, type: Metadata::CNB)
+      user_comms = UserComms::CNB.new
+
+      PrepareAppBundlerAndRuby.new(
+        app_dir: app_dir,
+        metadata: metadata,
+        user_comms: user_comms,
+        ruby_install_dir: ruby_install_dir,
+        bundler_install_dir: bundler_install_dir,
+        buildpack_ruby_path: buildpack_ruby_path,
+      ).call
+
       BundleInstall.new(
         app_dir: app_dir,
         metadata: metadata,
         user_comms: user_comms,
         bundle_without_default: "development:test",
-        bundle_install_gems_dir: gems_dir,
+        bundle_install_gems_dir: gems_install_dir,
       ).call
+
+      lockfile = HerokuBuildpackRuby::BundlerLockfileParser.new(
+        gemfile_lock_path: gemfile_lock_path,
+        bundler_install_dir: bundler_install_dir,
+      ).call
+
+      rake = HerokuBuildpackRuby::RakeDetect.new(
+        app_dir: app_dir,
+        user_comms: user_comms,
+        has_rake_gem: lockfile.has_gem?("rake"),
+        error_if_detect_fails: lockfile.has_gem?("sprockets"),
+      ).call
+
+      # TODO caching
+      HerokuBuildpackRuby::AssetsPrecompile.new(
+        app_dir: app_dir,
+        user_comms: user_comms,
+        has_assets_clean: rake.detect?("assets:clean"),
+        has_assets_precompile: rake.detect?("assets:precompile"),
+      ).call
+
+      EnvProxy.write_layers(
+        layers_dir: layers_dir
+      )
+      user_comms.close
+
+    rescue BuildpackErrorNoBacktrace => e
+      user_comms.error_and_exit(e.message)
     end
-
-    EnvProxy.export(
-      app_dir: app_dir,
-      export_path: export,
-      profile_d_path: profile_d_path,
-    )
-    user_comms.close
-  end
-
-  def self.build_cnb(layers_dir: , platform_dir: , env_dir: , plan: , app_dir: , buildpack_ruby_path:)
-    app_dir = Pathname(app_dir)
-    layers_dir = Pathname(layers_dir)
-    vendor_dir = app_dir.join(".heroku/ruby")
-    gems_install_dir = layers_dir.join("gems")
-
-    metadata = Metadata.new(dir: layers_dir, type: Metadata::CNB)
-    user_comms = UserComms::CNB.new
-
-    PrepareAppBundlerAndRuby.new(
-      app_dir: app_dir,
-      metadata: metadata,
-      vendor_dir: vendor_dir, # TODO move to layers
-      user_comms: user_comms,
-      buildpack_ruby_path: buildpack_ruby_path,
-    ).call
-
-    # TODO detect and install binary dependencies here
-
-    BundleInstall.new(
-      app_dir: app_dir,
-      metadata: metadata,
-      user_comms: user_comms,
-      bundle_without_default: "development:test",
-      bundle_install_gems_dir: gems_install_dir,
-    ).call
-
-    EnvProxy.write_layers(
-      layers_dir: layers_dir
-    )
-    user_comms.close
   end
 end

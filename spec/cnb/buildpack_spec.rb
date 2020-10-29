@@ -97,12 +97,16 @@ RSpec.describe "Cloud Native Buildpack" do
     end
   end
 
-  it "installs node and yarn" do
+  it "installs node and yarn and calls assets:precompile" do
     CnbRun.new(hatchet_path("ruby_apps/minimal_webpacker"), buildpack_paths: ["heroku/nodejs", buildpack_path]).call do |app|
-      puts app.output
+      # This output comes from the heroku/nodejs buildpack
       expect(app.output).to include("Installing rake")
-
       expect(app.output).to include("Installing yarn")
+
+      # This output comes from the contents of the Rakefile
+      # https://github.com/sharpstone/minimal_webpacker/blob/master/Rakefile
+      expect(app.output).to include("THE TASK ASSETS:PRECOMPILE WAS CALLED")
+      expect(app.output).to include("THE TASK ASSETS:CLEAN WAS CALLED")
 
       app.run_multi!("which node") do |out, status|
         expect(out.strip).to_not be_empty

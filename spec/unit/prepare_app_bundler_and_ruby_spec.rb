@@ -22,7 +22,8 @@ RSpec.describe "PrepareAppBundlerAndRuby" do
             user_comms = HerokuBuildpackRuby::UserComms::Null.new
             bootstrap = HerokuBuildpackRuby::PrepareAppBundlerAndRuby.new(
               buildpack_ruby_path: which_ruby,
-              vendor_dir: vendor_dir,
+              bundler_install_dir: vendor_dir.join("bundler"),
+              ruby_install_dir: vendor_dir.join("ruby"),
               user_comms: user_comms,
               app_dir: app_dir,
               stack: "heroku-18"
@@ -53,9 +54,11 @@ RSpec.describe "PrepareAppBundlerAndRuby" do
              ruby 2.6.23p146
         EOM
 
+        vendor_dir = Pathname(dir).join(".heroku/")
         bootstrap = HerokuBuildpackRuby::PrepareAppBundlerAndRuby.new(
           buildpack_ruby_path: which_ruby,
-          vendor_dir: "./heroku/ruby/",
+          bundler_install_dir: vendor_dir.join("bundler"),
+          ruby_install_dir: vendor_dir.join("ruby"),
           app_dir: dir,
         )
         ruby_version = bootstrap.ruby_detect_version
@@ -74,9 +77,11 @@ RSpec.describe "PrepareAppBundlerAndRuby" do
              2.1.4
         EOM
 
+        vendor_dir = Pathname(dir).join(".heroku/")
         bootstrap = HerokuBuildpackRuby::PrepareAppBundlerAndRuby.new(
           buildpack_ruby_path: which_ruby,
-          vendor_dir: "./heroku/ruby/",
+          bundler_install_dir: vendor_dir.join("bundler"),
+          ruby_install_dir: vendor_dir.join("ruby"),
           app_dir: dir,
         )
         bundler_version = bootstrap.bundler_detect_version
@@ -89,9 +94,11 @@ RSpec.describe "PrepareAppBundlerAndRuby" do
       Dir.mktmpdir do |dir|
         FileUtils.touch("#{dir}/Gemfile.lock")
 
+        vendor_dir = Pathname(dir).join(".heroku/")
         bootstrap = HerokuBuildpackRuby::PrepareAppBundlerAndRuby.new(
           buildpack_ruby_path: which_ruby,
-          vendor_dir: "./heroku/ruby/bundler",
+          bundler_install_dir: vendor_dir.join("bundler"),
+          ruby_install_dir: vendor_dir.join("ruby"),
           app_dir: dir,
         )
         bundler_version = bootstrap.bundler_detect_version
@@ -102,20 +109,24 @@ RSpec.describe "PrepareAppBundlerAndRuby" do
 
     it "downloads bundler" do
       Dir.mktmpdir do |bundler_dest_dir|
+        bundler_dest_dir = Pathname(bundler_dest_dir)
         Dir.mktmpdir do |app_dir|
-          FileUtils.touch("#{app_dir}/Gemfile.lock")
+          app_dir = Pathname(app_dir)
+          app_dir.join("Gemfile.lock").tap {|p| FileUtils.touch(p) }
 
+          vendor_dir = app_dir.join(".heroku/")
           bootstrap = HerokuBuildpackRuby::PrepareAppBundlerAndRuby.new(
             buildpack_ruby_path: which_ruby,
-            vendor_dir: bundler_dest_dir,
+            bundler_install_dir: bundler_dest_dir,
+            ruby_install_dir: vendor_dir.join("ruby"),
             app_dir: app_dir,
           )
 
           bootstrap.bundler_detect_version
           bootstrap.bundler_download_version
-          entries = Dir.entries("#{bundler_dest_dir}/bundler") - [".", ".."]
-          expect(entries).to include("bin")
-          expect(entries).to include("gems")
+
+          expect(bundler_dest_dir.entries.map(&:to_s)).to include("bin")
+          expect(bundler_dest_dir.entries.map(&:to_s)).to include("gems")
         end
       end
     end

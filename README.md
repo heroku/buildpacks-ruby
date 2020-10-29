@@ -1,4 +1,28 @@
+## Application contract
 
+
+- We will request node to be installed via the heroku/nodejs buildpack on your system when `package.json` is found but `which node` is not present
+  - See heroku/nodejs for their application contract
+- We will determine a version of bundler for you based on the contents of your Gemfile.lock. You cannot specify the exact version, just major version i.e. 1.x or 2.x.
+- We will determine your requested version of Ruby using `bundle platform --ruby` (or similar logic).
+- We will install your gem dependencies using `bundle install`.
+- We will run `bundle clean` after `bundle install` and before caching
+  - We will cache the contents of your gem dependencies
+    - We will invalidate the dependency cache if your Ruby version changes [TODO]
+    - We will invalidate the dependency cache if your stack changes [TODO]
+    - We may invalidate the dependency cache if there was a bug in a prior buildpack version that needs to be fixed [TODO]
+- We will parse your Gemfile.lock to determine what dependencies your app need for use in specializing your install behavior (i.e. Rails 5 versus Rails 4 etc.).
+- We will determine what rake tasks you have available via the output of `rake -P` against your application.
+  - We require applications have a version of `rake` in the Gemfile.lock and a Rakefile variant at the root of their application.
+  - We may error out if this command fails based on your dependencies.
+- We will run `rake assets:precompile` on your app if it exists on your application.
+  - We will skip this task if a manifest file exists in the `public/assets` folder that indicates precompiled assets are checked into git.
+  - We will run `rake assets:clean` on your app.
+    - We will cache the contents of `public/assets` if `assets:clean` exists on your application. [TODO]
+    - We will limit or prune the size of this asset cache [TODO]
+    - We will cache asset "fragments" directories if the `sprockets` gem is on the system [TODO]
+
+Goal: Convert all "may" statements to a more specific "will" so we're explicit about when thing shappen
 
 ## Internal Concepts
 
@@ -50,6 +74,77 @@ Share behavior by sharing objects when possible. Relatedly: Strive for DRY conce
 ### Initialize values, call behavior
 
 In general it's prefered to initialize all values when creating an object rather than passing values in later. We also want to decouple actions from initialization. The pattern here is to have actions respond when executintg `call` on the object. In general it allows us to be flexible with when we create our objets and when we use them.
+
+### Private by default
+
+Methods and accessors should be private when possible. This allows for a more explicit API. An explicit API provides more room for future refacoring and changes while minimizing changes needed to other classes. You can make attr_ methods private like this:
+
+```ruby
+class Whatever
+  private; attr_reader :foo, :bar; public
+end
+```
+
+### attr_reader for values that may be falsey
+
+When working with a variable that may be falsey, prefer to use an `attr_reader` over accessing the instance variable directly. This will guard against spelling mistakes. For example:
+
+```ruby
+class Foo
+  private; attr_reader :value; public
+
+  def initialize(value)
+    @value = value
+  end
+
+  def correct_will_raise_an_error_due_to_misspelling
+    puts "value is set" if valueee
+  end
+
+  def incorrect_will_not_raise_an_error_due_to_misspelling
+    puts "value is set" if @valueee
+  end
+end
+```
+
+For other cases where methods are called on the object being passed in, it's less important.
+
+### Pass values over behavior
+
+This could also be "dependency inversion" if you like jargon. Basically if your class needs to call a method to get a value from another object, instead of passing the object, pass the value:
+
+```ruby
+
+class AssetsPrecompileTooManyDependencies
+  def initialize(rake:)
+    @has_assets_precompile = rake.detect?("assets:precompile")
+  end
+end
+AssetsPrecompileTooManyDependencies.new(rake: rake)
+
+
+class AssetsPrecompileValuesOnly
+  def initialize(has_assets_precompile:)
+    @has_assets_precompile = has_assets_precompile
+  end
+end
+
+AssetsPrecompileValuesOnly.new(has_assets_precompile: rake.detect?("assets:precompile"))
+```
+
+This makes it easier to test since we can test the test the asset precompile logic without also needing to invoke a mock or stub of the rake object. Sometimes classes do need to know about other classes, that's fine when it's needed, but try to pass values when possible.
+
+### Anounce conditionals to the user
+
+If you're going to have different behavior, then tell your user what the difference is and why. For example, don't just "not" load a cache, anounce that the cache will not be loaded due to {reason}. This has the knock on effect of effectively saying almost every 'if' branch also needs an `else` codepath.
+
+### Avoid nested conditionals if possible
+
+This is a personal preference. One nesting is fine, more than that and the logic can get hairy. Consider early returns or moving conditional logic to other parts of code (such as early returns, case statements, or is/elsif.
+
+### Dependency injection for all puts/print/user communication
+
+Instead of outputting to STDOUT or STDERR directly, wrap all communications in an interface that can be injected. This allows capturing that output for tests, as well as for minimizing "stuff in my dots" while unit tests are running.
 
 ## External concepts
 

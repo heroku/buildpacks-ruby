@@ -1,6 +1,20 @@
 require_relative "../spec_helper.rb"
 
 RSpec.describe "This buildpack" do
+  it "bundler 1.x" do
+    Hatchet::Runner.new("default_ruby").tap do |app|
+      app.before_deploy do
+        Pathname(Dir.pwd)
+          .join("Gemfile.lock")
+          .write("BUNDLED WITH\n   1.1.0", mode: "a")
+      end
+      app.deploy do
+        # Test Bundler 1.x
+        expect(app.output).to match("Installing bundler 1.")
+      end
+    end
+  end
+
   it "has its own tests" do
     skip("Must set HATCHET_EXPENSIVE_MODE") unless ENV["HATCHET_EXPENSIVE_MODE"]
 
@@ -10,15 +24,14 @@ RSpec.describe "This buildpack" do
         Pathname(Dir.pwd).join("Procfile").write <<~EOM
           web: # No-op, needed so we can scale up for run_multi
         EOM
-        # Test Bundler 2.x
-        Pathname(Dir.pwd).join("Gemfile.lock").open("a") do |f|
-          f.puts <<~EOM
-            BUNDLED WITH
-               2.1.4
-          EOM
-        end
+        Pathname(Dir.pwd)
+          .join("Gemfile.lock")
+          .write("BUNDLED WITH\n   2.1.4", mode: "a")
       end
       app.deploy do
+        # Test bundler 2.x
+        expect(app.output).to match("Installing bundler 2.")
+
         # Test deploy succeeded
         expect(app.output).to match("deployed to Heroku")
 

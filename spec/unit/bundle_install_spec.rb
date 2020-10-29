@@ -26,6 +26,7 @@ RSpec.describe "BundleInstall" do
         expect(ENV["GEM_PATH"]).to include(gems_dir.to_s)
         expect(ENV["BUNDLE_BIN"]).to include(gems_dir.join("bin").to_s)
         expect(ENV["BUNDLE_PATH"]).to include(gems_dir.to_s)
+        expect(ENV["PATH"]).to include(gems_dir.join("bin").to_s)
 
         expect(ENV["BUNDLE_WITHOUT"]).to eq("development:test")
         expect(ENV["BUNDLE_GEMFILE"]).to eq(app_dir.join("Gemfile").to_s)

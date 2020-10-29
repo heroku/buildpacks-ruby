@@ -19,6 +19,17 @@ RSpec.describe "env proxy" do
     key
   end
 
+  it "does not let special characters in env vars affect exporting" do
+    env_var = HerokuBuildpackRuby::EnvProxy.path(unique_env_key)
+    ENV[env_var.key] = "a\nb"
+    env_var.prepend(foo: "c")
+
+    expect(env_var.value).to eq("c:a\nb")
+    expect(env_var.to_export).to eq(%Q{export #{env_var.key}="c:$#{env_var.key}"})
+  ensure
+    HerokuBuildpackRuby::EnvProxy.delete(env_var)
+  end
+
   it "lol example" do
     env_var = HerokuBuildpackRuby::EnvProxy.path(unique_env_key)
     env_var.prepend(foo: ["/app/lol", "haha"])

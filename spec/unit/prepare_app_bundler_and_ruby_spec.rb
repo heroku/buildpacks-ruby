@@ -2,7 +2,7 @@ require_relative "../spec_helper.rb"
 
 RSpec.describe "PrepareAppBundlerAndRuby" do
   describe "interfaces get called" do
-    it "blerg" do
+    it "integration" do
       Dir.mktmpdir do |app_dir|
         Dir.mktmpdir do |vendor_dir|
           isolate_in_fork do
@@ -87,23 +87,6 @@ RSpec.describe "PrepareAppBundlerAndRuby" do
         bundler_version = bootstrap.bundler_detect_version
 
         expect(bundler_version).to eq(HerokuBuildpackRuby::BundlerDetectVersion::BUNDLER_VERSIONS["2"])
-      end
-    end
-
-    it "detects version default when not specified" do
-      Dir.mktmpdir do |dir|
-        FileUtils.touch("#{dir}/Gemfile.lock")
-
-        vendor_dir = Pathname(dir).join(".heroku/")
-        bootstrap = HerokuBuildpackRuby::PrepareAppBundlerAndRuby.new(
-          buildpack_ruby_path: which_ruby,
-          bundler_install_dir: vendor_dir.join("bundler"),
-          ruby_install_dir: vendor_dir.join("ruby"),
-          app_dir: dir,
-        )
-        bundler_version = bootstrap.bundler_detect_version
-
-        expect(bundler_version).to eq(HerokuBuildpackRuby::BundlerDetectVersion::BUNDLER_VERSIONS["1"])
       end
     end
 

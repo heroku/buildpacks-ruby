@@ -2,21 +2,54 @@ require_relative "../spec_helper.rb"
 
 RSpec.describe "This buildpack" do
   it "has its own tests" do
-    Hatchet::Runner.new("default_ruby").tap do |app|
+    skip("Must set HATCHET_EXPENSIVE_MODE") unless ENV["HATCHET_EXPENSIVE_MODE"]
+
+    Hatchet::Runner.new("default_ruby", run_multi: true).tap do |app|
       app.before_deploy do
+        # TODO default process types
+        Pathname(Dir.pwd).join("Procfile").write <<~EOM
+          web: # No-op, needed so we can scale up for run_multi
+        EOM
+        # Test Bundler 2.x
+        Pathname(Dir.pwd).join("Gemfile.lock").open("a") do |f|
+          f.puts <<~EOM
+            BUNDLED WITH
+               2.1.4
+          EOM
+        end
       end
       app.deploy do
-        # Assert the behavior you desire here
+        # Test deploy succeeded
         expect(app.output).to match("deployed to Heroku")
+
+        # Test dependencies installed
         expect(app.output).to match("Installing rake")
-        expect(app.run("ruby -v")).to match("2.6.6")
+
+        # Test default ruby is installed
+        app.run_multi("ruby -v") do |out, status|
+          expect(out).to match(HerokuBuildpackRuby::RubyDetectVersion::DEFAULT)
+          expect(status.success?).to be_truthy
+        end
 
         # Test that the system path isn't clobbered
-        expect(app.run("which bash").strip).to eq("/bin/bash")
+        app.run_multi("which bash") do |out, status|
+          expect(out.strip).to eq("/bin/bash")
+          expect(status.success?).to be_truthy
+        end
 
+        # Verify gem installation location does not change
+        # and binstubs are on the path
+        app.run_multi("which -a rake") do |out, status|
+          # Gem rake version
+          expect(out).to include("/app/.heroku/ruby/gems/bin/rake")
+          expect(status.success?).to be_truthy
+        end
+
+        # Test deploys twice without error
         app.commit!
         app.push!
 
+        # Test uses cache after re-deploy
         expect(app.output).to match("Using rake")
       end
     end

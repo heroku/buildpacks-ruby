@@ -10,7 +10,7 @@ module HerokuBuildpackRuby
 
     NOKOGIRI_USE_SYSTEM_LIBRARIES_ENV = EnvProxy.value("NOKOGIRI_USE_SYSTEM_LIBRARIES")
 
-    private; attr_reader :bundle_output, :bundle_without_default, :bundle_install_gems_dir, :user_comms, :bundle_gems_binsub_dir; public
+    private; attr_reader :bundle_output, :bundle_without_default, :bundle_install_gems_dir, :user_comms, :bundle_gems_binstub_dir; public
 
     def initialize(app_dir: , bundle_without_default: , bundle_install_gems_dir:, user_comms: , metadata: Metadata::Null.new)
       @user_comms = user_comms
@@ -18,7 +18,7 @@ module HerokuBuildpackRuby
       @metadata = metadata
       @bundle_without_default = bundle_without_default
       @bundle_install_gems_dir = Pathname(bundle_install_gems_dir)
-      @bundle_gems_binsub_dir = @bundle_install_gems_dir.join("bin")
+      @bundle_gems_binstub_dir = @bundle_install_gems_dir.join("bin")
       @bundle_output = nil
     end
 
@@ -68,8 +68,10 @@ module HerokuBuildpackRuby
       fix_bundle_without_space if BUNDLE_WITHOUT_ENV.value.include?(' ')
 
       BUNDLE_PATH_ENV.set(bundler: bundle_install_gems_dir)
-      BUNDLE_BIN_ENV.set(bundler: bundle_gems_binsub_dir)
+      BUNDLE_BIN_ENV.set(bundler: bundle_gems_binstub_dir)
       BUNDLE_DEPLOYMENT_ENV.set(bundler: 1)
+
+      PATH_ENV.prepend(gems: bundle_gems_binstub_dir)
     end
 
     private def bundle_clean

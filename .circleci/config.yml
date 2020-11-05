@@ -1,7 +1,7 @@
 version: 2.1
 orbs:
   pack: buildpacks/pack@0.2.0
-  ruby: circleci/ruby@1.1.1
+  ruby: circleci/ruby@1.1.2
 
 references:
   hatchet: &hatchet
@@ -26,15 +26,6 @@ references:
       command: |
         bundle exec hatchet ci:setup
 
-  # Needed because the ruby orb does not work with the machine executor
-  # https://support.circleci.com/hc/en-us/articles/360011595473-How-Do-I-Use-a-Custom-Ruby-Version-When-Using-the-Machine-Executor-
-  ruby_install: &ruby_install
-    run:
-      name: Set Ruby version with RVM
-      command: |
-                rvm install 2.7.2
-                echo . $(rvm 2.7.2 do rvm env --path) >> $BASH_ENV
-
 jobs:
   unit:
     docker:
@@ -57,7 +48,8 @@ jobs:
     steps:
       - checkout
       - pack/install-pack
-      - <<: *ruby_install
+      - ruby/install:
+          version: "2.7"
       - ruby/install-deps
       - <<: *hatchet_setup
       - <<: *pack_cnb
@@ -66,7 +58,8 @@ jobs:
     steps:
       - checkout
       - pack/install-pack
-      - <<: *ruby_install
+      - ruby/install:
+          version: "2.7"
       - ruby/install-deps
       - <<: *hatchet_setup
       - <<: *docker_commands

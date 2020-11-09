@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module HerokuBuildpackRuby
   # Base class for EnvProxy types
   #

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module HerokuBuildpackRuby
   # Parses a Gemfile.lock so the contents can be inspected
   #

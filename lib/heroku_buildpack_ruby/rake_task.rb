@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module HerokuBuildpackRuby
 
   # A wrapper for running rake tasks

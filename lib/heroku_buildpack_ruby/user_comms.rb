@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module HerokuBuildpackRuby
   class UserComms; end
   # This class is used to format output for the user targeted at v2/legacy (bin/compile) mode

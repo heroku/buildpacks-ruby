@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative "bash.rb"
 require_relative "env_proxy.rb"
 require_relative "curl_fetch.rb"

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module HerokuBuildpackRuby
   # Copy the cache from one location to another
   #

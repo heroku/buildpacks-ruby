@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 $LOAD_PATH << Pathname(__dir__).join("../../gems").glob("tomlrb-*").first.join("lib")
 require 'tomlrb'
 

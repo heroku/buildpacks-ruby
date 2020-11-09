@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module HerokuBuildpackRuby
   # Removes the BUNDLED WITH statement from a lockfile
   #

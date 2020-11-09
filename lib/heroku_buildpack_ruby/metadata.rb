@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module HerokuBuildpackRuby
 
   # The main interface for writing durable data to a metadata store

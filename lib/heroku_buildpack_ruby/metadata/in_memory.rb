@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module HerokuBuildpackRuby
   # A temporary in-memory metadata store
   # mostly used for testing

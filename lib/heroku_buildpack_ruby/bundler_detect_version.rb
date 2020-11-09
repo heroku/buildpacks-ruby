@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module HerokuBuildpackRuby
   # Detect the bundler version of an app's Gemfile.lock
   #

@@ -2,8 +2,6 @@
 
 require_relative "../spec_helper.rb"
 
-require 'heroku_buildpack_ruby/env_proxy'
-
 RSpec.describe "env proxy" do
   before(:all) do
     HerokuBuildpackRuby::EnvProxy.register_layer(:foo, build: true, cache: true,  launch: true)
@@ -106,6 +104,29 @@ RSpec.describe "env proxy" do
         bar: "i am different"
       )
     }.to raise_error(/cannot set the same ENV var/)
+  end
+
+  it "default will use the user env value if one is present" do
+    key = unique_env_key
+    Dir.mktmpdir do |dir|
+      dir = Pathname(dir)
+      dir.join(key).write("lol")
+
+      user_env = HerokuBuildpackRuby::UserEnvFromDir.new.parse(dir)
+      env_var = HerokuBuildpackRuby::EnvProxy.default(key, user_env: user_env)
+      env_var.set_default(
+        foo: "/hi/there/hi",
+      )
+
+      expect(HerokuBuildpackRuby::EnvProxy).to include(env_var)
+
+      # Modifies ENV
+      expect(ENV[env_var.key]).to eq("lol")
+      expect(env_var.value).to eq("lol")
+      expect(env_var.to_env).to eq(%Q{#{env_var.key}="lol" })
+    end
+  ensure
+    ENV.delete(key) if key
   end
 
   it "default acts like a default" do

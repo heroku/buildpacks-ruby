@@ -71,4 +71,34 @@ RSpec.describe "BundleInstall" do
       end
     end
   end
+
+  it "handles user defined BUNDLE_WITHOUT" do
+    Hatchet::Runner.new("default_ruby").in_directory_fork do
+      stringio = StringIO.new
+      app_dir = Pathname(Dir.pwd)
+      gems_dir = app_dir.join(".heroku/ruby/gems").tap(&:mkpath)
+
+      Dir.mktmpdir do |dir|
+        dir = Pathname(dir)
+        dir.join("BUNDLE_WITHOUT").write("i have spaces")
+        HerokuBuildpackRuby::UserEnv.parse(dir)
+      end
+
+      Bundler.with_original_env do
+        HerokuBuildpackRuby::BundleInstall.new(
+          app_dir: Dir.pwd,
+          bundle_without_default: "development:test",
+          bundle_install_gems_dir: gems_dir,
+          user_comms: HerokuBuildpackRuby::UserComms::V2.new(stringio)
+        ).call
+
+        puts stringio.string
+        expect(stringio.string).to include("Warning")
+        expect(stringio.string).to include('BUNDLE_WITHOUT="i:have:spaces"')
+        expect(stringio.string).to include('heroku config:set BUNDLE_WITHOUT="i:have:spaces"')
+      ensure
+        HerokuBuildpackRuby::UserEnv.clear
+      end
+    end
+  end
 end

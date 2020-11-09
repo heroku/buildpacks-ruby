@@ -55,7 +55,7 @@ module HerokuBuildpackRuby
         @layer_env_hash[k] = value
       end
 
-      ENV[@key] ||= value
+      ENV[key] ||= @user_env[key] || value
 
       self
     end

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "heroku_buildpack_ruby/user_env_from_dir.rb"
+
 require_relative "heroku_buildpack_ruby/prepare_app_bundler_and_ruby.rb"
 require_relative "heroku_buildpack_ruby/bundler_lockfile_parser.rb"
 require_relative "heroku_buildpack_ruby/bundle_install.rb"
@@ -29,6 +31,7 @@ module HerokuBuildpackRuby
 
   def self.compile_legacy(build_dir: , cache_dir:, env_dir: , buildpack_ruby_path:)
     app_dir = Pathname(build_dir)
+    UserEnv.parse(env_dir)
 
     Dir.chdir(app_dir) do
       export = BUILDPACK_DIR.join("export")
@@ -66,7 +69,6 @@ module HerokuBuildpackRuby
         ).call
       end
 
-
       lockfile = HerokuBuildpackRuby::BundlerLockfileParser.new(
         gemfile_lock_path: gemfile_lock_path,
         bundler_install_dir: bundler_install_dir,
@@ -99,6 +101,8 @@ module HerokuBuildpackRuby
   end
 
   def self.build_cnb(layers_dir: , platform_dir: , env_dir: , plan: , app_dir: , buildpack_ruby_path:)
+    UserEnv.parse(env_dir)
+
     Dir.chdir(app_dir) do
       app_dir = Pathname(app_dir)
       layers_dir = Pathname(layers_dir)

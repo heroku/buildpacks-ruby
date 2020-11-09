@@ -18,16 +18,23 @@ module HerokuBuildpackRuby
         super <<~EOM
           Bash command failed
 
-          Original: #{bash.raw_command}
-          Escaped: #{bash.command}
-          Out: "#{out}"
+          Original:
+            #{bash.raw_command}
+
+          Escaped:
+            #{bash.command_without_env}
+
+          Out:
+            "#{out}"
         EOM
       end
     end
 
+    private; attr_reader :user_env; public
     attr_reader :command, :raw_command
 
-    def initialize(raw_command, max_attempts: 0, redirect: "2>&1")
+    def initialize(raw_command, max_attempts: 0, redirect: "2>&1", user_env: UserEnv)
+      @user_env = user_env
       @raw_command = raw_command
       @max_attempts = max_attempts
       @redirect = redirect
@@ -59,8 +66,20 @@ module HerokuBuildpackRuby
       out
     end
 
+    def command_without_env
+      return @command if user_env&.empty?
+
+      @command.sub(user_env.to_shell, "<REDACTED>")
+    end
+
     private def build_command
-      "/usr/bin/env bash -c #{@raw_command.shellescape} #{@redirect} "
+      array = []
+      array << "/usr/bin/env"
+      array << user_env.to_shell if user_env
+      array << "bash -c"
+      array << @raw_command.shellescape
+      array << @redirect
+      array.join(" ")
     end
   end
 end

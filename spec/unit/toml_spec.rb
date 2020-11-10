@@ -2,17 +2,18 @@
 
 require_relative "../spec_helper.rb"
 
+module HerokuBuildpackRuby
+  RSpec.describe "toml" do
+    it "parses toml correctly" do
+      toml = <<~EOM
+        [[provides]]
+        name = "hello"
+        [[provides]]
+        name = "there"
+      EOM
 
-RSpec.describe "toml" do
-  it "parses toml correctly" do
-    toml = <<~EOM
-      [[provides]]
-      name = "hello"
-      [[provides]]
-      name = "there"
-    EOM
-
-    actual = HerokuBuildpackRuby::TOML.load(toml)
-    expect(actual).to eq({provides: [{name: "hello"}, {name: "there"}]})
+      actual = HerokuBuildpackRuby::TOML.load(toml)
+      expect(actual).to eq({provides: [{name: "hello"}, {name: "there"}]})
+    end
   end
 end

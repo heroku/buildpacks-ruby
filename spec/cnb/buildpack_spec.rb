@@ -76,63 +76,65 @@ class CnbRun
   end
 end
 
-RSpec.describe "Cloud Native Buildpack" do
-  it "locally runs default_ruby app" do
-    CnbRun.new(hatchet_path("ruby_apps/default_ruby"), buildpack_paths: [buildpack_path]).call do |app|
-      expect(app.output).to include("Installing rake")
+module HerokuBuildpackRuby
+  RSpec.describe "Cloud Native Buildpack" do
+    it "locally runs default_ruby app" do
+      CnbRun.new(hatchet_path("ruby_apps/default_ruby"), buildpack_paths: [buildpack_path]).call do |app|
+        expect(app.output).to include("Installing rake")
 
-      app.run_multi!("ruby -v") do |out|
-        expect(out).to match(HerokuBuildpackRuby::RubyDetectVersion::DEFAULT)
-      end
+        app.run_multi!("ruby -v") do |out|
+          expect(out).to match(RubyDetectVersion::DEFAULT)
+        end
 
-      app.run_multi!("bundle list") do |out|
-        expect(out).to match("rack")
-      end
+        app.run_multi!("bundle list") do |out|
+          expect(out).to match("rack")
+        end
 
-      app.run_multi!("gem list") do |out|
-        expect(out).to match("rack")
-      end
+        app.run_multi!("gem list") do |out|
+          expect(out).to match("rack")
+        end
 
-      app.run_multi!(%Q{ruby -e "require 'rack'; puts 'done'"}) do |out|
-        expect(out).to match("done")
-      end
+        app.run_multi!(%Q{ruby -e "require 'rack'; puts 'done'"}) do |out|
+          expect(out).to match("done")
+        end
 
-      app.build!
+        app.build!
 
-      expect(app.output).to include("Using rake")
-    end
-  end
-
-  it "installs node and yarn and calls assets:precompile" do
-    CnbRun.new(hatchet_path("ruby_apps/minimal_webpacker"), buildpack_paths: ["heroku/nodejs", buildpack_path]).call do |app|
-      # This output comes from the heroku/nodejs buildpack
-      expect(app.output).to include("Installing rake")
-      expect(app.output).to include("Installing yarn")
-
-      # This output comes from the contents of the Rakefile
-      # https://github.com/sharpstone/minimal_webpacker/blob/master/Rakefile
-      expect(app.output).to include("THE TASK ASSETS:PRECOMPILE WAS CALLED")
-      expect(app.output).to include("THE TASK ASSETS:CLEAN WAS CALLED")
-
-      app.run_multi!("which node") do |out, status|
-        expect(out.strip).to_not be_empty
-        expect(status.success?).to be_truthy
-      end
-
-      app.run_multi!("which yarn") do |out, status|
-        expect(out.strip).to_not be_empty
-        expect(status.success?).to be_truthy
+        expect(app.output).to include("Using rake")
       end
     end
-  end
 
-  it "Respects user config vars" do
-    CnbRun.new(
-      hatchet_path("ruby_apps/default_ruby"),
-      buildpack_paths: [buildpack_path],
-      config: {"BUNDLE_WITHOUT": "periwinkle"}
-    ).call do |app|
-      expect(app.output).to include(%Q{BUNDLE_WITHOUT="periwinkle"})
+    it "installs node and yarn and calls assets:precompile" do
+      CnbRun.new(hatchet_path("ruby_apps/minimal_webpacker"), buildpack_paths: ["heroku/nodejs", buildpack_path]).call do |app|
+        # This output comes from the heroku/nodejs buildpack
+        expect(app.output).to include("Installing rake")
+        expect(app.output).to include("Installing yarn")
+
+        # This output comes from the contents of the Rakefile
+        # https://github.com/sharpstone/minimal_webpacker/blob/master/Rakefile
+        expect(app.output).to include("THE TASK ASSETS:PRECOMPILE WAS CALLED")
+        expect(app.output).to include("THE TASK ASSETS:CLEAN WAS CALLED")
+
+        app.run_multi!("which node") do |out, status|
+          expect(out.strip).to_not be_empty
+          expect(status.success?).to be_truthy
+        end
+
+        app.run_multi!("which yarn") do |out, status|
+          expect(out.strip).to_not be_empty
+          expect(status.success?).to be_truthy
+        end
+      end
+    end
+
+    it "Respects user config vars" do
+      CnbRun.new(
+        hatchet_path("ruby_apps/default_ruby"),
+        buildpack_paths: [buildpack_path],
+        config: {"BUNDLE_WITHOUT": "periwinkle"}
+      ).call do |app|
+        expect(app.output).to include(%Q{BUNDLE_WITHOUT="periwinkle"})
+      end
     end
   end
 end

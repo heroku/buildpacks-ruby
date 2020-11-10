@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 curl_retry_on_18() {
   local ec=18;
   local attempts=0;
@@ -176,19 +178,39 @@ which_node()
   which node
 }
 
-# Returns truthy if the project needs node installed
+# Returns truthy if the project needs node installed but does not
+# have a package.json for example if a Gem in the gemfile depends on node
+needs_package_json()
+{
+  local app_dir=$1
+  local truthy=0
+  local falsey=1
+
+  # If it already has it, don't over-write
+  if [ -f "$app_dir/package.json" ];then
+    return $falsey
+  fi
+
+  if grep -Fq "execjs" "$app_dir/Gemfile.lock";then
+    return $truthy
+  else
+    return $falsey
+  fi
+}
+
 detect_needs_node()
 {
+
+  local app_dir=$1
 
   local needs_node=0
   local skip_node_install=1
 
-  if [ $(which_node) ]; then
+  if which_node; then
     return $skip_node_install
   fi
 
-  local build_dir=$1
-  if [ -f "$build_dir/package.json" ];then
+  if [ -f "$app_dir/package.json" ];then
     return $needs_node
   else
     return $skip_node_install

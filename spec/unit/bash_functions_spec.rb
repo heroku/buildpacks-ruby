@@ -156,6 +156,42 @@ RSpec.describe "bash_functions.sh" do
     end
   end
 
+  it "detects if execjs is present" do
+    Dir.mktmpdir do |dir|
+      build_dir = Pathname(dir)
+      package_json = build_dir.join("package.json")
+      expect(package_json).to_not be_file
+
+      build_dir.join("Gemfile.lock").write <<~EOM
+        coffee-script (2.4.1)
+          coffee-script-source
+          execjs
+      EOM
+
+      exec_with_bash_functions <<~EOM
+        BUILD_DIR="#{build_dir}"
+        if needs_package_json "$BUILD_DIR"; then
+          echo "{}" > "$BUILD_DIR/package.json"
+        fi
+      EOM
+
+      expect(package_json).to be_file
+      expect(package_json.read.strip).to eq("{}")
+
+      build_dir.join("Gemfile.lock").write ""
+      package_json.delete
+
+      exec_with_bash_functions <<~EOM
+        BUILD_DIR="#{build_dir}"
+        if needs_package_json "$BUILD_DIR"; then
+          echo "{}" > "$BUILD_DIR/package.json"
+        fi
+      EOM
+
+      expect(package_json).to_not be_file
+    end
+  end
+
   it "outputs a ruby plan" do
     Dir.mktmpdir do |dir|
       build_dir = Pathname(dir)

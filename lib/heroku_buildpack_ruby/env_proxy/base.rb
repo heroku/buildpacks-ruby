@@ -44,8 +44,9 @@ module HerokuBuildpackRuby
     # - EnvPxoxy.value("FOO")
     # - EnvPxoxy.path("FOO_PATH")
     #
-    def initialize(key)
+    def initialize(key, user_env: UserEnv)
       @key = key
+      @user_env = user_env
 
       @layer_env_hash = {}
     end
@@ -60,7 +61,7 @@ module HerokuBuildpackRuby
     #
     #   puts LOL_PATH_ENV.to_env # => 'LOL_PATH="/app/lol" '
     def to_env
-      %Q{#{key}="#{ENV[key]}" }
+      %Q{#{key}="#{value}" }
     end
 
     # Returns the currently set env var

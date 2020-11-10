@@ -5,17 +5,21 @@ require_relative '../spec_helper'
 class CnbRun
   attr_accessor :image_name, :output, :repo_path, :buildpack_path, :builder
 
-  def initialize(repo_path, builder: "heroku/buildpacks:18", buildpack_paths: )
+  def initialize(repo_path, builder: "heroku/buildpacks:18", buildpack_paths: , config: {})
     @repo_path = repo_path
     @image_name = "minimal-heroku-buildpack-ruby-tests:#{SecureRandom.hex}"
     @builder = builder
     @buildpack_paths = Array.new(buildpack_paths)
     @build_output = ""
     @threads = []
+    @config = config
   end
 
   def build!
     command = String.new("pack build #{image_name} --path #{repo_path} --builder heroku/buildpacks:18")
+    @config.each do |(k,v)|
+      command << %Q{ --env "#{k}=#{v}"}
+    end
     @buildpack_paths.each do |path|
       command << " --buildpack #{path}"
     end
@@ -119,6 +123,16 @@ RSpec.describe "Cloud Native Buildpack" do
         expect(out.strip).to_not be_empty
         expect(status.success?).to be_truthy
       end
+    end
+  end
+
+  it "Respects user config vars" do
+    CnbRun.new(
+      hatchet_path("ruby_apps/default_ruby"),
+      buildpack_paths: [buildpack_path],
+      config: {"BUNDLE_WITHOUT": "periwinkle"}
+    ).call do |app|
+      expect(app.output).to include(%Q{BUNDLE_WITHOUT="periwinkle"})
     end
   end
 end

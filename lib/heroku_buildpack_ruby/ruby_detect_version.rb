@@ -75,7 +75,8 @@ module HerokuBuildpackRuby
     def bundler_output_from_shell!
       # Run `bundle platform --ruby` but use the bootstrapped version of ruby for the buildpack
       # To do this we directly call the bootstrapped binary path then directly pass it the bootstrapped ruby
-      output = Bash.new(%Q{BUNDLE_GEMFILE="#{gemfile_path}" #{buildpack_ruby_path} #{bundler_path} platform --ruby}).run!
+      command = %Q{BUNDLE_GEMFILE="#{gemfile_path}" #{buildpack_ruby_path} #{bundler_path} platform --ruby}
+      output = Bash.new(command, user_env: false).run!
       output = output.strip.lines.last
 
       if output.match(/No ruby version specified/)

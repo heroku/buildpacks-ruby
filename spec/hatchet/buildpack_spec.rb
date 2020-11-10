@@ -3,6 +3,17 @@
 require_relative "../spec_helper.rb"
 
 RSpec.describe "This buildpack" do
+  it "user env compile" do
+    Hatchet::Runner.new("default_ruby", config: {"BUNDLE_WITHOUT": "periwinkle"}).tap do |app|
+      app.before_deploy do
+      end
+      app.deploy do
+        expect(app.output).to include(%Q{BUNDLE_WITHOUT="periwinkle"})
+        expect(app.output).to match("Installing bundler 1.")
+      end
+    end
+  end
+
   it "bundler 1.x" do
     Hatchet::Runner.new("default_ruby").tap do |app|
       app.before_deploy do

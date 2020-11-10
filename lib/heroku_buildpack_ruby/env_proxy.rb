@@ -133,8 +133,8 @@ module HerokuBuildpackRuby
     #   puts ENV["LOL"] #=> "haha"
     #
     #   > Note: The value didn't change since it was already set
-    def self.default(key)
-      value = EnvProxy::Default.new(key)
+    def self.default(key, user_env: UserEnv)
+      value = EnvProxy::Default.new(key, user_env: user_env)
       @env_array << value
       value
     end

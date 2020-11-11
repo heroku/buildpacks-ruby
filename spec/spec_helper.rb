@@ -13,6 +13,8 @@ require 'stringio'
 require 'securerandom'
 require 'timeout'
 
+require "syntax_search/auto"
+
 require "heroku_buildpack_ruby"
 
 RSpec.configure do |config|

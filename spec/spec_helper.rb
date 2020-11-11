@@ -119,3 +119,9 @@ def isolate_in_fork
     end
   end
 end
+
+class String
+  def strip_control_codes
+    self.gsub(/\e\[[^\x40-\x7E]*[\x40-\x7E]/, "")
+  end
+end

@@ -34,7 +34,7 @@ module HerokuBuildpackRuby
     end
 
     private def warn_assets_precompiled_maniefest
-      @user_comms.puts("Skipping `rake assets:precompile`: Precompiled asset manifest found: #{assets_manifest}")
+      @user_comms.info("Skipping `rake assets:precompile`: Precompiled asset manifest found: #{assets_manifest}")
     end
 
     private def assets_precompile
@@ -42,7 +42,7 @@ module HerokuBuildpackRuby
         @user_comms.topic("Running: rake assets:precompile")
         RakeTask.new("assets:precompile", stream: @user_comms).call
       else
-        @user_comms.puts("Asset compilation skipped: `rake assets:precompile` not found")
+        @user_comms.info("Asset compilation skipped: `rake assets:precompile` not found")
       end
     end
 
@@ -52,7 +52,7 @@ module HerokuBuildpackRuby
 
         RakeTask.new("assets:clean", stream: @user_comms).call
       else
-        @user_comms.puts("Asset clean skipped: `rake assets:clean` not found")
+        @user_comms.info("Asset clean skipped: `rake assets:clean` not found")
       end
     end
 

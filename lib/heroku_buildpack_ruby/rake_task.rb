@@ -15,7 +15,7 @@ module HerokuBuildpackRuby
 
     def initialize(task, stream: nil)
       @bash_task = Bash.new("rake #{task}")
-      @stream = stream || StringIO.new
+      @stream = stream || UserComms::Null.new
       @called = false
       @status = nil
       @out = String.new
@@ -26,7 +26,7 @@ module HerokuBuildpackRuby
 
       @bash_task.stream do |lines|
         @out << lines
-        @stream.puts lines
+        @stream.info lines
       end
       @status = $?.success?
 

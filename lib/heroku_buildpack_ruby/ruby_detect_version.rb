@@ -92,20 +92,19 @@ module HerokuBuildpackRuby
     end
 
     private def warn_default_ruby
-      warning = <<~WARNING
-        You have not declared a Ruby version in your Gemfile.
+      user_comms.warn_later(
+        title: "No declared Ruby version",
+        link: "https://devcenter.heroku.com/articles/ruby-versions",
+        body: <<~WARNING
+          You have not declared a Ruby version in your Gemfile.
 
-        To declare a Ruby version add this line to your Gemfile:
+          To declare a Ruby version add this line to your Gemfile:
 
-        ```
-        ruby "#{default_version}"
-        ```
-
-        For more information see:
-          https://devcenter.heroku.com/articles/ruby-versions
-      WARNING
-
-      user_comms.warn_later(warning)
+          ```
+          ruby "#{default_version}"
+          ```
+        WARNING
+      )
     end
   end
 end

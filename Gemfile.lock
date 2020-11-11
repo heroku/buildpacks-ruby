@@ -45,7 +45,7 @@ GEM
     rspec-retry (0.6.2)
       rspec-core (> 3.3)
     rspec-support (3.9.3)
-    syntax_search (0.1.0)
+    syntax_search (0.1.1)
       parser
     thor (1.0.1)
     threaded (0.0.4)

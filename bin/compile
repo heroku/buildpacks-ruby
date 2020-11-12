@@ -6,10 +6,29 @@ BUILD_DIR=$1
 CACHE_DIR=$2
 ENV_DIR=$3
 
-BIN_DIR=$(cd $(dirname "$0"); pwd)
+BIN_DIR=$(cd "$(dirname "$0")"; pwd)
 BUILDPACK_DIR=$(dirname "$BIN_DIR")
 
+# shellcheck source=bin/support/bash_functions.sh
 source "$BIN_DIR/support/bash_functions.sh"
+
+if detect_needs_java "$BUILD_DIR"; then
+  cat <<EOM
+
+       ## Warning: Your app needs java
+
+       The Ruby buildpack determined your app needs java installed
+       we recommend you add the node buildpack to your application:
+
+         $ heroku buildpacks:add heroku/jvm --index=1
+
+-----> Installing Java
+
+EOM
+
+  compile_buildpack_v2 "$BUILD_DIR" "$CACHE_DIR" "$ENV_DIR" "https://buildpack-registry.s3.amazonaws.com/buildpacks/heroku/jvm.tgz" "heroku/jvm"
+fi
+
 
 if needs_package_json "$BUILD_DIR"; then
   echo "      Writing package.json"
@@ -19,7 +38,7 @@ fi
 if detect_needs_node "$BUILD_DIR"; then
   cat <<EOM
 
-       ## Warning
+       ## Warning: Your app need node
 
        The Ruby buildpack determined your app needs node installed
        we recommend you add the node buildpack to your application:
@@ -37,7 +56,7 @@ fi
 
 bootstrap_ruby_to_buildpack_dir
 
-cat <<EOF | $(buildpack_ruby_path) -I$BUILDPACK_DIR/lib -rheroku_buildpack_ruby
+cat <<EOF | $(buildpack_ruby_path) -I"$BUILDPACK_DIR/lib" -rheroku_buildpack_ruby
   HerokuBuildpackRuby.compile_legacy(
     build_dir: '$BUILD_DIR',
     cache_dir: '$CACHE_DIR',

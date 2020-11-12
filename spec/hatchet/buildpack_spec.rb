@@ -4,7 +4,7 @@ require_relative "../spec_helper.rb"
 
 module HerokuBuildpackRuby
   RSpec.describe "This buildpack" do
-    describe "jruby" do
+    it "jruby" do
       Hatchet::Runner.new("default_ruby").tap do |app|
         app.before_deploy do
           dir = Pathname(Dir.pwd)
@@ -26,10 +26,11 @@ module HerokuBuildpackRuby
 
             DEPENDENCIES
           EOM
-          dir.join("system.properties").write("java.runtime.version=1.7")
         end
         app.deploy do
-          puts app.output
+          expect(app.output).to include("Installing JDK")
+          expect(app.output).to include("Using Ruby version: 2.5.7-jruby-9.2.13.0")
+          expect(app.output).to include("Bundle complete")
         end
       end
     end

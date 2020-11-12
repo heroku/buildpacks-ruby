@@ -13,18 +13,23 @@ module HerokuBuildpackRuby
       @version = version
       @user_comms = user_comms
       @install_dir = Pathname(install_dir).tap(&:mkpath)
+      @fetcher = CurlFetch.new(
+        "ruby-#{version}.tgz",
+        folder: stack,
+        install_dir: install_dir
+      )
 
       raise "Must provide a stack #{@stack} to download a Ruby version" if @stack.to_s.empty?
     end
 
+    def exist?
+      @fetcher.exist?
+    end
+    alias :exists? :exist?
+
     def call
       user_comms.info("Using Ruby version: #{version}")
-
-      CurlFetch.new(
-        "ruby-#{version}.tgz",
-        folder: stack,
-        install_dir: install_dir
-      ).fetch_untar
+      @fetcher.fetch_untar
     end
   end
 end

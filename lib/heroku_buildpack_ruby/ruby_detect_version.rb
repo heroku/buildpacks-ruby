@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "pathname"
+require_relative "ruby_version_info.rb"
 
 module HerokuBuildpackRuby
   # Detects the app's Ruby version based off of Gemfile.lock contents or `bundle platform --ruby` output
@@ -56,9 +57,15 @@ module HerokuBuildpackRuby
     def call
       out = bundler_output
       if (md = RUBY_VERSION_REGEX.match(out))
-        @version = md[:ruby_version]
+        @version = RubyVersionInfo.new(
+          engine: md[:engine],
+          version: md[:ruby_version],
+          engine_version: md[:engine_version]
+        )
       else
-        @version = ruby_metadata.fetch(:default_version) { default_version }
+        @version = RubyVersionInfo.new(
+          version: ruby_metadata.fetch(:default_version) { default_version }
+        )
         warn_default_ruby
       end
       self

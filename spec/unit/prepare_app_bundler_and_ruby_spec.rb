@@ -66,7 +66,7 @@ module HerokuBuildpackRuby
           )
           ruby_version = bootstrap.ruby_detect_version
 
-          expect(ruby_version).to eq("2.6.23")
+          expect(ruby_version.to_s).to eq("2.6.23")
         end
       end
     end

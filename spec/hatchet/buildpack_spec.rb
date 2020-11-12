@@ -4,6 +4,36 @@ require_relative "../spec_helper.rb"
 
 module HerokuBuildpackRuby
   RSpec.describe "This buildpack" do
+    describe "jruby" do
+      Hatchet::Runner.new("default_ruby").tap do |app|
+        app.before_deploy do
+          dir = Pathname(Dir.pwd)
+          dir.join("Gemfile").write <<~EOM
+            source "https://rubygems.org"
+
+            ruby '2.5.7', engine: 'jruby', engine_version: '9.2.13.0'
+          EOM
+          dir.join("Gemfile.lock").write <<~EOM
+            GEM
+              remote: https://rubygems.org/
+              specs:
+
+            PLATFORMS
+              java
+
+            RUBY VERSION
+               ruby 2.5.7p001 (jruby 9.2.13.0)
+
+            DEPENDENCIES
+          EOM
+          dir.join("system.properties").write("java.runtime.version=1.7")
+        end
+        app.deploy do
+          puts app.output
+        end
+      end
+    end
+
     it "user env compile" do
       Hatchet::Runner.new("default_ruby", config: {"BUNDLE_WITHOUT": "periwinkle"}).tap do |app|
         app.before_deploy do

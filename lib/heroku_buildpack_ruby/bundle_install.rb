@@ -88,13 +88,15 @@ module HerokuBuildpackRuby
       end
     end
 
-    private def bundle_failed
-      message = String.new("Failed to install gems via Bundler.")
-      message << sqlite_error_message if bundler_output.match(/An error occurred while installing sqlite3/)
-      message << gemfile_ruby_version_error if bundler_output.match(/but your Gemfile specified/)
-      user_comms.error_and_exit(message)
+    private def bundle_install_fail
+      body = String.new(bundle_output)
+      body << sqlite_error_message if bundle_output.match(/An error occurred while installing sqlite3/)
+      body << gemfile_ruby_version_error if bundle_output.match(/but your Gemfile specified/)
+      user_comms.error(
+        title: "Failed to install gems via Bundler",
+        body: body
+      )
     end
-
 
     private def fix_bundle_without_space
       BUNDLE_WITHOUT_ENV.set_without_record(BUNDLE_WITHOUT_ENV.value.tr(" ", ":"))

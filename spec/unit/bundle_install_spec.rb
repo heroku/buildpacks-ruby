@@ -4,6 +4,33 @@ require_relative "../spec_helper.rb"
 
 module HerokuBuildpackRuby
   RSpec.describe "BundleInstall" do
+    it "fails (successfully)" do
+      Hatchet::Runner.new("default_ruby").in_directory_fork do
+        stringio = StringIO.new
+        app_dir = Pathname(Dir.pwd)
+        gems_dir = app_dir.join(".heroku/ruby/gems").tap(&:mkpath)
+
+        app_dir.join("Gemfile").write("raise 'nope'")
+
+        Bundler.with_original_env do
+          install = BundleInstall.new(
+            app_dir: Dir.pwd,
+            bundle_without_default: "development:test",
+            bundle_install_gems_dir: gems_dir,
+            user_comms: UserComms::V2.new(stringio)
+          )
+
+          expect {
+            install.call
+          }.to raise_error {|error|
+            expect(error).to be_a(BuildpackErrorNoBacktrace)
+            expect(error.title).to include("Failed to install gems")
+            expect(error.body).to include("raise 'nope'")
+          }
+        end
+      end
+    end
+
     it "sets env vars and does not clear cache if nothing changed" do
       Hatchet::Runner.new("default_ruby").in_directory_fork do
         stringio = StringIO.new

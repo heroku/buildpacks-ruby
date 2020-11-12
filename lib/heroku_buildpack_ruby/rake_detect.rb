@@ -39,37 +39,44 @@ module HerokuBuildpackRuby
     end
 
     private def warn_no_rake_gem
-      warn_or_error("No `rake` gem in the Gemfile.lock, skipping rake detection")
+      warn_or_error(
+        title: "No rake gem",
+        body: "No `rake` gem in the Gemfile.lock, skipping rake detection"
+      )
     end
 
     private def warn_no_rakefile
-      warn_or_error <<~EOM
-        No Rakefile found in app directory, skipping rake detection
+      warn_or_error(
+        title: "No Rakefile found",
+        body: <<~EOM
+          No Rakefile found in app directory, skipping rake detection
 
-        Expected: #{RAKEFILE_NAMES.join(', ')}
-        Found: #{@app_dir.entries.select(&:file?).join(', ')}
-      EOM
+          Expected: #{RAKEFILE_NAMES.join(', ')}
+          Found: #{@app_dir.entries.select(&:file?).join(', ')}
+        EOM
+      )
     end
 
     private def detection_failed
       command = String.new("bundle exec rake -P")
       command.prepend("RAILS_ENV=#{ENV['RAILS_ENV']} ") if ENV.key?("RAILS_ENV")
 
-      warn_or_error <<~EOM
-        Rake task detection failed
+      warn_or_error(
+        title: "Rake task detection failed",
+        body: <<~EOM
+          Ensure you can run `$ #{command}` against your app
+          using the production group of your Gemfile.
 
-        Ensure you can run `$ #{command}` against your app
-        using the production group of your Gemfile.
-
-        #{@detect_task.out}
-      EOM
+          #{@detect_task.out}
+        EOM
+      )
     end
 
-    private def warn_or_error(message)
+    private def warn_or_error(title:, body:)
       if error_if_detect_fails
-        raise BuildpackErrorNoBacktrace, message
+        @user_comms.error(title: title, body: body)
       else
-        @user_comms.warn_now(message)
+        @user_comms.warn_now(title: title, body: body)
       end
     end
 

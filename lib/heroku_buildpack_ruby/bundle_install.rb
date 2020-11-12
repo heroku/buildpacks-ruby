@@ -38,16 +38,16 @@ module HerokuBuildpackRuby
       bundle_command << BUNDLE_DEPLOYMENT_ENV.to_env
       bundle_command << "bundle install -j4 --no-clean"
 
-      user_comms.puts "Running: #{bundle_command}"
+      user_comms.info "Running: #{bundle_command}"
       time = Benchmark.realtime do
         @bundle_output = Bash.new(bundle_command).stream do |lines|
-          user_comms.puts lines
+          user_comms.info lines
         end
       end
 
       bundle_install_fail unless $?.success?
 
-      user_comms.puts "Bundle completed (#{"%.2f" % time }s)"
+      user_comms.notice "Bundle completed (#{"%.2f" % time }s)"
     end
 
     private def bundle_config
@@ -78,13 +78,13 @@ module HerokuBuildpackRuby
 
     private def bundle_clean
       if bundle_output.match?(/Fetching/)
-        user_comms.puts "Cleaning up the bundler cache"
+        user_comms.topic "Cleaning up the bundler cache"
 
         Bash.new("bundle clean").stream do |lines|
-          user_comms.puts lines
+          user_comms.info lines
         end
       else
-        user_comms.puts "Skipping cleaning bundler cache (no new gems detected)"
+        user_comms.notice "Skipping cleaning bundler cache (no new gems detected)"
       end
     end
 
@@ -99,7 +99,8 @@ module HerokuBuildpackRuby
     private def fix_bundle_without_space
       BUNDLE_WITHOUT_ENV.set_without_record(BUNDLE_WITHOUT_ENV.value.tr(" ", ":"))
 
-      message = <<~EOM
+      title = "Error in your BUNDLE_WITHOUT env var"
+      body = <<~EOM
         Your BUNDLE_WITHOUT contains a space, it should be a colon `:`
         We have temporarilly set it for your `bundle install` command.
 
@@ -108,8 +109,8 @@ module HerokuBuildpackRuby
         $ heroku config:set BUNDLE_WITHOUT="#{BUNDLE_WITHOUT_ENV.value}"
 
       EOM
-      user_comms.warn_now(message)
-      user_comms.warn_later(message)
+      user_comms.warn_now(title: title, body: body)
+      user_comms.warn_later(title: title, body: body)
     end
 
     private def sqlite_error_message

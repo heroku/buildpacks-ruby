@@ -22,7 +22,15 @@ require_relative "heroku_buildpack_ruby/assets_precompile.rb"
 #   HerokuBuildpackRuby.build_cnb(...)
 #
 module HerokuBuildpackRuby
-  class BuildpackErrorNoBacktrace < StandardError; end
+  class BuildpackErrorNoBacktrace < StandardError
+    attr_reader :title, :body, :link
+    def initialize(title: , body:, link: nil)
+      @title = title
+      @body = body
+      @link = link
+      super [title, body, link].join("\n")
+    end
+  end
 
   BUILDPACK_DIR = Pathname(__dir__).join("..")
   EnvProxy.register_layer(:gems,    build: true, cache: true,  launch: true)
@@ -96,7 +104,8 @@ module HerokuBuildpackRuby
       )
       user_comms.close
     rescue BuildpackErrorNoBacktrace => e
-      user_comms.error_and_exit(e.message)
+      user_comms.print_error_obj(e)
+      exit(1)
     end
   end
 
@@ -157,7 +166,8 @@ module HerokuBuildpackRuby
       user_comms.close
 
     rescue BuildpackErrorNoBacktrace => e
-      user_comms.error_and_exit(e.message)
+      user_comms.print_error_obj(e)
+      exit(1)
     end
   end
 end

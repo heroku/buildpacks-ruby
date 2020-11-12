@@ -18,7 +18,7 @@ module HerokuBuildpackRuby
     end
 
     def call
-      user_comms.topic("Using Ruby version: #{version}")
+      user_comms.info("Using Ruby version: #{version}")
 
       CurlFetch.new(
         "ruby-#{version}.tgz",

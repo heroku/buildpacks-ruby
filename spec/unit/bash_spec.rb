@@ -14,6 +14,12 @@ module HerokuBuildpackRuby
       expect(bash.run.strip).to eq("Hello")
     end
 
+    it "accepts falsey user env when an error is raised" do
+      expect{
+        Bash.new('echo "negative"; exit 1', user_env: false).run!
+      }.to raise_error(/Bash command failed/)
+    end
+
     describe "on error" do
       it "can error on run!" do
         bash = Bash.new("echo 'nope'; exit1")

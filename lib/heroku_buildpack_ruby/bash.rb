@@ -67,7 +67,7 @@ module HerokuBuildpackRuby
     end
 
     def command_without_env
-      return @command if user_env&.empty?
+      return @command if !user_env || user_env.empty?
 
       @command.sub(user_env.to_shell, "<REDACTED>")
     end

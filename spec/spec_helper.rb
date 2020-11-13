@@ -125,3 +125,11 @@ class String
     self.gsub(/\e\[[^\x40-\x7E]*[\x40-\x7E]/, "")
   end
 end
+
+class Pathname
+  def self.mktmpdir
+    Dir.mktmpdir do |dir|
+      yield Pathname(dir)
+    end
+  end
+end

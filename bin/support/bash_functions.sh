@@ -175,7 +175,7 @@ compile_buildpack_v2()
 # A wrapper for `which node` so we can stub it out in tests
 which_node()
 {
-  which node
+  which -s node
 }
 
 # Returns truthy if the project needs node installed but does not
@@ -268,3 +268,24 @@ write_to_build_plan()
     write_to_build_plan_ruby "$build_plan"
   fi
 }
+
+which_java()
+{
+  which -s java
+}
+
+# Detects if a given Gemfile.lock has jruby in it
+# $ cat Gemfile.lock | grep jruby # => ruby 2.5.7p001 (jruby 9.2.13.0)
+detect_needs_java()
+{
+  local app_dir=$1
+  local gemfile_lock="$app_dir/Gemfile.lock"
+  # local needs_jruby=0
+  local skip_java_install=1
+
+  if which_java; then
+    return $skip_java_install
+  fi
+  grep "(jruby " "$gemfile_lock" --quiet
+}
+

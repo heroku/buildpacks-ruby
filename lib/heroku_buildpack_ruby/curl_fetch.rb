@@ -32,6 +32,14 @@ module HerokuBuildpackRuby
       @curl_command_prefix = "set -o pipefail; curl -L --fail --retry 5 --retry-delay 1 --connect-timeout 10 --max-time 120 ".freeze
     end
 
+    def exist?
+      Bash.new(
+        "#{@curl_command_prefix} -I #{@url}"
+      ).run
+      return $?.success?
+    end
+    alias :exists? :exist?
+
     def fetch_untar(files_to_extract: nil)
       Dir.chdir(@install_dir) do
         Bash.new(

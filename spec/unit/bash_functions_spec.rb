@@ -51,6 +51,73 @@ module HerokuBuildpackRuby
       out
     end
 
+    it "Detects jruby in the Gemfile.lock" do
+      Pathname.mktmpdir do |dir|
+        dir.join("Gemfile.lock").write <<~EOM
+          RUBY VERSION
+             ruby 2.5.7p001 (jruby 9.2.13.0)
+        EOM
+
+
+        out = exec_with_bash_functions <<~EOM
+          which_java()
+          {
+            return 1
+          }
+
+          if detect_needs_java "#{dir}"; then
+            echo "jruby detected"
+          else
+            echo "nope"
+          fi
+        EOM
+
+        expect(out).to eq("jruby detected")
+
+        dir.join("Gemfile.lock").write <<~EOM
+        EOM
+
+        out = exec_with_bash_functions <<~EOM
+          which_java()
+          {
+            return 1
+          }
+
+          if detect_needs_java "#{dir}"; then
+            echo "jruby detected"
+          else
+            echo "nope"
+          fi
+        EOM
+
+        expect(out).to eq("nope")
+      end
+    end
+
+    it "Detects java for jruby detection" do
+      Pathname.mktmpdir do |dir|
+        dir.join("Gemfile.lock").write <<~EOM
+          RUBY VERSION
+             ruby 2.5.7p001 (jruby 9.2.13.0)
+        EOM
+
+        out = exec_with_bash_functions <<~EOM
+          which_java()
+          {
+            return 0
+          }
+
+          if detect_needs_java "#{dir}"; then
+            echo "jruby detected"
+          else
+            echo "already installed"
+          fi
+        EOM
+
+        expect(out).to eq("already installed")
+      end
+    end
+
     it "Downloads a ruby binary" do
       Dir.mktmpdir do |dir|
         exec_with_bash_functions <<~EOM

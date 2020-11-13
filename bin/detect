@@ -19,6 +19,7 @@ fi
 set -eu
 PLAN=$2
 APP_DIR=$(pwd)
+BIN_DIR=$(cd "$(dirname "$0")"; pwd)
 
 if [ ! -f "$APP_DIR/Gemfile" ]; then
   echo "no"
@@ -27,7 +28,7 @@ else
   echo "Ruby"
 fi
 
-BIN_DIR=$(cd "$(dirname "$0")"; pwd)
+# shellcheck source=bin/support/bash_functions.sh
 source "$BIN_DIR/support/bash_functions.sh"
 
 write_to_build_plan "$PLAN" "$APP_DIR"

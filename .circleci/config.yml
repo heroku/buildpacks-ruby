@@ -28,6 +28,16 @@ references:
         bundle exec hatchet ci:setup
 
 jobs:
+  shellcheck:
+    docker:
+      - image: 'cimg/base:stable'
+    steps:
+      - checkout
+      - shellcheck/install
+      - run:
+          name: Check build,compile,detect,release and bash_functions.sh with shellcheck
+          command: |
+            shellcheck -x bin/build bin/compile bin/detect bin/release bin/support/bash_functions.sh
   unit:
     docker:
       - image: circleci/ruby:2.7
@@ -69,8 +79,7 @@ workflows:
   version: 2
   build:
     jobs:
-      - shellcheck/check:
-          dir: ./bin
+      - shellcheck
       - unit
       - hatchet
       - pack_cnb

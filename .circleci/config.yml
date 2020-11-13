@@ -2,6 +2,7 @@ version: 2.1
 orbs:
   pack: buildpacks/pack@0.2.0
   ruby: circleci/ruby@1.1.2
+  shellcheck: circleci/shellcheck@2.2.0
 
 references:
   hatchet: &hatchet
@@ -68,6 +69,8 @@ workflows:
   version: 2
   build:
     jobs:
+      - shellcheck/check:
+          dir: ./bin
       - unit
       - hatchet
       - pack_cnb

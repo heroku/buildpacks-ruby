@@ -2,10 +2,11 @@
 
 # bin/compile BUILD_DIR CACHE_DIR ENV_DIR
 
+set -eu
+
 BUILD_DIR=$1
 CACHE_DIR=$2
 ENV_DIR=$3
-
 BIN_DIR=$(cd "$(dirname "$0")"; pwd)
 BUILDPACK_DIR=$(dirname "$BIN_DIR")
 

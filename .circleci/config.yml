@@ -2,6 +2,7 @@ version: 2.1
 orbs:
   pack: buildpacks/pack@0.2.0
   ruby: circleci/ruby@1.1.2
+  shellcheck: circleci/shellcheck@2.2.0
 
 references:
   hatchet: &hatchet
@@ -27,6 +28,16 @@ references:
         bundle exec hatchet ci:setup
 
 jobs:
+  shellcheck:
+    docker:
+      - image: 'cimg/base:stable'
+    steps:
+      - checkout
+      - shellcheck/install
+      - run:
+          name: Check build,compile,detect,release and bash_functions.sh with shellcheck
+          command: |
+            shellcheck -x bin/build bin/compile bin/detect bin/release bin/support/bash_functions.sh
   unit:
     docker:
       - image: circleci/ruby:2.7
@@ -68,6 +79,7 @@ workflows:
   version: 2
   build:
     jobs:
+      - shellcheck
       - unit
       - hatchet
       - pack_cnb

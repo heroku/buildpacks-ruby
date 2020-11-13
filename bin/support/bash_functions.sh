@@ -102,7 +102,7 @@ bootstrap_ruby_to_buildpack_dir()
 #   buildpack_ruby -v # => 2.6.6
 buildpack_ruby_path()
 {
-  echo $BUILDPACK_DIR/vendor/ruby/$STACK/bin/ruby
+  echo "$BUILDPACK_DIR/vendor/ruby/$STACK/bin/ruby"
 }
 
 # Runs another buildpack against the build dir
@@ -113,14 +113,14 @@ buildpack_ruby_path()
 #
 compile_buildpack_v2()
 {
-  BUILD_DIR=$1
-  CACHE_DIR=$2
-  ENV_DIR=$3
+  # BUILD_DIR=$1
+  # CACHE_DIR=$2
+  # ENV_DIR=$3
   BUILDPACK=$4
   NAME=$5
 
   dir=$(mktemp -t buildpackXXXXX)
-  rm -rf $dir
+  rm -rf "$dir"
 
   url=${BUILDPACK%#*}
   branch=${BUILDPACK#*#}
@@ -136,34 +136,39 @@ compile_buildpack_v2()
       mkdir -p "$dir"
       curl_retry_on_18 -s "$url" | tar xvz -C "$dir" >/dev/null 2>&1
     else
-      git clone $url $dir >/dev/null 2>&1
+      git clone "$url" "$dir" >/dev/null 2>&1
     fi
-    cd $dir
+    cd "$dir" || return
 
     if [ "$branch" != "" ]; then
-      git checkout $branch >/dev/null 2>&1
+      git checkout "$branch" >/dev/null 2>&1
     fi
 
     # we'll get errors later if these are needed and don't exist
-    chmod -f +x $dir/bin/{detect,compile,release} || true
+    chmod -f +x "$dir/bin/{detect,compile,release}" || true
 
-    framework=$($dir/bin/detect $1)
+    framework=$("$dir"/bin/detect "$1")
 
+    # shellcheck disable=SC2181
     if [ $? == 0 ]; then
       echo "-----> Detected Framework: $framework"
-      $dir/bin/compile $1 $2 $3
+      "$dir"/bin/compile "$1" "$2" "$3"
 
+      # shellcheck disable=SC2181
       if [ $? != 0 ]; then
         exit 1
       fi
 
       # check if the buildpack left behind an environment for subsequent ones
-      if [ -e $dir/export ]; then
-        source $dir/export
+      if [ -e "$dir/export" ]; then
+        set +u # http://redsymbol.net/articles/unofficial-bash-strict-mode/#sourcing-nonconforming-document
+        # shellcheck disable=SC1090
+        source "$dir/export"
+        set -u # http://redsymbol.net/articles/unofficial-bash-strict-mode/#sourcing-nonconforming-document
       fi
 
-      if [ -x $dir/bin/release ]; then
-        $dir/bin/release $1 > $1/last_pack_release.out
+      if [ -x "$dir/bin/release" ]; then
+        "$dir"/bin/release "$1" > "$1"/last_pack_release.out
       fi
     else
       echo "Couldn't detect any framework for this buildpack. Exiting."
@@ -175,7 +180,7 @@ compile_buildpack_v2()
 # A wrapper for `which node` so we can stub it out in tests
 which_node()
 {
-  which -s node
+  which node > /dev/null
 }
 
 # Returns truthy if the project needs node installed but does not
@@ -271,7 +276,7 @@ write_to_build_plan()
 
 which_java()
 {
-  which -s java
+  which java > /dev/null
 }
 
 # Detects if a given Gemfile.lock has jruby in it

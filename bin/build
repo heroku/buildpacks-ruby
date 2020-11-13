@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 
-set -eu
+set -euo pipefail
 
 LAYERS_DIR=$1
 PLATFORM_DIR=$2
 ENV_DIR="$PLATFORM_DIR/env"
 PLAN=$3
 APP_DIR=$(pwd)
-BIN_DIR=$(cd $(dirname $0); pwd)
-BUILDPACK_DIR=$(dirname $BIN_DIR)
+BIN_DIR=$(cd "$(dirname "$0")"; pwd)
+BUILDPACK_DIR=$(dirname "$BIN_DIR")
 
 # legacy buildpack uses $STACK
 export STACK=$CNB_STACK_ID
 
+# shellcheck source=bin/support/bash_functions.sh
 source "$BIN_DIR/support/bash_functions.sh"
 bootstrap_ruby_to_buildpack_dir
 

@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # == V2 interface
 
+CNB_STACK_ID="${CNB_STACK_ID:-""}" # Strict mode support
 if [ -z "$CNB_STACK_ID" ]; then
   APP_DIR=$1
 
@@ -16,7 +19,6 @@ fi
 
 # == CNB Interface
 
-set -eu
 PLAN=$2
 APP_DIR=$(pwd)
 BIN_DIR=$(cd "$(dirname "$0")"; pwd)

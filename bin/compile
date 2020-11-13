@@ -2,7 +2,7 @@
 
 # bin/compile BUILD_DIR CACHE_DIR ENV_DIR
 
-set -eu
+set -euo pipefail
 
 BUILD_DIR=$1
 CACHE_DIR=$2

@@ -161,8 +161,10 @@ compile_buildpack_v2()
 
       # check if the buildpack left behind an environment for subsequent ones
       if [ -e "$dir/export" ]; then
+        set +u # http://redsymbol.net/articles/unofficial-bash-strict-mode/#sourcing-nonconforming-document
         # shellcheck disable=SC1090
         source "$dir/export"
+        set -u # http://redsymbol.net/articles/unofficial-bash-strict-mode/#sourcing-nonconforming-document
       fi
 
       if [ -x "$dir/bin/release" ]; then

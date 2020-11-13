@@ -55,22 +55,24 @@ jobs:
       - <<: *hatchet_setup
       - <<: *hatchet
   pack_cnb:
-    machine: true
+    docker:
+      - image: circleci/ruby:2.7
     steps:
       - checkout
+      - setup_remote_docker:
+          version: 19.03.13
       - pack/install-pack
-      - ruby/install:
-          version: "2.7"
       - ruby/install-deps
       - <<: *hatchet_setup
       - <<: *pack_cnb
   docker_commands:
-    machine: true
+    docker:
+      - image: circleci/ruby:2.7
     steps:
       - checkout
+      - setup_remote_docker:
+          version: 19.03.13
       - pack/install-pack
-      - ruby/install:
-          version: "2.7"
       - ruby/install-deps
       - <<: *hatchet_setup
       - <<: *docker_commands

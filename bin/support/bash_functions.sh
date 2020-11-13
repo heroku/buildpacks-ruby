@@ -180,7 +180,7 @@ compile_buildpack_v2()
 # A wrapper for `which node` so we can stub it out in tests
 which_node()
 {
-  which -s node
+  which node > /dev/null
 }
 
 # Returns truthy if the project needs node installed but does not
@@ -276,7 +276,7 @@ write_to_build_plan()
 
 which_java()
 {
-  which -s java
+  which java > /dev/null
 }
 
 # Detects if a given Gemfile.lock has jruby in it

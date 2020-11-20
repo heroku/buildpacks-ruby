@@ -176,10 +176,32 @@ module HerokuBuildpackRuby
       end
     end
 
-    it "outputs a node+ruby plan when a package.json is present" do
-      Dir.mktmpdir do |dir|
-        build_dir = Pathname(dir)
+    it "outputs to java+ruby when jruby is present" do
+      My::Pathname.mktmpdir do |build_dir|
+        build_dir.join("Gemfile.lock").write <<~EOM
+          RUBY VERSION
+             ruby 2.5.7p001 (jruby 9.2.13.0)
+        EOM
 
+        plan_path = build_dir.join("plan.toml")
+        exec_with_bash_functions <<~EOM
+          # Stub out the call to `which node` so we can pretend it does NOT exist on the system
+          which_java()
+          {
+            return 1
+          }
+          write_to_build_plan "#{plan_path}" "#{build_dir}"
+        EOM
+
+        toml = TOML.load(plan_path.read)
+
+        expect(toml).to include(provides: [{name: "ruby"}])
+        expect(toml).to include(requires: [{name: "java"}, {name: "ruby"}])
+      end
+    end
+
+    it "outputs a node+ruby plan when a package.json is present" do
+      My::Pathname.mktmpdir do |build_dir|
         build_dir.join("package.json").write "{}"
 
         plan_path = build_dir.join("plan.toml")

@@ -126,10 +126,12 @@ class String
   end
 end
 
-class Pathname
-  def self.mktmpdir
-    Dir.mktmpdir do |dir|
-      yield Pathname(dir)
+class My
+  class Pathname
+    def self.mktmpdir
+      Dir.mktmpdir do |dir|
+        yield Pathname(dir)
+      end
     end
   end
 end

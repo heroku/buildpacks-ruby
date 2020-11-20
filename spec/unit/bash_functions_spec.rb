@@ -52,7 +52,7 @@ module HerokuBuildpackRuby
     end
 
     it "Detects jruby in the Gemfile.lock" do
-      Pathname.mktmpdir do |dir|
+      My::Pathname.mktmpdir do |dir|
         dir.join("Gemfile.lock").write <<~EOM
           RUBY VERSION
              ruby 2.5.7p001 (jruby 9.2.13.0)
@@ -95,7 +95,7 @@ module HerokuBuildpackRuby
     end
 
     it "Detects java for jruby detection" do
-      Pathname.mktmpdir do |dir|
+      My::Pathname.mktmpdir do |dir|
         dir.join("Gemfile.lock").write <<~EOM
           RUBY VERSION
              ruby 2.5.7p001 (jruby 9.2.13.0)
@@ -119,7 +119,7 @@ module HerokuBuildpackRuby
     end
 
     it "Downloads a ruby binary" do
-      Dir.mktmpdir do |dir|
+      My::Pathname.mktmpdir do |dir|
         exec_with_bash_functions <<~EOM
 
           download_ruby "2.6.6" "#{dir}"
@@ -140,8 +140,7 @@ module HerokuBuildpackRuby
     end
 
     it "downloads ruby to BUILDPACK_DIR vendor directory" do
-      Dir.mktmpdir do |dir|
-        dir = Pathname(dir)
+      My::Pathname.mktmpdir do |dir|
 
         exec_with_bash_functions(<<~EOM, stack: "heroku-18")
           BUILDPACK_DIR="#{dir}"
@@ -156,8 +155,7 @@ module HerokuBuildpackRuby
     end
 
     it "bootstraps ruby using toml file" do
-      Dir.mktmpdir do |dir|
-        dir = Pathname(dir)
+      My::Pathname.mktmpdir do |dir|
 
         FileUtils.cp(
           root_dir.join("buildpack.toml"), # From
@@ -222,9 +220,7 @@ module HerokuBuildpackRuby
     end
 
     it "does not output node when node is already installed" do
-      Dir.mktmpdir do |dir|
-        build_dir = Pathname(dir)
-
+      My::Pathname.mktmpdir do |build_dir|
         build_dir.join("package.json").write "{}"
 
         plan_path = build_dir.join("plan.toml")
@@ -247,8 +243,7 @@ module HerokuBuildpackRuby
     end
 
     it "detects if execjs is present" do
-      Dir.mktmpdir do |dir|
-        build_dir = Pathname(dir)
+      My::Pathname.mktmpdir do |build_dir|
         package_json = build_dir.join("package.json")
         expect(package_json).to_not be_file
 
@@ -283,9 +278,7 @@ module HerokuBuildpackRuby
     end
 
     it "outputs a ruby plan" do
-      Dir.mktmpdir do |dir|
-        build_dir = Pathname(dir)
-
+      My::Pathname.mktmpdir do |build_dir|
         plan_path = build_dir.join("plan.toml")
         exec_with_bash_functions <<~EOM
           write_to_build_plan "#{plan_path}" "#{build_dir}"

@@ -241,7 +241,7 @@ write_to_build_plan_java()
 
 cat << EOF >> "$build_plan"
 [[requires]]
-name = "java"
+name = "jdk"
 EOF
 }
 

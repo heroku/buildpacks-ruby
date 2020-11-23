@@ -78,6 +78,39 @@ end
 
 module HerokuBuildpackRuby
   RSpec.describe "Cloud Native Buildpack" do
+    it "jruby" do
+      Dir.mktmpdir do |dir|
+        dir = Pathname(dir)
+        Dir.chdir(dir) do
+          FileUtils.cp_r(hatchet_path("ruby_apps/default_ruby/."), dir)
+          dir.join("Gemfile").write <<~EOM
+            source "https://rubygems.org"
+
+            ruby '2.5.7', engine: 'jruby', engine_version: '9.2.13.0'
+          EOM
+          dir.join("Gemfile.lock").write <<~EOM
+            GEM
+              remote: https://rubygems.org/
+              specs:
+
+            PLATFORMS
+              java
+
+            RUBY VERSION
+               ruby 2.5.7p001 (jruby 9.2.13.0)
+
+            DEPENDENCIES
+          EOM
+
+          CnbRun.new(dir, buildpack_paths: ["heroku/jvm", buildpack_path]).call do |app|
+            expect(app.output).to include("[Installing Java]")
+            expect(app.output).to include("Using Ruby version: 2.5.7-jruby-9.2.13.0")
+            expect(app.output).to include("Bundle complete")
+          end
+        end
+      end
+    end
+
     it "locally runs default_ruby app" do
       CnbRun.new(hatchet_path("ruby_apps/default_ruby"), buildpack_paths: [buildpack_path]).call do |app|
         expect(app.output).to include("Installing rake")

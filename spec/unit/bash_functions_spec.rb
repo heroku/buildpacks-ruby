@@ -194,7 +194,7 @@ module HerokuBuildpackRuby
         toml = TOML.load(plan_path.read)
 
         expect(toml).to include(provides: [{name: "ruby"}])
-        expect(toml).to include(requires: [{name: "java"}, {name: "ruby"}])
+        expect(toml).to include(requires: [{name: "jdk"}, {name: "ruby"}])
       end
     end
 

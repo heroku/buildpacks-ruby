@@ -1,10 +1,11 @@
 ## Application contract
 
-
 - We will request node to be installed via the heroku/nodejs buildpack on your system when `package.json` is found but `which node` is not present
   - See heroku/nodejs for their application contract
+  - [TODO] https://github.com/heroku/heroku-buildpack-ruby-experimental/issues/27
 - We will request java to be installed via the heroku/jvm buildpack on your system when your Gemfile.lock specifies jruby but `which java` is not present
   - See heroku/jvm for their application contract
+  - [TODO] https://github.com/heroku/heroku-buildpack-ruby-experimental/issues/36
 - We will determine a version of bundler for you based on the contents of your Gemfile.lock. You cannot specify the exact version, just major version i.e. 1.x or 2.x.
 - We will determine your requested version of Ruby using `bundle platform --ruby` (or similar logic).
 - We will install your gem dependencies using `bundle install`.

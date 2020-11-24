@@ -222,20 +222,26 @@ detect_needs_node()
   fi
 }
 
-# Writes a plan.json that provides and requires ruby as well as asking for node
-write_to_build_plan_ruby_node()
+# Writes a plan.json that asks for node
+write_to_build_plan_node()
 {
   local build_plan=$1
 
-cat << EOF > "$build_plan"
-[[provides]]
-name = "ruby"
-
+cat << EOF >> "$build_plan"
 [[requires]]
 name = "node"
+EOF
+}
 
+# Writes a plan.json that asks for java
+write_to_build_plan_java()
+{
+
+  local build_plan=$1
+
+cat << EOF >> "$build_plan"
 [[requires]]
-name = "ruby"
+name = "jdk"
 EOF
 }
 
@@ -244,7 +250,7 @@ write_to_build_plan_ruby()
 {
   local build_plan=$1
 
-cat << EOF > "$build_plan"
+cat << EOF >> "$build_plan"
 [[provides]]
 name = "ruby"
 
@@ -268,10 +274,13 @@ write_to_build_plan()
   local build_dir=$2
 
   if detect_needs_node "$build_dir"; then
-    write_to_build_plan_ruby_node "$build_plan"
-  else
-    write_to_build_plan_ruby "$build_plan"
+    write_to_build_plan_node "$build_plan"
   fi
+
+  if detect_needs_java "$build_dir";then
+    write_to_build_plan_java "$build_plan"
+  fi
+  write_to_build_plan_ruby "$build_plan"
 }
 
 which_java()

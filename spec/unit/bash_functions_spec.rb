@@ -183,7 +183,6 @@ module HerokuBuildpackRuby
 
         plan_path = build_dir.join("plan.toml")
         exec_with_bash_functions <<~EOM
-          # Stub out the call to `which node` so we can pretend it does NOT exist on the system
           which_java()
           {
             return 1

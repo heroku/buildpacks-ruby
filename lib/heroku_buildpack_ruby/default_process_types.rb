@@ -1,13 +1,22 @@
 # frozen_string_literal: true
 
 module HerokuBuildpackRuby
+  # Returns default process types for a given lockfile
+  #
+  #   lockfile = BundlerLockfileParser.new(
+  #     gemfile_lock_path: "./Gemfile.lock",
+  #     bundler_install_dir: bundler_install_dir
+  #   ).call
+  #
+  #   process_types = DefaultProcessTypes(lockfile).to_h
+  #   puts process_types[:console] # => "bundle exec irb"
   class DefaultProcessTypes
     private; attr_reader :deps, :rack, :railties, :thin; public
 
-    def initialize(deps)
-      @thin = deps.version("thin")
-      @rack = deps.version("rack")
-      @railties = deps.version("railties")
+    def initialize(lockfile)
+      @thin = lockfile.version("thin")
+      @rack = lockfile.version("rack")
+      @railties = lockfile.version("railties")
       @process_hash = { console: "bundle exec irb" }
 
       case

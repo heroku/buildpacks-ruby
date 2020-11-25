@@ -20,7 +20,7 @@ module HerokuBuildpackRuby
     #   EOM
     class V2
       def initialize(lockfile:, vendor_dir:)
-        @release_yml_path = Pathname(vendor_dir).join("ruby", "release.yml").tap {|p| p.dirname.mkpath; FileUtils.touch(p)}
+        @release_yml_path = Pathname(vendor_dir).join("release.yml").tap {|p| p.dirname.mkpath; FileUtils.touch(p)}
         @process_types = DefaultProcessTypes.new(lockfile)
       end
 

@@ -38,7 +38,7 @@ module HerokuBuildpackRuby
             vendor_dir: dir
           ).call
           expect(
-            dir.join("ruby", "release.yml").read
+            dir.join("release.yml").read
           ).to eq(<<~EOM)
             ---
             :default_process_types:

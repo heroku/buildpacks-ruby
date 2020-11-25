@@ -101,7 +101,7 @@ module HerokuBuildpackRuby
 
       ReleaseLaunchInfo::V2.new(
         lockfile: lockfile,
-        vendor_dir: cache_dir
+        vendor_dir: vendor_dir
       ).call
       EnvProxy.export(
         app_dir: app_dir,

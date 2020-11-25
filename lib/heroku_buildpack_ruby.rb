@@ -11,6 +11,8 @@ require_relative "heroku_buildpack_ruby/metadata.rb"
 require_relative "heroku_buildpack_ruby/rake_detect.rb"
 require_relative "heroku_buildpack_ruby/assets_precompile.rb"
 
+require_relative "heroku_buildpack_ruby/default_process_types.rb"
+
 # This is the main entry point for the Ruby buildpack
 #
 # Legacy/V2 interface:

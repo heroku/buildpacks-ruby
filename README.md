@@ -25,6 +25,11 @@
     - We will limit or prune the size of this asset cache [TODO]
     - We will cache asset "fragments" directories if the `sprockets` gem is on the system [TODO]
 
+- We will set a default "console" process type based on the contents of your Gemfile.lock
+  - Use the Procfile to override
+- We will set a default "web" process type based on the contents of your Gemfile.lock
+  - Use the Procfile to override
+
 Goal: Convert all "may" statements to a more specific "will" so we're explicit about when thing shappen
 
 ## Internal Concepts

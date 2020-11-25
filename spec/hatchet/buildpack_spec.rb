@@ -72,10 +72,6 @@ module HerokuBuildpackRuby
 
       Hatchet::Runner.new("default_ruby", run_multi: true).tap do |app|
         app.before_deploy do
-          # TODO default process types
-          Pathname(Dir.pwd).join("Procfile").write <<~EOM
-            web: # No-op, needed so we can scale up for run_multi
-          EOM
           Pathname(Dir.pwd)
             .join("Gemfile.lock")
             .write("BUNDLED WITH\n   2.1.4", mode: "a")
@@ -124,11 +120,6 @@ module HerokuBuildpackRuby
       skip("Must set HATCHET_EXPENSIVE_MODE") unless ENV["HATCHET_EXPENSIVE_MODE"]
 
       Hatchet::Runner.new("minimal_webpacker", run_multi: true).tap do |app|
-        app.before_deploy do
-          Pathname(Dir.pwd).join("Procfile").write <<~EOM
-            web: # No-op, needed so we can scale up for run_multi
-          EOM
-        end
         app.deploy do
           # This output comes from the heroku/nodejs buildpack
           expect(app.output).to include("installing yarn")

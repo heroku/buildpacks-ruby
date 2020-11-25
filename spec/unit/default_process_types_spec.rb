@@ -10,7 +10,7 @@ module HerokuBuildpackRuby
 
       expect(
         DefaultProcessTypes.new(deps).to_h
-      ).to eq({console: "bundle exec irb"})
+      ).to eq({"console" => "bundle exec irb"})
     end
 
     it "works with rack apps" do
@@ -23,8 +23,8 @@ module HerokuBuildpackRuby
         DefaultProcessTypes.new(deps).to_h
       ).to eq(
         {
-          web: "bundle exec rackup config.ru -p ${PORT:-5000}",
-          console: "bundle exec irb",
+          "web" => "bundle exec rackup config.ru -p ${PORT:-5000}",
+          "console" => "bundle exec irb",
         }
       )
     end
@@ -40,8 +40,8 @@ module HerokuBuildpackRuby
         DefaultProcessTypes.new(deps).to_h
       ).to eq(
         {
-          web: "bundle exec thin start -R config.ru -e $RACK_ENV -p ${PORT:-5000}",
-          console: "bundle exec irb",
+          "web" => "bundle exec thin start -R config.ru -e $RACK_ENV -p ${PORT:-5000}",
+          "console" => "bundle exec irb",
         }
       )
     end
@@ -56,8 +56,8 @@ module HerokuBuildpackRuby
         DefaultProcessTypes.new(deps).to_h
       ).to eq(
         {
-          web: "bundle exec rails server -p ${PORT:-5000}",
-          console: "bundle exec rails console",
+          "web" => "bundle exec rails server -p ${PORT:-5000}",
+          "console" => "bundle exec rails console",
         }
       )
     end
@@ -73,8 +73,8 @@ module HerokuBuildpackRuby
         DefaultProcessTypes.new(deps).to_h
       ).to eq(
         {
-          web: "bundle exec thin start -R config.ru -e $RAILS_ENV -p ${PORT:-5000}",
-          console: "bundle exec rails console",
+          "web" => "bundle exec thin start -R config.ru -e $RAILS_ENV -p ${PORT:-5000}",
+          "console" => "bundle exec rails console",
         }
       )
     end
@@ -89,8 +89,8 @@ module HerokuBuildpackRuby
         DefaultProcessTypes.new(deps).to_h
       ).to eq(
         {
-          web: "bin/rails server -p ${PORT:-5000} -e $RAILS_ENV",
-          console: "bin/rails console",
+          "web" => "bin/rails server -p ${PORT:-5000} -e $RAILS_ENV",
+          "console" => "bin/rails console",
         }
       )
     end
@@ -106,10 +106,11 @@ module HerokuBuildpackRuby
         DefaultProcessTypes.new(deps).to_h
       ).to eq(
         {
-          web: "bin/rails server -p ${PORT:-5000} -e $RAILS_ENV",
-          console: "bin/rails console",
+          "web" => "bin/rails server -p ${PORT:-5000} -e $RAILS_ENV",
+          "console" => "bin/rails console",
         }
       )
     end
   end
 end
+

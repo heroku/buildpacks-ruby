@@ -14,9 +14,9 @@ module HerokuBuildpackRuby
     #
     #   expect(vendor_dir.read).to eq(<<~EOM)
     #     ---
-    #     :default_process_types:
-    #       :console: bin/rails console
-    #       :web: bin/rails server -p ${PORT:-5000} -e $RAILS_ENV
+    #     default_process_types:
+    #       console: bin/rails console
+    #       web: bin/rails server -p ${PORT:-5000} -e $RAILS_ENV
     #   EOM
     class V2
       def initialize(lockfile:, vendor_dir:)
@@ -27,6 +27,7 @@ module HerokuBuildpackRuby
       def to_yaml
         yaml = YAML.load(@release_yml_path.read) || {}
         yaml[:default_process_types] = @process_types.to_h
+        yaml.transform_keys!(&:to_s)
         YAML.dump(yaml)
       end
 
@@ -46,10 +47,10 @@ module HerokuBuildpackRuby
     #   expect(vendor_dir.read).to eq(<<~EOM)
     #     [[processes]]
     #     command = "bin/rails console"
-    #     type = :console
+    #     type = "console"
     #     [[processes]]
     #     command = "bin/rails server -p ${PORT:-5000} -e $RAILS_ENV"
-    #     type = :web
+    #     type = "web"
     #   EOM
     class CNB
       def initialize(lockfile:, layers_dir:)

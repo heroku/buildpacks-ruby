@@ -19,9 +19,9 @@ module HerokuBuildpackRuby
             ).to_yaml
           ).to eq(<<~EOM)
             ---
-            :default_process_types:
-              :console: bin/rails console
-              :web: bin/rails server -p ${PORT:-5000} -e $RAILS_ENV
+            default_process_types:
+              console: bin/rails console
+              web: bin/rails server -p ${PORT:-5000} -e $RAILS_ENV
           EOM
         end
       end
@@ -41,9 +41,9 @@ module HerokuBuildpackRuby
             dir.join("release.yml").read
           ).to eq(<<~EOM)
             ---
-            :default_process_types:
-              :console: bin/rails console
-              :web: bin/rails server -p ${PORT:-5000} -e $RAILS_ENV
+            default_process_types:
+              console: bin/rails console
+              web: bin/rails server -p ${PORT:-5000} -e $RAILS_ENV
           EOM
         end
       end
@@ -65,10 +65,10 @@ module HerokuBuildpackRuby
           ).to eq(<<~EOM)
             [[processes]]
             command = "bin/rails console"
-            type = :console
+            type = "console"
             [[processes]]
             command = "bin/rails server -p ${PORT:-5000} -e $RAILS_ENV"
-            type = :web
+            type = "web"
           EOM
         end
       end
@@ -90,10 +90,10 @@ module HerokuBuildpackRuby
           ).to eq(<<~EOM)
             [[processes]]
             command = "bin/rails console"
-            type = :console
+            type = "console"
             [[processes]]
             command = "bin/rails server -p ${PORT:-5000} -e $RAILS_ENV"
-            type = :web
+            type = "web"
           EOM
         end
       end

@@ -25,6 +25,7 @@ module HerokuBuildpackRuby
       when rack
         set_rack_types
       end
+      @process_hash.transform_keys!(&:to_s)
     end
 
     def to_h

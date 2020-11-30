@@ -11,6 +11,8 @@ require_relative "heroku_buildpack_ruby/metadata.rb"
 require_relative "heroku_buildpack_ruby/rake_detect.rb"
 require_relative "heroku_buildpack_ruby/assets_precompile.rb"
 
+require_relative "heroku_buildpack_ruby/release_launch_info.rb"
+
 # This is the main entry point for the Ruby buildpack
 #
 # Legacy/V2 interface:
@@ -97,6 +99,10 @@ module HerokuBuildpackRuby
         has_assets_precompile: rake.detect?("assets:precompile"),
       ).call
 
+      ReleaseLaunchInfo::V2.new(
+        lockfile: lockfile,
+        vendor_dir: vendor_dir
+      ).call
       EnvProxy.export(
         app_dir: app_dir,
         export_path: export,
@@ -160,11 +166,14 @@ module HerokuBuildpackRuby
         has_assets_precompile: rake.detect?("assets:precompile"),
       ).call
 
+      ReleaseLaunchInfo::CNB.new(
+        lockfile: lockfile,
+        layers_dir: layers_dir
+      ).call
       EnvProxy.write_layers(
         layers_dir: layers_dir
       )
       user_comms.close
-
     rescue BuildpackErrorNoBacktrace => e
       user_comms.print_error_obj(e)
       exit(1)

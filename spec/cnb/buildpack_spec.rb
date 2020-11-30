@@ -51,7 +51,7 @@ class CnbRun
   end
 
   def run(cmd)
-    command = %Q{docker run #{image_name} #{cmd.to_s.shellescape} 2>&1}
+    command = %Q{docker run --entrypoint="/cnb/lifecycle/launcher" #{image_name} #{cmd.to_s.shellescape} 2>&1}
     `#{command}`.strip
   end
 

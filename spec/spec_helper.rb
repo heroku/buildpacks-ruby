@@ -13,7 +13,7 @@ require 'stringio'
 require 'securerandom'
 require 'timeout'
 
-require "syntax_search/auto"
+require "dead_end"
 
 require "heroku_buildpack_ruby"
 

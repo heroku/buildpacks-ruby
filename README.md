@@ -73,7 +73,7 @@ Structure of features revolves around classes that can be used independently of 
 
 Files and directories should be represented as Pathname objects. Objects representing a specific file should use variables ending in `*_path` or `*_file` while variables representing directories should end in `*_dir`. If multiple things have similar names, try to put the different bit up front. I.e.
 
-Instead of "version_ruby" and "version_bundler" consider "ruby_version" and "ruby_bundler". This applies to file and class naming as well.
+Instead of "version_ruby" and "version_bundler" consider "ruby_version" and "bundler_version". This applies to file and class naming as well.
 
 ### Mixins and inheritance are discouraged
 

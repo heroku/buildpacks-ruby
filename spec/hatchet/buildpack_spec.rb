@@ -93,8 +93,8 @@ module HerokuBuildpackRuby
           end
 
           # Test that the system path isn't clobbered
-          app.run_multi("which bash") do |out, status|
-            expect(out.strip).to eq("/bin/bash")
+          app.run_multi("which -a bash") do |out, status|
+            expect(out.strip).to include("/bin/bash")
             expect(status.success?).to be_truthy
           end
 

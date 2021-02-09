@@ -102,7 +102,7 @@ module HerokuBuildpackRuby
             DEPENDENCIES
           EOM
 
-          CnbRun.new(dir, buildpack_paths: ["heroku/jvm", buildpack_path]).call do |app|
+          CnbRun.new(dir, buildpack_paths: ["heroku/jvm@0.1.3", buildpack_path]).call do |app|
             expect(app.output).to include("[Installing Java]")
             expect(app.output).to include("Using Ruby version: 2.5.7-jruby-9.2.13.0")
             expect(app.output).to include("Bundle complete")

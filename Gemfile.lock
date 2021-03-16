@@ -1,7 +1,7 @@
 GEM
   remote: https://rubygems.org/
   specs:
-    dead_end (1.1.4)
+    dead_end (1.1.6)
     diff-lcs (1.4.4)
     erubis (2.7.0)
     excon (0.79.0)

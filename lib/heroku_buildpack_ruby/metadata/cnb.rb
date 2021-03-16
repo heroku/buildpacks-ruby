@@ -12,9 +12,9 @@ module HerokuBuildpackRuby
     #
     #   layers_dir = Dir.pwd
     #   metadata = Metadata::CNB.new(dir: layers_dir, name: :ruby)
-    #   metadata.set(:foo => "bar")
-    #   metadata.get(:foo) # => "bar"
-    #   metadata.fetch(:cinco) do
+    #   metadata.layer(:ruby).set(:foo => "bar")
+    #   metadata.layer(:ruby).get(:foo) # => "bar"
+    #   metadata.layer(:ruby).fetch(:cinco) do
     #     "a good boy"
     #   end
     #   # => "a good boy"

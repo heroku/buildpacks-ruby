@@ -169,5 +169,20 @@ module HerokuBuildpackRuby
         expect(app.output).to include(%Q{BUNDLE_WITHOUT="periwinkle"})
       end
     end
+
+    it "rails getting started guide" do
+      # TODO, detect exectjs at detect time and remove heroku/nodejs from buildpacks path
+      skip("Needs execjs integration to force install of node even when package.json is not present")
+
+      CnbRun.new(
+        hatchet_path("ruby_apps/ruby-getting-started"),
+        buildpack_paths: ["heroku/nodejs", buildpack_path],
+      ).call do |app|
+        app.run_multi("rails runner 'puts ENV[%Q{RAILS_SERVE_STATIC_FILES}].present?'") do |out, status|
+          expect(out).to match(/true/)
+          expect(status).to be_truthy
+        end
+      end
+    end
   end
 end

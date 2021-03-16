@@ -10,6 +10,7 @@ require_relative "heroku_buildpack_ruby/metadata.rb"
 
 require_relative "heroku_buildpack_ruby/rake_detect.rb"
 require_relative "heroku_buildpack_ruby/assets_precompile.rb"
+require_relative "heroku_buildpack_ruby/set_default_env_vars.rb"
 
 require_relative "heroku_buildpack_ruby/release_launch_info.rb"
 
@@ -67,6 +68,11 @@ module HerokuBuildpackRuby
         ruby_install_dir: ruby_install_dir,
         bundler_install_dir: bundler_install_dir,
         buildpack_ruby_path: buildpack_ruby_path,
+      ).call
+
+      SetDefaultEnvVars.new(
+        metadata: metadata,
+        environment: "production"
       ).call
 
       gems_cache_copy.call do |gems_dir|
@@ -136,6 +142,12 @@ module HerokuBuildpackRuby
         ruby_install_dir: ruby_install_dir,
         bundler_install_dir: bundler_install_dir,
         buildpack_ruby_path: buildpack_ruby_path,
+      ).call
+
+
+      SetDefaultEnvVars.new(
+        metadata: metadata,
+        environment: "production"
       ).call
 
       BundleInstall.new(

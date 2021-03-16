@@ -46,10 +46,17 @@ module HerokuBuildpackRuby
       end
     end
 
-    it "getting started guide" do
-      Hatchet::Runner.new("ruby-getting-started").deploy do |app|
+    it "rails getting started guide" do
+      skip("Must set HATCHET_EXPENSIVE_MODE") unless ENV["HATCHET_EXPENSIVE_MODE"]
+
+      Hatchet::Runner.new("ruby-getting-started", run_multi: true).deploy do |app|
         # TODO: Remove asset fragment cache before runtime for reduced slug size
         # expect(app.run("ls tmp/cache/assets")).to_not match("sprockets")
+
+        app.run_multi("rails runner 'puts ENV[%Q{RAILS_SERVE_STATIC_FILES}].present?'") do |out, status|
+          expect(out).to match(/true/)
+          expect(status).to be_truthy
+        end
       end
     end
 

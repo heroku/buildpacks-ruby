@@ -30,6 +30,16 @@
 - We will set a default "web" process type based on the contents of your Gemfile.lock
   - Use the Procfile to override
 
+- We will set a default for the following environment variables:
+  - RACK_ENV
+  - RAILS_ENV
+  - JRUBY_OPTS
+  - DISABLE_SPRING
+  - SECRET_KEY_BASE
+  - MALLOC_ARENA_MAX
+  - RAILS_LOG_TO_STDOUT
+  - RAILS_SERVE_STATIC_FILES
+
 Goal: Convert all "may" statements to a more specific "will" so we're explicit about when thing shappen
 
 ## Internal Concepts

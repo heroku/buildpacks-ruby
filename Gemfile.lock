@@ -1,15 +1,16 @@
 GEM
   remote: https://rubygems.org/
   specs:
-    dead_end (1.1.0)
+    dead_end (1.1.4)
     diff-lcs (1.4.4)
     erubis (2.7.0)
-    excon (0.78.0)
-    heroics (0.1.1)
+    excon (0.79.0)
+    heroics (0.1.2)
       erubis (~> 2.0)
       excon
       moneta
       multi_json (>= 1.9.2)
+      webrick
     heroku_hatchet (7.3.3)
       excon (~> 0)
       platform-api (~> 3)
@@ -45,6 +46,7 @@ GEM
     rspec-support (3.9.3)
     thor (1.0.1)
     threaded (0.0.4)
+    webrick (1.7.0)
 
 PLATFORMS
   ruby

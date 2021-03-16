@@ -19,11 +19,11 @@ bootstrap_ruby_to_buildpack_dir
 
 cat <<EOF | $(buildpack_ruby_path) -I"$BUILDPACK_DIR/lib" -rheroku_buildpack_ruby
   HerokuBuildpackRuby.build_cnb(
-    layers_dir: '$LAYERS_DIR',
-    platform_dir: '$PLATFORM_DIR',
-    env_dir: '$ENV_DIR',
     plan: '$PLAN',
     app_dir: '$APP_DIR',
+    env_dir: '$ENV_DIR',
+    layers_dir: '$LAYERS_DIR',
+    platform_dir: '$PLATFORM_DIR',
     buildpack_ruby_path: '$(buildpack_ruby_path)',
    )
 EOF

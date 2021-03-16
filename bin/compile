@@ -19,7 +19,7 @@ if detect_needs_java "$BUILD_DIR"; then
        ## Warning: Your app needs java
 
        The Ruby buildpack determined your app needs java installed
-       we recommend you add the node buildpack to your application:
+       we recommend you add this buildpack to your application:
 
          $ heroku buildpacks:add heroku/jvm --index=1
 
@@ -39,10 +39,10 @@ fi
 if detect_needs_node "$BUILD_DIR"; then
   cat <<EOM
 
-       ## Warning: Your app need node
+       ## Warning: Your app needs node
 
        The Ruby buildpack determined your app needs node installed
-       we recommend you add the node buildpack to your application:
+       we recommend you add this buildpack to your application:
 
          $ heroku buildpacks:add heroku/nodejs --index=1
 

@@ -12,9 +12,9 @@ module HerokuBuildpackRuby
     #
     #   cache_dir = Dir.pwd
     #   metadata = Metadata::V2.new(dir: cache_dir, name: :ruby)
-    #   metadata.set(:foo => "bar")
-    #   metadata.get(:foo) # => "bar"
-    #   metadata.fetch(:cinco) do
+    #   metadata.layer(:ruby).set(:foo => "bar")
+    #   metadata.layer(:ruby).get(:foo) # => "bar"
+    #   metadata.layer(:ruby).fetch(:cinco) do
     #     "a good boy"
     #   end
     #   # => "a good boy"

@@ -12,6 +12,7 @@ require 'tempfile'
 require 'stringio'
 require 'securerandom'
 require 'timeout'
+require 'stackprof'
 
 require "dead_end"
 

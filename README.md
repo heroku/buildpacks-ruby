@@ -20,6 +20,7 @@
   - We may error out if this command fails based on your dependencies.
 - We will run `rake assets:precompile` on your app if it exists on your application.
   - We will skip this task if a manifest file exists in the `public/assets` folder that indicates precompiled assets are checked into git.
+  - We will abort your build if the `assets:precompile` task fails
   - We will run `rake assets:clean` on your app.
     - We will cache the contents of `public/assets` if `assets:clean` exists on your application. [TODO]
     - We will limit or prune the size of this asset cache [TODO]

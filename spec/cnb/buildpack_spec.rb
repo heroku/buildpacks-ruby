@@ -2,184 +2,120 @@
 
 require_relative '../spec_helper'
 
-class CnbRun
-  attr_accessor :image_name, :output, :repo_path, :buildpack_path, :builder
-
-  def initialize(repo_path, builder: "heroku/buildpacks:18", buildpack_paths: , config: {})
-    @repo_path = repo_path
-    @image_name = "minimal-heroku-buildpack-ruby-tests:#{SecureRandom.hex}"
-    @builder = builder
-    @buildpack_paths = Array.new(buildpack_paths)
-    @build_output = ""
-    @threads = []
-    @config = config
-  end
-
-  def build!
-    command = String.new("pack build #{image_name} --path #{repo_path} --builder heroku/buildpacks:18")
-    @config.each do |(k,v)|
-      command << %Q{ --env "#{k}=#{v}"}
-    end
-    @buildpack_paths.each do |path|
-      command << " --buildpack #{path}"
-    end
-
-    puts command
-
-    @output = run_local!(command)
-  end
-
-  def call
-    build!
-
-    yield self
-  ensure
-    teardown
-  end
-
-  def teardown
-    @threads.map(&:join)
-
-  ensure
-    return unless image_name
-
-    repo_name, tag_name = image_name.split(":")
-
-    docker_list = `docker images --no-trunc | grep #{repo_name} | grep #{tag_name}`.strip
-    run_local!("docker rmi #{image_name} --force") if !docker_list.empty?
-    @image_name = nil
-  end
-
-  def run(cmd)
-    command = %Q{docker run --entrypoint="/cnb/lifecycle/launcher" #{image_name} #{cmd.to_s.shellescape} 2>&1}
-    `#{command}`.strip
-  end
-
-  def run!(cmd)
-    out = run(cmd)
-    raise "Command #{cmd.inspect} failed. Output: #{out}" unless $?.success?
-    out
-  end
-
-  private def run_local!(cmd)
-    out = `#{cmd} 2>&1`
-    raise "Command #{cmd.inspect} failed. Output: #{out}" unless $?.success?
-    out
-  end
-
-  def run_multi!(cmd)
-    @threads << Thread.new do
-      out = run!(cmd)
-      status = $?
-      yield out, status
-    end
-  end
-end
-
 module HerokuBuildpackRuby
   RSpec.describe "Cloud Native Buildpack" do
     it "jruby" do
-      Dir.mktmpdir do |dir|
-        dir = Pathname(dir)
-        Dir.chdir(dir) do
-          FileUtils.cp_r(hatchet_path("ruby_apps/default_ruby/."), dir)
-          dir.join("Gemfile").write <<~EOM
-            source "https://rubygems.org"
+      Cutlass::App.new(
+        "default_ruby",
+        buildpacks: ["heroku/jvm@0.1.3", :default]
+      ).transaction do |app|
+        app.tmpdir.join("Gemfile").write <<~EOM
+          source "https://rubygems.org"
 
-            ruby '2.5.7', engine: 'jruby', engine_version: '9.2.13.0'
-          EOM
-          dir.join("Gemfile.lock").write <<~EOM
-            GEM
-              remote: https://rubygems.org/
-              specs:
+          ruby '2.5.7', engine: 'jruby', engine_version: '9.2.13.0'
+        EOM
 
-            PLATFORMS
-              java
+        app.tmpdir.join("Gemfile.lock").write <<~EOM
+          GEM
+            remote: https://rubygems.org/
+            specs:
 
-            RUBY VERSION
-               ruby 2.5.7p001 (jruby 9.2.13.0)
+          PLATFORMS
+            java
 
-            DEPENDENCIES
-          EOM
+          RUBY VERSION
+             ruby 2.5.7p001 (jruby 9.2.13.0)
 
-          CnbRun.new(dir, buildpack_paths: ["heroku/jvm@0.1.3", buildpack_path]).call do |app|
-            expect(app.output).to include("[Installing Java]")
-            expect(app.output).to include("Using Ruby version: 2.5.7-jruby-9.2.13.0")
-            expect(app.output).to include("Bundle complete")
-          end
-        end
+          DEPENDENCIES
+        EOM
+
+        app.pack_build
+
+        expect(app.stdout).to include("[Installing Java]")
+        expect(app.stdout).to include("Using Ruby version: 2.5.7-jruby-9.2.13.0")
+        expect(app.stdout).to include("Bundle complete")
       end
     end
 
     it "locally runs default_ruby app" do
-      CnbRun.new(hatchet_path("ruby_apps/default_ruby"), buildpack_paths: [buildpack_path]).call do |app|
-        expect(app.output).to include("Installing rake")
+      Cutlass::App.new("default_ruby").transaction do |app|
+        app.pack_build
 
-        app.run_multi!("ruby -v") do |out|
-          expect(out).to match(RubyDetectVersion::DEFAULT)
+        expect(app.stdout).to include("Installing rake")
+
+        app.run_multi("ruby -v") do |out|
+          expect(out.stdout).to match(RubyDetectVersion::DEFAULT)
         end
 
-        app.run_multi!("bundle list") do |out|
-          expect(out).to match("rack")
+        app.run_multi("bundle list") do |out|
+          expect(out.stdout).to match("rack")
         end
 
-        app.run_multi!("gem list") do |out|
-          expect(out).to match("rack")
+        app.run_multi("gem list") do |out|
+          expect(out.stdout).to match("rack")
         end
 
-        app.run_multi!(%Q{ruby -e "require 'rack'; puts 'done'"}) do |out|
-          expect(out).to match("done")
+        app.run_multi(%Q{ruby -e "require 'rack'; puts 'done'"}) do |out|
+          expect(out.stdout).to match("done")
         end
 
-        app.build!
+        # Test cache
+        app.pack_build
 
-        expect(app.output).to include("Using rake")
+        expect(app.stdout).to include("Using rake")
       end
     end
 
     it "installs node and yarn and calls assets:precompile" do
-      CnbRun.new(hatchet_path("ruby_apps/minimal_webpacker"), buildpack_paths: ["heroku/nodejs", buildpack_path]).call do |app|
-        # This output comes from the heroku/nodejs buildpack
-        expect(app.output).to include("Installing rake")
-        expect(app.output).to include("Installing yarn")
+      Cutlass::App.new(
+        "minimal_webpacker",
+        buildpacks: ["heroku/nodejs", :default]
+      ).transaction do |app|
+        app.pack_build
+
+        expect(app.stdout).to include("Installing rake")
+        expect(app.stdout).to include("Installing yarn")
 
         # This output comes from the contents of the Rakefile
         # https://github.com/sharpstone/minimal_webpacker/blob/master/Rakefile
-        expect(app.output).to include("THE TASK ASSETS:PRECOMPILE WAS CALLED")
-        expect(app.output).to include("THE TASK ASSETS:CLEAN WAS CALLED")
+        expect(app.stdout).to include("THE TASK ASSETS:PRECOMPILE WAS CALLED")
+        expect(app.stdout).to include("THE TASK ASSETS:CLEAN WAS CALLED")
 
-        app.run_multi!("which node") do |out, status|
-          expect(out.strip).to_not be_empty
-          expect(status.success?).to be_truthy
+        app.run_multi("which node") do |result|
+          expect(result.stdout.strip).to_not be_empty
+          expect(result.success?).to be_truthy
         end
 
-        app.run_multi!("which yarn") do |out, status|
-          expect(out.strip).to_not be_empty
-          expect(status.success?).to be_truthy
+        app.run_multi("which yarn") do |result|
+          expect(result.stdout.strip).to_not be_empty
+          expect(result.success?).to be_truthy
         end
       end
     end
 
     it "Respects user config vars" do
-      CnbRun.new(
-        hatchet_path("ruby_apps/default_ruby"),
-        buildpack_paths: [buildpack_path],
-        config: {"BUNDLE_WITHOUT": "periwinkle"}
-      ).call do |app|
-        expect(app.output).to include(%Q{BUNDLE_WITHOUT="periwinkle"})
+      Cutlass::App.new(
+        "default_ruby",
+        config: { "BUNDLE_WITHOUT": "periwinkle" }
+      ).transaction do |app|
+        app.pack_build do |result|
+          expect(result.stdout).to include(%Q{BUNDLE_WITHOUT="periwinkle"})
+        end
       end
     end
 
     it "rails getting started guide" do
       # TODO, detect exectjs at detect time and remove heroku/nodejs from buildpacks path
 
-      CnbRun.new(
-        hatchet_path("ruby_apps/ruby-getting-started"),
-        buildpack_paths: ["heroku/nodejs", buildpack_path],
-      ).call do |app|
-        app.run_multi!("rails runner 'puts ENV[%Q{RAILS_SERVE_STATIC_FILES}].present?'") do |out, status|
-          expect(out).to match(/true/)
-          expect(status).to be_truthy
+      Cutlass::App.new(
+        "ruby-getting-started",
+        buildpacks: ["heroku/nodejs", :default]
+      ).transaction do |app|
+        app.pack_build
+
+        app.run_multi("rails runner 'puts ENV[%Q{RAILS_SERVE_STATIC_FILES}].present?'") do |result|
+          expect(result.stdout).to match(/true/)
+          expect(result.success?).to be_truthy
         end
       end
     end

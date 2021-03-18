@@ -17,6 +17,22 @@ require 'stackprof'
 require "dead_end"
 
 require "heroku_buildpack_ruby"
+require "cutlass"
+
+def hatchet_path(path = "")
+  Pathname(__FILE__).join("../../repos").expand_path.join(path)
+end
+
+Cutlass.config do |config|
+  config.default_builder = "heroku/buildpacks:18"
+
+  # Where do your test fixtures live?
+  config.default_repo_dirs = [hatchet_path("ruby_apps")]
+
+  # Where does your buildpack live?
+  # Can be a directory or a Cutlass:LocalBuildpack instance
+  config.default_buildpack_paths = [Pathname(__dir__).join("..")]
+end
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
@@ -31,39 +47,20 @@ RSpec.configure do |config|
 
   ## ENV var set and persist
   config.before(:suite) do
-    SKIP_ENV_CHECK_KEYS = [
-      "HEROKU_API_KEY",
-    ].freeze
-
     LOAD_PATH_DUP = $LOAD_PATH.dup
 
-    BEFORE_ENV_DUP = ENV.to_h
+    Cutlass::CleanTestEnv.record
   end
 
   ## ENV var check
   config.after(:suite) do
-    env_keys = (BEFORE_ENV_DUP.keys + ENV.keys) - SKIP_ENV_CHECK_KEYS
-    diff_array = env_keys.uniq.map do |k|
-      next if BEFORE_ENV_DUP[k] == ENV[k]
-
-      "  ENV['#{k}'] changed from '#{BEFORE_ENV_DUP[k]}' to '#{ENV[k]}'"
-    end.compact
-
-    if diff_array.any?
-      environment_mutated_message = <<~EOM
-        Something mutated the environment on accident.
-
-        Diff:
-        #{diff_array.join("\n")}
-      EOM
-      raise environment_mutated_message
-    end
-
     if LOAD_PATH_DUP != $LOAD_PATH
       raise <<~EOM
         LOAD_PATH is mutated
       EOM
     end
+
+    Cutlass::CleanTestEnv.check
   end
 end
 
@@ -93,9 +90,6 @@ def buildpack_path
   File.expand_path(File.join("../.."), __FILE__)
 end
 
-def hatchet_path(path = "")
-  Pathname(__FILE__).join("../../repos").expand_path.join(path)
-end
 
 def bash_functions_file
   root_dir.join("bin", "support", "bash_functions.sh")

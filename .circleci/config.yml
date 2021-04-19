@@ -1,6 +1,6 @@
 version: 2.1
 orbs:
-  pack: buildpacks/pack@0.2.0
+  pack: buildpacks/pack@0.2.2
   ruby: circleci/ruby@1.1.2
   shellcheck: circleci/shellcheck@2.2.0
 
@@ -61,7 +61,8 @@ jobs:
       - checkout
       - setup_remote_docker:
           version: 19.03.13
-      - pack/install-pack
+      - pack/install-pack:
+          version: 0.16.0
       - ruby/install-deps
       - <<: *hatchet_setup
       - <<: *pack_cnb
@@ -72,7 +73,8 @@ jobs:
       - checkout
       - setup_remote_docker:
           version: 19.03.13
-      - pack/install-pack
+      - pack/install-pack:
+          version: 0.16.0
       - ruby/install-deps
       - <<: *hatchet_setup
       - <<: *docker_commands

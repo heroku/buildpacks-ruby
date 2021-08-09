@@ -49,7 +49,7 @@ GEM
     rspec-retry (0.6.2)
       rspec-core (> 3.3)
     rspec-support (3.9.3)
-    stackprof (0.2.16)
+    stackprof (0.2.17)
     thor (1.0.1)
     threaded (0.0.4)
     webrick (1.7.0)

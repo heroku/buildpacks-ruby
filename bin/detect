@@ -9,10 +9,8 @@ if [ -z "$CNB_STACK_ID" ]; then
   APP_DIR=$1
 
   if [ ! -f "$APP_DIR/Gemfile" ]; then
-    echo "no"
     exit 1
   else
-    echo "ruby"
     exit 0
   fi
 fi
@@ -24,7 +22,6 @@ APP_DIR=$(pwd)
 BIN_DIR=$(cd "$(dirname "$0")"; pwd)
 
 if [ ! -f "$APP_DIR/Gemfile" ]; then
-  echo "no"
   exit 1
 else
   echo "Ruby"

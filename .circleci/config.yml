@@ -12,7 +12,7 @@ references:
   pack_cnb: &pack_cnb
     run:
       name: Run test suite
-      command: PARALLEL_SPLIT_TEST_PROCESSES="4" IS_RUNNING_ON_CI=1 bundle exec parallel_split_test spec/cnb
+      command: bundle exec rspec spec/cnb
   docker_commands: &docker_commands
     run:
       name: Run test suite

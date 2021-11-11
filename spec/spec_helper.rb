@@ -23,16 +23,17 @@ def hatchet_path(path = "")
   Pathname(__FILE__).join("../../repos").expand_path.join(path)
 end
 
+RUBY_BUILDPACK = Cutlass::LocalBuildpack.new(directory: Pathname(__dir__).join(".."))
+
 Cutlass.config do |config|
-  # Image pinned to fix CI until https://github.com/heroku/buildpacks-ruby/pull/79 lands. 
-  config.default_builder = "heroku/buildpacks:18@sha256:7590c0bc92e574253e44ef3848579869cfeb610b80de093463ef4a7d8de3ae03"
+  config.default_builder = "heroku/buildpacks:20"
 
   # Where do your test fixtures live?
   config.default_repo_dirs = [hatchet_path("ruby_apps")]
 
   # Where does your buildpack live?
   # Can be a directory or a Cutlass:LocalBuildpack instance
-  config.default_buildpack_paths = [Pathname(__dir__).join("..")]
+  config.default_buildpack_paths = [RUBY_BUILDPACK]
 end
 
 RSpec.configure do |config|

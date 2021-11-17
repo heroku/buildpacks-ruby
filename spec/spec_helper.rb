@@ -24,7 +24,8 @@ def hatchet_path(path = "")
 end
 
 Cutlass.config do |config|
-  config.default_builder = "heroku/buildpacks:18"
+  # Image pinned to fix CI until https://github.com/heroku/buildpacks-ruby/pull/79 lands. 
+  config.default_builder = "heroku/buildpacks:18@sha256:7590c0bc92e574253e44ef3848579869cfeb610b80de093463ef4a7d8de3ae03"
 
   # Where do your test fixtures live?
   config.default_repo_dirs = [hatchet_path("ruby_apps")]

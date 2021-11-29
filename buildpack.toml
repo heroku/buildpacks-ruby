@@ -4,6 +4,7 @@ api = "0.2"
 id = "heroku/ruby"
 version = "0.0.1"
 name = "Ruby"
+homepage = "https://github.com/heroku/buildpacks-ruby"
 ruby_version = "2.6.6"
 
   [publish.Ignore]

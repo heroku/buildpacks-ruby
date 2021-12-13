@@ -1,8 +1,8 @@
-api = "0.2"
+api = "0.4"
 
 [buildpack]
 id = "heroku/ruby"
-version = "0.0.1"
+version = "1.0.2"
 name = "Ruby"
 homepage = "https://github.com/heroku/buildpacks-ruby"
 ruby_version = "2.6.6"
@@ -21,3 +21,6 @@ ruby_version = "2.6.6"
 
 [[stacks]]
 id = "heroku-18"
+
+[[stacks]]
+id = "heroku-20"

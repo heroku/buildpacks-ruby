@@ -9,7 +9,7 @@ GEM
       excon (>= 0.47.0)
       multi_json
     erubis (2.7.0)
-    excon (0.87.0)
+    excon (0.88.0)
     heroics (0.1.2)
       erubis (~> 2.0)
       excon
@@ -61,4 +61,4 @@ DEPENDENCIES
   stackprof
 
 BUNDLED WITH
-   2.2.25
+   2.2.30

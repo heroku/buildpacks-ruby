@@ -70,7 +70,13 @@ EOF
 download_ruby_version_to_buildpack_vendor()
 {
   local ruby_version=$1
-  heroku_buildpack_ruby_dir="$BUILDPACK_DIR/vendor/ruby/$STACK"
+  download_ruby_version_to_dir "$ruby_version" "$BUILDPACK_DIR/vendor/ruby/$STACK"
+}
+
+download_ruby_version_to_dir()
+{
+  local ruby_version=$1
+  local heroku_buildpack_ruby_dir=$2
 
   # The -d flag checks to see if a file exists and is a directory.
   # This directory may be non-empty if a previous compile has

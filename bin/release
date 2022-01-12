@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-set -euo pipefail
-
-BUILD_DIR=$1
-
-cat "$BUILD_DIR"/.heroku/ruby/release.yml

@@ -7,3 +7,6 @@ name = "Ruby"
 
 [[stacks]]
 id = "heroku-20"
+
+[metadata]
+ruby_url = "https://heroku-buildpack-ruby.s3.amazonaws.com/heroku-20/ruby-2.7.4.tgz"

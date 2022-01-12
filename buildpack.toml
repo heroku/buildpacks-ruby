@@ -1,0 +1,9 @@
+api = "0.6"
+
+[buildpack]
+id = "heroku/ruby"
+version = "2.0.0"
+name = "Ruby"
+
+[[stacks]]
+id = "heroku-20"

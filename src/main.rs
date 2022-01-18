@@ -32,7 +32,12 @@ impl Buildpack for RubyBuildpack {
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         println!("---> Ruby Buildpack");
 
-        let ruby_layer = context.handle_layer(layer_name!("ruby"), RubyLayer)?;
+        let ruby_layer = context //
+            .handle_layer(
+                //
+                layer_name!("ruby"), //
+                RubyLayer,           //
+            )?;
 
         context.handle_layer(
             layer_name!("bundler"),

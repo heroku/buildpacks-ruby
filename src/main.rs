@@ -7,7 +7,7 @@ use libcnb::generic::GenericPlatform;
 use libcnb::layer_env::Scope;
 use libcnb::{buildpack_main, Buildpack, Env};
 
-use crate::util::{DownloadError, UntarError};
+use crate::util::{DownloadError, UntarError, UrlError};
 use serde::Deserialize;
 use std::process::ExitStatus;
 
@@ -74,18 +74,31 @@ pub struct RubyBuildpackMetadata {
     pub ruby_url: String,
 }
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum RubyBuildpackError {
+    #[error("Cannot download: {0}")]
     RubyDownloadError(DownloadError),
+    #[error("Cannot untar: {0}")]
     RubyUntarError(UntarError),
+    #[error("Cannot create temporary file: {0}")]
     CouldNotCreateTemporaryFile(std::io::Error),
+    #[error("Cannot generate checksum: {0}")]
     CouldNotGenerateChecksum(std::io::Error),
+    #[error("Cannot install bundler: {0}")]
     GemInstallBundlerCommandError(std::io::Error),
+    #[error("Bundler gem install exit: {0}")]
     GemInstallBundlerUnexpectedExitStatus(ExitStatus),
+    #[error("Bundle install errored: {0}")]
     BundleInstallCommandError(std::io::Error),
+    #[error("Bundle install exit: {0}")]
     BundleInstallUnexpectedExitStatus(ExitStatus),
+    #[error("Bundle config error: {0}")]
     BundleConfigCommandError(std::io::Error),
+    #[error("Bundle config exit: {0}")]
     BundleConfigUnexpectedExitStatus(ExitStatus),
+
+    #[error("Url error: {0}")]
+    UrlParseError(UrlError),
 }
 
 buildpack_main!(RubyBuildpack);

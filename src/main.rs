@@ -34,17 +34,17 @@ impl Buildpack for RubyBuildpack {
 
         let ruby_layer = context //
             .handle_layer(
-                //
-                layer_name!("ruby"), //
+                layer_name!("ruby"),
                 RubyLayer {
-                    version: String::from("2.7.4"),
-                }, //
+                    version: "2.7.4".to_string(),
+                },
             )?;
 
         context.handle_layer(
             layer_name!("bundler"),
             BundlerLayer {
                 ruby_env: ruby_layer.env.apply(Scope::Build, &Env::new()),
+                version: "2.3.5".to_string(),
             },
         )?;
 

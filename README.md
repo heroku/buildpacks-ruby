@@ -42,6 +42,9 @@ Make sure it doesn't say `/usr/bin/ruby` or another system ruby location
 As a oneliner:
 
 ```
-cargo libcnb package && pack build my-image --buildpack target/buildpack/debug/heroku_ruby --path /tmp/bogus-ruby-app && docker run --entrypoint='/cnb/lifecycle/launcher' my-image 'which bundle'
+cargo libcnb package && \
+docker rmi my-image --force  && \
+pack build my-image --buildpack target/buildpack/debug/heroku_ruby --path /tmp/bogus-ruby-app && \
+docker run --entrypoint='/cnb/lifecycle/launcher' my-image 'which bundle'
 ```
 

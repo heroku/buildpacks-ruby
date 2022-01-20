@@ -37,11 +37,12 @@ impl Layer for BundlerLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        println!("---> Installing bundler");
+        let version = "2.3.5";
+        println!("---> Installing bundler {}", version);
 
         util::run_simple_command(
             Command::new("gem")
-                .args(&["install", "bundler", "--force"])
+                .args(&["install", "bundler", "-v", version, "--force"])
                 .envs(&self.ruby_env),
             RubyBuildpackError::GemInstallBundlerCommandError,
             RubyBuildpackError::GemInstallBundlerUnexpectedExitStatus,
@@ -63,6 +64,7 @@ impl Layer for BundlerLayer {
             RubyBuildpackError::BundleInstallUnexpectedExitStatus,
         )?;
 
+        // TODO: Also record env vars
         LayerResultBuilder::new(BundlerLayerMetadata {
             gemfile_lock_checksum: util::sha256_checksum(context.app_dir.join("Gemfile.lock"))
                 .map_err(RubyBuildpackError::CouldNotGenerateChecksum)?,

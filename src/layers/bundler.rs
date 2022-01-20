@@ -59,15 +59,7 @@ impl Layer for BundlerLayer {
             layer_path.join("bin").to_str().unwrap(),
         ]);
 
-        println!(
-            "Running: {} {}",
-            command.get_program().to_string_lossy(),
-            command
-                .get_args()
-                .map(|arg| arg.to_string_lossy())
-                .collect::<Vec<_>>()
-                .join(" ")
-        );
+        println!("Running: {} ", util::command_to_str(&command));
 
         util::run_simple_command(
             command.envs(&self.ruby_env),

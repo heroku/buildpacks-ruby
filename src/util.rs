@@ -6,6 +6,18 @@ use std::path::Path;
 use std::process::{Command, ExitStatus};
 use tar::Archive;
 
+pub fn command_to_str(command: &Command) -> String {
+    format!(
+        "{} {}",
+        command.get_program().to_string_lossy(),
+        command
+            .get_args()
+            .map(|arg| arg.to_string_lossy())
+            .collect::<Vec<_>>()
+            .join(" ")
+    )
+}
+
 pub fn download(uri: impl AsRef<str>, destination: impl AsRef<Path>) -> Result<(), DownloadError> {
     let mut response_reader = ureq::get(uri.as_ref())
         .call()

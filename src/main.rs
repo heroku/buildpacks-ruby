@@ -36,7 +36,9 @@ impl Buildpack for RubyBuildpack {
             .handle_layer(
                 //
                 layer_name!("ruby"), //
-                RubyLayer,           //
+                RubyLayer {
+                    version: String::from("2.7.4"),
+                }, //
             )?;
 
         context.handle_layer(

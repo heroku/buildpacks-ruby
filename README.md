@@ -38,3 +38,10 @@ ruby 2.7.4p191 (2021-07-07 revision a21a3b7d23) [x86_64-linux]
 ```
 
 Make sure it doesn't say `/usr/bin/ruby` or another system ruby location
+
+As a oneliner:
+
+```
+cargo libcnb package && pack build my-image --buildpack target/buildpack/debug/heroku_ruby --path /tmp/bogus-ruby-app && docker run --entrypoint='/cnb/lifecycle/launcher' my-image 'which bundle'
+```
+

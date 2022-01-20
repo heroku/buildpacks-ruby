@@ -190,6 +190,7 @@ version = "0.1.0"
 dependencies = [
  "flate2",
  "libcnb",
+ "regex",
  "serde",
  "sha2",
  "tar",

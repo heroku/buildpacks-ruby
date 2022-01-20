@@ -15,6 +15,38 @@ mod layers;
 mod util;
 
 pub struct RubyBuildpack;
+use core::str::FromStr;
+
+#[derive(Debug)]
+struct BundleInfo {
+    bundler_version: String,
+    ruby_version: String,
+}
+
+use regex::Regex;
+impl FromStr for BundleInfo {
+    type Err = String;
+
+    fn from_str(string: &str) -> Result<Self, Self::Err> {
+        let bundled_with_re = Regex::new("BUNDLED WITH\\s   (\\d+\\.\\d+\\.\\d+)").unwrap();
+        let ruby_version_re = Regex::new("RUBY VERSION\\s   ruby (\\d+\\.\\d+\\.\\d+)").unwrap();
+
+        let bundler_version = match bundled_with_re.captures(string) {
+            Some(result) => result.get(1).unwrap().as_str().to_string(),
+            None => "2.3.5".to_string(),
+        };
+
+        let ruby_version = match ruby_version_re.captures(string) {
+            Some(result) => result.get(1).unwrap().as_str().to_string(),
+            None => "3.0.2".to_string(),
+        };
+
+        Ok(Self {
+            bundler_version,
+            ruby_version,
+        })
+    }
+}
 
 impl Buildpack for RubyBuildpack {
     type Platform = GenericPlatform;
@@ -32,11 +64,14 @@ impl Buildpack for RubyBuildpack {
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         println!("---> Ruby Buildpack");
 
+        let gemfile_lock = std::fs::read_to_string(context.app_dir.join("Gemfile.lock")).unwrap();
+        let bundle_info = BundleInfo::from_str(&gemfile_lock).unwrap();
+
         let ruby_layer = context //
             .handle_layer(
                 layer_name!("ruby"),
                 RubyLayer {
-                    version: "2.7.4".to_string(),
+                    version: bundle_info.ruby_version,
                 },
             )?;
 
@@ -44,7 +79,7 @@ impl Buildpack for RubyBuildpack {
             layer_name!("bundler"),
             BundlerLayer {
                 ruby_env: ruby_layer.env.apply(Scope::Build, &Env::new()),
-                version: "2.3.5".to_string(),
+                version: bundle_info.bundler_version,
             },
         )?;
 
@@ -104,3 +139,45 @@ pub enum RubyBuildpackError {
 }
 
 buildpack_main!(RubyBuildpack);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_gemfile_lock() {
+        let info = BundleInfo::from_str(
+            r#"
+GEM
+  remote: https://rubygems.org/
+  specs:
+    mini_histogram (0.3.1)
+
+PLATFORMS
+  ruby
+  x86_64-darwin-20
+  x86_64-linux
+
+DEPENDENCIES
+  mini_histogram
+
+RUBY VERSION
+   ruby 3.1.0p-1
+
+BUNDLED WITH
+   2.3.4
+"#,
+        )
+        .unwrap();
+
+        assert_eq!(info.bundler_version, "2.3.4".to_string());
+        assert_eq!(info.ruby_version, "3.1.0".to_string());
+    }
+
+    #[test]
+    fn test_default_versions() {
+        let info = BundleInfo::from_str("").unwrap();
+        assert_eq!(info.bundler_version, "2.3.5".to_string());
+        assert_eq!(info.ruby_version, "3.0.2".to_string());
+    }
+}

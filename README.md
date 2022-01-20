@@ -15,8 +15,14 @@ cargo libcnb package
 ```
 mkdir -p /tmp/bogus-ruby-app
 cd /tmp/bogus-ruby-app
-touch Gemfile
+cat > Gemfile << EOF
+source "https://rubygems.org"
+
+gem "mini_histogram"
+EOF
 bundle install
+bundle lock --add-platform x86_64-linux
+bundle lock --add-platform ruby
 
 echo "puts 'lol'" > app.rb
 cd -

@@ -21,11 +21,14 @@ pub fn download(uri: impl AsRef<str>, destination: impl AsRef<Path>) -> Result<(
     Ok(())
 }
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum DownloadError {
     // Boxed to prevent `large_enum_variant` errors since `ureq::Error` is massive.
+    #[error("Download error: {0}")]
     RequestError(Box<ureq::Error>),
+    #[error("Could not create file: {0}")]
     CouldNotCreateDestinationFile(std::io::Error),
+    #[error("Could not write file: {0}")]
     CouldNotWriteDestinationFile(std::io::Error),
 }
 
@@ -37,9 +40,11 @@ pub fn untar(path: impl AsRef<Path>, destination: impl AsRef<Path>) -> Result<()
         .map_err(UntarError::CouldNotUnpack)
 }
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum UntarError {
+    #[error("Could not open file: {0}")]
     CouldNotOpenFile(std::io::Error),
+    #[error("Could not untar: {0}")]
     CouldNotUnpack(std::io::Error),
 }
 
@@ -66,4 +71,13 @@ pub fn run_simple_command<E, F: FnOnce(std::io::Error) -> E, F2: FnOnce(ExitStat
                 Err(exit_status_fn(exit_status))
             }
         })
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum UrlError {
+    #[error("Could not parse url {0}")]
+    UrlParseError(url::ParseError),
+
+    #[error("Invalid base url {0}")]
+    InvalidBaseUrl(String),
 }

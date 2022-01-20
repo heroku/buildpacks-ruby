@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use crate::util;
+use crate::util::UrlError;
 
 use tempfile::NamedTempFile;
 
@@ -39,7 +40,8 @@ impl Layer for RubyLayer {
         let tmp_ruby_tgz =
             NamedTempFile::new().map_err(RubyBuildpackError::CouldNotCreateTemporaryFile)?;
 
-        let url = RubyLayer::download_url(stack, version);
+        let url =
+            RubyLayer::download_url(stack, version).map_err(RubyBuildpackError::UrlParseError)?;
 
         util::download(url.as_ref(), tmp_ruby_tgz.path())
             .map_err(RubyBuildpackError::RubyDownloadError)?;
@@ -52,14 +54,19 @@ impl Layer for RubyLayer {
 }
 
 impl RubyLayer {
-    fn download_url(stack: impl AsRef<str>, version: impl AsRef<str> + std::fmt::Display) -> Url {
+    fn download_url(
+        stack: impl AsRef<str>,
+        version: impl AsRef<str> + std::fmt::Display,
+    ) -> Result<Url, UrlError> {
         let filename = format!("ruby-{}.tgz", version);
-        let mut url = Url::parse("https://heroku-buildpack-ruby.s3.amazonaws.com").unwrap();
+        let base = "https://heroku-buildpack-ruby.s3.amazonaws.com";
+        let mut url = Url::parse(base).map_err(UrlError::UrlParseError)?;
+
         url.path_segments_mut()
-            .unwrap()
+            .map_err(|_| UrlError::InvalidBaseUrl(String::from(base)))?
             .push(stack.as_ref())
             .push(&filename);
-        url
+        Ok(url)
     }
 }
 
@@ -69,7 +76,7 @@ mod tests {
 
     #[test]
     fn test_ruby_url() {
-        let out = RubyLayer::download_url("heroku-20", "2.7.4");
+        let out = RubyLayer::download_url("heroku-20", "2.7.4").unwrap();
         assert_eq!(
             out.as_ref(),
             "https://heroku-buildpack-ruby.s3.amazonaws.com/heroku-20/ruby-2.7.4.tgz",

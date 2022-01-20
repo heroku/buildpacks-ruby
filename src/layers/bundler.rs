@@ -17,6 +17,7 @@ pub struct BundlerLayerMetadata {
 }
 
 pub struct BundlerLayer {
+    pub version: String,
     pub ruby_env: Env,
 }
 
@@ -37,12 +38,11 @@ impl Layer for BundlerLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let version = "2.3.5";
-        println!("---> Installing bundler {}", version);
+        println!("---> Installing bundler {}", self.version);
 
         util::run_simple_command(
             Command::new("gem")
-                .args(&["install", "bundler", "-v", version, "--force"])
+                .args(&["install", "bundler", "-v", &self.version, "--force"])
                 .envs(&self.ruby_env),
             RubyBuildpackError::GemInstallBundlerCommandError,
             RubyBuildpackError::GemInstallBundlerUnexpectedExitStatus,

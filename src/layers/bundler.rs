@@ -50,16 +50,27 @@ impl Layer for BundlerLayer {
 
         println!("---> Installing gems");
 
+        let mut command = Command::new("bundle");
+        command.args(&[
+            "install",
+            "--path",
+            layer_path.to_str().unwrap(),
+            "--binstubs",
+            layer_path.join("bin").to_str().unwrap(),
+        ]);
+
+        println!(
+            "Running: {} {}",
+            command.get_program().to_string_lossy(),
+            command
+                .get_args()
+                .map(|arg| arg.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+
         util::run_simple_command(
-            Command::new("bundle")
-                .args(&[
-                    "install",
-                    "--path",
-                    layer_path.to_str().unwrap(),
-                    "--binstubs",
-                    layer_path.join("bin").to_str().unwrap(),
-                ])
-                .envs(&self.ruby_env),
+            command.envs(&self.ruby_env),
             RubyBuildpackError::BundleInstallCommandError,
             RubyBuildpackError::BundleInstallUnexpectedExitStatus,
         )?;

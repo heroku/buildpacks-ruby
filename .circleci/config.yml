@@ -1,91 +1,71 @@
 version: 2.1
 orbs:
   pack: buildpacks/pack@0.2.4
-  ruby: circleci/ruby@1.1.2
-  shellcheck: circleci/shellcheck@2.2.0
 
-references:
-  hatchet: &hatchet
-    run:
-      name: Run test suite
-      command: PARALLEL_SPLIT_TEST_PROCESSES=25 IS_RUNNING_ON_CI=1 bundle exec parallel_split_test spec/hatchet
-  pack_cnb: &pack_cnb
-    run:
-      name: Run test suite
-      command: bundle exec rspec spec/cnb
-  docker_commands: &docker_commands
-    run:
-      name: Run test suite
-      command: PARALLEL_SPLIT_TEST_PROCESSES="4" IS_RUNNING_ON_CI=1 bundle exec parallel_split_test spec/docker
-  unit: &unit
-    run:
-      name: Run test suite
-      command: PARALLEL_SPLIT_TEST_PROCESSES="4" IS_RUNNING_ON_CI=1 bundle exec parallel_split_test spec/unit
-  hatchet_setup: &hatchet_setup
-    run:
-      name: Hatchet setup
-      command: |
-        bundle exec hatchet ci:setup
+executors:
+  rust:
+    machine:
+      image: ubuntu-2004:202111-02
+
+commands:
+  restore-cargo-cache:
+    steps:
+      - restore_cache:
+          keys:
+            # CIRCLE_JOB is the job name, eg 'lint', ensuring caches are job-specific.
+            - cargo-{{ .Environment.CIRCLE_JOB }}-{{ checksum "Cargo.lock" }}-{{ checksum ".circleci/config.yml" }}
+  save-cargo-cache:
+    steps:
+      - save_cache:
+          key: cargo-{{ .Environment.CIRCLE_JOB }}-{{ checksum "Cargo.lock" }}-{{ checksum ".circleci/config.yml" }}
+          paths:
+            - ~/.cargo
+  install-rust:
+    steps:
+      - run:
+          name: "Install Rust"
+          command: |
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o rustup.sh
+            chmod +x rustup.sh
+            ./rustup.sh -y
 
 jobs:
-  shellcheck:
-    docker:
-      - image: 'cimg/base:stable'
+  lint:
+    executor: rust
     steps:
       - checkout
-      - shellcheck/install
+      - restore-cargo-cache
+      - install-rust
       - run:
-          name: Check build,compile,detect,release and bash_functions.sh with shellcheck
-          command: |
-            shellcheck -x bin/build bin/compile bin/detect bin/release bin/support/bash_functions.sh
-  unit:
-    docker:
-      - image: circleci/ruby:2.7
+          name: Clippy
+          # Using --all-targets so tests are checked and --deny to fail on warnings.
+          command: cargo clippy --all-targets --all-features --locked -- --deny warnings
+      - run:
+          name: rustfmt
+          command: cargo fmt -- --check --verbose
+      - save-cargo-cache
+
+  test:
+    executor: rust
     steps:
       - checkout
-      - ruby/install-deps
-      - <<: *hatchet_setup
-      - <<: *unit
-  hatchet:
-    docker:
-      - image: circleci/ruby:2.7
-    steps:
-      - checkout
-      - ruby/install-deps
-      - <<: *hatchet_setup
-      - <<: *hatchet
-  pack_cnb:
-    docker:
-      - image: circleci/ruby:2.7
-    steps:
-      - checkout
-      - setup_remote_docker:
-          version: 19.03.13
+      - restore-cargo-cache
+      - install-rust
       - pack/install-pack:
           version: 0.23.0
-      - ruby/install-deps
-      - <<: *hatchet_setup
-      - <<: *pack_cnb
-  docker_commands:
-    docker:
-      - image: circleci/ruby:2.7
-    steps:
-      - checkout
-      - setup_remote_docker:
-          version: 19.03.13
-      - pack/install-pack:
-          version: 0.23.0
-      - ruby/install-deps
-      - <<: *hatchet_setup
-      - <<: *docker_commands
+      - run:
+          name: Install musl
+          command: sudo apt-get update && sudo apt-get install musl-tools --no-install-recommends
+      - run:
+          name: Add musl target
+          command: rustup target add x86_64-unknown-linux-musl
+      - run:
+          name: Run tests
+          command: RUST_BACKTRACE=1 cargo test --all-features --locked -- --include-ignored
+      - save-cargo-cache
 
 workflows:
-  version: 2
-  build:
+  ci:
     jobs:
-      - shellcheck
-      - unit
-      - hatchet
-      - pack_cnb
-      - docker_commands
-
+      - lint
+      - test

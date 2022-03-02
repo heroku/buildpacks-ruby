@@ -58,18 +58,12 @@ impl Buildpack for RubyBuildpack {
 
         BuildResultBuilder::new()
             .launch(
-                Launch::new()
-                    .process(
-                        ProcessBuilder::new(process_type!("web"), "bundle")
-                            .args(["exec", "ruby", "app.rb"])
-                            .default(true)
-                            .build(),
-                    )
-                    .process(
-                        ProcessBuilder::new(process_type!("worker"), "bundle")
-                            .args(["exec", "ruby", "worker.rb"])
-                            .build(),
-                    ),
+                Launch::new().process(
+                    ProcessBuilder::new(process_type!("web"), "bundle")
+                        .args(["exec", "rackup", "--port", "$PORT", "--host", "0.0.0.0"])
+                        .default(true)
+                        .build(),
+                ),
             )
             .build()
     }

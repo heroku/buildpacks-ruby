@@ -48,7 +48,14 @@ impl Layer for BundlerLayer {
 
         util::run_simple_command(
             Command::new("gem")
-                .args(&["install", "bundler", "-v", &version, "--force"])
+                .args(&[
+                    "install",
+                    "bundler",
+                    "-v",
+                    &version,
+                    "--force",
+                    "--no-document",
+                ])
                 .envs(&self.ruby_env),
             RubyBuildpackError::GemInstallBundlerCommandError,
             RubyBuildpackError::GemInstallBundlerUnexpectedExitStatus,

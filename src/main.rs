@@ -1,7 +1,7 @@
 use crate::gemfile_lock::{BundlerVersion, GemfileLock, GemfileLockError, RubyVersion};
 use crate::layers::{BundlerLayer, RubyLayer};
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
-use libcnb::data::launch::{Launch, Process};
+use libcnb::data::launch::{Launch, ProcessBuilder};
 use libcnb::data::{layer_name, process_type};
 use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
 use libcnb::generic::GenericPlatform;
@@ -59,20 +59,17 @@ impl Buildpack for RubyBuildpack {
         BuildResultBuilder::new()
             .launch(
                 Launch::new()
-                    .process(Process::new(
-                        process_type!("web"),
-                        "bundle",
-                        vec!["exec", "ruby", "app.rb"],
-                        false,
-                        true,
-                    ))
-                    .process(Process::new(
-                        process_type!("worker"),
-                        "bundle",
-                        vec!["exec", "ruby", "worker.rb"],
-                        false,
-                        false,
-                    )),
+                    .process(
+                        ProcessBuilder::new(process_type!("web"), "bundle")
+                            .args(["exec", "ruby", "app.rb"])
+                            .default(true)
+                            .build(),
+                    )
+                    .process(
+                        ProcessBuilder::new(process_type!("worker"), "bundle")
+                            .args(["exec", "ruby", "worker.rb"])
+                            .build(),
+                    ),
             )
             .build()
     }

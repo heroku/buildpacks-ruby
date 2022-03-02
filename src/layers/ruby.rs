@@ -11,10 +11,11 @@ use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::generic::GenericMetadata;
 use libcnb::layer::{Layer, LayerResult, LayerResultBuilder};
 
+use crate::RubyVersion;
 use libcnb::data::buildpack::StackId;
 
 pub struct RubyLayer {
-    pub version: String,
+    pub version: RubyVersion,
 }
 
 use url::Url;
@@ -36,12 +37,17 @@ impl Layer for RubyLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        println!("---> Download and extracting Ruby {}", &self.version);
+        let version = match &self.version {
+            RubyVersion::Explicit(v) => v.clone(),
+            RubyVersion::Default => String::from("3.0.3"),
+        };
+
+        println!("---> Download and extracting Ruby {}", &version);
 
         let tmp_ruby_tgz =
             NamedTempFile::new().map_err(RubyBuildpackError::CouldNotCreateTemporaryFile)?;
 
-        let url = RubyLayer::download_url(&context.stack_id, &self.version)
+        let url = RubyLayer::download_url(&context.stack_id, &version)
             .map_err(RubyBuildpackError::UrlParseError)?;
 
         util::download(url.as_ref(), tmp_ruby_tgz.path())

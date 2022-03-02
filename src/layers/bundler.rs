@@ -6,6 +6,7 @@ use serde::Serialize;
 use std::path::Path;
 use std::process::Command;
 
+use crate::BundlerVersion;
 use crate::RubyBuildpack;
 use libcnb::build::BuildContext;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
@@ -17,7 +18,7 @@ pub struct BundlerLayerMetadata {
 }
 
 pub struct BundlerLayer {
-    pub version: String,
+    pub version: BundlerVersion,
     pub ruby_env: Env,
 }
 
@@ -38,11 +39,16 @@ impl Layer for BundlerLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        println!("---> Installing bundler {}", self.version);
+        let version = match &self.version {
+            BundlerVersion::Explicit(v) => v.clone(),
+            BundlerVersion::Default => String::from("2.3.7"),
+        };
+
+        println!("---> Installing bundler {}", version);
 
         util::run_simple_command(
             Command::new("gem")
-                .args(&["install", "bundler", "-v", &self.version, "--force"])
+                .args(&["install", "bundler", "-v", &version, "--force"])
                 .envs(&self.ruby_env),
             RubyBuildpackError::GemInstallBundlerCommandError,
             RubyBuildpackError::GemInstallBundlerUnexpectedExitStatus,

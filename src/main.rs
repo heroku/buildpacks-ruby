@@ -19,26 +19,46 @@ use core::str::FromStr;
 
 #[derive(Debug)]
 struct BundleInfo {
-    bundler_version: String,
-    ruby_version: String,
+    bundler_version: BundlerVersion,
+    ruby_version: RubyVersion,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum RubyVersion {
+    Explicit(String),
+    Default,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum BundlerVersion {
+    Explicit(String),
+    Default,
+}
+
+#[derive(thiserror::Error, Debug, PartialEq)]
+pub enum BundleInfoError {
+    #[error("Regex error: {0}")]
+    RegexError(#[from] regex::Error),
 }
 
 use regex::Regex;
 impl FromStr for BundleInfo {
-    type Err = String;
+    type Err = BundleInfoError;
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
-        let bundled_with_re = Regex::new("BUNDLED WITH\\s   (\\d+\\.\\d+\\.\\d+)").unwrap();
-        let ruby_version_re = Regex::new("RUBY VERSION\\s   ruby (\\d+\\.\\d+\\.\\d+)").unwrap();
+        let bundled_with_re = Regex::new("BUNDLED WITH\\s   (\\d+\\.\\d+\\.\\d+)")
+            .map_err(BundleInfoError::RegexError)?;
+        let ruby_version_re = Regex::new("RUBY VERSION\\s   ruby (\\d+\\.\\d+\\.\\d+)")
+            .map_err(BundleInfoError::RegexError)?;
 
-        let bundler_version = match bundled_with_re.captures(string) {
-            Some(result) => result.get(1).unwrap().as_str().to_string(),
-            None => "2.3.5".to_string(),
+        let bundler_version = match bundled_with_re.captures(string).and_then(|c| c.get(1)) {
+            Some(result) => BundlerVersion::Explicit(result.as_str().to_string()),
+            None => BundlerVersion::Default,
         };
 
-        let ruby_version = match ruby_version_re.captures(string) {
-            Some(result) => result.get(1).unwrap().as_str().to_string(),
-            None => "3.0.2".to_string(),
+        let ruby_version = match ruby_version_re.captures(string).and_then(|c| c.get(1)) {
+            Some(result) => RubyVersion::Explicit(result.as_str().to_string()),
+            None => RubyVersion::Default,
         };
 
         Ok(Self {
@@ -65,7 +85,8 @@ impl Buildpack for RubyBuildpack {
         println!("---> Ruby Buildpack");
 
         let gemfile_lock = std::fs::read_to_string(context.app_dir.join("Gemfile.lock")).unwrap();
-        let bundle_info = BundleInfo::from_str(&gemfile_lock).unwrap();
+        let bundle_info = BundleInfo::from_str(&gemfile_lock)
+            .map_err(RubyBuildpackError::GemfileLockParsingError)?;
 
         let ruby_layer = context //
             .handle_layer(
@@ -73,7 +94,8 @@ impl Buildpack for RubyBuildpack {
                 RubyLayer {
                     version: bundle_info.ruby_version,
                 },
-            )?;
+            );
+        let ruby_layer = ruby_layer?;
 
         context.handle_layer(
             layer_name!("bundler"),
@@ -136,6 +158,14 @@ pub enum RubyBuildpackError {
 
     #[error("Url error: {0}")]
     UrlParseError(UrlError),
+
+    #[error("Error evaluating Gemfile.lock: {0}")]
+    GemfileLockParsingError(BundleInfoError),
+}
+impl From<RubyBuildpackError> for libcnb::Error<RubyBuildpackError> {
+    fn from(error: RubyBuildpackError) -> Self {
+        Self::BuildpackError(error)
+    }
 }
 
 buildpack_main!(RubyBuildpack);
@@ -170,14 +200,20 @@ BUNDLED WITH
         )
         .unwrap();
 
-        assert_eq!(info.bundler_version, "2.3.4".to_string());
-        assert_eq!(info.ruby_version, "3.1.0".to_string());
+        assert_eq!(
+            info.bundler_version,
+            BundlerVersion::Explicit("2.3.4".to_string())
+        );
+        assert_eq!(
+            info.ruby_version,
+            RubyVersion::Explicit("3.1.0".to_string())
+        );
     }
 
     #[test]
     fn test_default_versions() {
         let info = BundleInfo::from_str("").unwrap();
-        assert_eq!(info.bundler_version, "2.3.5".to_string());
-        assert_eq!(info.ruby_version, "3.0.2".to_string());
+        assert_eq!(info.bundler_version, BundlerVersion::Default);
+        assert_eq!(info.ruby_version, RubyVersion::Default);
     }
 }

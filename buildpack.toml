@@ -4,9 +4,18 @@ api = "0.6"
 id = "heroku/ruby"
 version = "2.0.0"
 name = "Ruby"
+homepage = "https://github.com/heroku/buildpacks-ruby"
+description = "Official Heroku buildpack for using Ruby to target Cloud Native Buildpack (CNB) builds."
+keywords = ["ruby", "rails"]
 
 [[stacks]]
 id = "heroku-20"
 
+[[stacks]]
+id = "heroku-22"
+
 [metadata]
 ruby_url = "https://heroku-buildpack-ruby.s3.amazonaws.com/heroku-20/ruby-2.7.4.tgz"
+
+[[buildpack.licenses]]
+type = "BSD-3-Clause"

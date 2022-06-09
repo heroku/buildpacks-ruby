@@ -1,6 +1,6 @@
 #![warn(clippy::pedantic)]
 
-use libcnb_test::{BuildpackReference, IntegrationTest};
+use libcnb_test::{assert_contains, BuildpackReference, IntegrationTest};
 use std::io;
 
 #[test]
@@ -28,7 +28,7 @@ fn test() {
                             .unwrap();
 
                     println!("{}", result);
-                    assert!(result.contains("ruby_version"));
+                    assert_contains!(result, "ruby_version")
                 });
         });
 }

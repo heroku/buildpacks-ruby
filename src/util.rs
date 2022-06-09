@@ -93,3 +93,22 @@ pub enum UrlError {
     #[error("Invalid base url {0}")]
     InvalidBaseUrl(String),
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_command_to_str() {
+        let mut command = Command::new("bundle");
+        command.args(&[
+            "install",
+            "--path",
+            "lol"
+        ]);
+
+        let out = command_to_str(&command);
+        assert_eq!("bundle install --path lol", out);
+    }
+}

@@ -6,8 +6,8 @@ use std::io;
 #[test]
 #[ignore]
 fn test() {
-    IntegrationTest::new("heroku/buildpacks:20", "tests/fixtures/default_ruby")
-        .run_test(|context| {
+    IntegrationTest::new("heroku/buildpacks:20", "tests/fixtures/default_ruby").run_test(
+        |context| {
             // On failure, print the stdout
             println!("{}", context.pack_stdout);
 
@@ -30,7 +30,8 @@ fn test() {
                     println!("{}", result);
                     assert_contains!(result, "ruby_version");
                 });
-        });
+        },
+    );
 }
 
 fn call_test_fixture_service(addr: std::net::SocketAddr) -> io::Result<String> {

@@ -1,6 +1,8 @@
 [package]
 name = "heroku-ruby-buildpack"
-version = "0.1.0"
+# This crate is not published, so the only version that is used is the one in buildpack.toml.
+version = "0.0.0"
+publish = false
 edition = "2021"
 
 [dependencies]

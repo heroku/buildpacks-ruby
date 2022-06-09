@@ -1,3 +1,7 @@
+#![warn(unused_crate_dependencies)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::module_name_repetitions)]
+
 use crate::gemfile_lock::{BundlerVersion, GemfileLock, GemfileLockError, RubyVersion};
 use crate::layers::{BundlerLayer, RubyLayer};
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};

@@ -12,6 +12,9 @@ use libcnb::generic::GenericPlatform;
 use libcnb::layer_env::Scope;
 use libcnb::{buildpack_main, Buildpack, Env};
 
+#[cfg(test)]
+use libcnb_test as _;
+
 use core::str::FromStr;
 
 use crate::util::{DownloadError, UntarError, UrlError};

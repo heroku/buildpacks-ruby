@@ -12,7 +12,7 @@ pub fn command_to_str(command: &Command) -> String {
         command.get_program().to_string_lossy(),
         command
             .get_args()
-            .map(|arg| arg.to_string_lossy())
+            .map(std::ffi::OsStr::to_string_lossy)
             .collect::<Vec<_>>()
             .join(" ")
     )

@@ -7,7 +7,6 @@ use std::io;
 #[ignore]
 fn test() {
     IntegrationTest::new("heroku/buildpacks:20", "tests/fixtures/default_ruby")
-        .buildpacks(vec![BuildpackReference::Crate])
         .run_test(|context| {
             // On failure, print the stdout
             println!("{}", context.pack_stdout);

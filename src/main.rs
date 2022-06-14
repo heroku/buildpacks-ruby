@@ -2,15 +2,18 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
-use crate::gemfile_lock::{BundlerVersion, GemfileLock, GemfileLockError, RubyVersion};
-use crate::layers::{BundlerLayer, RubyLayer};
+use crate::gemfile_lock::{GemfileLock, GemfileLockError, RubyVersion};
+use crate::layers::{
+    CreateBundlePathLayer, DownloadBundlerLayer, ExecuteBundleInstallLayer, RubyLayer,
+};
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::launch::{Launch, ProcessBuilder};
 use libcnb::data::{layer_name, process_type};
 use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
 use libcnb::generic::GenericPlatform;
 use libcnb::layer_env::Scope;
-use libcnb::{buildpack_main, Buildpack, Env};
+use libcnb::Platform;
+use libcnb::{buildpack_main, Buildpack};
 
 #[cfg(test)]
 use libcnb_test as _;
@@ -42,29 +45,50 @@ impl Buildpack for RubyBuildpack {
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         println!("---> Ruby Buildpack");
 
+        let mut env = context.platform.env().clone();
+
         // Gather static information about project
         let gemfile_lock = std::fs::read_to_string(context.app_dir.join("Gemfile.lock")).unwrap();
         let bundle_info = GemfileLock::from_str(&gemfile_lock)
             .map_err(RubyBuildpackError::GemfileLockParsingError)?;
 
-        // Install executable ruby version
-        let ruby_layer = context //
-            .handle_layer(
-                layer_name!("ruby"),
-                RubyLayer {
-                    version: bundle_info.ruby_version,
-                },
-            );
-        let ruby_layer = ruby_layer?;
+        let ruby_layer = RubyLayer {
+            version: bundle_info.ruby_version,
+        };
 
-        // Install bundler and execute `bundle install`
-        context.handle_layer(
-            layer_name!("bundler"),
-            BundlerLayer {
-                ruby_env: ruby_layer.env.apply(Scope::Build, &Env::new()),
-                version: bundle_info.bundler_version,
+        // Create bundler path for gems, needs to go before installing ruby
+        // since ruby ships with a copy of bundler. We want this to be first
+        // on the path
+        let create_bundle_path_layer = context.handle_layer(
+            layer_name!("z_create_bundle_path"),
+            CreateBundlePathLayer {
+                ruby_version: ruby_layer.version_string(),
             },
         )?;
+        env = create_bundle_path_layer.env.apply(Scope::Build, &env);
+
+        // ## Install executable ruby version
+        let ruby_layer = context //
+            .handle_layer(layer_name!("ruby"), ruby_layer)?;
+
+        env = ruby_layer.env.apply(Scope::Build, &env);
+
+        // ## Download bundler
+        let download_bundler_layer = context.handle_layer(
+            layer_name!("download_bundler"),
+            DownloadBundlerLayer {
+                version: bundle_info.bundler_version,
+                env: env.clone(),
+            },
+        )?;
+        env = download_bundler_layer.env.apply(Scope::Build, &env);
+
+        // ## bundle install
+        let _execute_bundle_install_layer = context.handle_layer(
+            layer_name!("execute_bundle_install"),
+            ExecuteBundleInstallLayer { env: env.clone() },
+        )?;
+        // _env = execute_bundle_install_layer.env.apply(Scope::Build, &env);
 
         BuildResultBuilder::new()
             .launch(

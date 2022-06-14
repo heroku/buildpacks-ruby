@@ -14,6 +14,8 @@ use libcnb::layer::{Layer, LayerResult, LayerResultBuilder};
 use crate::RubyVersion;
 use libcnb::data::buildpack::StackId;
 
+// Installs an executable version of Ruby for the customer based on the
+// passed in version value.
 pub struct RubyLayer {
     pub version: RubyVersion,
 }
@@ -39,7 +41,7 @@ impl Layer for RubyLayer {
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
         let version = match &self.version {
             RubyVersion::Explicit(v) => v.clone(),
-            RubyVersion::Default => String::from("3.0.3"),
+            RubyVersion::Default => String::from("3.1.2"),
         };
 
         println!("---> Download and extracting Ruby {}", &version);
@@ -63,7 +65,7 @@ impl Layer for RubyLayer {
 impl RubyLayer {
     fn download_url(stack: &StackId, version: impl std::fmt::Display) -> Result<Url, UrlError> {
         let filename = format!("ruby-{}.tgz", version);
-        let base = "https://heroku-buildpack-ruby.s3.amazonaws.com";
+        let base = "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com";
         let mut url = Url::parse(base).map_err(UrlError::UrlParseError)?;
 
         url.path_segments_mut()
@@ -85,7 +87,7 @@ mod tests {
         let out = RubyLayer::download_url(&stack_id!("heroku-20"), "2.7.4").unwrap();
         assert_eq!(
             out.as_ref(),
-            "https://heroku-buildpack-ruby.s3.amazonaws.com/heroku-20/ruby-2.7.4.tgz",
+            "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com/heroku-20/ruby-2.7.4.tgz",
         );
     }
 }

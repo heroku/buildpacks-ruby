@@ -1,14 +1,23 @@
 use flate2::read::GzDecoder;
-use sha2::Digest;
+use libcnb::Env;
+use std::ffi::OsString;
 use std::fs;
 use std::io;
 use std::path::Path;
 use std::process::{Command, ExitStatus};
 use tar::Archive;
 
-pub fn command_to_str(command: &Command) -> String {
+pub fn command_to_str_with_env_keys(command: &Command, env: &Env, keys: Vec<OsString>) -> String {
     format!(
-        "{} {}",
+        "{} {} {}",
+        keys.iter()
+            .map(|key| format!(
+                "{}={:?} ",
+                key.to_string_lossy(),
+                env.get(key).unwrap_or(OsString::from("")).to_string_lossy()
+            ))
+            .collect::<String>()
+            .trim(),
         command.get_program().to_string_lossy(),
         command
             .get_args()
@@ -60,10 +69,6 @@ pub enum UntarError {
     CouldNotUnpack(std::io::Error),
 }
 
-pub fn sha256_checksum(path: impl AsRef<Path>) -> Result<String, std::io::Error> {
-    fs::read(path).map(|bytes| format!("{:x}", sha2::Sha256::digest(bytes)))
-}
-
 /// Helper to run very simple commands where we just need to handle IO errors and non-zero exit
 /// codes. Not very useful in complex scenarios, but can cut down the amount of code in simple
 /// cases.
@@ -99,11 +104,61 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_command_to_str() {
+    fn test_command_to_str_with_env_keys_one_exists() {
+        let mut env = Env::new();
+        env.insert("TRANSPORT", "perihelion");
+
         let mut command = Command::new("bundle");
         command.args(&["install", "--path", "lol"]);
 
-        let out = command_to_str(&command);
-        assert_eq!("bundle install --path lol", out);
+        let out = command_to_str_with_env_keys(&command, &env, vec![OsString::from("TRANSPORT")]);
+        assert_eq!("TRANSPORT=\"perihelion\" bundle install --path lol", out);
+    }
+
+    #[test]
+    fn test_command_to_str_with_env_keys_one_missing() {
+        let env = Env::new();
+
+        let mut command = Command::new("bundle");
+        command.args(&["install", "--path", "lol"]);
+
+        let out = command_to_str_with_env_keys(&command, &env, vec![OsString::from("TRANSPORT")]);
+        assert_eq!("TRANSPORT=\"\" bundle install --path lol", out);
+    }
+
+    #[test]
+    fn test_command_to_str_with_env_keys_two_exist() {
+        let mut env = Env::new();
+        env.insert("TRANSPORT", "perihelion");
+        env.insert("SHOW", "the rise and fall of sanctuary moon");
+
+        let mut command = Command::new("bundle");
+        command.args(&["install", "--path", "lol"]);
+
+        let out = command_to_str_with_env_keys(
+            &command,
+            &env,
+            vec![OsString::from("TRANSPORT"), OsString::from("SHOW")],
+        );
+        assert_eq!("TRANSPORT=\"perihelion\" SHOW=\"the rise and fall of sanctuary moon\" bundle install --path lol", out);
+    }
+
+    #[test]
+    fn test_command_to_str_with_env_keys_two_with_one_empty() {
+        let mut env = Env::new();
+        env.insert("TRANSPORT", "perihelion");
+
+        let mut command = Command::new("bundle");
+        command.args(&["install", "--path", "lol"]);
+
+        let out = command_to_str_with_env_keys(
+            &command,
+            &env,
+            vec![OsString::from("TRANSPORT"), OsString::from("SHOW")],
+        );
+        assert_eq!(
+            "TRANSPORT=\"perihelion\" SHOW=\"\" bundle install --path lol",
+            out
+        );
     }
 }

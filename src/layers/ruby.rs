@@ -8,11 +8,12 @@ use tempfile::NamedTempFile;
 use crate::{RubyBuildpack, RubyBuildpackError};
 use libcnb::build::BuildContext;
 use libcnb::data::layer_content_metadata::LayerTypes;
-use libcnb::generic::GenericMetadata;
-use libcnb::layer::{Layer, LayerResult, LayerResultBuilder};
+use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 
 use crate::RubyVersion;
 use libcnb::data::buildpack::StackId;
+
+use serde::{Deserialize, Serialize};
 
 // Installs an executable version of Ruby for the customer based on the
 // passed in version value.
@@ -20,11 +21,25 @@ pub struct RubyLayer {
     pub version: RubyVersion,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct RubyMetadata {
+    pub version: String,
+}
+
+impl RubyLayer {
+    pub fn version_string(&self) -> String {
+        match &self.version {
+            RubyVersion::Explicit(v) => v.clone(),
+            RubyVersion::Default => String::from("3.1.2"),
+        }
+    }
+}
+
 use url::Url;
 
 impl Layer for RubyLayer {
     type Buildpack = RubyBuildpack;
-    type Metadata = GenericMetadata;
+    type Metadata = RubyMetadata;
 
     fn types(&self) -> LayerTypes {
         LayerTypes {
@@ -39,17 +54,15 @@ impl Layer for RubyLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let version = match &self.version {
-            RubyVersion::Explicit(v) => v.clone(),
-            RubyVersion::Default => String::from("3.1.2"),
-        };
-
-        println!("---> Download and extracting Ruby {}", &version);
+        println!(
+            "---> Download and extracting Ruby {}",
+            &self.version_string()
+        );
 
         let tmp_ruby_tgz =
             NamedTempFile::new().map_err(RubyBuildpackError::CouldNotCreateTemporaryFile)?;
 
-        let url = RubyLayer::download_url(&context.stack_id, &version)
+        let url = RubyLayer::download_url(&context.stack_id, &self.version_string())
             .map_err(RubyBuildpackError::UrlParseError)?;
 
         util::download(url.as_ref(), tmp_ruby_tgz.path())
@@ -58,7 +71,22 @@ impl Layer for RubyLayer {
         util::untar(tmp_ruby_tgz.path(), &layer_path)
             .map_err(RubyBuildpackError::RubyUntarError)?;
 
-        LayerResultBuilder::new(GenericMetadata::default()).build()
+        LayerResultBuilder::new(RubyMetadata {
+            version: self.version_string(),
+        })
+        .build()
+    }
+
+    fn existing_layer_strategy(
+        &self,
+        _context: &BuildContext<Self::Buildpack>,
+        layer_data: &LayerData<Self::Metadata>,
+    ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
+        if self.version_string() == layer_data.content_metadata.metadata.version {
+            Ok(ExistingLayerStrategy::Keep)
+        } else {
+            Ok(ExistingLayerStrategy::Recreate)
+        }
     }
 }
 

@@ -42,10 +42,12 @@ impl Buildpack for RubyBuildpack {
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         println!("---> Ruby Buildpack");
 
+        // Gather static information about project
         let gemfile_lock = std::fs::read_to_string(context.app_dir.join("Gemfile.lock")).unwrap();
         let bundle_info = GemfileLock::from_str(&gemfile_lock)
             .map_err(RubyBuildpackError::GemfileLockParsingError)?;
 
+        // Install executable ruby version
         let ruby_layer = context //
             .handle_layer(
                 layer_name!("ruby"),
@@ -55,6 +57,7 @@ impl Buildpack for RubyBuildpack {
             );
         let ruby_layer = ruby_layer?;
 
+        // Install bundler and execute `bundle install`
         context.handle_layer(
             layer_name!("bundler"),
             BundlerLayer {

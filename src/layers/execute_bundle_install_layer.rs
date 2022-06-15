@@ -42,7 +42,7 @@ impl Layer for ExecuteBundleInstallLayer {
             util::command_to_str_with_env_keys(
                 &command,
                 &self.env,
-                vec![
+                &[
                     OsString::from("BUNDLE_BIN"),
                     OsString::from("BUNDLE_CLEAN"),
                     OsString::from("BUNDLE_DEPLOYMENT"),

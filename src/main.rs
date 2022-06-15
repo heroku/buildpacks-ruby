@@ -52,26 +52,25 @@ impl Buildpack for RubyBuildpack {
         let bundle_info = GemfileLock::from_str(&gemfile_lock)
             .map_err(RubyBuildpackError::GemfileLockParsingError)?;
 
-        let ruby_layer = RubyLayer {
-            version: bundle_info.ruby_version,
-        };
+        // ## Install executable ruby version
+        let ruby_layer = context //
+            .handle_layer(
+                layer_name!("ruby"),
+                RubyLayer {
+                    version: bundle_info.ruby_version,
+                },
+            )?;
 
-        // Create bundler path for gems, needs to go before installing ruby
-        // since ruby ships with a copy of bundler. We want this to be first
-        // on the path
+        env = ruby_layer.env.apply(Scope::Build, &env);
+
+        // ## Setup bundler
         let create_bundle_path_layer = context.handle_layer(
-            layer_name!("z_create_bundle_path"),
+            layer_name!("create_bundle_path"),
             CreateBundlePathLayer {
-                ruby_version: ruby_layer.version_string(),
+                ruby_version: ruby_layer.content_metadata.metadata.version,
             },
         )?;
         env = create_bundle_path_layer.env.apply(Scope::Build, &env);
-
-        // ## Install executable ruby version
-        let ruby_layer = context //
-            .handle_layer(layer_name!("ruby"), ruby_layer)?;
-
-        env = ruby_layer.env.apply(Scope::Build, &env);
 
         // ## Download bundler
         let download_bundler_layer = context.handle_layer(

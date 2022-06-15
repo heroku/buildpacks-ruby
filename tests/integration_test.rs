@@ -14,8 +14,7 @@ fn test() {
             assert!(context
                 .pack_stdout
                 .contains("---> Download and extracting Ruby"));
-            assert!(context.pack_stdout.contains("Running: bundle install"));
-
+            assert!(context.pack_stdout.contains(r#"Running: BUNDLE_BIN="/layers/heroku_ruby/create_bundle_path/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/create_bundle_path" BUNDLE_WITHOUT="development:test" bundle install"#));
             context
                 .prepare_container()
                 .env("PORT", TEST_PORT.to_string())

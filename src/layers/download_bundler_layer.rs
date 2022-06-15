@@ -1,6 +1,5 @@
 use crate::{util, RubyBuildpackError};
 use libcnb::data::layer_content_metadata::LayerTypes;
-use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use serde::{Deserialize, Serialize};
 
 use std::path::Path;
@@ -10,6 +9,7 @@ use crate::gemfile_lock::BundlerVersion;
 use crate::RubyBuildpack;
 use libcnb::build::BuildContext;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
+use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Env;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -53,11 +53,6 @@ impl Layer for DownloadBundlerLayer {
         let metadata = &layer_data.content_metadata.metadata;
         let old_value = metadata.version.clone();
 
-        let gem_path = &self
-            .env
-            .get("GEM_PATH")
-            .expect("Internal buildpack error: GEM_PATH must be set");
-
         println!(
             "---> New bundler version detected {}, uninstalling the old version {}",
             self.version_string(),
@@ -70,10 +65,10 @@ impl Layer for DownloadBundlerLayer {
                     "uninstall",
                     "bundler",
                     "--force",
-                    "-v",
+                    "--version",
                     &old_value.to_string(),
                     "--install-dir",
-                    gem_path.to_str().unwrap(),
+                    &layer_data.path.to_string_lossy(),
                 ])
                 .envs(&self.env),
             RubyBuildpackError::GemInstallBundlerCommandError,
@@ -85,15 +80,10 @@ impl Layer for DownloadBundlerLayer {
 
     fn create(
         &self,
-        context: &BuildContext<Self::Buildpack>,
-        _layer_path: &Path,
+        _context: &BuildContext<Self::Buildpack>,
+        layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
         println!("---> Installing bundler {}", self.version_string());
-
-        let gem_path = &self
-            .env
-            .get("GEM_PATH")
-            .expect("Internal buildpack error: GEM_PATH must be set");
 
         util::run_simple_command(
             Command::new("gem")
@@ -102,10 +92,13 @@ impl Layer for DownloadBundlerLayer {
                     "bundler",
                     "--force",
                     "--no-document",
-                    "-v",
+                    "--env-shebang",
+                    "--version",
                     &self.version_string(),
                     "--install-dir",
-                    gem_path.to_str().unwrap(),
+                    &layer_path.to_string_lossy(),
+                    "--bindir",
+                    &layer_path.join("bin").to_string_lossy(),
                 ])
                 .envs(&self.env),
             RubyBuildpackError::GemInstallBundlerCommandError,
@@ -117,47 +110,19 @@ impl Layer for DownloadBundlerLayer {
         })
         .env(
             LayerEnv::new()
-                .chainable_insert(
-                    Scope::Build,
-                    ModificationBehavior::Delimiter,
-                    "BUNDLE_WITHOUT",
-                    ":",
-                )
+                .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
                 .chainable_insert(
                     Scope::All,
                     ModificationBehavior::Prepend,
-                    "BUNDLE_WITHOUT",
-                    "development:test",
+                    "PATH",
+                    &layer_path.join("bin"),
                 )
-                .chainable_insert(
-                    Scope::Build,
-                    ModificationBehavior::Override,
-                    "BUNDLE_GEMFILE",
-                    context.app_dir.join("Gemfile").clone(),
-                )
+                .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
                 .chainable_insert(
                     Scope::All,
-                    ModificationBehavior::Override,
-                    "BUNDLE_CLEAN",
-                    "1",
-                )
-                .chainable_insert(
-                    Scope::All,
-                    ModificationBehavior::Override,
-                    "BUNDLE_DEPLOYMENT",
-                    "1",
-                )
-                .chainable_insert(
-                    Scope::All,
-                    ModificationBehavior::Override,
-                    "BUNDLE_GLOBAL_PATH_APPENDS_RUBY_SCOPE",
-                    "1",
-                )
-                .chainable_insert(
-                    Scope::All,
-                    ModificationBehavior::Override,
-                    "NOKOGIRI_USE_SYSTEM_LIBRARIES",
-                    "1",
+                    ModificationBehavior::Prepend,
+                    "GEM_PATH",
+                    layer_path,
                 ),
         )
         .build()

@@ -59,7 +59,6 @@ impl Layer for ExecuteBundleInstallLayer {
             RubyBuildpackError::BundleInstallUnexpectedExitStatus,
         )?;
 
-        // TODO: Also record env vars
         LayerResultBuilder::new(GenericMetadata::default()).build()
     }
 }

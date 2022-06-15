@@ -38,7 +38,7 @@ impl Layer for CreateBundlePathLayer {
 
     fn create(
         &self,
-        _context: &BuildContext<Self::Buildpack>,
+        context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
         LayerResultBuilder::new(CreateBundlePathMetadata {
@@ -63,6 +63,48 @@ impl Layer for CreateBundlePathLayer {
                     ModificationBehavior::Override,
                     "BUNDLE_BIN",
                     &layer_path.join("bin"),
+                )
+                .chainable_insert(
+                    Scope::Build,
+                    ModificationBehavior::Delimiter,
+                    "BUNDLE_WITHOUT",
+                    ":",
+                )
+                .chainable_insert(
+                    Scope::All,
+                    ModificationBehavior::Prepend,
+                    "BUNDLE_WITHOUT",
+                    "development:test",
+                )
+                .chainable_insert(
+                    Scope::Build,
+                    ModificationBehavior::Override,
+                    "BUNDLE_GEMFILE",
+                    context.app_dir.join("Gemfile").clone(),
+                )
+                .chainable_insert(
+                    Scope::All,
+                    ModificationBehavior::Override,
+                    "BUNDLE_CLEAN",
+                    "1",
+                )
+                .chainable_insert(
+                    Scope::All,
+                    ModificationBehavior::Override,
+                    "BUNDLE_DEPLOYMENT",
+                    "1",
+                )
+                .chainable_insert(
+                    Scope::All,
+                    ModificationBehavior::Override,
+                    "BUNDLE_GLOBAL_PATH_APPENDS_RUBY_SCOPE",
+                    "1",
+                )
+                .chainable_insert(
+                    Scope::All,
+                    ModificationBehavior::Override,
+                    "NOKOGIRI_USE_SYSTEM_LIBRARIES",
+                    "1",
                 ),
         )
         .build()

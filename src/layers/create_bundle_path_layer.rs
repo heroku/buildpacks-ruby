@@ -80,7 +80,7 @@ impl Layer for CreateBundlePathLayer {
                     Scope::Build,
                     ModificationBehavior::Override,
                     "BUNDLE_GEMFILE",
-                    context.app_dir.join("Gemfile").clone(),
+                    context.app_dir.join("Gemfile"),
                 )
                 .chainable_insert(
                     Scope::All,

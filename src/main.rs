@@ -85,7 +85,7 @@ impl Buildpack for RubyBuildpack {
         // ## bundle install
         let _execute_bundle_install_layer = context.handle_layer(
             layer_name!("execute_bundle_install"),
-            ExecuteBundleInstallLayer { env: env.clone() },
+            ExecuteBundleInstallLayer { env },
         )?;
         // _env = execute_bundle_install_layer.env.apply(Scope::Build, &env);
 

@@ -66,7 +66,7 @@ impl Layer for DownloadBundlerLayer {
                     "bundler",
                     "--force",
                     "--version",
-                    &old_value.to_string(),
+                    &old_value,
                     "--install-dir",
                     &layer_data.path.to_string_lossy(),
                 ])

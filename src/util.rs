@@ -7,14 +7,16 @@ use std::path::Path;
 use std::process::{Command, ExitStatus};
 use tar::Archive;
 
-pub fn command_to_str_with_env_keys(command: &Command, env: &Env, keys: Vec<OsString>) -> String {
+pub fn command_to_str_with_env_keys(command: &Command, env: &Env, keys: &[OsString]) -> String {
     format!(
         "{} {} {}",
         keys.iter()
             .map(|key| format!(
                 "{}={:?} ",
                 key.to_string_lossy(),
-                env.get(key).unwrap_or(OsString::from("")).to_string_lossy()
+                env.get(key)
+                    .unwrap_or_else(|| OsString::from(""))
+                    .to_string_lossy()
             ))
             .collect::<String>()
             .trim(),
@@ -111,7 +113,7 @@ mod tests {
         let mut command = Command::new("bundle");
         command.args(&["install", "--path", "lol"]);
 
-        let out = command_to_str_with_env_keys(&command, &env, vec![OsString::from("TRANSPORT")]);
+        let out = command_to_str_with_env_keys(&command, &env, &[OsString::from("TRANSPORT")]);
         assert_eq!("TRANSPORT=\"perihelion\" bundle install --path lol", out);
     }
 
@@ -122,7 +124,7 @@ mod tests {
         let mut command = Command::new("bundle");
         command.args(&["install", "--path", "lol"]);
 
-        let out = command_to_str_with_env_keys(&command, &env, vec![OsString::from("TRANSPORT")]);
+        let out = command_to_str_with_env_keys(&command, &env, &[OsString::from("TRANSPORT")]);
         assert_eq!("TRANSPORT=\"\" bundle install --path lol", out);
     }
 
@@ -138,7 +140,7 @@ mod tests {
         let out = command_to_str_with_env_keys(
             &command,
             &env,
-            vec![OsString::from("TRANSPORT"), OsString::from("SHOW")],
+            &[OsString::from("TRANSPORT"), OsString::from("SHOW")],
         );
         assert_eq!("TRANSPORT=\"perihelion\" SHOW=\"the rise and fall of sanctuary moon\" bundle install --path lol", out);
     }
@@ -154,7 +156,7 @@ mod tests {
         let out = command_to_str_with_env_keys(
             &command,
             &env,
-            vec![OsString::from("TRANSPORT"), OsString::from("SHOW")],
+            &[OsString::from("TRANSPORT"), OsString::from("SHOW")],
         );
         assert_eq!(
             "TRANSPORT=\"perihelion\" SHOW=\"\" bundle install --path lol",

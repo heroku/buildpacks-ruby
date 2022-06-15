@@ -10,7 +10,7 @@ use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::launch::{Launch, ProcessBuilder};
 use libcnb::data::{layer_name, process_type};
 use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
-use libcnb::generic::GenericPlatform;
+use libcnb::generic::{GenericMetadata, GenericPlatform};
 use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
@@ -21,7 +21,6 @@ use libcnb_test as _;
 use core::str::FromStr;
 
 use crate::util::{DownloadError, UntarError, UrlError};
-use serde::Deserialize;
 use std::process::ExitStatus;
 
 mod gemfile_lock;
@@ -31,7 +30,7 @@ mod util;
 pub struct RubyBuildpack;
 impl Buildpack for RubyBuildpack {
     type Platform = GenericPlatform;
-    type Metadata = RubyBuildpackMetadata;
+    type Metadata = GenericMetadata;
     type Error = RubyBuildpackError;
 
     fn detect(&self, context: DetectContext<Self>) -> libcnb::Result<DetectResult, Self::Error> {
@@ -100,12 +99,6 @@ impl Buildpack for RubyBuildpack {
             )
             .build()
     }
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct RubyBuildpackMetadata {
-    pub ruby_url: String,
 }
 
 #[derive(thiserror::Error, Debug)]

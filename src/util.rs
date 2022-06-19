@@ -7,17 +7,22 @@ use std::path::Path;
 use std::process::{Command, ExitStatus};
 use tar::Archive;
 
-pub fn command_to_str_with_env_keys(command: &Command, env: &Env, keys: &[OsString]) -> String {
+pub fn command_to_str_with_env_keys(
+    command: &Command,
+    env: &Env,
+    keys: impl IntoIterator<Item = impl Into<OsString>>,
+) -> String {
     format!(
         "{} {} {}",
-        keys.iter()
-            .map(|key| format!(
-                "{}={:?} ",
-                key.to_string_lossy(),
-                env.get(key)
-                    .unwrap_or_else(|| OsString::from(""))
-                    .to_string_lossy()
-            ))
+        keys.into_iter()
+            .map(std::convert::Into::into)
+            .map(|k| {
+                format!(
+                    "{}={:?} ",
+                    k.to_string_lossy(),
+                    env.get(k.clone()).unwrap_or_else(|| OsString::from(""))
+                )
+            })
             .collect::<String>()
             .trim(),
         command.get_program().to_string_lossy(),

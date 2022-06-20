@@ -35,7 +35,7 @@ When the Ruby version changes, invalidate and re-run.
 */
 
 #[derive(PartialEq, Eq)]
-pub struct InstallRubyVersionLayer {
+pub struct RubyVersionInstallLayer {
     pub version: RubyVersion,
 }
 
@@ -45,7 +45,7 @@ pub struct RubyMetadata {
     pub stack: StackId,
 }
 
-impl InstallRubyVersionLayer {
+impl RubyVersionInstallLayer {
     pub fn version_string(&self) -> String {
         match &self.version {
             RubyVersion::Explicit(v) => v.clone(),
@@ -56,7 +56,7 @@ impl InstallRubyVersionLayer {
 
 use url::Url;
 
-impl Layer for InstallRubyVersionLayer {
+impl Layer for RubyVersionInstallLayer {
     type Buildpack = RubyBuildpack;
     type Metadata = RubyMetadata;
 
@@ -81,7 +81,7 @@ impl Layer for InstallRubyVersionLayer {
         let tmp_ruby_tgz =
             NamedTempFile::new().map_err(RubyBuildpackError::CouldNotCreateTemporaryFile)?;
 
-        let url = InstallRubyVersionLayer::download_url(&context.stack_id, &self.version_string())
+        let url = RubyVersionInstallLayer::download_url(&context.stack_id, &self.version_string())
             .map_err(RubyBuildpackError::UrlParseError)?;
 
         util::download(url.as_ref(), tmp_ruby_tgz.path())
@@ -124,7 +124,7 @@ impl Layer for InstallRubyVersionLayer {
     }
 }
 
-impl InstallRubyVersionLayer {
+impl RubyVersionInstallLayer {
     fn download_url(stack: &StackId, version: impl std::fmt::Display) -> Result<Url, UrlError> {
         let filename = format!("ruby-{}.tgz", version);
         let base = "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com";
@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn test_ruby_url() {
-        let out = InstallRubyVersionLayer::download_url(&stack_id!("heroku-20"), "2.7.4").unwrap();
+        let out = RubyVersionInstallLayer::download_url(&stack_id!("heroku-20"), "2.7.4").unwrap();
         assert_eq!(
             out.as_ref(),
             "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com/heroku-20/ruby-2.7.4.tgz",

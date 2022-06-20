@@ -13,7 +13,7 @@ use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Env;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct DownloadBundlerLayerMetadata {
+pub struct BundleInstallDownloadBundlerLayerMetadata {
     version: String,
 }
 
@@ -37,12 +37,12 @@ requireable to the target application. This is accomplished by prepending the la
 to `GEM_PATH` which tells rubygems where it can search for gems.
 
 */
-pub struct DownloadBundlerLayer {
+pub struct BundleInstallDownloadBundlerLayer {
     pub version: BundlerVersion,
     pub env: Env,
 }
 
-impl DownloadBundlerLayer {
+impl BundleInstallDownloadBundlerLayer {
     fn version_string(&self) -> String {
         match &self.version {
             BundlerVersion::Explicit(v) => v.clone(),
@@ -51,9 +51,9 @@ impl DownloadBundlerLayer {
     }
 }
 
-impl Layer for DownloadBundlerLayer {
+impl Layer for BundleInstallDownloadBundlerLayer {
     type Buildpack = RubyBuildpack;
-    type Metadata = DownloadBundlerLayerMetadata;
+    type Metadata = BundleInstallDownloadBundlerLayerMetadata;
 
     fn types(&self) -> LayerTypes {
         LayerTypes {
@@ -89,7 +89,7 @@ impl Layer for DownloadBundlerLayer {
             RubyBuildpackError::GemInstallBundlerUnexpectedExitStatus,
         )?;
 
-        LayerResultBuilder::new(DownloadBundlerLayerMetadata {
+        LayerResultBuilder::new(BundleInstallDownloadBundlerLayerMetadata {
             version: self.version_string(),
         })
         .env(

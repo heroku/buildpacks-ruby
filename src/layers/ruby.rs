@@ -83,6 +83,10 @@ impl Layer for RubyLayer {
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
         if self.version_string() == layer_data.content_metadata.metadata.version {
+            println!(
+                "---> Using previously installed Ruby version {}",
+                self.version_string()
+            );
             Ok(ExistingLayerStrategy::Keep)
         } else {
             Ok(ExistingLayerStrategy::Recreate)

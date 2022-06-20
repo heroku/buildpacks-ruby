@@ -110,6 +110,11 @@ impl Layer for InstallRubyVersionLayer {
                 );
                 Ok(ExistingLayerStrategy::Keep)
             } else {
+                println!(
+                    "---> Changing Ruby version from {} to {}",
+                    layer_data.content_metadata.metadata.version,
+                    self.version_string()
+                );
                 Ok(ExistingLayerStrategy::Recreate)
             }
         } else {

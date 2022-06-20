@@ -4,7 +4,7 @@
 
 use crate::gemfile_lock::{GemfileLock, GemfileLockError, RubyVersion};
 use crate::layers::{
-    CreateBundlePathLayer, DownloadBundlerLayer, ExecuteBundleInstallLayer, RubyLayer,
+    CreateBundlePathLayer, DownloadBundlerLayer, ExecuteBundleInstallLayer, InstallRubyVersionLayer,
 };
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::launch::{Launch, ProcessBuilder};
@@ -55,7 +55,7 @@ impl Buildpack for RubyBuildpack {
         let ruby_layer = context //
             .handle_layer(
                 layer_name!("ruby"),
-                RubyLayer {
+                InstallRubyVersionLayer {
                     version: bundle_info.ruby_version,
                 },
             )?;

@@ -1,4 +1,5 @@
 use core::str::FromStr;
+use regex::Regex;
 
 /*
 
@@ -33,7 +34,6 @@ pub enum GemfileLockError {
     RegexError(#[from] regex::Error),
 }
 
-use regex::Regex;
 impl FromStr for GemfileLock {
     type Err = GemfileLockError;
 

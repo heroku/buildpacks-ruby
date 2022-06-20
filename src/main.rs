@@ -2,6 +2,7 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
+use crate::gem_list::GemList;
 use crate::gemfile_lock::{GemfileLock, GemfileLockError, RubyVersion};
 use crate::layers::{
     BundleInstallConfigureEnvLayer, BundleInstallCreatePathLayer,
@@ -24,6 +25,7 @@ use core::str::FromStr;
 use crate::util::{DownloadError, UntarError, UrlError};
 use std::process::ExitStatus;
 
+mod gem_list;
 mod gemfile_lock;
 mod layers;
 mod util;

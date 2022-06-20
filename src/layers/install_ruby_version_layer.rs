@@ -33,6 +33,8 @@ CNB lifecycle to add `<layer-dir>/bin` to the PATH.
 When the Ruby version changes, invalidate and re-run.
 
 */
+
+#[derive(PartialEq, Eq)]
 pub struct InstallRubyVersionLayer {
     pub version: RubyVersion,
 }
@@ -40,6 +42,7 @@ pub struct InstallRubyVersionLayer {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct RubyMetadata {
     pub version: String,
+    pub stack: StackId,
 }
 
 impl InstallRubyVersionLayer {
@@ -89,22 +92,28 @@ impl Layer for InstallRubyVersionLayer {
 
         LayerResultBuilder::new(RubyMetadata {
             version: self.version_string(),
+            stack: context.stack_id.clone(),
         })
         .build()
     }
 
     fn existing_layer_strategy(
         &self,
-        _context: &BuildContext<Self::Buildpack>,
+        context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
-        if self.version_string() == layer_data.content_metadata.metadata.version {
-            println!(
-                "---> Using previously installed Ruby version {}",
-                self.version_string()
-            );
-            Ok(ExistingLayerStrategy::Keep)
+        if context.stack_id == layer_data.content_metadata.metadata.stack {
+            if self.version_string() == layer_data.content_metadata.metadata.version {
+                println!(
+                    "---> Using previously installed Ruby version {}",
+                    self.version_string()
+                );
+                Ok(ExistingLayerStrategy::Keep)
+            } else {
+                Ok(ExistingLayerStrategy::Recreate)
+            }
         } else {
+            println!("---> Stack has changed, reinstalling Ruby");
             Ok(ExistingLayerStrategy::Recreate)
         }
     }

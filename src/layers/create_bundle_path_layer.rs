@@ -9,6 +9,8 @@ use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerR
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use serde::{Deserialize, Serialize};
 
+use libcnb::data::buildpack::StackId;
+
 /*
 
 # Set up environment for `bundle install`
@@ -40,6 +42,7 @@ pub struct CreateBundlePathLayer {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct CreateBundlePathMetadata {
     ruby_version: String,
+    stack: StackId,
 }
 
 impl Layer for CreateBundlePathLayer {
@@ -61,6 +64,7 @@ impl Layer for CreateBundlePathLayer {
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
         LayerResultBuilder::new(CreateBundlePathMetadata {
             ruby_version: self.ruby_version.clone(),
+            stack: context.stack_id.clone(),
         })
         .env(
             LayerEnv::new()
@@ -130,13 +134,18 @@ impl Layer for CreateBundlePathLayer {
 
     fn existing_layer_strategy(
         &self,
-        _context: &BuildContext<Self::Buildpack>,
+        context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
-        if self.ruby_version == layer_data.content_metadata.metadata.ruby_version {
-            Ok(ExistingLayerStrategy::Keep)
+        if context.stack_id == layer_data.content_metadata.metadata.stack {
+            if self.ruby_version == layer_data.content_metadata.metadata.ruby_version {
+                Ok(ExistingLayerStrategy::Keep)
+            } else {
+                println!("---> Ruby version changed, clearing gems");
+                Ok(ExistingLayerStrategy::Recreate)
+            }
         } else {
-            println!("---> Ruby version changed, clearing gems");
+            println!("---> Stack has changed, clearing installed gems");
             Ok(ExistingLayerStrategy::Recreate)
         }
     }

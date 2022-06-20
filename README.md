@@ -35,16 +35,17 @@
 - Ruby version
   - Given a `Gemfile.lock` with an explicit Ruby version we will install that Ruby version.
   - Given a `Gemfile.lock` without an explicit Ruby version we will install a default Ruby version.
+  - We will reinstall Ruby if your stack changes.
 - Bundler version
   - Given a `Gemfile.lock` with an explicit Bundler version we will install that bundler version.
   - Given a `Gemfile.lock` without an explicit Bundler version we will install a default Ruby version.
 - Ruby Dependencies
   - We will install gem dependencies using `bundle install`
-  - [TODO] We will run `bundle clean` after a successful `bundle install`
+  - We will run `bundle clean` after a successful `bundle install` via setting `BUNDLE_CLEAN=1` environment variable.
   - We will cache the contents of your gem dependencies.
-      - [TODO] We will invalidate the dependency cache if your Ruby version changes.
-      - [TODO] We will invalidate the dependency cache if your stack changes.
-      - [TODO] We may invalidate the dependency cache if there was a bug in a prior buildpack version that needs to be fixed.
+      - We will invalidate the dependency cache if your stack changes.
+      - We will invalidate the dependency cache if your Ruby version changes.
+      - We may invalidate the dependency cache if there was a bug in a prior buildpack version that needs to be fixed.
 - Gem specific behavior - We will parse your `Gemfile.lock` to determine what dependencies your app need for use in specializing your install behavior (i.e. Rails 5 versus Rails 4). The inclusion of these gems may trigger different behavior:
   - `sprockets`
   - `railties`
@@ -53,8 +54,8 @@
   - [TODO] We may abort the build if the `rake -p` task fails.
     - [TODO] If your application has the `sprockets` gem, [then what?]
   - [TODO] Applications expecting Rake task execution must have `rake` in the Gemfile.lock and a `Rakefile` variant checked into the root of their application.
-  - [TODO] We will run `rake assets:precompile` on your app if it exists on your application.
-    - [TODO] We will skip this task if a manifest file exists in the `public/assets` folder that indicates precompiled assets are checked into git.
+  - [TODO] We will run `rake assets:precompile` on your app if that task exists on your application.
+    - [TODO] We will skip this `assets:precompile` task if a manifest file exists in the `public/assets` folder that indicates precompiled assets are checked into git.
     - [TODO] We will abort your build if the `rake assets:precompile` task fails
     - [TODO] We will run `rake assets:clean` on your app.
       - [TODO] We will cache the contents of `public/assets` if `assets:clean` exists on your application.

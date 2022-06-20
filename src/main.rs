@@ -2,7 +2,6 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
-use crate::gem_list::GemList;
 use crate::gemfile_lock::{GemfileLock, GemfileLockError, RubyVersion};
 use crate::layers::{
     BundleInstallConfigureEnvLayer, BundleInstallCreatePathLayer,

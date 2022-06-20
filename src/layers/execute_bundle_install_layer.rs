@@ -11,6 +11,37 @@ use libcnb::layer::{Layer, LayerResult, LayerResultBuilder};
 use libcnb::Env;
 use std::ffi::OsString;
 
+/*
+
+# Installs gems via `bundle install
+
+Depends on:
+
+- `create_bundle_path_layer` for setting `BUNDLE_*` environment variables and creating a
+layer dir for the installed gems
+- `download_bundler_layer` for installing the bundler gem and putting it on the PATH
+
+## Layer dir
+
+Not used. This layer installs dependencies to a layer dir created in `create_bundle_path`
+
+## Set environment variables
+
+None, this layer consumes environment variables set by other layers.
+
+## Invalidation logic
+
+This layer depends on being able to run `bundle install` idempotently. If nothing changes
+then running `bundle install` has no effect. When gems are changed then the `BUNDLE_CLEAN=1`
+setting will trigger bundler to clean up any unused gems off of disk. Essentially bundler
+handles its own cache invalidation.
+
+The only time the buildpack needs to clear installed gems is when a version of Ruby changes.
+This invalidation is handled via the `create_bundle_path_layer` which clears it's layer contents
+when a Ruby version change is detected.
+
+*/
+
 pub struct ExecuteBundleInstallLayer {
     pub env: Env,
 }

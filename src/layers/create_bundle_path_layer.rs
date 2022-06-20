@@ -139,6 +139,7 @@ impl Layer for CreateBundlePathLayer {
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
         if context.stack_id == layer_data.content_metadata.metadata.stack {
             if self.ruby_version == layer_data.content_metadata.metadata.ruby_version {
+                println!("---> Loading previously installed gems from cache");
                 Ok(ExistingLayerStrategy::Keep)
             } else {
                 println!("---> Ruby version changed, clearing gems");

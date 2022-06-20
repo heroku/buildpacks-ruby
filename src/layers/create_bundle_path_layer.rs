@@ -13,9 +13,9 @@ use libcnb::data::buildpack::StackId;
 
 /*
 
-# Set up environment for `bundle install`
+# Set up path for `bundle install` dependencies
 
-Must run before `execute_bundle_install_layer`.
+Must run before `execute_bundle_install_layer` to create directory for dependencies.
 
 ## Layer dir: Create directory for dependencies
 
@@ -25,14 +25,12 @@ This is accomplished via configuring bundler via environment variables
 ## Set environment variables
 
 - `BUNDLE_BIN=<layer-dir>/bin` - Install executables for all gems into specified path.
-- `BUNDLE_CLEAN=1` - After successful `bundle install` bundler will automatically run `bundle clean`.
-- `BUNDLE_DEPLOYMENT=1` - Requires the `Gemfile.lock` to be in sync with the current `Gemfile`.
-- `BUNDLE_GEMFILE=<app-dir>/Gemfile` - Tells bundler where to find the `Gemfile`.
-- `BUNDLE_GLOBAL_PATH_APPENDS_RUBY_SCOPE=1` - Append the Ruby engine and ABI version to path. This makes the path's less "surprising".
 - `BUNDLE_PATH=<layer-dir>` - Directs bundler to install gems to this path
-- `BUNDLE_WITHOUT=development:test:$BUNDLE_WITHOUT` - Do not install `development` or `test` groups via bundle isntall. Additional groups can be specified via user config.
-- `GEM_PATH=<layer-dir` - Tells Ruby where gems are located. Should match BUNDLE_PATH.
-- `NOKOGIRI_USE_SYSTEM_LIBRARIES=1` - Tells `nokogiri` to use the system packages, mostly `openssl`, which Heroku maintains and patches as part of its [stack](https://devcenter.heroku.com/articles/stack-packages). This setting means when a patched version is rolled out on Heroku your application will pick up the new version with no update required to libraries.
+- `GEM_PATH=<layer-dir>` - Tells Ruby where gems are located. Should match BUNDLE_PATH.
+
+Other environment variables for bundler are configured by another layer that is decoupled
+from dependency storage on disk to miminimize the risk of having to clear dependencies
+to update an environment variable.
 
 */
 pub struct CreateBundlePathLayer {

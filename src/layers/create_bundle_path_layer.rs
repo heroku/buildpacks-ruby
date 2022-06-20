@@ -9,6 +9,30 @@ use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerR
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use serde::{Deserialize, Serialize};
 
+/*
+
+# Set up environment for `bundle install`
+
+Must run before `execute_bundle_install_layer`.
+
+## Layer dir: Create directory for dependencies
+
+Dependencies installed via `bundle install` will be stored in this layer's directory.
+This is accomplished via configuring bundler via environment variables
+
+## Set environment variables
+
+- `BUNDLE_BIN=<layer-dir>/bin` - Install executables for all gems into specified path.
+- `BUNDLE_CLEAN=1` - After successful `bundle install` bundler will automatically run `bundle clean`.
+- `BUNDLE_DEPLOYMENT=1` - Requires the `Gemfile.lock` to be in sync with the current `Gemfile`.
+- `BUNDLE_GEMFILE=<app-dir>/Gemfile` - Tells bundler where to find the `Gemfile`.
+- `BUNDLE_GLOBAL_PATH_APPENDS_RUBY_SCOPE=1` - Append the Ruby engine and ABI version to path. This makes the path's less "surprising".
+- `BUNDLE_PATH=<layer-dir>` - Directs bundler to install gems to this path
+- `BUNDLE_WITHOUT=development:test:$BUNDLE_WITHOUT` - Do not install `development` or `test` groups via bundle isntall. Additional groups can be specified via user config.
+- `GEM_PATH=<layer-dir` - Tells Ruby where gems are located. Should match BUNDLE_PATH.
+- `NOKOGIRI_USE_SYSTEM_LIBRARIES=1` - Tells `nokogiri` to use the system packages, mostly `openssl`, which Heroku maintains and patches as part of its [stack](https://devcenter.heroku.com/articles/stack-packages). This setting means when a patched version is rolled out on Heroku your application will pick up the new version with no update required to libraries.
+
+*/
 pub struct CreateBundlePathLayer {
     pub ruby_version: String,
 }
@@ -18,12 +42,6 @@ pub struct CreateBundlePathMetadata {
     ruby_version: String,
 }
 
-// Creates bundle path layer. The intent is
-// for this layer to be used later via `bundle install`
-//
-// - BUNDLE_PATH
-// - GEM_PATH
-// - BUNDLE_BIN
 impl Layer for CreateBundlePathLayer {
     type Buildpack = RubyBuildpack;
     type Metadata = CreateBundlePathMetadata;

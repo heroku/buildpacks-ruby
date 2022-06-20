@@ -17,8 +17,26 @@ pub struct DownloadBundlerLayerMetadata {
     version: String,
 }
 
-// Installs an executable version of Bundler for the customer based on the
-// passed in version value. To the location set by BUNDLE_PATH
+/*
+
+# Install the bundler gem
+
+## Layer dir: Install bundler to disk
+
+Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
+`<layer-dir>/bin`. Must run before `execute_bundle_install_layer`.
+
+## Set environment variables
+
+- `PATH=<layer-dir>/bin:$PATH` - Ruby ships with a bundler executable and we
+want to make sure that the version installed via this layer always comes first.
+To accomplish that we manually place the directory on the PATH (instead of relying on
+the CNB lifecycle to place `<layer-dir>/bin` on the path).
+- `GEM_PATH=<layer-dir>:$GEM_PATH` - Beyond installing bundler we want to make it
+requireable to the target application. This is accomplished by prepending the layer path
+to `GEM_PATH` which tells rubygems where it can search for gems.
+
+*/
 pub struct DownloadBundlerLayer {
     pub version: BundlerVersion,
     pub env: Env,

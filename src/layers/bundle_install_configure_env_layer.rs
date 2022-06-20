@@ -8,9 +8,6 @@ use libcnb::build::BuildContext;
 use libcnb::layer::{Layer, LayerResult, LayerResultBuilder};
 
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
-use serde::{Deserialize, Serialize};
-
-use libcnb::data::buildpack::StackId;
 
 /*
 
@@ -41,15 +38,9 @@ The following bundler environment variables are set by another layer:
 - `GEM_PATH=<layer-dir>` - Tells Ruby where gems are located. Should match BUNDLE_PATH.
 
 */
-pub struct ConfigureBundleInstallLayer;
+pub struct BundleInstallConfigureEnvLayer;
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct CreateBundlePathMetadata {
-    ruby_version: String,
-    stack: StackId,
-}
-
-impl Layer for ConfigureBundleInstallLayer {
+impl Layer for BundleInstallConfigureEnvLayer {
     type Buildpack = RubyBuildpack;
     type Metadata = GenericMetadata;
 

@@ -33,19 +33,19 @@ from dependency storage on disk to miminimize the risk of having to clear depend
 to update an environment variable.
 
 */
-pub struct CreateBundlePathLayer {
+pub struct BundleInstallCreatePathLayer {
     pub ruby_version: String,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct CreateBundlePathMetadata {
+pub struct BundleInstallCreatePathLayerMetadata {
     ruby_version: String,
     stack: StackId,
 }
 
-impl Layer for CreateBundlePathLayer {
+impl Layer for BundleInstallCreatePathLayer {
     type Buildpack = RubyBuildpack;
-    type Metadata = CreateBundlePathMetadata;
+    type Metadata = BundleInstallCreatePathLayerMetadata;
 
     fn types(&self) -> LayerTypes {
         LayerTypes {
@@ -60,7 +60,7 @@ impl Layer for CreateBundlePathLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        LayerResultBuilder::new(CreateBundlePathMetadata {
+        LayerResultBuilder::new(BundleInstallCreatePathLayerMetadata {
             ruby_version: self.ruby_version.clone(),
             stack: context.stack_id.clone(),
         })

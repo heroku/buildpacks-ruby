@@ -4,8 +4,8 @@
 
 use crate::gemfile_lock::{GemfileLock, GemfileLockError, RubyVersion};
 use crate::layers::{
-    ConfigureBundleInstallLayer, CreateBundlePathLayer, DownloadBundlerLayer,
-    ExecuteBundleInstallLayer, InstallRubyVersionLayer,
+    BundleInstallConfigureEnvLayer, BundleInstallCreatePathLayer,
+    BundleInstallDownloadBundlerLayer, BundleInstallExecuteLayer, RubyVersionInstallLayer,
 };
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::launch::{Launch, ProcessBuilder};
@@ -56,7 +56,7 @@ impl Buildpack for RubyBuildpack {
         let ruby_layer = context //
             .handle_layer(
                 layer_name!("ruby"),
-                InstallRubyVersionLayer {
+                RubyVersionInstallLayer {
                     version: bundle_info.ruby_version,
                 },
             )?;
@@ -66,7 +66,7 @@ impl Buildpack for RubyBuildpack {
         // ## Setup bundler
         let create_bundle_path_layer = context.handle_layer(
             layer_name!("create_bundle_path"),
-            CreateBundlePathLayer {
+            BundleInstallCreatePathLayer {
                 ruby_version: ruby_layer.content_metadata.metadata.version,
             },
         )?;
@@ -74,14 +74,14 @@ impl Buildpack for RubyBuildpack {
 
         let create_bundle_path_layer = context.handle_layer(
             layer_name!("create_bundle_path"),
-            ConfigureBundleInstallLayer,
+            BundleInstallConfigureEnvLayer,
         )?;
         env = create_bundle_path_layer.env.apply(Scope::Build, &env);
 
         // ## Download bundler
         let download_bundler_layer = context.handle_layer(
             layer_name!("download_bundler"),
-            DownloadBundlerLayer {
+            BundleInstallDownloadBundlerLayer {
                 version: bundle_info.bundler_version,
                 env: env.clone(),
             },
@@ -91,7 +91,7 @@ impl Buildpack for RubyBuildpack {
         // ## bundle install
         let _execute_bundle_install_layer = context.handle_layer(
             layer_name!("execute_bundle_install"),
-            ExecuteBundleInstallLayer { env },
+            BundleInstallExecuteLayer { env },
         )?;
         // _env = execute_bundle_install_layer.env.apply(Scope::Build, &env);
 

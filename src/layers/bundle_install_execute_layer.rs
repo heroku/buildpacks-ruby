@@ -42,11 +42,11 @@ when a Ruby version change is detected.
 
 */
 
-pub struct ExecuteBundleInstallLayer {
+pub struct BundleInstallExecuteLayer {
     pub env: Env,
 }
 
-impl Layer for ExecuteBundleInstallLayer {
+impl Layer for BundleInstallExecuteLayer {
     type Buildpack = RubyBuildpack;
     type Metadata = GenericMetadata;
 

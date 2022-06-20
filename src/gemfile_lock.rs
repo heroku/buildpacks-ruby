@@ -1,5 +1,14 @@
 use core::str::FromStr;
 
+/*
+
+# Parse and store contents of Gemfile.lock
+
+Before installing bundler or Ruby versions we first need information about the application.
+This struct holds both of these values. When no value is present it will return a `Default`
+enum.
+
+*/
 #[derive(Debug)]
 pub struct GemfileLock {
     pub bundler_version: BundlerVersion,

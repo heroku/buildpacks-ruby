@@ -62,40 +62,6 @@ impl Layer for DownloadBundlerLayer {
             cache: true,
         }
     }
-
-    fn update(
-        &self,
-        context: &BuildContext<Self::Buildpack>,
-        layer_data: &LayerData<Self::Metadata>,
-    ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let metadata = &layer_data.content_metadata.metadata;
-        let old_value = metadata.version.clone();
-
-        println!(
-            "---> New bundler version detected {}, uninstalling the old version {}",
-            self.version_string(),
-            old_value
-        );
-
-        util::run_simple_command(
-            Command::new("gem")
-                .args(&[
-                    "uninstall",
-                    "bundler",
-                    "--force",
-                    "--version",
-                    &old_value,
-                    "--install-dir",
-                    &layer_data.path.to_string_lossy(),
-                ])
-                .envs(&self.env),
-            RubyBuildpackError::GemInstallBundlerCommandError,
-            RubyBuildpackError::GemInstallBundlerUnexpectedExitStatus,
-        )?;
-
-        self.create(context, &layer_data.path)
-    }
-
     fn create(
         &self,
         _context: &BuildContext<Self::Buildpack>,
@@ -109,13 +75,13 @@ impl Layer for DownloadBundlerLayer {
                     "install",
                     "bundler",
                     "--force",
-                    "--no-document",
-                    "--env-shebang",
-                    "--version",
+                    "--no-document", // Don't install ri or rdoc which takes extra time
+                    "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
+                    "--version",     // Specify exact version to install
                     &self.version_string(),
-                    "--install-dir",
+                    "--install-dir", // Directory where bundler's contents will live
                     &layer_path.to_string_lossy(),
-                    "--bindir",
+                    "--bindir", // Directory where `bundle` executable lives
                     &layer_path.join("bin").to_string_lossy(),
                 ])
                 .envs(&self.env),
@@ -151,11 +117,16 @@ impl Layer for DownloadBundlerLayer {
         _context: &BuildContext<Self::Buildpack>,
         layer: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
-        if self.version_string() == layer.content_metadata.metadata.version {
+        let old_version = &layer.content_metadata.metadata.version;
+        if &self.version_string() == old_version {
             println!("---> Bundler {} already installed", self.version_string());
             Ok(ExistingLayerStrategy::Keep)
         } else {
-            Ok(ExistingLayerStrategy::Update)
+            println!(
+                "---> Detected bundler version change, discarding old bundler version: {} ",
+                old_version
+            );
+            Ok(ExistingLayerStrategy::Recreate)
         }
     }
 }

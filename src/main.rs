@@ -25,6 +25,7 @@ use crate::util::{DownloadError, UntarError, UrlError};
 use std::process::ExitStatus;
 
 mod gem_list;
+mod gem_version;
 mod gemfile_lock;
 mod layers;
 mod util;

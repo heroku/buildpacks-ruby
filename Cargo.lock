@@ -226,6 +226,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "fancy-regex"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0678ab2d46fa5195aaf59ad034c083d351377d4af57f3e073c074d0da3e3c766"
+dependencies = [
+ "bit-set",
+ "regex",
+]
+
+[[package]]
 name = "fastrand"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -370,6 +380,7 @@ dependencies = [
 name = "heroku-ruby-buildpack"
 version = "0.0.0"
 dependencies = [
+ "fancy-regex 0.10.0",
  "flate2",
  "libcnb",
  "libcnb-test",
@@ -541,7 +552,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c57e6314a73ca253b971b1d69d69cd4943df64b9befaeca7e5a3ef3fe1b1999"
 dependencies = [
- "fancy-regex",
+ "fancy-regex 0.8.0",
  "libcnb-proc-macros",
  "serde",
  "thiserror",
@@ -554,7 +565,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2cce2182cbcc8934b07f8f76da538aee2668a8b4c4d98a63e57320f0496b63e9"
 dependencies = [
- "fancy-regex",
+ "fancy-regex 0.8.0",
  "libcnb-proc-macros",
  "serde",
  "thiserror",
@@ -580,7 +591,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f312a43d35a8ab86fceff4a233b20d857b8deb1382f3b23a468f1f61d098097"
 dependencies = [
  "cargo_metadata",
- "fancy-regex",
+ "fancy-regex 0.8.0",
  "quote",
  "syn",
 ]

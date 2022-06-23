@@ -1,5 +1,6 @@
-use core::str::FromStr;
-use regex::Regex;
+use std::cmp;
+use std::cmp::Ordering;
+use std::str::FromStr;
 
 /// # Struct to hold semver-ish versions for comparison
 ///
@@ -11,221 +12,204 @@ use regex::Regex;
 /// Example:
 ///
 /// ```rust
+/// panic!("Not actually run: error: no library targets found in package `heroku-ruby-buildpack`");
+///
+/// use std::str::FromStr;
 /// use crate::gem_version::GemVersion;
 ///
-/// let version = GemVersion::from_str("1.0.0");
-/// assert!(version < GemVersion::from_str("2.0.0"));
+/// let version = GemVersion::from_str("1.0.0").unwrap();
+/// assert!(version < GemVersion::from_str("2.0.0").unwrap());
 /// ```
-#[derive(Debug, Eq, PartialEq, Default, PartialOrd, Ord)]
+#[derive(Debug, Default)]
 pub struct GemVersion {
-    pub major: u64,
-    pub minor: u64,
-    pub patch: u64,
-    pub extra: Option<String>,
-}
-
-#[derive(thiserror::Error, Debug, PartialEq)]
-pub enum GemVersionError {
-    #[error("Regex error: {0}")]
-    RegexError(#[from] regex::Error),
+    segments: Vec<VersionSegment>,
 }
 
 impl FromStr for GemVersion {
-    type Err = GemVersionError;
-    fn from_str(string: &str) -> Result<Self, Self::Err> {
-        let digits_re = Regex::new("^\\d+$").map_err(GemVersionError::RegexError)?;
-        let parts = string.split('.').map(str::trim);
+    type Err = VersionError;
 
-        let mut major_minor_patch = parts
-            .clone()
-            .take_while(|part| digits_re.is_match(part))
-            .map(|p| p.parse().unwrap_or(0));
-
-        let major = major_minor_patch.next();
-        let minor = major_minor_patch.next();
-        let patch = major_minor_patch.next();
-
-        let leftovers = major_minor_patch.map(|i| i.to_string());
-
-        let extra = leftovers
-            .chain(
-                parts
-                    .clone()
-                    .skip_while(|part| digits_re.is_match(part))
-                    .map(std::string::ToString::to_string),
+    fn from_str(version_string: &str) -> Result<Self, Self::Err> {
+        if version_string.trim().is_empty() {
+            Ok(GemVersion {
+                segments: vec![VersionSegment::U32(0)],
+            })
+        } else {
+            let validation_regex = fancy_regex::Regex::new(
+                "\\A\\s*([0-9]+(?>\\.[0-9a-zA-Z]+)*(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?)?\\s*\\z",
             )
-            .collect::<Vec<String>>()
-            .join(".");
+            .expect("Internal Error: Invalid Regular Expression!");
 
-        Ok(GemVersion {
-            major: major.unwrap_or(0),
-            minor: minor.unwrap_or(0),
-            patch: patch.unwrap_or(0),
-            extra: if extra.is_empty() { None } else { Some(extra) },
-        })
+            let segment_regex = fancy_regex::Regex::new("[0-9]+|[a-z]+")
+                .expect("Internal Error: Invalid Regular Expression!");
+
+            if validation_regex.is_match(version_string).unwrap_or(false) {
+                let (segments_l, segments_r) = segment_regex
+                    .find_iter(version_string)
+                    .map(|regex_match| {
+                        let match_string = String::from(regex_match.unwrap().as_str());
+
+                        match_string.parse::<u32>().ok().map_or_else(
+                            || VersionSegment::String(match_string),
+                            VersionSegment::U32,
+                        )
+                    })
+                    .fold(
+                        (vec![], vec![]),
+                        |(mut acc_segments_l, mut acc_segments_r), item| {
+                            match item {
+                                item @ VersionSegment::U32(_) if acc_segments_r.is_empty() => {
+                                    acc_segments_l.push(item)
+                                }
+                                _ => acc_segments_r.push(item),
+                            }
+
+                            (acc_segments_l, acc_segments_r)
+                        },
+                    );
+
+                let is_zero_segment = |v: &VersionSegment| *v == VersionSegment::U32(0);
+                let segments_l = drop_right_while(segments_l, is_zero_segment);
+                let segments_r = drop_right_while(segments_r, is_zero_segment);
+
+                let mut segments = segments_l;
+                segments.extend(segments_r);
+
+                Ok(GemVersion { segments })
+            } else {
+                Err(VersionError::InvalidVersion(String::from(version_string)))
+            }
+        }
     }
 }
 
-// impl PartialOrd for GemVersion {
-//     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-//         let this = self.version.split(".");
-//         let that = other.version.split(".");
-//         None
-//     }
-// }
+impl PartialEq<GemVersion> for GemVersion {
+    fn eq(&self, other: &Self) -> bool {
+        self.partial_cmp(other) == Some(Ordering::Equal)
+    }
+}
+
+impl PartialOrd<GemVersion> for GemVersion {
+    fn partial_cmp(&self, other: &GemVersion) -> Option<Ordering> {
+        let max = cmp::max(self.segments.len(), other.segments.len());
+
+        let default = VersionSegment::U32(0);
+
+        for index in 0..max {
+            let segment_l = self.segments.get(index).unwrap_or(&default);
+            let segment_r = other.segments.get(index).unwrap_or(&default);
+
+            if segment_l == segment_r {
+                continue;
+            }
+
+            return match (segment_l, segment_r) {
+                (VersionSegment::String(_), VersionSegment::U32(_)) => Some(Ordering::Less),
+                (VersionSegment::U32(_), VersionSegment::String(_)) => Some(Ordering::Greater),
+                (VersionSegment::U32(a), VersionSegment::U32(b)) => a.partial_cmp(b),
+                (VersionSegment::String(a), VersionSegment::String(b)) => {
+                    // We have yet to verify that the sorting rules for strings are the same between
+                    // Rust's and Ruby's standard library. Tests seem to pass, but here be dragons!
+                    a.partial_cmp(b)
+                }
+            };
+        }
+
+        Some(Ordering::Equal)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum VersionError {
+    InvalidVersion(String),
+}
+
+#[derive(Debug, Eq, PartialEq)]
+enum VersionSegment {
+    String(String),
+    U32(u32),
+}
+
+fn drop_right_while<A, P: Fn(&A) -> bool>(i: Vec<A>, pred: P) -> Vec<A> {
+    // There is probably a more efficient way to do this.
+    let mut ret = i.into_iter().rev().skip_while(pred).collect::<Vec<A>>();
+    ret.reverse();
+    ret
+}
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
 
     #[test]
-    fn test_gem_version_equal_comparison() {
-        assert_eq!(GemVersion::from_str("1.2"), GemVersion::from_str("1.2"));
-        assert_eq!(GemVersion::from_str("1.2"), GemVersion::from_str("1.2.0"));
-        assert_ne!(GemVersion::from_str("1.2"), GemVersion::from_str("1.3"));
-        assert_ne!(
-            GemVersion::from_str("1.2.b1"),
-            GemVersion::from_str("1.2.b.1")
-        );
+    // https://github.com/rubygems/rubygems/blob/ecc8e895b69063562b9bf749b353948e051e4171/test/rubygems/test_gem_version.rb#L83-L89
+    fn initialize() {
+        for version in vec!["1.0", "1.0 ", " 1.0 ", "1.0\n", "\n1.0\n", "1.0"] {
+            assert_eq!(v(version), v("1.0"));
+        }
     }
 
     #[test]
-    fn test_handles_whitespace() {
-        vec!["1.0", "1.0 ", " 1.0 ", "1.0\n", "\n1.0\n", "1.0"]
-            .iter()
-            .map(|str| {
-                assert_eq!(
-                    GemVersion::from_str(str),
-                    GemVersion::from_str("1.0"),
-                    "Expected {} to eq 1.0 but it did not",
-                    str
-                );
-            })
-            .for_each(drop);
+    // https://github.com/rubygems/rubygems/blob/ecc8e895b69063562b9bf749b353948e051e4171/test/rubygems/test_gem_version.rb#L111-L115
+    fn empty_version() {
+        assert_eq!(v(""), v("0"));
+        assert_eq!(v("   "), v("0"));
+        assert_eq!(v(" "), v("0"));
     }
 
     #[test]
-    fn test_handles_empty_versions() {
-        vec!["", "   ", " "]
-            .iter()
-            .map(|str| {
-                assert_eq!(
-                    GemVersion::from_str(str),
-                    GemVersion::from_str("0"),
-                    "Expected {} to eq 0 but it did not",
-                    str
-                );
-            })
-            .for_each(drop);
+    // https://github.com/rubygems/rubygems/blob/ecc8e895b69063562b9bf749b353948e051e4171/test/rubygems/test_gem_version.rb#L140-L162
+    fn spaceship() {
+        assert_eq!(v("1.0"), v("1.0.0"));
+        assert_eq!(v("1"), v("1.0.0"));
+
+        assert!(v("1.0") > v("1.0.a"));
+        assert!(v("1.8.2") > v("0.0.0"));
+        assert!(v("1.8.2") > v("1.8.2.a"));
+        assert!(v("1.8.2.b") > v("1.8.2.a"));
+        assert!(v("1.8.2.a") < v("1.8.2"));
+        assert!(v("1.8.2.a10") > v("1.8.2.a9"));
+        assert_eq!(v(""), v("0"));
+
+        assert_eq!(v("0.beta.1"), v("0.0.beta.1"));
+        assert!(v("0.0.beta") < v("0.0.beta.1"));
+        assert!(v("0.0.beta") < v("0.beta.1"));
+
+        assert!(v("5.a") < v("5.0.0.rc2"));
+        assert!(v("5.x") > v("5.0.0.rc2"));
+
+        assert_eq!(v("1.9.3"), v("1.9.3"));
+        assert!(v("1.9.3") > v("1.9.2.99"));
+        assert!(v("1.9.3") < v("1.9.3.1"));
     }
 
     #[test]
-    fn test_gt_lt() {
-        assert!(GemVersion::from_str("1.0").unwrap() > GemVersion::from_str("1.0.a").unwrap());
-        assert!(GemVersion::from_str("1.8.2").unwrap() > GemVersion::from_str("0.0.0").unwrap());
-        assert!(GemVersion::from_str("1.8.2").unwrap() > GemVersion::from_str("1.8.2.a").unwrap());
-        assert!(
-            GemVersion::from_str("1.8.2.b").unwrap() > GemVersion::from_str("1.8.2.a").unwrap()
-        );
-
-        assert!(GemVersion::from_str("5.x").unwrap() > GemVersion::from_str("5.0.0.rc2").unwrap());
-
-        // Eq
+    // https://github.com/rubygems/rubygems/blob/ecc8e895b69063562b9bf749b353948e051e4171/test/rubygems/test_gem_version.rb#L91-L109
+    fn invalid_versions() {
         assert_eq!(
-            GemVersion::from_str("0.beta.1").unwrap(),
-            GemVersion::from_str("0.0.beta.1").unwrap()
+            "junk".parse::<GemVersion>(),
+            Err(VersionError::InvalidVersion(String::from("junk")))
         );
-
         assert_eq!(
-            GemVersion::from_str("1.8.2.a10").unwrap() > GemVersion::from_str("1.8.2.a9").unwrap()
+            "1.0\n2.0".parse::<GemVersion>(),
+            Err(VersionError::InvalidVersion(String::from("1.0\n2.0")))
         );
-
         assert_eq!(
-            GemVersion::from_str("1.9.3").unwrap() > GemVersion::from_str("1.9.2.99").unwrap()
+            "1..2".parse::<GemVersion>(),
+            Err(VersionError::InvalidVersion(String::from("1..2")))
         );
-
-        // Less than
-        assert!(
-            GemVersion::from_str("1.8.2.a").unwrap() < GemVersion::from_str("1.8.2.b").unwrap()
+        assert_eq!(
+            "1.2\\ 3.4".parse::<GemVersion>(),
+            Err(VersionError::InvalidVersion(String::from("1.2\\ 3.4")))
         );
-
-        assert!(
-            GemVersion::from_str("0.0.beta").unwrap() < GemVersion::from_str("0.0.beta.1").unwrap()
+        assert_eq!(
+            "2.3422222.222.222222222.22222.ads0as.dasd0.ddd2222.2.qd3e.".parse::<GemVersion>(),
+            Err(VersionError::InvalidVersion(String::from(
+                "2.3422222.222.222222222.22222.ads0as.dasd0.ddd2222.2.qd3e."
+            )))
         );
-
-        assert!(
-            GemVersion::from_str("0.0.beta").unwrap() < GemVersion::from_str("0.beta.1").unwrap()
-        );
-        assert!(GemVersion::from_str("5.a").unwrap() < GemVersion::from_str("5.0.0.rc2").unwrap());
-        assert!(GemVersion::from_str("1.9.3").unwrap() < GemVersion::from_str("1.9.3.1").unwrap());
     }
 
-    #[test]
-    fn test_parsing_gem_version() {
-        let version = GemVersion::from_str("2.0.0").unwrap();
-        assert_eq!(version.major, 2);
-        assert_eq!(version.minor, 0);
-        assert_eq!(version.patch, 0);
-        assert_eq!(version.extra, None);
-
-        let version = GemVersion::from_str("5.3").unwrap();
-        assert_eq!(version.major, 5);
-        assert_eq!(version.minor, 3);
-        assert_eq!(version.patch, 0);
-        assert_eq!(version.extra, None);
-
-        let version = GemVersion::from_str("6").unwrap();
-        assert_eq!(version.major, 6);
-        assert_eq!(version.minor, 0);
-        assert_eq!(version.patch, 0);
-        assert_eq!(version.extra, None);
-
-        let version = GemVersion::from_str("5.2.4.a").unwrap();
-        assert_eq!(version.major, 5);
-        assert_eq!(version.minor, 2);
-        assert_eq!(version.patch, 4);
-        assert_eq!(version.extra, Some("a".to_string()));
-
-        let version = GemVersion::from_str("2.9.b").unwrap();
-        assert_eq!(version.major, 2);
-        assert_eq!(version.minor, 9);
-        assert_eq!(version.patch, 0);
-        assert_eq!(version.extra, Some("b".to_string()));
-
-        let version = GemVersion::from_str("2b.9.b").unwrap();
-        assert_eq!(version.major, 0);
-        assert_eq!(version.minor, 0);
-        assert_eq!(version.patch, 0);
-        assert_eq!(version.extra, Some("2b.9.b".to_string()));
-
-        let version = GemVersion::from_str("1.2.pre.1").unwrap();
-        assert_eq!(version.major, 1);
-        assert_eq!(version.minor, 2);
-        assert_eq!(version.patch, 0);
-        assert_eq!(version.extra, Some("pre.1".to_string()));
-
-        let version = GemVersion::from_str("1..2").unwrap();
-        assert_eq!(version.major, 1);
-        assert_eq!(version.minor, 0);
-        assert_eq!(version.patch, 0);
-        assert_eq!(version.extra, Some(".2".to_string()));
-
-        let version = GemVersion::from_str("").unwrap();
-        assert_eq!(version.major, 0);
-        assert_eq!(version.minor, 0);
-        assert_eq!(version.patch, 0);
-        assert_eq!(version.extra, None);
-
-        let version = GemVersion::from_str("0").unwrap();
-        assert_eq!(version.major, 0);
-        assert_eq!(version.minor, 0);
-        assert_eq!(version.patch, 0);
-        assert_eq!(version.extra, None);
-
-        let version = GemVersion::from_str("1.0.10.20").unwrap();
-        assert_eq!(version.major, 1);
-        assert_eq!(version.minor, 0);
-        assert_eq!(version.patch, 10);
-        assert_eq!(version.extra, Some("20".to_string()));
+    fn v(s: &str) -> GemVersion {
+        s.parse().unwrap()
     }
 }

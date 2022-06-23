@@ -66,7 +66,8 @@ impl Layer for BundleInstallExecuteLayer {
         println!("---> Installing gems");
 
         let mut command = Command::new("bundle");
-        command.args(&["install"]);
+
+        command.args(&["install"]).envs(&self.env);
 
         println!(
             "Running: {} ",

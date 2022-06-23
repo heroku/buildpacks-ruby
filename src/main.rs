@@ -2,6 +2,7 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
+use crate::gem_list::{GemList, GemListError};
 use crate::gemfile_lock::{GemfileLock, GemfileLockError, RubyVersion};
 use crate::layers::{
     BundleInstallConfigureEnvLayer, BundleInstallCreatePathLayer,
@@ -91,11 +92,24 @@ impl Buildpack for RubyBuildpack {
         env = download_bundler_layer.env.apply(Scope::Build, &env);
 
         // ## bundle install
-        let _execute_bundle_install_layer = context.handle_layer(
+        let execute_bundle_install_layer = context.handle_layer(
             layer_name!("execute_bundle_install"),
-            BundleInstallExecuteLayer { env },
+            BundleInstallExecuteLayer { env: env.clone() },
         )?;
-        // _env = execute_bundle_install_layer.env.apply(Scope::Build, &env);
+        env = execute_bundle_install_layer.env.apply(Scope::Build, &env);
+
+        // ## Get list of gems and their versions from the system
+        let gem_list =
+            GemList::from_bundle_list(&env).map_err(RubyBuildpackError::GemListGetError)?;
+
+        if gem_list.has("sprockets") {
+            match gem_list.version_for("sprockets") {
+                Some(version) => {
+                    println!("Sprockets version {}", version);
+                }
+                None => {}
+            }
+        }
 
         BuildResultBuilder::new()
             .launch(
@@ -135,6 +149,9 @@ pub enum RubyBuildpackError {
 
     #[error("Url error: {0}")]
     UrlParseError(UrlError),
+
+    #[error("Error building list of gems for application: {0}")]
+    GemListGetError(GemListError),
 
     #[error("Error evaluating Gemfile.lock: {0}")]
     GemfileLockParsingError(GemfileLockError),

@@ -1,5 +1,6 @@
 use std::cmp;
 use std::cmp::Ordering;
+use std::fmt;
 use std::str::FromStr;
 
 /// # Struct to hold semver-ish versions for comparison
@@ -23,6 +24,21 @@ use std::str::FromStr;
 #[derive(Debug, Default)]
 pub struct GemVersion {
     segments: Vec<VersionSegment>,
+}
+
+impl fmt::Display for GemVersion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let version_string = self
+            .segments
+            .iter()
+            .map(|segment| match segment {
+                VersionSegment::String(s) => s.clone(),
+                VersionSegment::U32(i) => i.to_string(),
+            })
+            .collect::<Vec<String>>()
+            .join(".");
+        write!(f, "{}", version_string)
+    }
 }
 
 impl FromStr for GemVersion {

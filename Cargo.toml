@@ -7,7 +7,7 @@ edition = "2021"
 rust-version = "1.61.0"
 
 [dependencies]
-libcnb = "0.6.0"
+libcnb = "0.8.0"
 tempfile = "3.3.0"
 flate2 = "1"
 ureq = "2.2.1"
@@ -19,5 +19,5 @@ regex = "1.5.4"
 fancy-regex = "0.10.0"
 
 [dev-dependencies]
-libcnb-test = "0.3.1"
+libcnb-test = "0.4.0"
 ureq = "2.4.0"

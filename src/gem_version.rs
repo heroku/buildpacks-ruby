@@ -74,7 +74,7 @@ impl FromStr for GemVersion {
                         |(mut acc_segments_l, mut acc_segments_r), item| {
                             match item {
                                 item @ VersionSegment::U32(_) if acc_segments_r.is_empty() => {
-                                    acc_segments_l.push(item)
+                                    acc_segments_l.push(item);
                                 }
                                 _ => acc_segments_r.push(item),
                             }
@@ -159,7 +159,7 @@ mod test {
     #[test]
     // https://github.com/rubygems/rubygems/blob/ecc8e895b69063562b9bf749b353948e051e4171/test/rubygems/test_gem_version.rb#L83-L89
     fn initialize() {
-        for version in vec!["1.0", "1.0 ", " 1.0 ", "1.0\n", "\n1.0\n", "1.0"] {
+        for version in &["1.0", "1.0 ", " 1.0 ", "1.0\n", "\n1.0\n", "1.0"] {
             assert_eq!(v(version), v("1.0"));
         }
     }

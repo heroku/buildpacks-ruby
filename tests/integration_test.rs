@@ -1,12 +1,13 @@
 #![warn(clippy::pedantic)]
 
-use libcnb_test::{assert_contains, IntegrationTest};
+use libcnb_test::{assert_contains, TestConfig, TestRunner};
 use std::io;
 
 #[test]
 #[ignore]
 fn test() {
-    IntegrationTest::new("heroku/buildpacks:20", "tests/fixtures/default_ruby").run_test(
+    TestRunner::default().run_test(
+    TestConfig::new("heroku/buildpacks:20", "tests/fixtures/default_ruby"),
         |context| {
             // On failure, print the stdout
             println!("{}", context.pack_stdout);

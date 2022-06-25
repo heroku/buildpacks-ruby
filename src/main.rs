@@ -8,6 +8,7 @@ use crate::layers::{
     BundleInstallConfigureEnvLayer, BundleInstallCreatePathLayer,
     BundleInstallDownloadBundlerLayer, BundleInstallExecuteLayer, RubyVersionInstallLayer,
 };
+use crate::rake_detect::{RakeDetect, RakeDetectError};
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::launch::{Launch, ProcessBuilder};
 use libcnb::data::{layer_name, process_type};
@@ -29,6 +30,8 @@ mod gem_list;
 mod gem_version;
 mod gemfile_lock;
 mod layers;
+mod rake_detect;
+mod shell_command;
 mod util;
 
 pub struct RubyBuildpack;
@@ -99,8 +102,14 @@ impl Buildpack for RubyBuildpack {
         env = execute_bundle_install_layer.env.apply(Scope::Build, &env);
 
         // ## Get list of gems and their versions from the system
+        println!("---> Detecting gems");
         let gem_list =
             GemList::from_bundle_list(&env).map_err(RubyBuildpackError::GemListGetError)?;
+
+        // Get list of valid rake tasks
+        println!("---> Detecting rake tasks");
+        let _rake_detect =
+            RakeDetect::from_rake_command(&env).map_err(RubyBuildpackError::RakeDetectError)?;
 
         if gem_list.has("sprockets") {
             match gem_list.version_for("sprockets") {
@@ -152,6 +161,9 @@ pub enum RubyBuildpackError {
 
     #[error("Error building list of gems for application: {0}")]
     GemListGetError(GemListError),
+
+    #[error("Error detecting rake tasks: {0}")]
+    RakeDetectError(RakeDetectError),
 
     #[error("Error evaluating Gemfile.lock: {0}")]
     GemfileLockParsingError(GemfileLockError),

@@ -27,8 +27,11 @@ pub enum GemListError {
 
     #[error("Bundle list errored: {0}")]
     BundleListCommandError(std::io::Error),
-    #[error("Bundle list exit: {0}")]
-    BundleListUnexpectedExitStatus(ExitStatus),
+
+    #[error(
+        "Command `bundle list` exited with non-zero error code {0} stdout:\n{1}\nstderr:\n{2}\n"
+    )]
+    BundleListUnexpectedExitStatus(ExitStatus, String, String),
 }
 
 impl GemList {
@@ -41,12 +44,18 @@ impl GemList {
             .output()
             .map_err(GemListError::BundleListCommandError)?;
 
+        let stdout = std::str::from_utf8(&output.stdout).map_err(GemListError::EncodingError)?;
+        let stderr = std::str::from_utf8(&output.stderr).map_err(GemListError::EncodingError)?;
         if output.status.success() {
             let bundle_list_stdout =
                 std::str::from_utf8(&output.stdout).map_err(GemListError::EncodingError)?;
             GemList::from_str(bundle_list_stdout)
         } else {
-            Err(GemListError::BundleListUnexpectedExitStatus(output.status))
+            Err(GemListError::BundleListUnexpectedExitStatus(
+                output.status,
+                stdout.to_string(),
+                stderr.to_string(),
+            ))
         }
     }
 

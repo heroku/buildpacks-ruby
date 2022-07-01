@@ -2,11 +2,9 @@ use core::str::FromStr;
 use regex::Regex;
 use std::collections::HashMap;
 
-use std::process::{Command, ExitStatus};
-
 use crate::gem_version::GemVersion;
+use crate::shell_command::{ShellCommand, ShellCommandError};
 use libcnb::Env;
-use std::str::Utf8Error;
 
 // ## Gets list of an application's dependencies
 //
@@ -22,41 +20,18 @@ pub enum GemListError {
     #[error("Regex error: {0}")]
     RegexError(#[from] regex::Error),
 
-    #[error("Encoding error: {0}")]
-    EncodingError(#[from] Utf8Error),
-
-    #[error("Bundle list errored: {0}")]
-    BundleListCommandError(std::io::Error),
-
-    #[error(
-        "Command `bundle list` exited with non-zero error code {0} stdout:\n{1}\nstderr:\n{2}\n"
-    )]
-    BundleListUnexpectedExitStatus(ExitStatus, String, String),
+    #[error("Error determining dependencies: {0}")]
+    BundleListShellCommandError(ShellCommandError),
 }
 
 impl GemList {
     // Calls `bundle list` and returns a `GemList` struct
     pub fn from_bundle_list(env: &Env) -> Result<Self, GemListError> {
-        let mut command = Command::new("bundle");
-        command.args(&["list"]).envs(env);
+        let output = ShellCommand::new_with_args("bundle", &["list"])
+            .call(env)
+            .map_err(GemListError::BundleListShellCommandError)?;
 
-        let output = command
-            .output()
-            .map_err(GemListError::BundleListCommandError)?;
-
-        let stdout = std::str::from_utf8(&output.stdout).map_err(GemListError::EncodingError)?;
-        let stderr = std::str::from_utf8(&output.stderr).map_err(GemListError::EncodingError)?;
-        if output.status.success() {
-            let bundle_list_stdout =
-                std::str::from_utf8(&output.stdout).map_err(GemListError::EncodingError)?;
-            GemList::from_str(bundle_list_stdout)
-        } else {
-            Err(GemListError::BundleListUnexpectedExitStatus(
-                output.status,
-                stdout.to_string(),
-                stderr.to_string(),
-            ))
-        }
+        GemList::from_str(&output.stdout)
     }
 
     pub fn has(&self, str: &str) -> bool {

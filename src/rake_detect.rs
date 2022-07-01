@@ -5,8 +5,8 @@ use libcnb::Env;
 use std::process::{Command, ExitStatus};
 
 use std::str::Utf8Error;
-
 pub struct RakeDetect {
+    #[allow(dead_code)]
     output: String,
 }
 
@@ -47,6 +47,7 @@ impl RakeDetect {
         }
     }
 
+    #[allow(dead_code)]
     fn has_task(&self, string: &str) -> bool {
         let task_re = Regex::new(&format!("\\s{}", string)).expect("Internal error with regex");
         task_re.is_match(&self.output)

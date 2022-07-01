@@ -23,16 +23,16 @@ use std::thread;
 /// ```
 ///
 #[allow(dead_code)]
-struct ShellCommand {
+pub struct ShellCommand {
     command: Command,
     allow_non_zero_exit: bool,
 }
 
 #[allow(dead_code)]
-struct ShellCommandOutcome {
-    stdout: String,
-    stderr: String,
-    status: ExitStatus,
+pub struct ShellCommandOutcome {
+    pub stdout: String,
+    pub stderr: String,
+    pub status: ExitStatus,
 }
 
 #[allow(dead_code)]
@@ -63,7 +63,7 @@ impl fmt::Display for ShellCommand {
 
 impl ShellCommand {
     #[allow(dead_code)]
-    fn to_string_with_env_keys(
+    pub fn to_string_with_env_keys(
         &self,
         env: &Env,
         keys: impl IntoIterator<Item = impl Into<OsString>>,
@@ -86,7 +86,7 @@ impl ShellCommand {
     }
 
     #[allow(dead_code)]
-    fn new_with_args(base: &str, args: &[&str]) -> Self {
+    pub fn new_with_args(base: &str, args: &[&str]) -> Self {
         let mut command = Command::new(base);
         command.args(args);
         ShellCommand {
@@ -96,14 +96,14 @@ impl ShellCommand {
     }
 
     #[allow(dead_code)]
-    fn allow_non_zero_exit(&mut self) -> &mut Self {
+    pub fn allow_non_zero_exit(&mut self) -> &mut Self {
         self.allow_non_zero_exit = true;
         self
     }
 
     #[allow(dead_code)]
     // Runs the command and streams contents to STDOUT/STDERR
-    fn stream(&mut self, env: &Env) -> Result<ShellCommandOutcome, ShellCommandError> {
+    pub fn stream(&mut self, env: &Env) -> Result<ShellCommandOutcome, ShellCommandError> {
         let mut child = self
             .command
             .envs(env)
@@ -171,7 +171,7 @@ impl ShellCommand {
 
     #[allow(dead_code)]
     // Runs the shell command silenty
-    fn call(&mut self, env: &Env) -> Result<ShellCommandOutcome, ShellCommandError> {
+    pub fn call(&mut self, env: &Env) -> Result<ShellCommandOutcome, ShellCommandError> {
         let output = self
             .command
             .envs(env)

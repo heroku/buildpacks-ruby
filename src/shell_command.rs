@@ -9,6 +9,7 @@ use std::io::Write;
 use std::process::Stdio;
 use std::process::{Command, ExitStatus};
 
+use regex::Regex;
 use std::thread;
 
 /// # Run a command, on the shell!
@@ -16,12 +17,52 @@ use std::thread;
 /// ```rust,no_run
 /// use crate::shell_command::ShellCommand;
 ///
+/// let env = Env::new()
 /// let mut command = ShellCommand::new_with_args("echo", &["hello world"]);
-/// let outcome = command.call(&Env::new()).unwrap();
+/// let outcome = command.call(env).unwrap();
 ///
 /// assert_eq!(outcome.stdout.trim(), "hello world".to_string());
 /// ```
 ///
+/// By default it will return `Result<Err>` if the command is not successful.
+/// To return `Ok` instead use `allow_non_zero_exit()`:
+///
+/// ```rust,no_run
+/// use crate::shell_command::ShellCommand;
+///
+/// let mut outcome = ShellCommand::new_with_args("iDoNotExist", &["hello world"])
+///                   .allow_non_zero_exit()
+///                   .call(env)
+///                   .unwrap();
+///
+/// assert!(!outcome.status.success());
+/// assert!(outcome.stderr.contains("command not found: iDoNotExist"))
+/// ```
+///
+///
+/// Can run command and capture the output with `call()` or can stream
+/// the command output to stdout/stderr with `stream()`.
+///
+/// The command can advertize itself via `to_string()`:
+///
+/// ```rust,no_run
+/// use crate::shell_command::ShellCommand;
+///
+/// let mut command = ShellCommand::new_with_args("echo", &["hello world"]);
+/// assert_eq!(command.to_string(), "echo \"hello world\"")
+/// ```
+///
+/// The command can advertize itself with accept list env vars via `to_string_with_env_keys()`:
+///
+/// ```rust,no_run
+/// use crate::shell_command::ShellCommand;
+///
+/// let mut env = Env::new();
+/// env.insert("DOG", "cinco");
+///
+/// let mut command =  ShellCommand::new_with_args("echo", &["hello world"]);
+/// assert_eq!(command.to_string_with_env_keys(&env, &["DOG"]), "DOG=\"cinco\" echo \"hello world\"")
+/// ```
 #[allow(dead_code)]
 pub struct ShellCommand {
     command: Command,
@@ -47,6 +88,7 @@ pub enum ShellCommandError {
 
 impl fmt::Display for ShellCommand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let escape_pattern = Regex::new(r"([^A-Za-z0-9_\-.,:/@\n])").unwrap(); // https://github.com/jimmycuadra/rust-shellwords/blob/d23b853a850ceec358a4137d5e520b067ddb7abc/src/lib.rs#L23
         write!(
             f,
             "{} {}",
@@ -54,7 +96,13 @@ impl fmt::Display for ShellCommand {
             self.command
                 .get_args()
                 .map(std::ffi::OsStr::to_string_lossy)
-                .map(|arg| format!("{:?}", arg))
+                .map(|arg| {
+                    if escape_pattern.is_match(&arg) {
+                        format!("{:?}", arg)
+                    } else {
+                        format!("{}", arg)
+                    }
+                })
                 .collect::<Vec<_>>()
                 .join(" ")
         )
@@ -239,5 +287,52 @@ mod tests {
         let outcome = command.stream(&Env::new()).unwrap();
 
         assert_eq!(outcome.stdout.trim(), "hello world".to_string());
+    }
+
+    #[test]
+    fn test_command_to_str_with_env_keys_one_exists() {
+        let mut env = Env::new();
+        env.insert("TRANSPORT", "perihelion");
+
+        let command = ShellCommand::new_with_args("bundle", &["install", "--path", "lol"]);
+
+        let out = command.to_string_with_env_keys(&env, &["TRANSPORT"]);
+        assert_eq!("TRANSPORT=\"perihelion\" bundle install --path lol", out);
+    }
+
+    #[test]
+    fn test_command_to_str_with_env_keys_one_missing() {
+        let env = Env::new();
+
+        let command = ShellCommand::new_with_args("bundle", &["install", "--path", "lol"]);
+
+        let out = command.to_string_with_env_keys(&env, &["TRANSPORT"]);
+        assert_eq!("TRANSPORT=\"\" bundle install --path lol", out);
+    }
+
+    #[test]
+    fn test_command_to_str_with_env_keys_two_exist() {
+        let mut env = Env::new();
+        env.insert("TRANSPORT", "perihelion");
+        env.insert("SHOW", "the rise and fall of sanctuary moon");
+
+        let command = ShellCommand::new_with_args("bundle", &["install", "--path", "lol"]);
+
+        let out = command.to_string_with_env_keys(&env, &["TRANSPORT", "SHOW"]);
+        assert_eq!("TRANSPORT=\"perihelion\" SHOW=\"the rise and fall of sanctuary moon\" bundle install --path lol", out);
+    }
+
+    #[test]
+    fn test_command_to_str_with_env_keys_two_with_one_empty() {
+        let mut env = Env::new();
+        env.insert("TRANSPORT", "perihelion");
+
+        let command = ShellCommand::new_with_args("bundle", &["install", "--path", "lol"]);
+
+        let out = command.to_string_with_env_keys(&env, &["TRANSPORT", "SHOW"]);
+        assert_eq!(
+            "TRANSPORT=\"perihelion\" SHOW=\"\" bundle install --path lol",
+            out
+        );
     }
 }

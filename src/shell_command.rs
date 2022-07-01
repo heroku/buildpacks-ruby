@@ -3,10 +3,11 @@ use std::ffi::OsString;
 use std::fmt;
 use std::io::BufRead;
 use std::io::BufReader;
+
+#[allow(unused_imports)]
 use std::io::Write;
 use std::process::Stdio;
 use std::process::{Command, ExitStatus};
-use url::form_urlencoded::Target;
 
 use std::thread;
 
@@ -20,17 +21,21 @@ use std::thread;
 ///
 /// assert_eq!(outcome.stdout.trim(), "hello world".to_string());
 /// ```
+///
+#[allow(dead_code)]
 struct ShellCommand {
     command: Command,
     allow_non_zero_exit: bool,
 }
 
+#[allow(dead_code)]
 struct ShellCommandOutcome {
     stdout: String,
     stderr: String,
     status: ExitStatus,
 }
 
+#[allow(dead_code)]
 #[derive(thiserror::Error, Debug)]
 pub enum ShellCommandError {
     #[error("Command `{0}` failed with IO error: {1}")]
@@ -57,6 +62,7 @@ impl fmt::Display for ShellCommand {
 }
 
 impl ShellCommand {
+    #[allow(dead_code)]
     fn to_string_with_env_keys(
         &self,
         env: &Env,
@@ -79,6 +85,7 @@ impl ShellCommand {
         )
     }
 
+    #[allow(dead_code)]
     fn new_with_args(base: &str, args: &[&str]) -> Self {
         let mut command = Command::new(base);
         command.args(args);
@@ -88,11 +95,13 @@ impl ShellCommand {
         }
     }
 
+    #[allow(dead_code)]
     fn allow_non_zero_exit(&mut self) -> &mut Self {
         self.allow_non_zero_exit = true;
         self
     }
 
+    #[allow(dead_code)]
     // Runs the command and streams contents to STDOUT/STDERR
     fn stream(&mut self, env: &Env) -> Result<ShellCommandOutcome, ShellCommandError> {
         let mut child = self
@@ -160,6 +169,7 @@ impl ShellCommand {
         }
     }
 
+    #[allow(dead_code)]
     // Runs the shell command silenty
     fn call(&mut self, env: &Env) -> Result<ShellCommandOutcome, ShellCommandError> {
         let output = self

@@ -10,9 +10,23 @@ use std::process::Stdio;
 use std::process::{Command, ExitStatus};
 
 use regex::Regex;
+use std::fmt::Debug;
+use std::fmt::Display;
+
 use std::thread;
 
 /// # Run a command, on the shell!
+///
+/// Reduce the interface of running shell commands, and introduce defaults (like auto
+/// `Err` on non-zero status code).
+///
+/// By default will return `shell_command::ShellCommandError::UnexpectedExitStatusError(NonZeroExitStatusError)`
+/// when the command exits with a non-zero exit code. The struct `NonZeroExitStatusError` includes
+/// the field `outcome` which is a `ShellOutcome` that contains status, stdout, and stderr.
+///
+/// WARNING: Internals can panic in some situations. See `expect()` in code.
+///
+/// Example:
 ///
 /// ```rust,no_run
 /// use crate::shell_command::ShellCommand;
@@ -69,6 +83,7 @@ pub struct ShellCommand {
     allow_non_zero_exit: bool,
 }
 
+#[derive(Debug)]
 #[allow(dead_code)]
 pub struct ShellCommandOutcome {
     pub stdout: String,
@@ -82,10 +97,27 @@ pub enum ShellCommandError {
     #[error("Command `{0}` failed with IO error: {1}")]
     IOError(String, std::io::Error),
 
-    #[error("Command `{0}` exited with non-zero error code {1} stdout:\n{1}\nstderr:\n{2}\n")]
-    UnexpectedExitStatus(String, ExitStatus, String, String),
+    #[error("{0}")]
+    UnexpectedExitStatusError(NonZeroExitStatusError),
 }
 
+#[derive(Debug)]
+pub struct NonZeroExitStatusError {
+    command: String,
+    outcome: ShellCommandOutcome,
+}
+
+impl Display for NonZeroExitStatusError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Command {} exited with non-zero error code {} stdout:\n{}\nstderr:\n{}\n",
+            self.command, self.outcome.status, self.outcome.stdout, self.outcome.stderr
+        )
+    }
+}
+
+/// Used for implementing `to_string()`
 impl fmt::Display for ShellCommand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let escape_pattern = Regex::new(r"([^A-Za-z0-9_\-.,:/@\n])").unwrap(); // https://github.com/jimmycuadra/rust-shellwords/blob/d23b853a850ceec358a4137d5e520b067ddb7abc/src/lib.rs#L23
@@ -110,6 +142,8 @@ impl fmt::Display for ShellCommand {
 }
 
 impl ShellCommand {
+    /// Useful for formatting a command for display to the user with acceptlist of environment
+    /// variables.
     #[allow(dead_code)]
     pub fn to_string_with_env_keys(
         &self,
@@ -133,6 +167,8 @@ impl ShellCommand {
         )
     }
 
+    /// Main entrypoint, builds a struct with defaults and the arguments
+    /// given
     #[allow(dead_code)]
     pub fn new_with_args(base: &str, args: &[&str]) -> Self {
         let mut command = Command::new(base);
@@ -143,14 +179,16 @@ impl ShellCommand {
         }
     }
 
+    /// Tells the code to not return an `Err` result when a non-zero
+    /// status code is received.
     #[allow(dead_code)]
     pub fn allow_non_zero_exit(&mut self) -> &mut Self {
         self.allow_non_zero_exit = true;
         self
     }
 
-    #[allow(dead_code)]
     // Runs the command and streams contents to STDOUT/STDERR
+    #[allow(dead_code)]
     pub fn stream(&mut self, env: &Env) -> Result<ShellCommandOutcome, ShellCommandError> {
         let mut child = self
             .command
@@ -201,24 +239,26 @@ impl ShellCommand {
         let stdout = stdout_rx.into_iter().collect::<Vec<String>>().join("");
         let stderr = stderr_rx.into_iter().collect::<Vec<String>>().join("");
 
+        let outcome = ShellCommandOutcome {
+            stdout,
+            stderr,
+            status,
+        };
+
         if status.success() || self.allow_non_zero_exit {
-            Ok(ShellCommandOutcome {
-                stdout,
-                stderr,
-                status,
-            })
+            Ok(outcome)
         } else {
-            Err(ShellCommandError::UnexpectedExitStatus(
-                self.to_string(),
-                status,
-                stdout,
-                stderr,
+            Err(ShellCommandError::UnexpectedExitStatusError(
+                NonZeroExitStatusError {
+                    command: self.to_string(),
+                    outcome,
+                },
             ))
         }
     }
 
-    #[allow(dead_code)]
     // Runs the shell command silenty
+    #[allow(dead_code)]
     pub fn call(&mut self, env: &Env) -> Result<ShellCommandOutcome, ShellCommandError> {
         let output = self
             .command
@@ -232,18 +272,21 @@ impl ShellCommand {
         let stderr = std::str::from_utf8(&output.stderr)
             .expect("Internal encoding error")
             .to_string();
-        if output.status.success() || self.allow_non_zero_exit {
-            Ok(ShellCommandOutcome {
-                stdout,
-                stderr,
-                status: output.status,
-            })
+
+        let status = output.status;
+        let outcome = ShellCommandOutcome {
+            stdout,
+            stderr,
+            status,
+        };
+        if status.success() || self.allow_non_zero_exit {
+            Ok(outcome)
         } else {
-            Err(ShellCommandError::UnexpectedExitStatus(
-                self.to_string(),
-                output.status,
-                stdout,
-                stderr,
+            Err(ShellCommandError::UnexpectedExitStatusError(
+                NonZeroExitStatusError {
+                    command: self.to_string(),
+                    outcome,
+                },
             ))
         }
     }

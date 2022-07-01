@@ -1,10 +1,8 @@
 use core::str::FromStr;
 use regex::Regex;
 
+use crate::shell_command::{ShellCommand, ShellCommandError};
 use libcnb::Env;
-use std::process::{Command, ExitStatus};
-
-use std::str::Utf8Error;
 pub struct RakeDetect {
     #[allow(dead_code)]
     output: String,
@@ -15,36 +13,17 @@ pub enum RakeDetectError {
     #[error("Regex error: {0}")]
     RegexError(#[from] regex::Error),
 
-    #[error("Command `bundle exec rake -P` errored: {0}")]
-    RakeDashpCommandError(std::io::Error),
-
-    #[error("Command `bundle exec rake -P` exited with non-zero error code {0} stdout:\n{1}\nstderr:\n{2}\n")]
-    RakeDashpUnexpectedExitStatus(ExitStatus, String, String),
-
-    #[error("Encoding error: {0}")]
-    EncodingError(#[from] Utf8Error),
+    #[error("Error detecting rake tasks: {0}")]
+    RakeDashpCommandError(ShellCommandError),
 }
 
 impl RakeDetect {
     pub fn from_rake_command(env: &Env) -> Result<Self, RakeDetectError> {
-        let mut command = Command::new("bundle");
-        command.args(&["exec", "rake", "-P", "--trace"]).envs(env);
-
-        let output = command
-            .output()
+        let output = ShellCommand::new_with_args("bundle", &["exec", "rake", "-P", "--trace"])
+            .call(env)
             .map_err(RakeDetectError::RakeDashpCommandError)?;
 
-        let stdout = std::str::from_utf8(&output.stdout).map_err(RakeDetectError::EncodingError)?;
-        let stderr = std::str::from_utf8(&output.stderr).map_err(RakeDetectError::EncodingError)?;
-        if output.status.success() {
-            RakeDetect::from_str(stdout)
-        } else {
-            Err(RakeDetectError::RakeDashpUnexpectedExitStatus(
-                output.status,
-                stdout.to_string(),
-                stderr.to_string(),
-            ))
-        }
+        RakeDetect::from_str(&output.stdout)
     }
 
     #[allow(dead_code)]

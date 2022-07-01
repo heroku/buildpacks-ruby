@@ -20,6 +20,7 @@ use libcnb::{buildpack_main, Buildpack};
 
 #[cfg(test)]
 use libcnb_test as _;
+use shell_command::ShellCommandError;
 
 use core::str::FromStr;
 
@@ -143,12 +144,14 @@ pub enum RubyBuildpackError {
     CouldNotCreateTemporaryFile(std::io::Error),
     #[error("Cannot generate checksum: {0}")]
     CouldNotGenerateChecksum(std::io::Error),
-    #[error("Cannot install bundler: {0}")]
-    GemInstallBundlerCommandError(std::io::Error),
     #[error("Bundler gem install exit: {0}")]
     GemInstallBundlerUnexpectedExitStatus(ExitStatus),
-    #[error("Bundle install errored: {0}")]
-    BundleInstallCommandError(std::io::Error),
+    #[error("Bundle install command errored: {0}")]
+    BundleInstallCommandError(ShellCommandError),
+
+    #[error("Could not install bundler: {0}")]
+    GemInstallBundlerCommandError(ShellCommandError),
+
     #[error("Bundle install exit: {0}")]
     BundleInstallUnexpectedExitStatus(ExitStatus),
     #[error("Bundle config error: {0}")]

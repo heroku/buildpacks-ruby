@@ -1,9 +1,9 @@
-use crate::{util, RubyBuildpackError};
+use crate::RubyBuildpackError;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use serde::{Deserialize, Serialize};
 
+use crate::shell_command::ShellCommand;
 use std::path::Path;
-use std::process::Command;
 
 use crate::gemfile_lock::BundlerVersion;
 use crate::RubyBuildpack;
@@ -69,25 +69,24 @@ impl Layer for BundleInstallDownloadBundlerLayer {
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
         println!("---> Installing bundler {}", self.version_string());
 
-        util::run_simple_command(
-            Command::new("gem")
-                .args(&[
-                    "install",
-                    "bundler",
-                    "--force",
-                    "--no-document", // Don't install ri or rdoc which takes extra time
-                    "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
-                    "--version",     // Specify exact version to install
-                    &self.version_string(),
-                    "--install-dir", // Directory where bundler's contents will live
-                    &layer_path.to_string_lossy(),
-                    "--bindir", // Directory where `bundle` executable lives
-                    &layer_path.join("bin").to_string_lossy(),
-                ])
-                .envs(&self.env),
-            RubyBuildpackError::GemInstallBundlerCommandError,
-            RubyBuildpackError::GemInstallBundlerUnexpectedExitStatus,
-        )?;
+        ShellCommand::new_with_args(
+            "gem",
+            &[
+                "install",
+                "bundler",
+                "--force",
+                "--no-document", // Don't install ri or rdoc which takes extra time
+                "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
+                "--version",     // Specify exact version to install
+                &self.version_string(),
+                "--install-dir", // Directory where bundler's contents will live
+                &layer_path.to_string_lossy(),
+                "--bindir", // Directory where `bundle` executable lives
+                &layer_path.join("bin").to_string_lossy(),
+            ],
+        )
+        .call(&self.env)
+        .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
 
         LayerResultBuilder::new(BundleInstallDownloadBundlerLayerMetadata {
             version: self.version_string(),

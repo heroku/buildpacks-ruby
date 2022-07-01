@@ -1,15 +1,14 @@
-use crate::{util, RubyBuildpackError};
+use crate::shell_command::ShellCommand;
+use crate::RubyBuildpackError;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::generic::GenericMetadata;
 
 use std::path::Path;
-use std::process::Command;
 
 use crate::RubyBuildpack;
 use libcnb::build::BuildContext;
 use libcnb::layer::{Layer, LayerResult, LayerResultBuilder};
 use libcnb::Env;
-use std::ffi::OsString;
 
 /*
 
@@ -64,32 +63,27 @@ impl Layer for BundleInstallExecuteLayer {
         _layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
         println!("---> Installing gems");
-
-        let mut command = Command::new("bundle");
-
-        command.args(&["install"]).envs(&self.env);
+        let command = ShellCommand::new_with_args("bundle", &["install"]);
 
         println!(
             "Running: {} ",
-            util::command_to_str_with_env_keys(
-                &command,
+            command.to_string_with_env_keys(
                 &self.env,
                 &[
-                    OsString::from("BUNDLE_BIN"),
-                    OsString::from("BUNDLE_CLEAN"),
-                    OsString::from("BUNDLE_DEPLOYMENT"),
-                    OsString::from("BUNDLE_GEMFILE"),
-                    OsString::from("BUNDLE_PATH"),
-                    OsString::from("BUNDLE_WITHOUT"),
+                    "BUNDLE_BIN",
+                    "BUNDLE_CLEAN",
+                    "BUNDLE_DEPLOYMENT",
+                    "BUNDLE_GEMFILE",
+                    "BUNDLE_PATH",
+                    "BUNDLE_WITHOUT",
                 ]
             )
         );
 
-        util::run_simple_command(
-            command.envs(&self.env),
-            RubyBuildpackError::BundleInstallCommandError,
-            RubyBuildpackError::BundleInstallUnexpectedExitStatus,
-        )?;
+        let mut command = command; // Mutability requirement, `call` doesn't _need_ to be mutable but Command does not implement `clone()`
+        command
+            .call(&self.env)
+            .map_err(RubyBuildpackError::BundleInstallCommandError)?;
 
         LayerResultBuilder::new(GenericMetadata::default()).build()
     }

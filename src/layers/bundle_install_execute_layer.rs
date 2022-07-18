@@ -1,4 +1,4 @@
-use crate::shell_command::ShellCommand;
+use crate::env_command::EnvCommand;
 use crate::RubyBuildpackError;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::generic::GenericMetadata;
@@ -63,26 +63,20 @@ impl Layer for BundleInstallExecuteLayer {
         _layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
         println!("---> Installing gems");
-        let command = ShellCommand::new_with_args("bundle", &["install"]);
+        let mut command = EnvCommand::new("bundle", &["install"], &self.env);
+        command.display_env_keys(&[
+            "BUNDLE_BIN",
+            "BUNDLE_CLEAN",
+            "BUNDLE_DEPLOYMENT",
+            "BUNDLE_GEMFILE",
+            "BUNDLE_PATH",
+            "BUNDLE_WITHOUT",
+        ]);
 
-        println!(
-            "Running: {} ",
-            command.to_string_with_env_keys(
-                &self.env,
-                &[
-                    "BUNDLE_BIN",
-                    "BUNDLE_CLEAN",
-                    "BUNDLE_DEPLOYMENT",
-                    "BUNDLE_GEMFILE",
-                    "BUNDLE_PATH",
-                    "BUNDLE_WITHOUT",
-                ]
-            )
-        );
+        println!("Running: $ {} ", command);
 
-        let mut command = command; // Mutability requirement, `call` doesn't _need_ to be mutable but Command does not implement `clone()`
         command
-            .call(&self.env)
+            .call()
             .map_err(RubyBuildpackError::BundleInstallCommandError)?;
 
         LayerResultBuilder::new(GenericMetadata::default()).build()

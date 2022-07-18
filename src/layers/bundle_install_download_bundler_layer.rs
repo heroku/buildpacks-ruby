@@ -2,7 +2,7 @@ use crate::RubyBuildpackError;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use serde::{Deserialize, Serialize};
 
-use crate::shell_command::ShellCommand;
+use crate::env_command::EnvCommand;
 use std::path::Path;
 
 use crate::gemfile_lock::BundlerVersion;
@@ -69,7 +69,7 @@ impl Layer for BundleInstallDownloadBundlerLayer {
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
         println!("---> Installing bundler {}", self.version_string());
 
-        ShellCommand::new_with_args(
+        EnvCommand::new(
             "gem",
             &[
                 "install",
@@ -84,8 +84,9 @@ impl Layer for BundleInstallDownloadBundlerLayer {
                 "--bindir", // Directory where `bundle` executable lives
                 &layer_path.join("bin").to_string_lossy(),
             ],
+            &self.env,
         )
-        .call(&self.env)
+        .call()
         .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
 
         LayerResultBuilder::new(BundleInstallDownloadBundlerLayerMetadata {

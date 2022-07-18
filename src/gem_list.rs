@@ -2,8 +2,8 @@ use core::str::FromStr;
 use regex::Regex;
 use std::collections::HashMap;
 
+use crate::env_command::{EnvCommand, EnvCommandError};
 use crate::gem_version::GemVersion;
-use crate::shell_command::{ShellCommand, ShellCommandError};
 use libcnb::Env;
 
 // ## Gets list of an application's dependencies
@@ -21,23 +21,25 @@ pub enum GemListError {
     RegexError(#[from] regex::Error),
 
     #[error("Error determining dependencies: {0}")]
-    BundleListShellCommandError(ShellCommandError),
+    BundleListShellCommandError(EnvCommandError),
 }
 
 impl GemList {
     // Calls `bundle list` and returns a `GemList` struct
     pub fn from_bundle_list(env: &Env) -> Result<Self, GemListError> {
-        let output = ShellCommand::new_with_args("bundle", &["list"])
-            .call(env)
+        let output = EnvCommand::new("bundle", &["list"], env)
+            .call()
             .map_err(GemListError::BundleListShellCommandError)?;
 
         GemList::from_str(&output.stdout)
     }
 
+    #[allow(dead_code)]
     pub fn has(&self, str: &str) -> bool {
         self.gems.get(&str.trim().to_lowercase()).is_some()
     }
 
+    #[allow(dead_code)]
     pub fn version_for(&self, str: &str) -> Option<&GemVersion> {
         self.gems.get(&str.trim().to_lowercase())
     }

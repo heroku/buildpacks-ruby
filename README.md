@@ -49,18 +49,17 @@
   - `sprockets`
   - `railties`
   - [TODO] List is incomplete
-- [TODO] Rake execution - We will determine what rake tasks are runnable via the output of `rake -P` against your application.
-  - [TODO] We may abort the build if the `rake -p` task fails.
-    - [TODO] If your application has the `sprockets` gem, [then what?]
+- Rake execution - We will determine what rake tasks are runnable via the output of `rake -P` against your application.
+  - We may abort the build if the `rake -p` task fails.
+    - If your application has the `sprockets` gem and `rake -p` failed the build will abort.
   - [TODO] Applications expecting Rake task execution must have `rake` in the Gemfile.lock and a `Rakefile` variant checked into the root of their application.
   - [TODO] We will run `rake assets:precompile` on your app if that task exists on your application.
     - [TODO] We will skip this `assets:precompile` task if a manifest file exists in the `public/assets` folder that indicates precompiled assets are checked into git.
     - [TODO] We will abort your build if the `rake assets:precompile` task fails
     - [TODO] We will run `rake assets:clean` on your app.
       - [TODO] We will cache the contents of `public/assets` if `assets:clean` exists on your application.
-      - [TODO] We will limit or prune the size of this asset cache.
       - [TODO] We will cache asset "fragments" directories if the `sprockets` gem is on the system.
-
+        - [TODO] We will limit or prune the size of the asset cache in `tmp/<TBD>`.
 - Process types
   - Given an application with the `rack` gem and a `config.ru` file we will run `rackup` while specifying `-p $PORT` and `-h 0.0.0.0` by default as the `web` process. Use the `Procfile` to override.
 

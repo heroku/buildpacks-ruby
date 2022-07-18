@@ -1,8 +1,10 @@
 use core::str::FromStr;
 use regex::Regex;
 
-use crate::shell_command::{ShellCommand, ShellCommandError};
+use crate::env_command::{EnvCommand, EnvCommandError};
 use libcnb::Env;
+
+#[derive(Default)]
 pub struct RakeDetect {
     #[allow(dead_code)]
     output: String,
@@ -14,20 +16,31 @@ pub enum RakeDetectError {
     RegexError(#[from] regex::Error),
 
     #[error("Error detecting rake tasks: {0}")]
-    RakeDashpCommandError(ShellCommandError),
+    RakeDashpCommandError(EnvCommandError),
 }
 
 impl RakeDetect {
-    pub fn from_rake_command(env: &Env) -> Result<Self, RakeDetectError> {
-        let output = ShellCommand::new_with_args("bundle", &["exec", "rake", "-P", "--trace"])
-            .call(env)
+    #[allow(dead_code)]
+    pub fn from_rake_command(env: &Env, error_on_failure: bool) -> Result<Self, RakeDetectError> {
+        let mut command = EnvCommand::new("bundle", &["exec", "rake", "-P", "--trace"], env);
+        let outcome = command
+            .allow_non_zero_exit()
+            .call()
             .map_err(RakeDetectError::RakeDashpCommandError)?;
 
-        RakeDetect::from_str(&output.stdout)
+        if outcome.status.success() {
+            RakeDetect::from_str(&outcome.stdout)
+        } else if error_on_failure {
+            Err(RakeDetectError::RakeDashpCommandError(
+                command.non_zero_exit_error_from_outcome(outcome),
+            ))
+        } else {
+            Ok(RakeDetect::default())
+        }
     }
 
     #[allow(dead_code)]
-    fn has_task(&self, string: &str) -> bool {
+    pub fn has_task(&self, string: &str) -> bool {
         let task_re = Regex::new(&format!("\\s{}", string)).expect("Internal error with regex");
         task_re.is_match(&self.output)
     }

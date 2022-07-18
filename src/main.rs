@@ -2,13 +2,19 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
-use crate::gem_list::{GemList, GemListError};
 use crate::gemfile_lock::{GemfileLock, GemfileLockError, RubyVersion};
 use crate::layers::{
     BundleInstallConfigureEnvLayer, BundleInstallCreatePathLayer,
-    BundleInstallDownloadBundlerLayer, BundleInstallExecuteLayer, RubyVersionInstallLayer,
+    BundleInstallDownloadBundlerLayer, BundleInstallExecuteLayer, RakeAssetsCreateCacheLayer,
+    RubyVersionInstallLayer,
 };
-use crate::rake_detect::{RakeDetect, RakeDetectError};
+
+// Move eventually
+use crate::gem_list::GemListError;
+use crate::rake_detect::RakeDetectError;
+
+use crate::rake_assets_precompile_execute::RakeApplicationTasksExecute;
+
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::launch::{Launch, ProcessBuilder};
 use libcnb::data::{layer_name, process_type};
@@ -18,21 +24,22 @@ use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 
+use env_command::EnvCommandError;
 #[cfg(test)]
 use libcnb_test as _;
-use shell_command::ShellCommandError;
 
 use core::str::FromStr;
 
 use crate::util::{DownloadError, UntarError, UrlError};
 use std::process::ExitStatus;
 
+mod env_command;
 mod gem_list;
 mod gem_version;
 mod gemfile_lock;
 mod layers;
+mod rake_assets_precompile_execute;
 mod rake_detect;
-mod shell_command;
 mod util;
 
 pub struct RubyBuildpack;
@@ -102,24 +109,7 @@ impl Buildpack for RubyBuildpack {
         )?;
         env = execute_bundle_install_layer.env.apply(Scope::Build, &env);
 
-        // ## Get list of gems and their versions from the system
-        println!("---> Detecting gems");
-        let gem_list =
-            GemList::from_bundle_list(&env).map_err(RubyBuildpackError::GemListGetError)?;
-
-        // Get list of valid rake tasks
-        println!("---> Detecting rake tasks");
-        let _rake_detect =
-            RakeDetect::from_rake_command(&env).map_err(RubyBuildpackError::RakeDetectError)?;
-
-        if gem_list.has("sprockets") {
-            match gem_list.version_for("sprockets") {
-                Some(version) => {
-                    println!("Sprockets version {}", version);
-                }
-                None => {}
-            }
-        }
+        RakeApplicationTasksExecute {}.call(&env)?;
 
         BuildResultBuilder::new()
             .launch(
@@ -147,10 +137,10 @@ pub enum RubyBuildpackError {
     #[error("Bundler gem install exit: {0}")]
     GemInstallBundlerUnexpectedExitStatus(ExitStatus),
     #[error("Bundle install command errored: {0}")]
-    BundleInstallCommandError(ShellCommandError),
+    BundleInstallCommandError(EnvCommandError),
 
     #[error("Could not install bundler: {0}")]
-    GemInstallBundlerCommandError(ShellCommandError),
+    GemInstallBundlerCommandError(EnvCommandError),
 
     #[error("Bundle install exit: {0}")]
     BundleInstallUnexpectedExitStatus(ExitStatus),

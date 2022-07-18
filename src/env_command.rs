@@ -15,25 +15,25 @@ use std::fmt::Display;
 
 use std::thread;
 
-/// # Run a command, on the shell!
+/// # Run a command, with an env!
 ///
-/// Reduce the interface of running shell commands, and introduce defaults (like auto
+/// Reduce the interface of running commands, and introduce defaults (like auto
 /// `Err` on non-zero status code).
 ///
-/// By default will return `shell_command::ShellCommandError::UnexpectedExitStatusError(NonZeroExitStatusError)`
+/// By default will return `env_command::EnvCommandError::UnexpectedExitStatusError(NonZeroExitStatusError)`
 /// when the command exits with a non-zero exit code. The struct `NonZeroExitStatusError` includes
-/// the field `outcome` which is a `ShellOutcome` that contains status, stdout, and stderr.
+/// the field `outcome` which is a `EnvCommandResult` that contains status, stdout, and stderr.
 ///
 /// WARNING: Internals can panic in some situations. See `expect()` in code.
 ///
 /// Example:
 ///
 /// ```rust,no_run
-/// use crate::shell_command::ShellCommand;
+/// use crate::env_command::EnvCommand;
 ///
-/// let env = Env::new()
-/// let mut command = ShellCommand::new_with_args("echo", &["hello world"]);
-/// let outcome = command.call(env).unwrap();
+/// let env = Env::new();
+/// let mut command = EnvCommand::new("echo", &["hello world"], &env);
+/// let outcome = command.call().unwrap();
 ///
 /// assert_eq!(outcome.stdout.trim(), "hello world".to_string());
 /// ```
@@ -42,11 +42,12 @@ use std::thread;
 /// To return `Ok` instead use `allow_non_zero_exit()`:
 ///
 /// ```rust,no_run
-/// use crate::shell_command::ShellCommand;
+/// use crate::env_command::EnvCommand;
 ///
-/// let mut outcome = ShellCommand::new_with_args("iDoNotExist", &["hello world"])
+/// let env = Env::new();
+/// let mut outcome = EnvCommand::new("iDoNotExist", &["hello world"], &env)
 ///                   .allow_non_zero_exit()
-///                   .call(env)
+///                   .call()
 ///                   .unwrap();
 ///
 /// assert!(!outcome.status.success());
@@ -60,32 +61,37 @@ use std::thread;
 /// The command can advertize itself via `to_string()`:
 ///
 /// ```rust,no_run
-/// use crate::shell_command::ShellCommand;
+/// use crate::env_command::EnvCommand;
 ///
-/// let mut command = ShellCommand::new_with_args("echo", &["hello world"]);
+/// let mut command = EnvCommand::new("echo", &["hello world"], &env);
 /// assert_eq!(command.to_string(), "echo \"hello world\"")
 /// ```
 ///
-/// The command can advertize itself with accept list env vars via `to_string_with_env_keys()`:
+/// The command can advertize itself with accept list env vars via `display_env_keys()`:
 ///
 /// ```rust,no_run
-/// use crate::shell_command::ShellCommand;
+/// use crate::env_command::EnvCommand;
 ///
 /// let mut env = Env::new();
 /// env.insert("DOG", "cinco");
 ///
-/// let mut command =  ShellCommand::new_with_args("echo", &["hello world"]);
-/// assert_eq!(command.to_string_with_env_keys(&env, &["DOG"]), "DOG=\"cinco\" echo \"hello world\"")
+/// let mut command =  EnvCommand::new("echo", &["hello world"], &env);
+/// command.display_env_keys(&["DOG"]);
+///
+/// assert_eq!(command.to_string(), "DOG=\"cinco\" echo \"hello world\"")
 /// ```
 #[allow(dead_code)]
-pub struct ShellCommand {
-    command: Command,
+pub struct EnvCommand {
+    base: OsString,
+    args: Vec<OsString>,
+    env: Env,
+    display_env_keys: Vec<OsString>,
     allow_non_zero_exit: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub struct ShellCommandOutcome {
+pub struct EnvCommandResult {
     pub stdout: String,
     pub stderr: String,
     pub status: ExitStatus,
@@ -93,7 +99,7 @@ pub struct ShellCommandOutcome {
 
 #[allow(dead_code)]
 #[derive(thiserror::Error, Debug)]
-pub enum ShellCommandError {
+pub enum EnvCommandError {
     #[error("Command `{0}` failed with IO error: {1}")]
     IOError(String, std::io::Error),
 
@@ -104,7 +110,7 @@ pub enum ShellCommandError {
 #[derive(Debug)]
 pub struct NonZeroExitStatusError {
     command: String,
-    outcome: ShellCommandOutcome,
+    result: EnvCommandResult,
 }
 
 impl Display for NonZeroExitStatusError {
@@ -112,71 +118,96 @@ impl Display for NonZeroExitStatusError {
         write!(
             f,
             "Command {} exited with non-zero error code {} stdout:\n{}\nstderr:\n{}\n",
-            self.command, self.outcome.status, self.outcome.stdout, self.outcome.stderr
+            self.command, self.result.status, self.result.stdout, self.result.stderr
         )
     }
 }
 
 /// Used for implementing `to_string()`
-impl fmt::Display for ShellCommand {
+impl fmt::Display for EnvCommand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let command = self.command();
         let escape_pattern = Regex::new(r"([^A-Za-z0-9_\-.,:/@\n])").unwrap(); // https://github.com/jimmycuadra/rust-shellwords/blob/d23b853a850ceec358a4137d5e520b067ddb7abc/src/lib.rs#L23
+
         write!(
             f,
-            "{} {}",
-            self.command.get_program().to_string_lossy(),
-            self.command
-                .get_args()
-                .map(std::ffi::OsStr::to_string_lossy)
-                .map(|arg| {
-                    if escape_pattern.is_match(&arg) {
-                        format!("{:?}", arg)
-                    } else {
-                        format!("{}", arg)
-                    }
+            "{}",
+            // Env vars
+            self.display_env_keys
+                .iter()
+                .map(|key| {
+                    format!(
+                        "{}={:?}",
+                        key.to_string_lossy(),
+                        self.env
+                            .get(key.clone())
+                            .unwrap_or_else(|| OsString::from(""))
+                    )
                 })
-                .collect::<Vec<_>>()
+                // Main command
+                .chain(vec![command.get_program().to_string_lossy().to_string()].into_iter())
+                // Args
+                .chain(
+                    command
+                        .get_args()
+                        .map(std::ffi::OsStr::to_string_lossy)
+                        .map(|arg| {
+                            if escape_pattern.is_match(&arg) {
+                                format!("{:?}", arg)
+                            } else {
+                                format!("{}", arg)
+                            }
+                        }),
+                )
+                .collect::<Vec<String>>()
                 .join(" ")
         )
     }
 }
 
-impl ShellCommand {
-    /// Useful for formatting a command for display to the user with acceptlist of environment
-    /// variables.
-    #[allow(dead_code)]
-    pub fn to_string_with_env_keys(
-        &self,
-        env: &Env,
-        keys: impl IntoIterator<Item = impl Into<OsString>>,
-    ) -> String {
-        format!(
-            "{} {}",
-            keys.into_iter()
-                .map(std::convert::Into::into)
-                .map(|key| {
-                    format!(
-                        "{}={:?} ",
-                        key.to_string_lossy(),
-                        env.get(key.clone()).unwrap_or_else(|| OsString::from(""))
-                    )
-                })
-                .collect::<String>()
-                .trim(),
-            self
-        )
+impl EnvCommand {
+    pub fn non_zero_exit_error_from_outcome(&self, result: EnvCommandResult) -> EnvCommandError {
+        EnvCommandError::UnexpectedExitStatusError(NonZeroExitStatusError {
+            command: self.to_string(),
+            result: result.clone(),
+        })
     }
 
     /// Main entrypoint, builds a struct with defaults and the arguments
     /// given
     #[allow(dead_code)]
-    pub fn new_with_args(base: &str, args: &[&str]) -> Self {
-        let mut command = Command::new(base);
-        command.args(args);
-        ShellCommand {
-            command,
+    pub fn new(base: &str, args: &[&str], env: &Env) -> Self {
+        EnvCommand {
+            base: base.into(),
+            args: args
+                .iter()
+                .map(std::convert::Into::into)
+                .collect::<Vec<OsString>>(),
+            env: env.clone(),
+            display_env_keys: Vec::new(),
             allow_non_zero_exit: false,
         }
+    }
+
+    pub fn display_env_keys(
+        &mut self,
+        keys: impl IntoIterator<Item = impl Into<OsString>>,
+    ) -> &mut Self {
+        self.display_env_keys = keys
+            .into_iter()
+            .map(std::convert::Into::into)
+            .collect::<Vec<OsString>>();
+        self
+    }
+
+    // Command is not clonable because it can contain things that are not
+    // clonable such as file descriptors. Instead we remember the
+    // inputs to Command so we can re-create it at will.
+    fn command(&self) -> Command {
+        let mut command = Command::new(&self.base);
+        command.args(&self.args);
+        command.envs(&self.env);
+        command
     }
 
     /// Tells the code to not return an `Err` result when a non-zero
@@ -189,14 +220,13 @@ impl ShellCommand {
 
     // Runs the command and streams contents to STDOUT/STDERR
     #[allow(dead_code)]
-    pub fn stream(&mut self, env: &Env) -> Result<ShellCommandOutcome, ShellCommandError> {
+    pub fn stream(&self) -> Result<EnvCommandResult, EnvCommandError> {
         let mut child = self
-            .command
-            .envs(env)
+            .command()
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|io_err| ShellCommandError::IOError(self.to_string(), io_err))
+            .map_err(|io_err| EnvCommandError::IOError(self.to_string(), io_err))
             .unwrap();
 
         let child_stdout = child
@@ -239,19 +269,19 @@ impl ShellCommand {
         let stdout = stdout_rx.into_iter().collect::<Vec<String>>().join("");
         let stderr = stderr_rx.into_iter().collect::<Vec<String>>().join("");
 
-        let outcome = ShellCommandOutcome {
+        let result = EnvCommandResult {
             stdout,
             stderr,
             status,
         };
 
         if status.success() || self.allow_non_zero_exit {
-            Ok(outcome)
+            Ok(result)
         } else {
-            Err(ShellCommandError::UnexpectedExitStatusError(
+            Err(EnvCommandError::UnexpectedExitStatusError(
                 NonZeroExitStatusError {
                     command: self.to_string(),
-                    outcome,
+                    result,
                 },
             ))
         }
@@ -259,12 +289,11 @@ impl ShellCommand {
 
     // Runs the shell command silenty
     #[allow(dead_code)]
-    pub fn call(&mut self, env: &Env) -> Result<ShellCommandOutcome, ShellCommandError> {
+    pub fn call(&self) -> Result<EnvCommandResult, EnvCommandError> {
         let output = self
-            .command
-            .envs(env)
+            .command()
             .output()
-            .map_err(|io_err| ShellCommandError::IOError(self.to_string(), io_err))?;
+            .map_err(|io_err| EnvCommandError::IOError(self.to_string(), io_err))?;
 
         let stdout = std::str::from_utf8(&output.stdout)
             .expect("Internal encoding error")
@@ -274,18 +303,18 @@ impl ShellCommand {
             .to_string();
 
         let status = output.status;
-        let outcome = ShellCommandOutcome {
+        let result = EnvCommandResult {
             stdout,
             stderr,
             status,
         };
         if status.success() || self.allow_non_zero_exit {
-            Ok(outcome)
+            Ok(result)
         } else {
-            Err(ShellCommandError::UnexpectedExitStatusError(
+            Err(EnvCommandError::UnexpectedExitStatusError(
                 NonZeroExitStatusError {
                     command: self.to_string(),
-                    outcome,
+                    result,
                 },
             ))
         }
@@ -298,7 +327,7 @@ mod tests {
 
     #[test]
     fn test_to_string() {
-        let command = ShellCommand::new_with_args("echo", &["hello world"]);
+        let command = EnvCommand::new("echo", &["hello world"], &Env::new());
         assert_eq!(command.to_string(), r#"echo "hello world""#);
     }
 
@@ -307,18 +336,16 @@ mod tests {
         let mut env = Env::new();
         env.insert("PATH", "foo");
 
-        let command = ShellCommand::new_with_args("echo", &["hello world"]);
-        assert_eq!(
-            command.to_string_with_env_keys(&env, &["PATH"]),
-            r#"PATH="foo" echo "hello world""#
-        );
+        let mut command = EnvCommand::new("echo", &["hello world"], &env);
+        command.display_env_keys(&["PATH"]);
+        assert_eq!(r#"PATH="foo" echo "hello world""#, command.to_string());
     }
 
     #[test]
     fn runs_command_and_captures_stdout() {
         // Platform dependent
-        let mut command = ShellCommand::new_with_args("echo", &["hello world"]);
-        let outcome = command.call(&Env::new()).unwrap();
+        let command = EnvCommand::new("echo", &["hello world"], &Env::new());
+        let outcome = command.call().unwrap();
 
         assert_eq!(outcome.stdout.trim(), "hello world".to_string());
     }
@@ -326,8 +353,8 @@ mod tests {
     #[test]
     fn runs_command_and_captures_stdout_while_streaming_to_stdout_stderr() {
         // Platform dependent
-        let mut command = ShellCommand::new_with_args("echo", &["hello world"]);
-        let outcome = command.stream(&Env::new()).unwrap();
+        let command = EnvCommand::new("echo", &["hello world"], &Env::new());
+        let outcome = command.stream().unwrap();
 
         assert_eq!(outcome.stdout.trim(), "hello world".to_string());
     }
@@ -337,20 +364,26 @@ mod tests {
         let mut env = Env::new();
         env.insert("TRANSPORT", "perihelion");
 
-        let command = ShellCommand::new_with_args("bundle", &["install", "--path", "lol"]);
+        let mut command = EnvCommand::new("bundle", &["install", "--path", "lol"], &env);
+        command.display_env_keys(&["TRANSPORT"]);
 
-        let out = command.to_string_with_env_keys(&env, &["TRANSPORT"]);
-        assert_eq!("TRANSPORT=\"perihelion\" bundle install --path lol", out);
+        assert_eq!(
+            "TRANSPORT=\"perihelion\" bundle install --path lol",
+            command.to_string()
+        );
     }
 
     #[test]
     fn test_command_to_str_with_env_keys_one_missing() {
         let env = Env::new();
 
-        let command = ShellCommand::new_with_args("bundle", &["install", "--path", "lol"]);
+        let mut command = EnvCommand::new("bundle", &["install", "--path", "lol"], &env);
+        command.display_env_keys(&["TRANSPORT"]);
 
-        let out = command.to_string_with_env_keys(&env, &["TRANSPORT"]);
-        assert_eq!("TRANSPORT=\"\" bundle install --path lol", out);
+        assert_eq!(
+            "TRANSPORT=\"\" bundle install --path lol",
+            command.to_string()
+        );
     }
 
     #[test]
@@ -359,10 +392,10 @@ mod tests {
         env.insert("TRANSPORT", "perihelion");
         env.insert("SHOW", "the rise and fall of sanctuary moon");
 
-        let command = ShellCommand::new_with_args("bundle", &["install", "--path", "lol"]);
+        let mut command = EnvCommand::new("bundle", &["install", "--path", "lol"], &env);
+        command.display_env_keys(&["TRANSPORT", "SHOW"]);
 
-        let out = command.to_string_with_env_keys(&env, &["TRANSPORT", "SHOW"]);
-        assert_eq!("TRANSPORT=\"perihelion\" SHOW=\"the rise and fall of sanctuary moon\" bundle install --path lol", out);
+        assert_eq!("TRANSPORT=\"perihelion\" SHOW=\"the rise and fall of sanctuary moon\" bundle install --path lol", command.to_string());
     }
 
     #[test]
@@ -370,12 +403,12 @@ mod tests {
         let mut env = Env::new();
         env.insert("TRANSPORT", "perihelion");
 
-        let command = ShellCommand::new_with_args("bundle", &["install", "--path", "lol"]);
+        let mut command = EnvCommand::new("bundle", &["install", "--path", "lol"], &env);
+        command.display_env_keys(&["TRANSPORT", "SHOW"]);
 
-        let out = command.to_string_with_env_keys(&env, &["TRANSPORT", "SHOW"]);
         assert_eq!(
             "TRANSPORT=\"perihelion\" SHOW=\"\" bundle install --path lol",
-            out
+            command.to_string()
         );
     }
 }

@@ -4,8 +4,7 @@ use std::fmt;
 use std::io::BufRead;
 use std::io::BufReader;
 
-#[allow(unused_imports)]
-use std::io::Write;
+use std::os::unix::prelude::ExitStatusExt;
 use std::process::Stdio;
 use std::process::{Command, ExitStatus};
 
@@ -22,14 +21,13 @@ use std::thread;
 ///
 /// By default will return `env_command::EnvCommandError::UnexpectedExitStatusError(NonZeroExitStatusError)`
 /// when the command exits with a non-zero exit code. The struct `NonZeroExitStatusError` includes
-/// the field `outcome` which is a `EnvCommandResult` that contains status, stdout, and stderr.
-///
-/// WARNING: Internals can panic in some situations. See `expect()` in code.
+/// the field `result` which is a `EnvCommandResult` that contains status, stdout, and stderr.
 ///
 /// Example:
 ///
 /// ```rust,no_run
-/// use crate::env_command::EnvCommand;
+/// use heroku_ruby_buildpack::env_command::EnvCommand;
+/// use libcnb::Env;
 ///
 /// let env = Env::new();
 /// let mut command = EnvCommand::new("echo", &["hello world"], &env);
@@ -38,45 +36,44 @@ use std::thread;
 /// assert_eq!(outcome.stdout.trim(), "hello world".to_string());
 /// ```
 ///
-/// By default it will return `Result<Err>` if the command is not successful.
-/// To return `Ok` instead use `allow_non_zero_exit()`:
-///
-/// ```rust,no_run
-/// use crate::env_command::EnvCommand;
-///
-/// let env = Env::new();
-/// let mut outcome = EnvCommand::new("iDoNotExist", &["hello world"], &env)
-///                   .allow_non_zero_exit()
-///                   .call()
-///                   .unwrap();
-///
-/// assert!(!outcome.status.success());
-/// assert!(outcome.stderr.contains("command not found: iDoNotExist"))
-/// ```
-///
-///
 /// Can run command and capture the output with `call()` or can stream
 /// the command output to stdout/stderr with `stream()`.
+///
+/// ## Customized behavior on non-zero exit
+///
+/// By default it will return `Result<Err>` if the command is not successful.
+/// To return `Ok` instead use `on_non_zero_exit()` to overwrite the behavior.
+///
+/// ## Display
 ///
 /// The command can advertize itself via `to_string()`:
 ///
 /// ```rust,no_run
-/// use crate::env_command::EnvCommand;
+/// use heroku_ruby_buildpack::env_command::EnvCommand;
+/// use libcnb::Env;
 ///
-/// let mut command = EnvCommand::new("echo", &["hello world"], &env);
+///
+/// let mut command = EnvCommand::new("echo", &["hello world"], &Env::new());
 /// assert_eq!(command.to_string(), "echo \"hello world\"")
 /// ```
 ///
-/// The command can advertize itself with accept list env vars via `display_env_keys()`:
+/// ## Display with env keys
+///
+/// In some cases it is useful to also show environment variables when displaying
+/// a command. For example `RAILS_ENV` can have a great impact when running `rake assets:precompile`
+/// on a rails app. To
+///
+/// The command can advertize itself with accept list env vars via `show_env_keys()`:
 ///
 /// ```rust,no_run
-/// use crate::env_command::EnvCommand;
+/// use heroku_ruby_buildpack::env_command::EnvCommand;
+/// use libcnb::Env;
 ///
 /// let mut env = Env::new();
 /// env.insert("DOG", "cinco");
 ///
 /// let mut command =  EnvCommand::new("echo", &["hello world"], &env);
-/// command.display_env_keys(&["DOG"]);
+/// command.show_env_keys(&["DOG"]);
 ///
 /// assert_eq!(command.to_string(), "DOG=\"cinco\" echo \"hello world\"")
 /// ```
@@ -85,8 +82,9 @@ pub struct EnvCommand {
     base: OsString,
     args: Vec<OsString>,
     env: Env,
-    display_env_keys: Vec<OsString>,
-    allow_non_zero_exit: bool,
+    show_env_keys: Vec<OsString>,
+    on_non_zero_exit:
+        Box<dyn Fn(NonZeroExitStatusError) -> Result<EnvCommandResult, NonZeroExitStatusError>>,
 }
 
 #[derive(Debug, Clone)]
@@ -100,17 +98,14 @@ pub struct EnvCommandResult {
 #[allow(dead_code)]
 #[derive(thiserror::Error, Debug)]
 pub enum EnvCommandError {
-    #[error("Command `{0}` failed with IO error: {1}")]
-    IOError(String, std::io::Error),
-
     #[error("{0}")]
     UnexpectedExitStatusError(NonZeroExitStatusError),
 }
 
 #[derive(Debug)]
 pub struct NonZeroExitStatusError {
-    command: String,
-    result: EnvCommandResult,
+    pub command: String,
+    pub result: EnvCommandResult,
 }
 
 impl Display for NonZeroExitStatusError {
@@ -123,56 +118,7 @@ impl Display for NonZeroExitStatusError {
     }
 }
 
-/// Used for implementing `to_string()`
-impl fmt::Display for EnvCommand {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let command = self.command();
-        let escape_pattern = Regex::new(r"([^A-Za-z0-9_\-.,:/@\n])").unwrap(); // https://github.com/jimmycuadra/rust-shellwords/blob/d23b853a850ceec358a4137d5e520b067ddb7abc/src/lib.rs#L23
-
-        write!(
-            f,
-            "{}",
-            // Env vars
-            self.display_env_keys
-                .iter()
-                .map(|key| {
-                    format!(
-                        "{}={:?}",
-                        key.to_string_lossy(),
-                        self.env
-                            .get(key.clone())
-                            .unwrap_or_else(|| OsString::from(""))
-                    )
-                })
-                // Main command
-                .chain(vec![command.get_program().to_string_lossy().to_string()].into_iter())
-                // Args
-                .chain(
-                    command
-                        .get_args()
-                        .map(std::ffi::OsStr::to_string_lossy)
-                        .map(|arg| {
-                            if escape_pattern.is_match(&arg) {
-                                format!("{:?}", arg)
-                            } else {
-                                format!("{}", arg)
-                            }
-                        }),
-                )
-                .collect::<Vec<String>>()
-                .join(" ")
-        )
-    }
-}
-
 impl EnvCommand {
-    pub fn non_zero_exit_error_from_outcome(&self, result: EnvCommandResult) -> EnvCommandError {
-        EnvCommandError::UnexpectedExitStatusError(NonZeroExitStatusError {
-            command: self.to_string(),
-            result: result.clone(),
-        })
-    }
-
     /// Main entrypoint, builds a struct with defaults and the arguments
     /// given
     #[allow(dead_code)]
@@ -184,16 +130,33 @@ impl EnvCommand {
                 .map(std::convert::Into::into)
                 .collect::<Vec<OsString>>(),
             env: env.clone(),
-            display_env_keys: Vec::new(),
-            allow_non_zero_exit: false,
+            show_env_keys: Vec::new(),
+            on_non_zero_exit: Box::new(|err| Err(err)),
         }
     }
 
-    pub fn display_env_keys(
+    /// Attach environment variables to the struct for use when
+    /// `Display` is called on it.
+    ///
+    /// ```rust,no_run
+    /// use heroku_ruby_buildpack::env_command::EnvCommand;
+    /// use libcnb::Env;
+    ///
+    /// let mut env = Env::new();
+    /// env.insert("DOG", "cinco");
+    ///
+    /// let mut command =  EnvCommand::new("echo", &["hello world"], &env);
+    /// command.show_env_keys(&["DOG"]);
+    ///
+    /// assert_eq!(command.to_string(), "DOG=\"cinco\" echo \"hello world\"")
+    /// ```
+    ///
+    /// Does not change the behavior of the executing command.
+    pub fn show_env_keys(
         &mut self,
         keys: impl IntoIterator<Item = impl Into<OsString>>,
     ) -> &mut Self {
-        self.display_env_keys = keys
+        self.show_env_keys = keys
             .into_iter()
             .map(std::convert::Into::into)
             .collect::<Vec<OsString>>();
@@ -210,25 +173,121 @@ impl EnvCommand {
         command
     }
 
-    /// Tells the code to not return an `Err` result when a non-zero
-    /// status code is received.
+    /// Runs the command silently and capture STDOUT & STDERR
+    ///
+    /// ```rust,no_run
+    /// use heroku_ruby_buildpack::env_command::EnvCommand;
+    /// use libcnb::Env;
+    ///
+    /// let env = Env::new();
+    /// let mut command = EnvCommand::new("echo", &["hello world"], &env);
+    /// let outcome = command.call().unwrap();
+    ///
+    /// assert_eq!(outcome.stdout.trim(), "hello world".to_string());
+    /// ```
     #[allow(dead_code)]
-    pub fn allow_non_zero_exit(&mut self) -> &mut Self {
-        self.allow_non_zero_exit = true;
-        self
+    pub fn call(&self) -> Result<EnvCommandResult, EnvCommandError> {
+        let output_result = self
+            .command()
+            .output()
+            .map_err(|error| self.non_zero_exit_error_from_io_error(error));
+
+        let output = match output_result {
+            Ok(output) => output,
+            Err(EnvCommandError::UnexpectedExitStatusError(error)) => {
+                return self.handle_non_zero_exit_error(error)
+            }
+        };
+
+        let stdout = std::str::from_utf8(&output.stdout)
+            .expect("Internal encoding error")
+            .to_string();
+        let stderr = std::str::from_utf8(&output.stderr)
+            .expect("Internal encoding error")
+            .to_string();
+
+        let status = output.status;
+        let result = EnvCommandResult {
+            stdout,
+            stderr,
+            status,
+        };
+        if status.success() {
+            Ok(result)
+        } else {
+            self.handle_non_zero_exit_error(NonZeroExitStatusError {
+                command: self.to_string(),
+                result,
+            })
+        }
     }
 
-    // Runs the command and streams contents to STDOUT/STDERR
+    /// Runs the command and streams contents to STDOUT/STDERR
+    ///
+    /// ```rust,no_run
+    /// use heroku_ruby_buildpack::env_command::EnvCommand;
+    /// use libcnb::Env;
+    ///
+    /// let env = Env::new();
+    /// let mut command = EnvCommand::new("echo", &["hello world"], &env);
+    /// let outcome = command.stream().unwrap();
+    ///
+    /// assert_eq!(outcome.stdout.trim(), "hello world".to_string());
+    /// ```
     #[allow(dead_code)]
     pub fn stream(&self) -> Result<EnvCommandResult, EnvCommandError> {
-        let mut child = self
+        let child_result = self
             .command()
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|io_err| EnvCommandError::IOError(self.to_string(), io_err))
-            .unwrap();
+            .map_err(|error| self.non_zero_exit_error_from_io_error(error));
 
+        let result = match child_result {
+            Ok(mut child) => EnvCommand::stream_child(&mut child),
+            Err(EnvCommandError::UnexpectedExitStatusError(error)) => {
+                return self.handle_non_zero_exit_error(error)
+            }
+        };
+
+        if result.status.success() {
+            Ok(result)
+        } else {
+            self.handle_non_zero_exit_error(NonZeroExitStatusError {
+                command: self.to_string(),
+                result,
+            })
+        }
+    }
+
+    /// By default non-zero-exit codes return an error.
+    /// use this method to implement custom behavior.
+    ///
+    /// ```rust,no_run
+    /// use heroku_ruby_buildpack::env_command::EnvCommand;
+    /// use libcnb::Env;
+    ///
+    /// let env = Env::new();
+    /// let mut outcome = EnvCommand::new("iDoNotExist", &["hello world"], &env)
+    ///                   .on_non_zero_exit(|error| Ok(error.result) )
+    ///                   .call()
+    ///                   .unwrap();
+    ///
+    /// assert!(!outcome.status.success());
+    /// assert!(outcome.stderr.contains("command not found: iDoNotExist"))
+    /// ```
+    pub fn on_non_zero_exit(
+        &mut self,
+        fun: impl Fn(NonZeroExitStatusError) -> Result<EnvCommandResult, NonZeroExitStatusError>
+            + 'static,
+    ) -> &mut Self {
+        self.on_non_zero_exit = Box::new(fun);
+        self
+    }
+
+    /// Internal helper for streaming a child process to stdout/stderr
+    /// while also collecting the results of the process.
+    fn stream_child(child: &mut std::process::Child) -> EnvCommandResult {
         let child_stdout = child
             .stdout
             .take()
@@ -269,55 +328,94 @@ impl EnvCommand {
         let stdout = stdout_rx.into_iter().collect::<Vec<String>>().join("");
         let stderr = stderr_rx.into_iter().collect::<Vec<String>>().join("");
 
-        let result = EnvCommandResult {
+        EnvCommandResult {
             stdout,
             stderr,
             status,
-        };
-
-        if status.success() || self.allow_non_zero_exit {
-            Ok(result)
-        } else {
-            Err(EnvCommandError::UnexpectedExitStatusError(
-                NonZeroExitStatusError {
-                    command: self.to_string(),
-                    result,
-                },
-            ))
         }
     }
 
-    // Runs the shell command silenty
-    #[allow(dead_code)]
-    pub fn call(&self) -> Result<EnvCommandResult, EnvCommandError> {
-        let output = self
-            .command()
-            .output()
-            .map_err(|io_err| EnvCommandError::IOError(self.to_string(), io_err))?;
-
-        let stdout = std::str::from_utf8(&output.stdout)
-            .expect("Internal encoding error")
-            .to_string();
-        let stderr = std::str::from_utf8(&output.stderr)
-            .expect("Internal encoding error")
-            .to_string();
-
-        let status = output.status;
+    /// Convert a std::io::Error to an EnvCommandError
+    ///
+    /// Calls to `Command::spawn` and `Command::output` can return a `std::io::Error`.
+    ///
+    /// For example:
+    ///
+    ///    Result::unwrap()` on an `Err` value:
+    ///    IOError("commandDoesNotexist",
+    ///      Os {
+    ///        code: 2,
+    ///        kind: NotFound,
+    ///        message: "No such file or directory"
+    ///     })'
+    ///
+    /// When this happens we need to format it in a consistent return error.
+    /// This is a helper function to convert from a generic std::io::Error to
+    /// the underlying `NonZeroExitStatusError`.
+    fn non_zero_exit_error_from_io_error(&self, error: std::io::Error) -> EnvCommandError {
         let result = EnvCommandResult {
-            stdout,
-            stderr,
-            status,
+            stdout: "".to_string(),
+            stderr: format!("{}", error),
+            status: ExitStatus::from_raw(error.raw_os_error().unwrap_or(-1)),
         };
-        if status.success() || self.allow_non_zero_exit {
-            Ok(result)
-        } else {
-            Err(EnvCommandError::UnexpectedExitStatusError(
-                NonZeroExitStatusError {
-                    command: self.to_string(),
-                    result,
-                },
-            ))
-        }
+
+        EnvCommandError::UnexpectedExitStatusError(NonZeroExitStatusError {
+            command: self.to_string(),
+            result: result.clone(),
+        })
+    }
+
+    /// The user can specify an custom function to be called when
+    /// a non-zero exit status is encountered.
+    ///
+    /// This is a helper function to invoke that behavior.
+    fn handle_non_zero_exit_error(
+        &self,
+        error: NonZeroExitStatusError,
+    ) -> Result<EnvCommandResult, EnvCommandError> {
+        (self.on_non_zero_exit)(error).map_err(EnvCommandError::UnexpectedExitStatusError)
+    }
+}
+
+// Used for implementing `to_string()`
+impl fmt::Display for EnvCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let command = self.command();
+        let escape_pattern = Regex::new(r"([^A-Za-z0-9_\-.,:/@\n])").unwrap(); // https://github.com/jimmycuadra/rust-shellwords/blob/d23b853a850ceec358a4137d5e520b067ddb7abc/src/lib.rs#L23
+
+        write!(
+            f,
+            "{}",
+            // Env vars
+            self.show_env_keys
+                .iter()
+                .map(|key| {
+                    format!(
+                        "{}={:?}",
+                        key.to_string_lossy(),
+                        self.env
+                            .get(key.clone())
+                            .unwrap_or_else(|| OsString::from(""))
+                    )
+                })
+                // Main command
+                .chain(vec![command.get_program().to_string_lossy().to_string()].into_iter())
+                // Args
+                .chain(
+                    command
+                        .get_args()
+                        .map(std::ffi::OsStr::to_string_lossy)
+                        .map(|arg| {
+                            if escape_pattern.is_match(&arg) {
+                                format!("{:?}", arg)
+                            } else {
+                                format!("{}", arg)
+                            }
+                        }),
+                )
+                .collect::<Vec<String>>()
+                .join(" ")
+        )
     }
 }
 
@@ -337,7 +435,7 @@ mod tests {
         env.insert("PATH", "foo");
 
         let mut command = EnvCommand::new("echo", &["hello world"], &env);
-        command.display_env_keys(&["PATH"]);
+        command.show_env_keys(&["PATH"]);
         assert_eq!(r#"PATH="foo" echo "hello world""#, command.to_string());
     }
 
@@ -348,6 +446,19 @@ mod tests {
         let outcome = command.call().unwrap();
 
         assert_eq!(outcome.stdout.trim(), "hello world".to_string());
+    }
+
+    #[test]
+    fn runs_non_zero_exit_error() {
+        // Platform dependent
+        let mut command = EnvCommand::new("exit", &["123"], &Env::new());
+        let outcome = command.call();
+
+        assert!(outcome.is_err());
+
+        // Ignore the error
+        command.on_non_zero_exit(|err| Ok(err.result));
+        command.call().unwrap();
     }
 
     #[test]
@@ -365,7 +476,7 @@ mod tests {
         env.insert("TRANSPORT", "perihelion");
 
         let mut command = EnvCommand::new("bundle", &["install", "--path", "lol"], &env);
-        command.display_env_keys(&["TRANSPORT"]);
+        command.show_env_keys(&["TRANSPORT"]);
 
         assert_eq!(
             "TRANSPORT=\"perihelion\" bundle install --path lol",
@@ -378,7 +489,7 @@ mod tests {
         let env = Env::new();
 
         let mut command = EnvCommand::new("bundle", &["install", "--path", "lol"], &env);
-        command.display_env_keys(&["TRANSPORT"]);
+        command.show_env_keys(&["TRANSPORT"]);
 
         assert_eq!(
             "TRANSPORT=\"\" bundle install --path lol",
@@ -393,7 +504,7 @@ mod tests {
         env.insert("SHOW", "the rise and fall of sanctuary moon");
 
         let mut command = EnvCommand::new("bundle", &["install", "--path", "lol"], &env);
-        command.display_env_keys(&["TRANSPORT", "SHOW"]);
+        command.show_env_keys(&["TRANSPORT", "SHOW"]);
 
         assert_eq!("TRANSPORT=\"perihelion\" SHOW=\"the rise and fall of sanctuary moon\" bundle install --path lol", command.to_string());
     }
@@ -404,7 +515,7 @@ mod tests {
         env.insert("TRANSPORT", "perihelion");
 
         let mut command = EnvCommand::new("bundle", &["install", "--path", "lol"], &env);
-        command.display_env_keys(&["TRANSPORT", "SHOW"]);
+        command.show_env_keys(&["TRANSPORT", "SHOW"]);
 
         assert_eq!(
             "TRANSPORT=\"perihelion\" SHOW=\"\" bundle install --path lol",

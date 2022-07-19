@@ -24,16 +24,18 @@ impl RakeDetect {
     pub fn from_rake_command(env: &Env, error_on_failure: bool) -> Result<Self, RakeDetectError> {
         let mut command = EnvCommand::new("bundle", &["exec", "rake", "-P", "--trace"], env);
         let outcome = command
-            .allow_non_zero_exit()
+            .on_non_zero_exit(move |error| {
+                if error_on_failure {
+                    Err(error)
+                } else {
+                    Ok(error.result)
+                }
+            })
             .call()
             .map_err(RakeDetectError::RakeDashpCommandError)?;
 
         if outcome.status.success() {
             RakeDetect::from_str(&outcome.stdout)
-        } else if error_on_failure {
-            Err(RakeDetectError::RakeDashpCommandError(
-                command.non_zero_exit_error_from_outcome(outcome),
-            ))
         } else {
             Ok(RakeDetect::default())
         }

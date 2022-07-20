@@ -5,9 +5,10 @@
 use crate::gemfile_lock::{GemfileLock, GemfileLockError, RubyVersion};
 use crate::layers::{
     BundleInstallConfigureEnvLayer, BundleInstallCreatePathLayer,
-    BundleInstallDownloadBundlerLayer, BundleInstallExecuteLayer, RakeAssetsCreateCacheLayer,
-    RubyVersionInstallLayer,
+    BundleInstallDownloadBundlerLayer, BundleInstallExecuteLayer, EnvDefaultsSetSecretKeyBaseLayer,
+    EnvDefaultsSetStaticVarsLayer, RubyVersionInstallLayer,
 };
+use heroku_ruby_buildpack as _;
 
 // Move eventually
 use crate::gem_list::GemListError;
@@ -65,6 +66,22 @@ impl Buildpack for RubyBuildpack {
         let gemfile_lock = std::fs::read_to_string(context.app_dir.join("Gemfile.lock")).unwrap();
         let bundle_info = GemfileLock::from_str(&gemfile_lock)
             .map_err(RubyBuildpackError::GemfileLockParsingError)?;
+
+        // Setup default environment variables
+
+        let secret_key_base_layer = context //
+            .handle_layer(
+                layer_name!("secret_key_base"),
+                EnvDefaultsSetSecretKeyBaseLayer,
+            )?;
+        env = secret_key_base_layer.env.apply(Scope::Build, &env);
+
+        let env_defaults_layer = context //
+            .handle_layer(
+                layer_name!("env_defaults"),
+                EnvDefaultsSetStaticVarsLayer,
+            )?;
+        env = env_defaults_layer.env.apply(Scope::Build, &env);
 
         // ## Install executable ruby version
         let ruby_layer = context //

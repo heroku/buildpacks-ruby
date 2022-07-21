@@ -1,42 +1,45 @@
 #![warn(clippy::pedantic)]
 
-use libcnb_test::{assert_contains, TestConfig, TestRunner};
-use std::io;
+use libcnb_test::{assert_contains, assert_empty, BuildConfig, ContainerConfig, TestRunner};
+use std::net::SocketAddr;
+use std::time::Duration;
+use std::{io, thread};
 
 #[test]
-#[ignore]
+#[ignore = "integration test"]
 fn test() {
-    TestRunner::default().run_test(
-    TestConfig::new("heroku/buildpacks:20", "tests/fixtures/default_ruby"),
+    TestRunner::default().build(
+        BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby"),
         |context| {
-            // On failure, print the stdout
-            println!("{}", context.pack_stdout);
+            assert_contains!(context.pack_stdout, "---> Download and extracting Ruby");
+            assert_contains!(
+                context.pack_stdout,
+                r#"Running: $ BUNDLE_BIN="/layers/heroku_ruby/create_bundle_path/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/create_bundle_path" BUNDLE_WITHOUT="development:testdevelopment:test" bundle install"#
+            );
 
-            assert!(context
-                .pack_stdout
-                .contains("---> Download and extracting Ruby"));
-            assert!(context.pack_stdout.contains(r#"Running: BUNDLE_BIN="/layers/heroku_ruby/create_bundle_path/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/create_bundle_path" BUNDLE_WITHOUT="development:test" bundle install"#));
-            context
-                .prepare_container()
-                .env("PORT", TEST_PORT.to_string())
-                .expose_port(TEST_PORT)
-                .start_with_default_process(|container| {
-                    std::thread::sleep(std::time::Duration::from_secs(1));
+            context.start_container(
+                ContainerConfig::new()
+                    .env("PORT", TEST_PORT.to_string())
+                    .expose_port(TEST_PORT),
+                |container| {
+                    thread::sleep(Duration::from_secs(2));
 
-                    let result =
-                        call_test_fixture_service(container.address_for_port(TEST_PORT).unwrap())
-                            .unwrap();
+                    let server_logs = container.logs_now();
+                    assert_empty!(server_logs.stderr);
+                    assert_contains!(server_logs.stdout, "TODO");
 
-                    println!("{}", result);
-                    assert_contains!(result, "ruby_version");
-                });
+                    let address_on_host = container.address_for_port(TEST_PORT).unwrap();
+                    let response = call_test_fixture_service(address_on_host).unwrap();
+                    assert_contains!(response, "ruby_version");
+                },
+            );
         },
     );
 }
 
-fn call_test_fixture_service(addr: std::net::SocketAddr) -> io::Result<String> {
-    let req = ureq::get(&format!("http://{}:{}/", addr.ip(), addr.port(),));
+fn call_test_fixture_service(addr: SocketAddr) -> io::Result<String> {
+    let req = ureq::get(&format!("http://{}:{}/", addr.ip(), addr.port()));
     req.call().unwrap().into_string()
 }
 
-const TEST_PORT: u16 = 12346;
+const TEST_PORT: u16 = 1234;

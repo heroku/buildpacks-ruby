@@ -7,7 +7,7 @@ edition = "2021"
 rust-version = "1.61.0"
 
 [dependencies]
-libcnb = "0.8.0"
+libcnb = "0.9.0"
 tempfile = "3.3.0"
 flate2 = "1"
 ureq = "2.2.1"

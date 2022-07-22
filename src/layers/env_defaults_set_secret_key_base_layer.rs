@@ -14,7 +14,7 @@ use rand::Rng;
 pub struct EnvDefaultsSetSecretKeyBaseLayer;
 
 ///
-/// # Set the SECRET_KEY_BASE environment variable
+/// # Set the `SECRET_KEY_BASE` environment variable
 ///
 /// This environment variable is primarially used for
 /// encrypting/decrypting user sessions. Developers

@@ -131,7 +131,7 @@ impl EnvCommand {
                 .collect::<Vec<OsString>>(),
             env: env.clone(),
             show_env_keys: Vec::new(),
-            on_non_zero_exit: Box::new(|err| Err(err)),
+            on_non_zero_exit: Box::new(Err),
         }
     }
 
@@ -190,7 +190,7 @@ impl EnvCommand {
         let output_result = self
             .command()
             .output()
-            .map_err(|error| self.non_zero_exit_error_from_io_error(error));
+            .map_err(|error| self.non_zero_exit_error_from_io_error(&error));
 
         let output = match output_result {
             Ok(output) => output,
@@ -241,7 +241,7 @@ impl EnvCommand {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|error| self.non_zero_exit_error_from_io_error(error));
+            .map_err(|error| self.non_zero_exit_error_from_io_error(&error));
 
         let result = match child_result {
             Ok(mut child) => EnvCommand::stream_child(&mut child),
@@ -325,8 +325,8 @@ impl EnvCommand {
         stdout_thread.join().unwrap();
         stderr_thread.join().unwrap();
 
-        let stdout = stdout_rx.into_iter().collect::<Vec<String>>().join("");
-        let stderr = stderr_rx.into_iter().collect::<Vec<String>>().join("");
+        let stdout = stdout_rx.into_iter().collect::<String>();
+        let stderr = stderr_rx.into_iter().collect::<String>();
 
         EnvCommandResult {
             stdout,
@@ -335,7 +335,7 @@ impl EnvCommand {
         }
     }
 
-    /// Convert a std::io::Error to an EnvCommandError
+    /// Convert a `std::io::Error` to an `EnvCommandError`
     ///
     /// Calls to `Command::spawn` and `Command::output` can return a `std::io::Error`.
     ///
@@ -350,9 +350,9 @@ impl EnvCommand {
     ///     })'
     ///
     /// When this happens we need to format it in a consistent return error.
-    /// This is a helper function to convert from a generic std::io::Error to
+    /// This is a helper function to convert from a generic `std::io::Error` to
     /// the underlying `NonZeroExitStatusError`.
-    fn non_zero_exit_error_from_io_error(&self, error: std::io::Error) -> EnvCommandError {
+    fn non_zero_exit_error_from_io_error(&self, error: &std::io::Error) -> EnvCommandError {
         let result = EnvCommandResult {
             stdout: "".to_string(),
             stderr: format!("{}", error),
@@ -361,7 +361,7 @@ impl EnvCommand {
 
         EnvCommandError::UnexpectedExitStatusError(NonZeroExitStatusError {
             command: self.to_string(),
-            result: result.clone(),
+            result,
         })
     }
 

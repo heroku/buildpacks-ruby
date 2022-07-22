@@ -25,6 +25,8 @@ impl RakeApplicationTasksExecute {
         if rake_detect.has_task("assets:precompile") {
             let assets_precompile = EnvCommand::new("rake", &["assets:precompile", "--trace"], env);
             assets_precompile.call().unwrap();
+        } else {
+            println!("    Rake task `rake assets:precompile` not found, skipping");
         }
 
         Ok(())

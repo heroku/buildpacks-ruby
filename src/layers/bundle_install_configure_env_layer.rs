@@ -25,7 +25,6 @@ None
 - `BUNDLE_CLEAN=1` - After successful `bundle install` bundler will automatically run `bundle clean`.
 - `BUNDLE_DEPLOYMENT=1` - Requires the `Gemfile.lock` to be in sync with the current `Gemfile`.
 - `BUNDLE_GEMFILE=<app-dir>/Gemfile` - Tells bundler where to find the `Gemfile`.
-- `BUNDLE_GLOBAL_PATH_APPENDS_RUBY_SCOPE=1` - Append the Ruby engine and ABI version to path. This makes the path's less "surprising".
 - `BUNDLE_WITHOUT=development:test:$BUNDLE_WITHOUT` - Do not install `development` or `test` groups via bundle isntall. Additional groups can be specified via user config.
 - `NOKOGIRI_USE_SYSTEM_LIBRARIES=1` - Tells `nokogiri` to use the system packages, mostly `openssl`, which Heroku maintains and patches as part of its [stack](https://devcenter.heroku.com/articles/stack-packages). This setting means when a patched version is rolled out on Heroku your application will pick up the new version with no update required to libraries.
 
@@ -61,7 +60,7 @@ impl Layer for BundleInstallConfigureEnvLayer {
             .env(
                 LayerEnv::new()
                     .chainable_insert(
-                        Scope::Build,
+                        Scope::All,
                         ModificationBehavior::Delimiter,
                         "BUNDLE_WITHOUT",
                         ":",
@@ -73,7 +72,7 @@ impl Layer for BundleInstallConfigureEnvLayer {
                         "development:test",
                     )
                     .chainable_insert(
-                        Scope::Build,
+                        Scope::All,
                         ModificationBehavior::Override,
                         "BUNDLE_GEMFILE",
                         context.app_dir.join("Gemfile"),
@@ -88,12 +87,6 @@ impl Layer for BundleInstallConfigureEnvLayer {
                         Scope::All,
                         ModificationBehavior::Override,
                         "BUNDLE_DEPLOYMENT",
-                        "1",
-                    )
-                    .chainable_insert(
-                        Scope::All,
-                        ModificationBehavior::Override,
-                        "BUNDLE_GLOBAL_PATH_APPENDS_RUBY_SCOPE",
                         "1",
                     )
                     .chainable_insert(

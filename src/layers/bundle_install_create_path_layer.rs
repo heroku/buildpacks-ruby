@@ -6,10 +6,11 @@ use crate::RubyBuildpack;
 use libcnb::build::BuildContext;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 
-use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use serde::{Deserialize, Serialize};
 
 use libcnb::data::buildpack::StackId;
+
+use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 
 /*
 
@@ -75,56 +76,15 @@ impl Layer for BundleInstallCreatePathLayer {
                 .chainable_insert(
                     Scope::All,
                     ModificationBehavior::Override,
-                    "GEM_PATH",
-                    &layer_path,
-                )
-                .chainable_insert(
-                    Scope::All,
-                    ModificationBehavior::Override,
                     "BUNDLE_BIN",
                     &layer_path.join("bin"),
                 )
-                .chainable_insert(
-                    Scope::Build,
-                    ModificationBehavior::Delimiter,
-                    "BUNDLE_WITHOUT",
-                    ":",
-                )
+                .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
                 .chainable_insert(
                     Scope::All,
-                    ModificationBehavior::Prepend,
-                    "BUNDLE_WITHOUT",
-                    "development:test",
-                )
-                .chainable_insert(
-                    Scope::Build,
-                    ModificationBehavior::Override,
-                    "BUNDLE_GEMFILE",
-                    context.app_dir.join("Gemfile"),
-                )
-                .chainable_insert(
-                    Scope::All,
-                    ModificationBehavior::Override,
-                    "BUNDLE_CLEAN",
-                    "1",
-                )
-                .chainable_insert(
-                    Scope::All,
-                    ModificationBehavior::Override,
-                    "BUNDLE_DEPLOYMENT",
-                    "1",
-                )
-                .chainable_insert(
-                    Scope::All,
-                    ModificationBehavior::Override,
-                    "BUNDLE_GLOBAL_PATH_APPENDS_RUBY_SCOPE",
-                    "1",
-                )
-                .chainable_insert(
-                    Scope::All,
-                    ModificationBehavior::Override,
-                    "NOKOGIRI_USE_SYSTEM_LIBRARIES",
-                    "1",
+                    ModificationBehavior::Append,
+                    "GEM_PATH",
+                    &layer_path,
                 ),
         )
         .build()

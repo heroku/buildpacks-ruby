@@ -14,7 +14,7 @@ fn test() {
             assert_contains!(context.pack_stdout, "---> Download and extracting Ruby");
             assert_contains!(
                 context.pack_stdout,
-                r#"Running: $ BUNDLE_BIN="/layers/heroku_ruby/create_bundle_path/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/create_bundle_path" BUNDLE_WITHOUT="development:testdevelopment:test" bundle install"#
+                r#"Running: $ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#
             );
 
             context.start_container(
@@ -25,8 +25,8 @@ fn test() {
                     thread::sleep(Duration::from_secs(2));
 
                     let server_logs = container.logs_now();
-                    assert_empty!(server_logs.stderr);
-                    assert_contains!(server_logs.stdout, "TODO");
+                    assert_contains!(server_logs.stderr, "WEBrick::HTTPServer#start");
+                    assert_empty!(server_logs.stdout);
 
                     let address_on_host = container.address_for_port(TEST_PORT).unwrap();
                     let response = call_test_fixture_service(address_on_host).unwrap();

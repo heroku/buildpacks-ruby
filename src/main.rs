@@ -96,7 +96,7 @@ impl Buildpack for RubyBuildpack {
 
         // ## Setup bundler
         let create_bundle_path_layer = context.handle_layer(
-            layer_name!("create_bundle_path"),
+            layer_name!("gems"),
             BundleInstallCreatePathLayer {
                 ruby_version: ruby_layer.content_metadata.metadata.version,
             },
@@ -104,14 +104,14 @@ impl Buildpack for RubyBuildpack {
         env = create_bundle_path_layer.env.apply(Scope::Build, &env);
 
         let create_bundle_path_layer = context.handle_layer(
-            layer_name!("create_bundle_path"),
+            layer_name!("bundle_configure_env"),
             BundleInstallConfigureEnvLayer,
         )?;
         env = create_bundle_path_layer.env.apply(Scope::Build, &env);
 
         // ## Download bundler
         let download_bundler_layer = context.handle_layer(
-            layer_name!("download_bundler"),
+            layer_name!("bundler"),
             BundleInstallDownloadBundlerLayer {
                 version: bundle_info.bundler_version,
                 env: env.clone(),

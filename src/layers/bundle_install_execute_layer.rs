@@ -76,7 +76,7 @@ impl Layer for BundleInstallExecuteLayer {
         println!("Running: $ {} ", command);
 
         command
-            .call()
+            .stream()
             .map_err(RubyBuildpackError::BundleInstallCommandError)?;
 
         LayerResultBuilder::new(GenericMetadata::default()).build()

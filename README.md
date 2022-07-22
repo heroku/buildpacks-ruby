@@ -50,7 +50,6 @@
   - `BUNDLE_CLEAN=1` - After successful `bundle install` bundler will automatically run `bundle clean`.
   - `BUNDLE_DEPLOYMENT=1` - Requires the `Gemfile.lock` to be in sync with the current `Gemfile`.
   - `BUNDLE_GEMFILE=<app-dir>/Gemfile` - Tells bundler where to find the `Gemfile`.
-  - `BUNDLE_GLOBAL_PATH_APPENDS_RUBY_SCOPE=1` - Append the Ruby engine and ABI version to path. This makes the path's less "surprising".
   - `BUNDLE_PATH=<bundle-path-dir>` - Directs bundler to install gems to this path
   - `BUNDLE_WITHOUT=development:test:$BUNDLE_WITHOUT` - Do not install `development` or `test` groups via bundle isntall. Additional groups can be specified via user config.
   - `DISABLE_SPRING="1"` - Spring is a library that attempts to cache application state by forking and manipulating processes with the goal of decreasing development boot time. Disabling it in production removes significant problems [details](https://devcenter.heroku.com/changelog-items/1826).

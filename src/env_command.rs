@@ -187,39 +187,34 @@ impl EnvCommand {
     /// ```
     #[allow(dead_code)]
     pub fn call(&self) -> Result<EnvCommandResult, EnvCommandError> {
-        let output_result = self
-            .command()
+        self.command()
             .output()
-            .map_err(|error| self.non_zero_exit_error_from_io_error(&error));
-
-        let output = match output_result {
-            Ok(output) => output,
-            Err(EnvCommandError::UnexpectedExitStatusError(error)) => {
-                return self.handle_non_zero_exit_error(error)
-            }
-        };
-
-        let stdout = std::str::from_utf8(&output.stdout)
-            .expect("Internal encoding error")
-            .to_string();
-        let stderr = std::str::from_utf8(&output.stderr)
-            .expect("Internal encoding error")
-            .to_string();
-
-        let status = output.status;
-        let result = EnvCommandResult {
-            stdout,
-            stderr,
-            status,
-        };
-        if status.success() {
-            Ok(result)
-        } else {
-            self.handle_non_zero_exit_error(NonZeroExitStatusError {
-                command: self.to_string(),
-                result,
+            .map(|output| EnvCommandResult {
+                stdout: std::str::from_utf8(&output.stdout)
+                    .expect("Internal encoding error")
+                    .to_string(),
+                stderr: std::str::from_utf8(&output.stderr)
+                    .expect("Internal encoding error")
+                    .to_string(),
+                status: output.status,
             })
-        }
+            .or_else(|error| {
+                Ok(EnvCommandResult {
+                    stdout: "".to_string(),
+                    stderr: format!("{}", error),
+                    status: ExitStatus::from_raw(error.raw_os_error().unwrap_or(-1)),
+                })
+            })
+            .and_then(|result| {
+                if result.status.success() {
+                    Ok(result)
+                } else {
+                    self.handle_non_zero_exit_error(NonZeroExitStatusError {
+                        command: self.to_string(),
+                        result,
+                    })
+                }
+            })
     }
 
     /// Runs the command and streams contents to STDOUT/STDERR
@@ -236,28 +231,28 @@ impl EnvCommand {
     /// ```
     #[allow(dead_code)]
     pub fn stream(&self) -> Result<EnvCommandResult, EnvCommandError> {
-        let child_result = self
-            .command()
+        self.command()
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|error| self.non_zero_exit_error_from_io_error(&error));
-
-        let result = match child_result {
-            Ok(mut child) => EnvCommand::stream_child(&mut child),
-            Err(EnvCommandError::UnexpectedExitStatusError(error)) => {
-                return self.handle_non_zero_exit_error(error)
-            }
-        };
-
-        if result.status.success() {
-            Ok(result)
-        } else {
-            self.handle_non_zero_exit_error(NonZeroExitStatusError {
-                command: self.to_string(),
-                result,
+            .map(|mut child| EnvCommand::stream_child(&mut child))
+            .or_else(|error| {
+                Ok(EnvCommandResult {
+                    stdout: "".to_string(),
+                    stderr: format!("{}", error),
+                    status: ExitStatus::from_raw(error.raw_os_error().unwrap_or(-1)),
+                })
             })
-        }
+            .and_then(|result| {
+                if result.status.success() {
+                    Ok(result)
+                } else {
+                    self.handle_non_zero_exit_error(NonZeroExitStatusError {
+                        command: self.to_string(),
+                        result,
+                    })
+                }
+            })
     }
 
     /// By default non-zero-exit codes return an error.
@@ -335,36 +330,6 @@ impl EnvCommand {
         }
     }
 
-    /// Convert a `std::io::Error` to an `EnvCommandError`
-    ///
-    /// Calls to `Command::spawn` and `Command::output` can return a `std::io::Error`.
-    ///
-    /// For example:
-    ///
-    ///    Result::unwrap()` on an `Err` value:
-    ///    IOError("commandDoesNotexist",
-    ///      Os {
-    ///        code: 2,
-    ///        kind: NotFound,
-    ///        message: "No such file or directory"
-    ///     })'
-    ///
-    /// When this happens we need to format it in a consistent return error.
-    /// This is a helper function to convert from a generic `std::io::Error` to
-    /// the underlying `NonZeroExitStatusError`.
-    fn non_zero_exit_error_from_io_error(&self, error: &std::io::Error) -> EnvCommandError {
-        let result = EnvCommandResult {
-            stdout: "".to_string(),
-            stderr: format!("{}", error),
-            status: ExitStatus::from_raw(error.raw_os_error().unwrap_or(-1)),
-        };
-
-        EnvCommandError::UnexpectedExitStatusError(NonZeroExitStatusError {
-            command: self.to_string(),
-            result,
-        })
-    }
-
     /// The user can specify an custom function to be called when
     /// a non-zero exit status is encountered.
     ///
@@ -377,7 +342,7 @@ impl EnvCommand {
     }
 
     pub fn to_string(
-        command: Command,
+        command: &Command,
         show_env_keys: impl Iterator<Item = impl Into<OsString>>,
         env: &Env,
     ) -> String {
@@ -419,7 +384,7 @@ impl fmt::Display for EnvCommand {
         write!(
             f,
             "{}",
-            EnvCommand::to_string(self.command(), self.show_env_keys.iter(), &self.env)
+            EnvCommand::to_string(&self.command(), self.show_env_keys.iter(), &self.env)
         )
     }
 }

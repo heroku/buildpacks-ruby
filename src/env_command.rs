@@ -375,46 +375,51 @@ impl EnvCommand {
     ) -> Result<EnvCommandResult, EnvCommandError> {
         (self.on_non_zero_exit)(error).map_err(EnvCommandError::UnexpectedExitStatusError)
     }
+
+    pub fn to_string(
+        command: Command,
+        show_env_keys: impl Iterator<Item = impl Into<OsString>>,
+        env: &Env,
+    ) -> String {
+        let escape_pattern = Regex::new(r"([^A-Za-z0-9_\-.,:/@\n])").unwrap(); // https://github.com/jimmycuadra/rust-shellwords/blob/d23b853a850ceec358a4137d5e520b067ddb7abc/src/lib.rs#L23
+
+        // Env keys
+        show_env_keys
+            .map(|key| {
+                let key = key.into();
+                format!(
+                    "{}={:?}",
+                    key.to_string_lossy(),
+                    env.get(key.clone()).unwrap_or_else(|| OsString::from(""))
+                )
+            })
+            // Main command
+            .chain(vec![command.get_program().to_string_lossy().to_string()].into_iter())
+            // Args
+            .chain(
+                command
+                    .get_args()
+                    .map(std::ffi::OsStr::to_string_lossy)
+                    .map(|arg| {
+                        if escape_pattern.is_match(&arg) {
+                            format!("{:?}", arg)
+                        } else {
+                            format!("{}", arg)
+                        }
+                    }),
+            )
+            .collect::<Vec<String>>()
+            .join(" ")
+    }
 }
 
 // Used for implementing `to_string()`
 impl fmt::Display for EnvCommand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let command = self.command();
-        let escape_pattern = Regex::new(r"([^A-Za-z0-9_\-.,:/@\n])").unwrap(); // https://github.com/jimmycuadra/rust-shellwords/blob/d23b853a850ceec358a4137d5e520b067ddb7abc/src/lib.rs#L23
-
         write!(
             f,
             "{}",
-            // Env vars
-            self.show_env_keys
-                .iter()
-                .map(|key| {
-                    format!(
-                        "{}={:?}",
-                        key.to_string_lossy(),
-                        self.env
-                            .get(key.clone())
-                            .unwrap_or_else(|| OsString::from(""))
-                    )
-                })
-                // Main command
-                .chain(vec![command.get_program().to_string_lossy().to_string()].into_iter())
-                // Args
-                .chain(
-                    command
-                        .get_args()
-                        .map(std::ffi::OsStr::to_string_lossy)
-                        .map(|arg| {
-                            if escape_pattern.is_match(&arg) {
-                                format!("{:?}", arg)
-                            } else {
-                                format!("{}", arg)
-                            }
-                        }),
-                )
-                .collect::<Vec<String>>()
-                .join(" ")
+            EnvCommand::to_string(self.command(), self.show_env_keys.iter(), &self.env)
         )
     }
 }

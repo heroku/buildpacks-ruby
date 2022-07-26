@@ -6,11 +6,9 @@ use crate::RubyBuildpack;
 use libcnb::build::BuildContext;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 
-use serde::{Deserialize, Serialize};
-
 use libcnb::data::buildpack::StackId;
-
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
+use serde::{Deserialize, Serialize};
 
 /*
 

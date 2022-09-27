@@ -200,7 +200,7 @@ impl EnvCommand {
             })
             .or_else(|error| {
                 Ok(EnvCommandResult {
-                    stdout: "".to_string(),
+                    stdout: String::new(),
                     stderr: format!("{}", error),
                     status: ExitStatus::from_raw(error.raw_os_error().unwrap_or(-1)),
                 })
@@ -238,7 +238,7 @@ impl EnvCommand {
             .map(|mut child| EnvCommand::stream_child(&mut child))
             .or_else(|error| {
                 Ok(EnvCommandResult {
-                    stdout: "".to_string(),
+                    stdout: String::new(),
                     stderr: format!("{}", error),
                     status: ExitStatus::from_raw(error.raw_os_error().unwrap_or(-1)),
                 })
@@ -405,7 +405,7 @@ mod tests {
         env.insert("PATH", "foo");
 
         let mut command = EnvCommand::new("echo", &["hello world"], &env);
-        command.show_env_keys(&["PATH"]);
+        command.show_env_keys(["PATH"]);
         assert_eq!(r#"PATH="foo" echo "hello world""#, command.to_string());
     }
 
@@ -446,7 +446,7 @@ mod tests {
         env.insert("TRANSPORT", "perihelion");
 
         let mut command = EnvCommand::new("bundle", &["install", "--path", "lol"], &env);
-        command.show_env_keys(&["TRANSPORT"]);
+        command.show_env_keys(["TRANSPORT"]);
 
         assert_eq!(
             "TRANSPORT=\"perihelion\" bundle install --path lol",
@@ -459,7 +459,7 @@ mod tests {
         let env = Env::new();
 
         let mut command = EnvCommand::new("bundle", &["install", "--path", "lol"], &env);
-        command.show_env_keys(&["TRANSPORT"]);
+        command.show_env_keys(["TRANSPORT"]);
 
         assert_eq!(
             "TRANSPORT=\"\" bundle install --path lol",
@@ -474,7 +474,7 @@ mod tests {
         env.insert("SHOW", "the rise and fall of sanctuary moon");
 
         let mut command = EnvCommand::new("bundle", &["install", "--path", "lol"], &env);
-        command.show_env_keys(&["TRANSPORT", "SHOW"]);
+        command.show_env_keys(["TRANSPORT", "SHOW"]);
 
         assert_eq!("TRANSPORT=\"perihelion\" SHOW=\"the rise and fall of sanctuary moon\" bundle install --path lol", command.to_string());
     }
@@ -485,7 +485,7 @@ mod tests {
         env.insert("TRANSPORT", "perihelion");
 
         let mut command = EnvCommand::new("bundle", &["install", "--path", "lol"], &env);
-        command.show_env_keys(&["TRANSPORT", "SHOW"]);
+        command.show_env_keys(["TRANSPORT", "SHOW"]);
 
         assert_eq!(
             "TRANSPORT=\"perihelion\" SHOW=\"\" bundle install --path lol",

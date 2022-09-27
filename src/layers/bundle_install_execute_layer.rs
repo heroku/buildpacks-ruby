@@ -64,7 +64,7 @@ impl Layer for BundleInstallExecuteLayer {
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
         println!("---> Installing gems");
         let mut command = EnvCommand::new("bundle", &["install"], &self.env);
-        command.show_env_keys(&[
+        command.show_env_keys([
             "BUNDLE_BIN",
             "BUNDLE_CLEAN",
             "BUNDLE_DEPLOYMENT",

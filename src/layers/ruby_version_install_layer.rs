@@ -87,7 +87,7 @@ impl Layer for RubyVersionInstallLayer {
         util::download(url.as_ref(), tmp_ruby_tgz.path())
             .map_err(RubyBuildpackError::RubyDownloadError)?;
 
-        util::untar(tmp_ruby_tgz.path(), &layer_path)
+        util::untar(tmp_ruby_tgz.path(), layer_path)
             .map_err(RubyBuildpackError::RubyUntarError)?;
 
         LayerResultBuilder::new(RubyMetadata {

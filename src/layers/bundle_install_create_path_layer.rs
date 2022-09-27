@@ -69,7 +69,7 @@ impl Layer for BundleInstallCreatePathLayer {
                     Scope::All,
                     ModificationBehavior::Override,
                     "BUNDLE_PATH",
-                    &layer_path,
+                    layer_path,
                 )
                 .chainable_insert(
                     Scope::All,
@@ -82,7 +82,7 @@ impl Layer for BundleInstallCreatePathLayer {
                     Scope::All,
                     ModificationBehavior::Append,
                     "GEM_PATH",
-                    &layer_path,
+                    layer_path,
                 ),
         )
         .build()

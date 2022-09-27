@@ -17,7 +17,7 @@ use crate::rake_detect::RakeDetectError;
 use crate::rake_assets_precompile_execute::RakeApplicationTasksExecute;
 
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
-use libcnb::data::launch::{Launch, ProcessBuilder};
+use libcnb::data::launch::{LaunchBuilder, ProcessBuilder};
 use libcnb::data::{layer_name, process_type};
 use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
 use libcnb::generic::{GenericMetadata, GenericPlatform};
@@ -130,12 +130,14 @@ impl Buildpack for RubyBuildpack {
 
         BuildResultBuilder::new()
             .launch(
-                Launch::new().process(
-                    ProcessBuilder::new(process_type!("web"), "bundle")
-                        .args(["exec", "rackup", "--port", "$PORT", "--host", "0.0.0.0"])
-                        .default(true)
-                        .build(),
-                ),
+                LaunchBuilder::new()
+                    .process(
+                        ProcessBuilder::new(process_type!("web"), "bundle")
+                            .args(["exec", "rackup", "--port", "$PORT", "--host", "0.0.0.0"])
+                            .default(true)
+                            .build(),
+                    )
+                    .build(),
             )
             .build()
     }

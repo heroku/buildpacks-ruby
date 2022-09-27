@@ -4,20 +4,20 @@ name = "heroku-ruby-buildpack"
 version = "0.0.0"
 publish = false
 edition = "2021"
-rust-version = "1.61.0"
+rust-version = "1.64"
 
 [dependencies]
-libcnb = "0.9.0"
+libcnb = "0.11.0"
 tempfile = "3.3.0"
 flate2 = "1"
 ureq = "2.5.0"
 tar = "0.4"
-serde = "1.0.140"
-url = "2.2.2"
-thiserror = "1.0.31"
+serde = "1.0.145"
+url = "2.3.1"
+thiserror = "1.0.36"
 regex = "1.6.0"
 fancy-regex = "0.10.0"
 rand = "0.8.5"
 
 [dev-dependencies]
-libcnb-test = "0.6.0"
+libcnb-test = "0.11.0"

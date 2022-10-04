@@ -12,7 +12,11 @@ use std::{io, thread};
 fn test_getting_started_rails_app() {
     TestRunner::default().build(
         BuildConfig::new("heroku/builder:22", "tests/fixtures/ruby-getting-started")
-        .buildpacks(vec![BuildpackReference::Crate]),
+        .buildpacks(vec![
+            BuildpackReference::Other(String::from("heroku/nodejs-engine")),
+            BuildpackReference::Crate,
+            BuildpackReference::Other(String::from("heroku/procfile")),
+        ]),
         |context| {
             assert_contains!(context.pack_stdout, "---> Download and extracting Ruby");
             assert_contains!(
@@ -25,15 +29,18 @@ fn test_getting_started_rails_app() {
                     .env("PORT", TEST_PORT.to_string())
                     .expose_port(TEST_PORT),
                 |container| {
-                    thread::sleep(Duration::from_secs(2));
+                    thread::sleep(Duration::from_secs(5));
 
                     let server_logs = container.logs_now();
-                    assert_contains!(server_logs.stderr, "WEBrick::HTTPServer#start");
-                    assert_empty!(server_logs.stdout);
+                    assert_contains!(
+                        server_logs.stdout.clone() + &server_logs.stderr,
+                        "Puma starting"
+                    );
 
                     let address_on_host = container.address_for_port(TEST_PORT).unwrap();
+
                     let response = call_test_fixture_service(address_on_host).unwrap();
-                    assert_contains!(response, "ruby_version");
+                    assert_contains!(response, "Getting Started with Ruby on Heroku");
                 },
             );
         },

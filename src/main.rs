@@ -42,6 +42,8 @@ mod layers;
 mod rake_assets_precompile_execute;
 mod rake_detect;
 mod util;
+use crate::env_command::EnvCommand;
+use libcnb::Env;
 
 pub struct RubyBuildpack;
 impl Buildpack for RubyBuildpack {
@@ -60,7 +62,14 @@ impl Buildpack for RubyBuildpack {
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         println!("---> Ruby Buildpack");
 
-        let mut env = context.platform.env().clone();
+        // Get system env vars
+        let mut env = Env::from_current();
+
+        // Apply User env vars
+        // TODO reject harmful vars like GEM_PATH
+        for (k, v) in context.platform.env() {
+            env.insert(k, v);
+        }
 
         // Gather static information about project
         let gemfile_lock = std::fs::read_to_string(context.app_dir.join("Gemfile.lock")).unwrap();

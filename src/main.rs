@@ -42,7 +42,7 @@ mod layers;
 mod rake_assets_precompile_execute;
 mod rake_detect;
 mod util;
-use crate::env_command::EnvCommand;
+use libcnb::data::build_plan::BuildPlanBuilder;
 use libcnb::Env;
 
 pub struct RubyBuildpack;
@@ -52,11 +52,19 @@ impl Buildpack for RubyBuildpack {
     type Error = RubyBuildpackError;
 
     fn detect(&self, context: DetectContext<Self>) -> libcnb::Result<DetectResult, Self::Error> {
+        let mut plan_builder = BuildPlanBuilder::new().provides("ruby");
+
         if context.app_dir.join("Gemfile.lock").exists() {
-            DetectResultBuilder::pass().build()
-        } else {
-            DetectResultBuilder::fail().build()
+            plan_builder = plan_builder.requires("ruby");
+
+            if context.app_dir.join("package.json").exists() {
+                plan_builder = plan_builder.requires("node");
+            }
         }
+
+        DetectResultBuilder::pass()
+            .build_plan(plan_builder.build())
+            .build()
     }
 
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {

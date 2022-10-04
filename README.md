@@ -81,7 +81,7 @@ cargo libcnb package
 - Build the app:
 
 ```
-pack build my-image --buildpack target/buildpack/debug/heroku_ruby --path tests/fixtures/default_ruby
+pack build my-image --buildpack heroku/nodejs-engine --buildpack heroku/procfile  --buildpack target/buildpack/debug/heroku_ruby --path tests/fixtures/ruby-getting-started
 ```
 
 - Validate that it's working:
@@ -115,4 +115,10 @@ Inspect the image:
 
 ```
 $ pack inspect my-image
+```
+
+##
+
+```
+$ pack build my-image --buildpack target/buildpack/debug/heroku_ruby --buildpack=heroku/nodejs-engine --buildpack=heroku/procfile  --path tests/fixtures/ruby-getting-started
 ```

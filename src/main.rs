@@ -6,7 +6,7 @@ use crate::gemfile_lock::{GemfileLock, GemfileLockError, RubyVersion};
 use crate::layers::{
     BundleInstallConfigureEnvLayer, BundleInstallCreatePathLayer,
     BundleInstallDownloadBundlerLayer, BundleInstallExecuteLayer, EnvDefaultsSetSecretKeyBaseLayer,
-    EnvDefaultsSetStaticVarsLayer, RubyVersionInstallLayer,
+    EnvDefaultsSetStaticVarsLayer, InAppDirCacheLayer, RubyVersionInstallLayer,
 };
 use heroku_ruby_buildpack as _;
 
@@ -25,6 +25,8 @@ use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 
+use fs_extra::dir::CopyOptions;
+
 use env_command::EnvCommandError;
 #[cfg(test)]
 use libcnb_test as _;
@@ -42,6 +44,7 @@ mod layers;
 mod rake_assets_precompile_execute;
 mod rake_detect;
 mod util;
+
 use libcnb::data::build_plan::BuildPlanBuilder;
 use libcnb::Env;
 
@@ -143,7 +146,41 @@ impl Buildpack for RubyBuildpack {
         )?;
         env = execute_bundle_install_layer.env.apply(Scope::Build, &env);
 
+        let public_assets_path = context.app_dir.join("public").join("assets");
+        let public_assets_cache = context.handle_layer(
+            layer_name!("public_assets"),
+            InAppDirCacheLayer {
+                app_dir_path: public_assets_path.clone(),
+            },
+        )?;
+
+        // Move contents into public/assets
+        fs_extra::dir::move_dir(
+            &public_assets_cache.path,
+            &public_assets_path,
+            &CopyOptions {
+                overwrite: false,
+                skip_exist: true,
+                copy_inside: true,
+                ..CopyOptions::default()
+            },
+        )
+        .unwrap();
+
         RakeApplicationTasksExecute::call(&env)?;
+
+        // Move contents into public/assets
+        fs_extra::dir::copy(
+            &public_assets_path,
+            &public_assets_cache.path,
+            &CopyOptions {
+                overwrite: true,
+                skip_exist: false,
+                copy_inside: true,
+                ..CopyOptions::default()
+            },
+        )
+        .unwrap();
 
         BuildResultBuilder::new()
             .launch(

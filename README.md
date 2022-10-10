@@ -34,7 +34,7 @@
     - [TODO] We will skip this `assets:precompile` task if a manifest file exists in the `public/assets` folder that indicates precompiled assets are checked into git. (Reference: https://github.com/heroku/buildpacks-ruby/blob/d526a49f81becaf571329a1adf5fff0668a6b99a/lib/heroku_buildpack_ruby/assets_precompile.rb#L29)
     - We will abort your build if the `rake assets:precompile` task fails
     - [TODO] We will run `rake assets:clean` on your app. (Reference: https://github.com/heroku/buildpacks-ruby/blob/d526a49f81becaf571329a1adf5fff0668a6b99a/lib/heroku_buildpack_ruby/assets_precompile.rb#L67-L73, reference: https://github.com/heroku/heroku-buildpack-ruby/blob/951fc728979695990c32df2d4d60ae2d6f6f61c2/lib/language_pack/rails4.rb#L83-L94)
-      - [TODO] We will cache the contents of `public/assets` if `assets:clean` exists on your application. (pending https://github.com/buildpacks/spec/blob/main/buildpack.md#slice-layers support in libcnbrs)
+      - [TODO - in progress] We will cache the contents of `public/assets` if `assets:clean` exists on your application. (pending https://github.com/buildpacks/spec/blob/main/buildpack.md#slice-layers support in libcnbrs)
       - [TODO] We will cache asset "fragments" directories if the `sprockets` gem is on the system. (pending https://github.com/buildpacks/spec/blob/main/buildpack.md#slice-layers support in libcnbrs)
         - [TODO] We will limit or prune the size of the asset cache in `tmp/<TBD>`. (Need to write this logic in rust, StaleFileSweep, reference: https://github.com/heroku/heroku-buildpack-ruby/blob/main/lib/language_pack/helpers/stale_file_cleaner.rb)
 - Process types

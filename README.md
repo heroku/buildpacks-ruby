@@ -68,6 +68,12 @@ These are tracked things the buildpack will eventually do in the application con
 - [TODO] Run `rails runner` to collect configuration, abort a build if it fails (https://github.com/heroku/heroku-buildpack-ruby/blob/main/lib/language_pack/helpers/rails_runner.rb)
 - [TODO] Warn when `RAILS_ENV=staging` (https://github.com/heroku/heroku-buildpack-ruby/blob/2b567c597d5cb110774eb21b9616b311d8e4ee9d/lib/language_pack/rails2.rb#L65-L71)
 
+### Known differences against `heroku/heroku-buildpack-ruby`
+
+This buildpack does not port all behaviors of the original buildpack for Ruby (https://github.com/heroku/heroku-buildpack-ruby). This buildpack is also known as `v2` as it implements version 2 of the heroku buildpack interface (instead of the Cloud Native Buildpack interface).
+
+- Rails 5+ support only. The v2 buildpack supports Rails 2+. There are significant maintenace gains for buildpack authors [starting in Rails 5](https://blog.heroku.com/container_ready_rails_5) which was released in 2016. In an effort to reduce overall internal complexity this buildpack does not explicitly support Rails before version 5.
+
 ### Build
 
 - Follow setup instructions on https://github.com/Malax/libcnb.rs

@@ -60,22 +60,30 @@ fn test_default_app() {
                 r#"Running: $ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#
             );
 
-            context.start_container(
-                ContainerConfig::new()
-                    .env("PORT", TEST_PORT.to_string())
-                    .expose_port(TEST_PORT),
-                |container| {
-                    thread::sleep(Duration::from_secs(2));
+            assert_contains!(context.pack_stdout, "Installing webrick");
 
-                    let server_logs = container.logs_now();
-                    assert_contains!(server_logs.stderr, "WEBrick::HTTPServer#start");
-                    assert_empty!(server_logs.stdout);
+            let config = context.config.clone();
+            context.rebuild(config, |rebuild_context| {
+                assert_contains!(rebuild_context.pack_stdout, "Using webrick");
 
-                    let address_on_host = container.address_for_port(TEST_PORT).unwrap();
-                    let response = call_test_fixture_service(address_on_host).unwrap();
-                    assert_contains!(response, "ruby_version");
-                },
-            );
+                rebuild_context.start_container(
+                    ContainerConfig::new()
+                        .env("PORT", TEST_PORT.to_string())
+                        .expose_port(TEST_PORT),
+                    |container| {
+                        thread::sleep(Duration::from_secs(2));
+
+                        let server_logs = container.logs_now();
+                        assert_contains!(server_logs.stderr, "WEBrick::HTTPServer#start");
+                        assert_empty!(server_logs.stdout);
+
+                        let address_on_host = container.address_for_port(TEST_PORT).unwrap();
+                        let response = call_test_fixture_service(address_on_host).unwrap();
+                        assert_contains!(response, "ruby_version");
+                    },
+                );
+
+            });
         },
     );
 }

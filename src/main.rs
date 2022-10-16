@@ -145,8 +145,7 @@ impl Buildpack for RubyBuildpack {
         env = execute_bundle_install_layer.env.apply(Scope::Build, &env);
 
         // Assets install
-        let rake_application_tasks_execute = RakeApplicationTasksExecute::new(&context.app_dir);
-        rake_application_tasks_execute.call(&context, &env)?;
+        RakeApplicationTasksExecute::call(&context, &env)?;
 
         BuildResultBuilder::new()
             .launch(

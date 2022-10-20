@@ -76,7 +76,7 @@ impl InAppDirCache {
 
     fn to_cache(&self) {
         println!("---> Storing cache for {}", self.app_path.display());
-        fs_extra::dir::move_dir(
+        fs_extra::dir::copy(
             &self.app_path,
             &self.cache_path,
             &CopyOptions {

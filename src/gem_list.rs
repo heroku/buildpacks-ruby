@@ -24,6 +24,7 @@ pub enum GemListError {
     BundleListShellCommandError(EnvCommandError),
 }
 
+#[allow(dead_code)]
 impl GemList {
     // Calls `bundle list` and returns a `GemList` struct
     pub fn from_bundle_list(env: &Env) -> Result<Self, GemListError> {

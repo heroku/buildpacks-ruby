@@ -23,19 +23,17 @@
       - We will invalidate the dependency cache if your Ruby version changes.
       - We may invalidate the dependency cache if there was a bug in a prior buildpack version that needs to be fixed.
 - Gem specific behavior - We will parse your `Gemfile.lock` to determine what dependencies your app need for use in specializing your install behavior (i.e. Rails 5 versus Rails 4). The inclusion of these gems may trigger different behavior:
-  - `sprockets`
   - `railties`
   - [TODO] List is incomplete
 - Rake execution - We will determine what rake tasks are runnable via the output of `rake -P` against your application.
-  - We may abort the build if the `rake -p` task fails.
-    - If your application has the `sprockets` gem and `rake -p` failed the build will abort.
+  - We WILL abort the build if the `rake -p` task fails.
   - [TODO] Applications expecting Rake task execution must have `rake` in the Gemfile.lock and a `Rakefile` variant checked into the root of their application. (Reference: https://github.com/heroku/buildpacks-ruby/blob/d526a49f81becaf571329a1adf5fff0668a6b99a/lib/heroku_buildpack_ruby/rake_detect.rb#L41-L58)
   - We will run `rake assets:precompile` on your app if that task exists on your application.
     - [TODO] We will skip this `assets:precompile` task if a manifest file exists in the `public/assets` folder that indicates precompiled assets are checked into git. (Reference: https://github.com/heroku/buildpacks-ruby/blob/d526a49f81becaf571329a1adf5fff0668a6b99a/lib/heroku_buildpack_ruby/assets_precompile.rb#L29)
     - We will abort your build if the `rake assets:precompile` task fails
-    - [TODO] We will run `rake assets:clean` on your app. (Reference: https://github.com/heroku/buildpacks-ruby/blob/d526a49f81becaf571329a1adf5fff0668a6b99a/lib/heroku_buildpack_ruby/assets_precompile.rb#L67-L73, reference: https://github.com/heroku/heroku-buildpack-ruby/blob/951fc728979695990c32df2d4d60ae2d6f6f61c2/lib/language_pack/rails4.rb#L83-L94)
-      - [TODO - in progress] We will cache the contents of `public/assets` if `assets:clean` exists on your application. (pending https://github.com/buildpacks/spec/blob/main/buildpack.md#slice-layers support in libcnbrs)
-      - [TODO] We will cache asset "fragments" directories if the `sprockets` gem is on the system. (pending https://github.com/buildpacks/spec/blob/main/buildpack.md#slice-layers support in libcnbrs)
+    - We will run `rake assets:clean` on your app. (Reference: https://github.com/heroku/buildpacks-ruby/blob/d526a49f81becaf571329a1adf5fff0668a6b99a/lib/heroku_buildpack_ruby/assets_precompile.rb#L67-L73, reference: https://github.com/heroku/heroku-buildpack-ruby/blob/951fc728979695990c32df2d4d60ae2d6f6f61c2/lib/language_pack/rails4.rb#L83-L94)
+      - We will cache the contents of `public/assets` if `assets:clean` exists on your application. (pending https://github.com/buildpacks/spec/blob/main/buildpack.md#slice-layers support in libcnbrs)
+      - We will cache asset "fragments" directories if the `assets:clean` exists on the system. (pending https://github.com/buildpacks/spec/blob/main/buildpack.md#slice-layers support in libcnbrs)
         - [TODO] We will limit or prune the size of the asset cache in `tmp/<TBD>`. (Need to write this logic in rust, StaleFileSweep, reference: https://github.com/heroku/heroku-buildpack-ruby/blob/main/lib/language_pack/helpers/stale_file_cleaner.rb)
 - Process types
   - Given an application with the `rack` gem and a `config.ru` file we will run `rackup` while specifying `-p $PORT` and `-h 0.0.0.0` by default as the `web` process. Use the `Procfile` to override.
@@ -67,12 +65,31 @@ These are tracked things the buildpack will eventually do in the application con
 - [TODO] Warn on outdated ruby version (https://github.com/heroku/heroku-buildpack-ruby/blob/main/lib/language_pack/helpers/outdated_ruby_version.rb)
 - [TODO] Run `rails runner` to collect configuration, abort a build if it fails (https://github.com/heroku/heroku-buildpack-ruby/blob/main/lib/language_pack/helpers/rails_runner.rb)
 - [TODO] Warn when `RAILS_ENV=staging` (https://github.com/heroku/heroku-buildpack-ruby/blob/2b567c597d5cb110774eb21b9616b311d8e4ee9d/lib/language_pack/rails2.rb#L65-L71)
+- [TODO-never-fail-rake] Make a buildpack that moves the contents of the Rakefile into another file like `heroku_buildpack_wrapped_rakefile.rb` and then replaces Rake with:
+
+```
+begin
+  require_relative "heroku_buildpack_wrapped_rakefile.rb"
+rescue => e
+  STDERR.puts <<~EOM
+    Error caught and ignored while loading Rakefile
+
+    To fail the build instead, remove the buildpack TODO
+
+    Message:
+    #{e.message}
+  EOM
+end
+```
 
 ### Known differences against `heroku/heroku-buildpack-ruby`
 
 This buildpack does not port all behaviors of the original buildpack for Ruby (https://github.com/heroku/heroku-buildpack-ruby). This buildpack is also known as `v2` as it implements version 2 of the heroku buildpack interface (instead of the Cloud Native Buildpack interface).
 
 - Rails 5+ support only. The v2 buildpack supports Rails 2+. There are significant maintenace gains for buildpack authors [starting in Rails 5](https://blog.heroku.com/container_ready_rails_5) which was released in 2016. In an effort to reduce overall internal complexity this buildpack does not explicitly support Rails before version 5.
+- Failure to detect rake tasks will fail a deployment. On all builds `rake -p` is called to find a list of all rake tasks. If this detection task fails then the previous behavior was to fail the build only if the `sprockets` gem was present. The reason was to allow API only apps that don't need to generate assets to have a `Rakefile` that cannot be run in production (the most common reason is they're requiring a library not in their production gemfile group). Now all failure to load a Rakefile will fail. If you want the old behavior you can [TODO](TODO-never-fail-rake). The reason for this change is it's more common that applications will want their builds to fail even if they're not using `sprockets`. It's also just not a good idea to not have your `Rakefile` not runable in production, we shouldn't encourage that pattern.
+- Caching of `public/assets` is gated on the presence of `rake assets:clean`. Previously this behavior was gated on the existance of a certain version of the Rails framework.
+- Caching of `tmp/cache/assets` (fragments) is gated on the presence of `rake assets:clean`. Previously this behavior was gated on the existance of a certain version of the Rails framework.
 
 ### Build
 

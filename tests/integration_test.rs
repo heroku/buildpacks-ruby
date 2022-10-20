@@ -82,7 +82,6 @@ fn test_default_app() {
                         assert_contains!(response, "ruby_version");
                     },
                 );
-
             });
         },
     );

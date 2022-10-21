@@ -11,6 +11,7 @@
 - Ruby version
   - Given a `Gemfile.lock` with an explicit Ruby version we will install that Ruby version.
   - Given a `Gemfile.lock` without an explicit Ruby version we will install a default Ruby version.
+    - When the default value changes, applications without an explicit Ruby version will receive the updated default Ruby version.
   - We will reinstall Ruby if your stack changes.
 - Bundler version
   - Given a `Gemfile.lock` with an explicit Bundler version we will install that bundler version.
@@ -25,9 +26,9 @@
 - Gem specific behavior - We will parse your `Gemfile.lock` to determine what dependencies your app need for use in specializing your install behavior (i.e. Rails 5 versus Rails 4). The inclusion of these gems may trigger different behavior:
   - `railties`
   - [TODO] List is incomplete
+- Applications without `rake` in the `Gemfile.lock` or a `Rakefile` varient MAY skip rake task detection.
 - Rake execution - We will determine what rake tasks are runnable via the output of `rake -P` against your application.
   - We WILL abort the build if the `rake -p` task fails.
-  - [TODO] Applications expecting Rake task execution must have `rake` in the Gemfile.lock and a `Rakefile` variant checked into the root of their application. (Reference: https://github.com/heroku/buildpacks-ruby/blob/d526a49f81becaf571329a1adf5fff0668a6b99a/lib/heroku_buildpack_ruby/rake_detect.rb#L41-L58)
   - We will run `rake assets:precompile` on your app if that task exists on your application.
     - [TODO] We will skip this `assets:precompile` task if a manifest file exists in the `public/assets` folder that indicates precompiled assets are checked into git. (Reference: https://github.com/heroku/buildpacks-ruby/blob/d526a49f81becaf571329a1adf5fff0668a6b99a/lib/heroku_buildpack_ruby/assets_precompile.rb#L29)
     - We will abort your build if the `rake assets:precompile` task fails
@@ -36,7 +37,8 @@
       - We will cache asset "fragments" directories if the `assets:clean` exists on the system. (pending https://github.com/buildpacks/spec/blob/main/buildpack.md#slice-layers support in libcnbrs)
         - [TODO] We will limit or prune the size of the asset cache in `tmp/<TBD>`. (Need to write this logic in rust, StaleFileSweep, reference: https://github.com/heroku/heroku-buildpack-ruby/blob/main/lib/language_pack/helpers/stale_file_cleaner.rb)
 - Process types
-  - Given an application with the `rack` gem and a `config.ru` file we will run `rackup` while specifying `-p $PORT` and `-h 0.0.0.0` by default as the `web` process. Use the `Procfile` to override.
+  - Given an application with the `railties` gem we will run `bin/rails server` while specfying `-p $PORT` and `-e $RAILS_ENV"` by default as the `web` process. Use the `Procfile` to override.
+  - If the `railties` gem is not present we will run `rackup` while specifying `-p $PORT` and `-h 0.0.0.0` by default as the `web` process. Use the `Procfile` to override. This requires the `rack` gem and a `config.ru` file.
 - Environment variable defaults - We will set a default for the following environment variables:
   - `JRUBY_OPTS="-Xcompile.invokedynamic=false"` - Invoke dynamic is a feature of the JVM intended to enhance support for dynamicaly typed languages (such as Ruby). This caused issues with Physion Passenger 4.0.16 and was disabled [details](https://github.com/heroku/heroku-buildpack-ruby/issues/145).
   - `RACK_ENV=${RACK_ENV:-"production"}` - An environment variable that may affect the behavior of Rack based webservers and webapps.
@@ -62,9 +64,14 @@
 These are tracked things the buildpack will eventually do in the application contract but are not currently priorities.
 
 - [TODO] Warn on invalid Ruby binstub (https://github.com/heroku/heroku-buildpack-ruby/blob/main/lib/language_pack/helpers/binstub_wrapper.rb, and https://github.com/heroku/heroku-buildpack-ruby/blob/main/lib/language_pack/helpers/binstub_check.rb)
+- [TODO] Warn on default ruby version (https://github.com/heroku/heroku-buildpack-ruby/blob/26065614274ed1138620806c9a8d705e39b4412c/lib/language_pack/ruby.rb#L532)
 - [TODO] Warn on outdated ruby version (https://github.com/heroku/heroku-buildpack-ruby/blob/main/lib/language_pack/helpers/outdated_ruby_version.rb)
 - [TODO] Run `rails runner` to collect configuration, abort a build if it fails (https://github.com/heroku/heroku-buildpack-ruby/blob/main/lib/language_pack/helpers/rails_runner.rb)
 - [TODO] Warn when `RAILS_ENV=staging` (https://github.com/heroku/heroku-buildpack-ruby/blob/2b567c597d5cb110774eb21b9616b311d8e4ee9d/lib/language_pack/rails2.rb#L65-L71)
+- [TODO] Warn if we cannot run a Web process
+  - [TODO] Warn no Procfile (https://github.com/heroku/heroku-buildpack-ruby/blob/26065614274ed1138620806c9a8d705e39b4412c/lib/language_pack/base.rb#L156-L158)
+  - [TODO] Warn Railties, but no `bin/rails` binstub (new)
+  - [TODO] Warn no Procfile, no Railties, and missing: `rack` gem or `config.ru` file. (new)
 - [TODO-never-fail-rake] Make a buildpack that moves the contents of the Rakefile into another file like `heroku_buildpack_wrapped_rakefile.rb` and then replaces Rake with:
 
 ```
@@ -86,6 +93,7 @@ end
 
 This buildpack does not port all behaviors of the original buildpack for Ruby (https://github.com/heroku/heroku-buildpack-ruby). This buildpack is also known as `v2` as it implements version 2 of the heroku buildpack interface (instead of the Cloud Native Buildpack interface).
 
+- Ruby versions are no longer sticky. Before bundler started recording the Ruby version in the `Gemfile.lock` it was common for developers to forget to declare their Ruby version in their `Gemfile`. When that happens they would receive the default Ruby version. To guard against instability we would record that version and use it on future deploys. Now it's less likely for an app to deploy without a default ruby version, and we do not want to encourage relying on a default for stability (as this otherwise breaks dev-prod parity).
 - Rails 5+ support only. The v2 buildpack supports Rails 2+. There are significant maintenace gains for buildpack authors [starting in Rails 5](https://blog.heroku.com/container_ready_rails_5) which was released in 2016. In an effort to reduce overall internal complexity this buildpack does not explicitly support Rails before version 5.
 - Failure to detect rake tasks will fail a deployment. On all builds `rake -p` is called to find a list of all rake tasks. If this detection task fails then the previous behavior was to fail the build only if the `sprockets` gem was present. The reason was to allow API only apps that don't need to generate assets to have a `Rakefile` that cannot be run in production (the most common reason is they're requiring a library not in their production gemfile group). Now all failure to load a Rakefile will fail. If you want the old behavior you can [TODO](TODO-never-fail-rake). The reason for this change is it's more common that applications will want their builds to fail even if they're not using `sprockets`. It's also just not a good idea to not have your `Rakefile` not runable in production, we shouldn't encourage that pattern.
 - Caching of `public/assets` is gated on the presence of `rake assets:clean`. Previously this behavior was gated on the existance of a certain version of the Rails framework.

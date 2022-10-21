@@ -2,19 +2,18 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
-use crate::layers::{
-    EnvDefaultsSetSecretKeyBaseLayer, EnvDefaultsSetStaticVarsLayer, InAppDirCacheLayer,
-    RubyVersionInstallLayer,
-};
+use crate::layers::{InAppDirCacheLayer, RubyVersionInstallLayer};
 use crate::lib::gemfile_lock::{GemfileLock, GemfileLockError, RubyVersion};
+use crate::lib::GemList;
 // use heroku_ruby_buildpack as _;
 
 // Move eventually
 use crate::lib::gem_list::GemListError;
 use crate::lib::rake_detect::RakeDetectError;
 
-use crate::steps::rake_assets_precompile_execute::RakeApplicationTasksExecute;
-use crate::steps::BundleInstall;
+use crate::steps::bundle_install::BundleInstall;
+use crate::steps::default_env::DefaultEnv;
+use crate::steps::RakeApplicationTasksExecute;
 
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::launch::{LaunchBuilder, ProcessBuilder};
@@ -43,7 +42,6 @@ mod test_helper;
 mod util;
 
 use libcnb::data::build_plan::BuildPlanBuilder;
-use libcnb::Env;
 
 pub struct RubyBuildpack;
 impl Buildpack for RubyBuildpack {
@@ -70,34 +68,12 @@ impl Buildpack for RubyBuildpack {
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         println!("---> Ruby Buildpack");
 
-        // Get system env vars
-        let mut env = Env::from_current();
-
-        // Apply User env vars
-        // TODO reject harmful vars like GEM_PATH
-        for (k, v) in context.platform.env() {
-            env.insert(k, v);
-        }
+        let mut env = DefaultEnv::call(&context, &context.platform.env().clone())?;
 
         // Gather static information about project
         let gemfile_lock = std::fs::read_to_string(context.app_dir.join("Gemfile.lock")).unwrap();
         let bundle_info = GemfileLock::from_str(&gemfile_lock)
             .map_err(RubyBuildpackError::GemfileLockParsingError)?;
-
-        // Setup default environment variables
-        let secret_key_base_layer = context //
-            .handle_layer(
-                layer_name!("secret_key_base"),
-                EnvDefaultsSetSecretKeyBaseLayer,
-            )?;
-        env = secret_key_base_layer.env.apply(Scope::Build, &env);
-
-        let env_defaults_layer = context //
-            .handle_layer(
-                layer_name!("env_defaults"),
-                EnvDefaultsSetStaticVarsLayer,
-            )?;
-        env = env_defaults_layer.env.apply(Scope::Build, &env);
 
         // ## Install executable ruby version
         let ruby_layer = context //
@@ -116,20 +92,26 @@ impl Buildpack for RubyBuildpack {
         };
         env = BundleInstall::call(ruby_version, bundle_info.bundler_version, &context, &env)?;
 
-        // Assets install
-        RakeApplicationTasksExecute::call(&context, &env)?;
+        println!("---> Detecting gems");
+        let gem_list =
+            GemList::from_bundle_list(&env).map_err(RubyBuildpackError::GemListGetError)?;
 
+        // Assets install
+        RakeApplicationTasksExecute::call(&gem_list, &context, &env)?;
+
+        let default_process = if gem_list.has("railties") {
+            ProcessBuilder::new(process_type!("web"), "bin/rails")
+                .args(["server", "--port", "$PORT", "-e", "$RAILS_ENV"])
+                .default(true)
+                .build()
+        } else {
+            ProcessBuilder::new(process_type!("web"), "bundle")
+                .args(["exec", "rackup", "--port", "$PORT", "--host", "0.0.0.0"])
+                .default(true)
+                .build()
+        };
         BuildResultBuilder::new()
-            .launch(
-                LaunchBuilder::new()
-                    .process(
-                        ProcessBuilder::new(process_type!("web"), "bundle")
-                            .args(["exec", "rackup", "--port", "$PORT", "--host", "0.0.0.0"])
-                            .default(true)
-                            .build(),
-                    )
-                    .build(),
-            )
+            .launch(LaunchBuilder::new().process(default_process).build())
             .build()
     }
 }

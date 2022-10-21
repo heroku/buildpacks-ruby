@@ -27,6 +27,7 @@ for faster deploys, and also allows for prior generated asssets to remain on the
 
 */
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct InAppDirCacheLayer {
     pub app_dir_path: PathBuf,
 }

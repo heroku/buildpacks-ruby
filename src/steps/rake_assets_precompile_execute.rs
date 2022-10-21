@@ -14,22 +14,6 @@ use libcnb::data::layer_name;
 
 pub struct RakeApplicationTasksExecute;
 
-/// Store data generated in the `<app_dir>` between builds
-///
-/// Example:
-///
-/// ```rust,no_run,not-actually-run-since-not-exposed-in-lib.rs
-/// let public_assets_cache = InAppDirCache::new_and_load(
-///     &context,
-///     layer_name!("public_assets"),
-///     &context.app_dir.join("public").join("assets"),
-/// );
-///
-/// assets_precompile.call().unwrap();
-///
-/// public_assets_cache.to_cache();
-/// ```
-///
 #[derive(Debug, Eq, PartialEq)]
 enum CanRunRake {
     Ok,

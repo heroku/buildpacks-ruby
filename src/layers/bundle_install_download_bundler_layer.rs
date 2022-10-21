@@ -2,10 +2,10 @@ use crate::RubyBuildpackError;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use serde::{Deserialize, Serialize};
 
-use crate::env_command::EnvCommand;
+use crate::lib::env_command::EnvCommand;
 use std::path::Path;
 
-use crate::gemfile_lock::BundlerVersion;
+use crate::lib::gemfile_lock::BundlerVersion;
 use crate::RubyBuildpack;
 use libcnb::build::BuildContext;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};

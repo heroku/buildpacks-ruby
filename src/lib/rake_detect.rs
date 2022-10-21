@@ -1,7 +1,7 @@
 use core::str::FromStr;
 use regex::Regex;
 
-use crate::env_command::{EnvCommand, EnvCommandError};
+use crate::lib::env_command::{EnvCommand, EnvCommandError};
 use libcnb::Env;
 
 #[derive(Default)]

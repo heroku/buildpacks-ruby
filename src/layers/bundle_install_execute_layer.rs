@@ -1,4 +1,4 @@
-use crate::env_command::EnvCommand;
+use crate::lib::env_command::EnvCommand;
 use crate::RubyBuildpackError;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::generic::GenericMetadata;

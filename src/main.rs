@@ -2,19 +2,19 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
-use crate::gemfile_lock::{GemfileLock, GemfileLockError, RubyVersion};
 use crate::layers::{
     BundleInstallConfigureEnvLayer, BundleInstallCreatePathLayer,
     BundleInstallDownloadBundlerLayer, BundleInstallExecuteLayer, EnvDefaultsSetSecretKeyBaseLayer,
     EnvDefaultsSetStaticVarsLayer, InAppDirCacheLayer, RubyVersionInstallLayer,
 };
-use heroku_ruby_buildpack as _;
+use crate::lib::gemfile_lock::{GemfileLock, GemfileLockError, RubyVersion};
+// use heroku_ruby_buildpack as _;
 
 // Move eventually
-use crate::gem_list::GemListError;
-use crate::rake_detect::RakeDetectError;
+use crate::lib::gem_list::GemListError;
+use crate::lib::rake_detect::RakeDetectError;
 
-use crate::rake_assets_precompile_execute::RakeApplicationTasksExecute;
+use crate::steps::rake_assets_precompile_execute::RakeApplicationTasksExecute;
 
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::launch::{LaunchBuilder, ProcessBuilder};
@@ -25,7 +25,7 @@ use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 
-use env_command::EnvCommandError;
+use crate::lib::env_command::EnvCommandError;
 #[cfg(test)]
 use libcnb_test as _;
 
@@ -34,14 +34,9 @@ use core::str::FromStr;
 use crate::util::{DownloadError, UntarError, UrlError};
 use std::process::ExitStatus;
 
-mod env_command;
-mod gem_list;
-mod gem_version;
-mod gemfile_lock;
-mod in_app_dir_cache;
 mod layers;
-mod rake_assets_precompile_execute;
-mod rake_detect;
+mod lib;
+mod steps;
 
 #[cfg(test)]
 mod test_helper;

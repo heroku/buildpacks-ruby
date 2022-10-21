@@ -28,6 +28,7 @@ use std::thread;
 /// ```rust,no_run
 /// use heroku_ruby_buildpack::env_command::EnvCommand;
 /// use libcnb::Env;
+/// lakjsdflkajsdflkjasdfkljasdf
 ///
 /// let env = Env::new();
 /// let mut command = EnvCommand::new("echo", &["hello world"], &env);

@@ -158,7 +158,7 @@ mod test {
 
     #[test]
     // https://github.com/rubygems/rubygems/blob/ecc8e895b69063562b9bf749b353948e051e4171/test/rubygems/test_gem_version.rb#L83-L89
-    fn initialize() {
+    fn test_initialize() {
         for version in &["1.0", "1.0 ", " 1.0 ", "1.0\n", "\n1.0\n", "1.0"] {
             assert_eq!(v(version), v("1.0"));
         }

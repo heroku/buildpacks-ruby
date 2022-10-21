@@ -73,16 +73,26 @@ impl FromStr for GemfileLock {
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         let bundled_with_re = Regex::new("BUNDLED WITH\\s   (\\d+\\.\\d+\\.\\d+)")
             .map_err(GemfileLockError::RegexError)?;
-        let ruby_version_re = Regex::new("RUBY VERSION\\s   ruby (\\d+\\.\\d+\\.\\d+)")
+        let main_ruby_version_re = Regex::new("RUBY VERSION\\s   ruby (\\d+\\.\\d+\\.\\d+)")
             .map_err(GemfileLockError::RegexError)?;
+        let jruby_version_re =
+            Regex::new("\\(jruby ((\\d+|\\.)+)\\)").map_err(GemfileLockError::RegexError)?;
 
         let bundler_version = match bundled_with_re.captures(string).and_then(|c| c.get(1)) {
             Some(result) => BundlerVersion::Explicit(result.as_str().to_string()),
             None => BundlerVersion::Default,
         };
 
-        let ruby_version = match ruby_version_re.captures(string).and_then(|c| c.get(1)) {
-            Some(result) => RubyVersion::Explicit(result.as_str().to_string()),
+        let ruby_version = match main_ruby_version_re.captures(string).and_then(|c| c.get(1)) {
+            Some(main_ruby_match) => match jruby_version_re.captures(string).and_then(|c| c.get(1))
+            {
+                Some(jruby_match) => RubyVersion::Explicit(format!(
+                    "{}-jruby-{}",
+                    main_ruby_match.as_str(),
+                    jruby_match.as_str()
+                )),
+                None => RubyVersion::Explicit(main_ruby_match.as_str().to_string()),
+            },
             None => RubyVersion::Default,
         };
 
@@ -138,5 +148,27 @@ BUNDLED WITH
         let info = GemfileLock::from_str("").unwrap();
         assert_eq!(info.bundler_version, BundlerVersion::Default);
         assert_eq!(info.ruby_version, RubyVersion::Default);
+    }
+
+    #[test]
+    fn test_jruby() {
+        let info = GemfileLock::from_str(
+            r#"
+GEM
+  remote: https://rubygems.org/
+  specs:
+PLATFORMS
+  java
+RUBY VERSION
+   ruby 2.5.7p001 (jruby 9.2.13.0)
+DEPENDENCIES
+"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            info.ruby_version,
+            RubyVersion::Explicit(String::from("2.5.7-jruby-9.2.13.0"))
+        );
     }
 }

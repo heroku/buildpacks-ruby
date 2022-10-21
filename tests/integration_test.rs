@@ -87,6 +87,53 @@ fn test_default_app() {
     );
 }
 
+#[test]
+#[ignore = "integration test"]
+fn test_jruby_app() {
+    let app_dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        app_dir.path().join("Gemfile"),
+        r#"
+        source "https://rubygems.org"
+
+        ruby '2.6.8', engine: 'jruby', engine_version: '9.3.6.0'
+    "#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        app_dir.path().join("Gemfile.lock"),
+        r#"
+GEM
+  remote: https://rubygems.org/
+  specs:
+PLATFORMS
+  java
+RUBY VERSION
+   ruby 2.6.8p001 (jruby 9.3.6.0)
+DEPENDENCIES
+"#,
+    )
+    .unwrap();
+
+    TestRunner::default().build(
+        BuildConfig::new("heroku/builder:22", app_dir.path())
+        .buildpacks(vec![
+            BuildpackReference::Other(String::from("heroku/jvm")),
+            BuildpackReference::Crate,
+        ]),
+        |context| {
+            println!("{}", context.pack_stdout);
+            assert_contains!(context.pack_stdout, "---> Download and extracting Ruby");
+            assert_contains!(
+                context.pack_stdout,
+                r#"Running: $ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#);
+
+            assert_contains!(context.pack_stdout, "Download and extracting Ruby 2.6.8-jruby-9.3.6.0");
+
+            });
+}
+
 fn request_container(
     container: &ContainerContext,
     port: u16,

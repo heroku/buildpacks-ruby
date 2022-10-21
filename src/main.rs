@@ -7,9 +7,9 @@ use crate::lib::gemfile_lock::{GemfileLock, GemfileLockError, RubyVersion};
 use crate::lib::GemList;
 // use heroku_ruby_buildpack as _;
 
-// Move eventually
 use crate::lib::gem_list::GemListError;
 use crate::lib::rake_detect::RakeDetectError;
+use regex::Regex;
 
 use crate::steps::bundle_install::BundleInstall;
 use crate::steps::default_env::DefaultEnv;
@@ -41,9 +41,19 @@ mod steps;
 mod test_helper;
 mod util;
 
+pub struct RubyBuildpack;
 use libcnb::data::build_plan::BuildPlanBuilder;
 
-pub struct RubyBuildpack;
+fn app_needs_java(context: &DetectContext<RubyBuildpack>) -> bool {
+    let gemfile_lock = std::fs::read_to_string(context.app_dir.join("Gemfile.lock")).unwrap();
+    needs_java(&gemfile_lock)
+}
+
+fn needs_java(gemfile_lock: &str) -> bool {
+    let java_regex = Regex::new(r"\(jruby ").unwrap();
+    java_regex.is_match(gemfile_lock)
+}
+
 impl Buildpack for RubyBuildpack {
     type Platform = GenericPlatform;
     type Metadata = GenericMetadata;
@@ -57,6 +67,10 @@ impl Buildpack for RubyBuildpack {
 
             if context.app_dir.join("package.json").exists() {
                 plan_builder = plan_builder.requires("node");
+            }
+
+            if app_needs_java(&context) {
+                plan_builder = plan_builder.requires("jdk");
             }
         }
 
@@ -160,3 +174,20 @@ impl From<RubyBuildpackError> for libcnb::Error<RubyBuildpackError> {
 }
 
 buildpack_main!(RubyBuildpack);
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_needs_java() {
+        let gemfile_lock = r#""#;
+        assert!(!needs_java(gemfile_lock));
+
+        let gemfile_lock = r#"
+RUBY VERSION
+   ruby 2.5.7p001 (jruby 9.2.13.0)
+"#;
+        assert!(needs_java(gemfile_lock));
+    }
+}

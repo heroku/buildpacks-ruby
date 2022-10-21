@@ -92,18 +92,14 @@ impl RakeApplicationTasksExecute {
                     );
 
                     println!("    Rake task `rake assets:precompile` found, running");
-                    let out = assets_precompile.stream().unwrap();
-                    println!("{}", out.stderr);
-                    println!("{}", out.stdout);
+                    assets_precompile.stream().unwrap();
 
                     if rake_detect.has_task("assets:clean") {
                         println!("    Rake task `rake assets:clean` found, running");
 
                         let assets_clean =
                             EnvCommand::new("rake", &["assets:clean", "--trace"], env);
-                        let out = assets_clean.stream().unwrap();
-                        println!("{}", out.stderr);
-                        println!("{}", out.stdout);
+                        assets_clean.stream().unwrap();
 
                         public_assets_cache.to_cache();
                         fragments_cache.to_cache();

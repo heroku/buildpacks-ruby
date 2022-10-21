@@ -41,15 +41,10 @@ fn has_rakefile(path: &Path) -> bool {
 
 impl RakeApplicationTasksExecute {
     pub fn call(
+        gem_list: &GemList,
         context: &BuildContext<RubyBuildpack>,
         env: &Env,
     ) -> Result<(), RubyBuildpackError> {
-        // ## Get list of gems and their versions from the system
-        println!("---> Detecting gems");
-        let gem_list =
-            GemList::from_bundle_list(env).map_err(RubyBuildpackError::GemListGetError)?;
-
-        println!("---> Detecting rake tasks");
         match detect_rake_can_run(has_rakefile(&context.app_dir), gem_list.has("rake")) {
             CanRunRake::NoRakeGem => {
                 println!("---> Skipping rake task detection, add `gem 'rake'` to your Gemfile");
@@ -58,6 +53,7 @@ impl RakeApplicationTasksExecute {
                 println!("    Rake task `rake assets:precompile` not found, skipping");
             }
             CanRunRake::Ok => {
+                println!("---> Detecting rake tasks");
                 let rake_detect = RakeDetect::from_rake_command(env, true)
                     .map_err(RubyBuildpackError::RakeDetectError)?;
                 if rake_detect.has_task("assets:precompile") {

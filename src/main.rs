@@ -3,9 +3,8 @@
 #![allow(clippy::module_name_repetitions)]
 
 use crate::layers::{
-    BundleInstallConfigureEnvLayer, BundleInstallCreatePathLayer,
-    BundleInstallDownloadBundlerLayer, BundleInstallExecuteLayer, EnvDefaultsSetSecretKeyBaseLayer,
-    EnvDefaultsSetStaticVarsLayer, InAppDirCacheLayer, RubyVersionInstallLayer,
+    EnvDefaultsSetSecretKeyBaseLayer, EnvDefaultsSetStaticVarsLayer, InAppDirCacheLayer,
+    RubyVersionInstallLayer,
 };
 use crate::lib::gemfile_lock::{GemfileLock, GemfileLockError, RubyVersion};
 // use heroku_ruby_buildpack as _;
@@ -15,6 +14,7 @@ use crate::lib::gem_list::GemListError;
 use crate::lib::rake_detect::RakeDetectError;
 
 use crate::steps::rake_assets_precompile_execute::RakeApplicationTasksExecute;
+use crate::steps::BundleInstall;
 
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::launch::{LaunchBuilder, ProcessBuilder};
@@ -85,7 +85,6 @@ impl Buildpack for RubyBuildpack {
             .map_err(RubyBuildpackError::GemfileLockParsingError)?;
 
         // Setup default environment variables
-
         let secret_key_base_layer = context //
             .handle_layer(
                 layer_name!("secret_key_base"),
@@ -111,37 +110,11 @@ impl Buildpack for RubyBuildpack {
 
         env = ruby_layer.env.apply(Scope::Build, &env);
 
-        // ## Setup bundler
-        let create_bundle_path_layer = context.handle_layer(
-            layer_name!("gems"),
-            BundleInstallCreatePathLayer {
-                ruby_version: ruby_layer.content_metadata.metadata.version,
-            },
-        )?;
-        env = create_bundle_path_layer.env.apply(Scope::Build, &env);
-
-        let create_bundle_path_layer = context.handle_layer(
-            layer_name!("bundle_configure_env"),
-            BundleInstallConfigureEnvLayer,
-        )?;
-        env = create_bundle_path_layer.env.apply(Scope::Build, &env);
-
-        // ## Download bundler
-        let download_bundler_layer = context.handle_layer(
-            layer_name!("bundler"),
-            BundleInstallDownloadBundlerLayer {
-                version: bundle_info.bundler_version,
-                env: env.clone(),
-            },
-        )?;
-        env = download_bundler_layer.env.apply(Scope::Build, &env);
-
-        // ## bundle install
-        let execute_bundle_install_layer = context.handle_layer(
-            layer_name!("execute_bundle_install"),
-            BundleInstallExecuteLayer { env: env.clone() },
-        )?;
-        env = execute_bundle_install_layer.env.apply(Scope::Build, &env);
+        // Bundle install
+        let ruby_version = crate::lib::ResolvedRubyVersion {
+            version: ruby_layer.content_metadata.metadata.version,
+        };
+        env = BundleInstall::call(ruby_version, bundle_info.bundler_version, &context, &env)?;
 
         // Assets install
         RakeApplicationTasksExecute::call(&context, &env)?;

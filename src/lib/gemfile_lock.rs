@@ -44,13 +44,18 @@ pub struct GemfileLock {
     pub ruby_version: RubyVersion,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ResolvedRubyVersion {
+    pub version: String,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum RubyVersion {
     Explicit(String),
     Default,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum BundlerVersion {
     Explicit(String),
     Default,

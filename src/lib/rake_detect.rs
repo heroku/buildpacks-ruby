@@ -4,6 +4,12 @@ use regex::Regex;
 use crate::lib::env_command::{EnvCommand, EnvCommandError};
 use libcnb::Env;
 
+/// Run `rake -P` and parse output to show what rake tasks an application has
+///
+/// ```
+/// let rake_detect = RakeDetect::from_rake_command(env, false).unwrap()
+/// assert!(rake_detect.has_task("assets:precompile"))
+/// ```
 #[derive(Default)]
 pub struct RakeDetect {
     #[allow(dead_code)]

@@ -24,6 +24,37 @@ pub enum GemListError {
     BundleListShellCommandError(EnvCommandError),
 }
 
+/// Converts the output of `$ gem list` into a data structure that can be inspected and compared
+///
+/// ```
+///         let gem_list = GemList::from_str(
+///             r#"
+/// Gems included by the bundle:
+///   * actioncable (6.1.4.1)
+///   * actionmailbox (6.1.4.1)
+///   * actionmailer (6.1.4.1)
+///   * actionpack (6.1.4.1)
+///   * actiontext (6.1.4.1)
+///   * actionview (6.1.4.1)
+///   * activejob (6.1.4.1)
+///   * activemodel (6.1.4.1)
+///   * activerecord (6.1.4.1)
+///   * activestorage (6.1.4.1)
+///   * activesupport (6.1.4.1)
+///   * addressable (2.8.0)
+///   * ast (2.4.2)
+///   * railties (6.1.4.1)
+/// Use `bundle info` to print more detailed information about a gem
+///             "#,
+///         )
+///
+///         assert!(gem_list.has("railties"));
+///
+///         assert_eq!(
+///            gem_list.version_for("railties").unwrap(),
+///            &GemVersion::from_str("6.1.4.1").unwrap()
+///         );
+/// ```
 #[allow(dead_code)]
 impl GemList {
     // Calls `bundle list` and returns a `GemList` struct

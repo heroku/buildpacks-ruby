@@ -47,7 +47,7 @@ impl Layer for BundleInstallConfigureEnvLayer {
         LayerTypes {
             build: true,
             launch: true,
-            cache: true,
+            cache: false,
         }
     }
 

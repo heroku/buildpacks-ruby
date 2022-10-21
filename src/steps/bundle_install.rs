@@ -1,56 +1,67 @@
 use libcnb::Env;
 use libcnb::{build::BuildContext, data::layer_name, layer_env::Scope};
 
-use crate::layers::BundleInstallConfigureEnvLayer;
-use crate::lib::{BundlerVersion, RubyVersion};
-use crate::{
-    layers::{
-        BundleInstallCreatePathLayer, BundleInstallDownloadBundlerLayer, BundleInstallExecuteLayer,
-    },
-    RubyBuildpack, RubyBuildpackError,
-};
+use crate::layers::{BundleInstallConfigureEnvLayer, BundleInstallDownloadBundlerLayer};
+use crate::lib::{BundlerVersion, EnvCommand, ResolvedRubyVersion};
+use crate::{layers::BundleInstallCreatePathLayer, RubyBuildpack, RubyBuildpackError};
 
 pub struct BundleInstall;
 
 impl BundleInstall {
     pub fn call(
-        ruby_version: RubyVersion,
+        ruby_version: ResolvedRubyVersion,
         bundler_version: BundlerVersion,
         context: &BuildContext<RubyBuildpack>,
         env: &Env,
-    ) -> Result<Env, RubyBuildpackError> {
-        let env = env.clone();
+    ) -> libcnb::Result<Env, RubyBuildpackError> {
+        let mut env = env.clone();
         // ## Setup bundler
+        //
+        // Gems will be installed here, sets BUNDLE_PATH env var
         let create_bundle_path_layer = context.handle_layer(
             layer_name!("gems"),
             BundleInstallCreatePathLayer {
-                ruby_version: ruby_version.version_string(), // ruby_layer.content_metadata.metadata.version,
+                ruby_version: ruby_version.version,
             },
         )?;
         env = create_bundle_path_layer.env.apply(Scope::Build, &env);
 
-        let create_bundle_path_layer = context.handle_layer(
+        // Configures other `BUNDLE_*` settings not based on a layer path.
+        let configure_env_layer = context.handle_layer(
             layer_name!("bundle_configure_env"),
             BundleInstallConfigureEnvLayer,
         )?;
-        env = create_bundle_path_layer.env.apply(Scope::Build, &env);
+        env = configure_env_layer.env.apply(Scope::Build, &env);
 
         // ## Download bundler
+        //
+        // Download the specified bundler version
         let download_bundler_layer = context.handle_layer(
             layer_name!("bundler"),
             BundleInstallDownloadBundlerLayer {
-                version: bundler_version.version_string(), // bundle_info.bundler_version,
+                version: bundler_version,
                 env: env.clone(),
             },
         )?;
         env = download_bundler_layer.env.apply(Scope::Build, &env);
 
-        // ## bundle install
-        let execute_bundle_install_layer = context.handle_layer(
-            layer_name!("execute_bundle_install"),
-            BundleInstallExecuteLayer { env: env.clone() },
-        )?;
-        env = execute_bundle_install_layer.env.apply(Scope::Build, &env);
+        // ## Run `$ bundle install`
+        println!("---> Installing gems");
+        let mut command = EnvCommand::new("bundle", &["install"], &env);
+        command.show_env_keys([
+            "BUNDLE_BIN",
+            "BUNDLE_CLEAN",
+            "BUNDLE_DEPLOYMENT",
+            "BUNDLE_GEMFILE",
+            "BUNDLE_PATH",
+            "BUNDLE_WITHOUT",
+        ]);
+
+        println!("Running: $ {} ", command);
+
+        command
+            .stream()
+            .map_err(RubyBuildpackError::BundleInstallCommandError)?;
 
         Ok(env)
     }

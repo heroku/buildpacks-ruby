@@ -38,9 +38,13 @@ mod env_command;
 mod gem_list;
 mod gem_version;
 mod gemfile_lock;
+mod in_app_dir_cache;
 mod layers;
 mod rake_assets_precompile_execute;
 mod rake_detect;
+
+#[cfg(test)]
+mod test_helper;
 mod util;
 
 use libcnb::data::build_plan::BuildPlanBuilder;

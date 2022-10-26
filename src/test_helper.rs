@@ -8,6 +8,16 @@ use libcnb::generic::{GenericMetadata, GenericPlatform};
 use libcnb::Platform;
 
 use std::fs;
+use std::path::PathBuf;
+
+pub fn touch_file(path: &PathBuf, f: impl FnOnce(&PathBuf)) {
+    if let Some(p) = path.parent() {
+        std::fs::create_dir_all(p).unwrap();
+    }
+    std::fs::write(&path, "").unwrap();
+    f(path);
+    std::fs::remove_file(&path).unwrap();
+}
 
 #[allow(dead_code)]
 pub struct TempContext {

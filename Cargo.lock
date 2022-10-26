@@ -325,6 +325,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "glob"
+version = "0.3.0"
+source = "git+https://github.com/rust-lang/glob#91248c13bafe4520010503f8b4d1d9e037515268"
+
+[[package]]
 name = "h2"
 version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -365,6 +370,7 @@ dependencies = [
  "fancy-regex",
  "flate2",
  "fs_extra",
+ "glob",
  "libcnb",
  "libcnb-test",
  "rand",

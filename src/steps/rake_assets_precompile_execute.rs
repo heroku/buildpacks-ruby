@@ -19,24 +19,77 @@ enum CanRunRake {
     Ok,
     NoRakeGem,
     MissingRakefile,
+    AssetManifestSkip(Vec<PathBuf>),
 }
 
-fn detect_rake_can_run(has_rakefile: bool, has_rake: bool) -> CanRunRake {
-    if has_rake {
-        if has_rakefile {
-            CanRunRake::Ok
-        } else {
-            CanRunRake::MissingRakefile
+#[derive(Debug, Eq, PartialEq)]
+struct HasRakefile(bool);
+
+#[derive(Debug, Eq, PartialEq)]
+struct HasGem(bool);
+
+#[derive(Debug, Eq, PartialEq)]
+struct AssetManifestList(Vec<PathBuf>);
+
+// Convert nested logic into a flat enum of possible states
+// that represent whether or not `rake assets:precompile` can
+// be run.
+fn detect_rake_can_run(
+    has_rakefile: &HasRakefile,
+    has_rake_installed: &HasGem,
+    asset_manifests: &AssetManifestList,
+) -> CanRunRake {
+    if asset_manifests.0.is_empty() {
+        match has_rake_installed {
+            HasGem(true) => match has_rakefile {
+                HasRakefile(true) => CanRunRake::Ok,
+                HasRakefile(false) => CanRunRake::MissingRakefile,
+            },
+            HasGem(false) => CanRunRake::NoRakeGem,
         }
     } else {
-        CanRunRake::NoRakeGem
+        CanRunRake::AssetManifestSkip(asset_manifests.0.clone())
     }
 }
 
-fn has_rakefile(path: &Path) -> bool {
-    ["rakefile", "Rakefile", "rakefile.rb;", "Rakefile.rb"]
+/// Checks directory for rakefile varients
+fn dir_has_rakefile(path: &Path) -> HasRakefile {
+    HasRakefile(
+        ["rakefile", "Rakefile", "rakefile.rb;", "Rakefile.rb"]
+            .iter()
+            .any(|name| path.join(name).exists()),
+    )
+}
+
+// Checks if GemList contains a reference to the rake gem
+fn gem_list_has_rake(gem_list: &GemList) -> HasGem {
+    HasGem(gem_list.has("rake"))
+}
+use glob::glob;
+use std::path::PathBuf;
+
+// Checks in public/assets if an existing manifest file exists
+fn has_asset_manifest(app_dir: &Path) -> AssetManifestList {
+    let manifests = [".sprockets-manifest-*.json", "manifest-*.json"]
         .iter()
-        .any(|name| path.join(name).exists())
+        .map(|glob_pattern| app_dir.join("public").join("assets").join(glob_pattern))
+        .map(|path| path.into_os_string().into_string().unwrap())
+        .map(|string| glob(&string))
+        .filter_map(Result::ok)
+        .find_map(|paths| {
+            let paths = paths
+                .into_iter()
+                .map(std::result::Result::unwrap)
+                .collect::<Vec<PathBuf>>();
+
+            if paths.is_empty() {
+                None
+            } else {
+                Some(paths)
+            }
+        })
+        .unwrap_or_default();
+    AssetManifestList(manifests)
 }
 
 impl RakeApplicationTasksExecute {
@@ -45,12 +98,26 @@ impl RakeApplicationTasksExecute {
         context: &BuildContext<RubyBuildpack>,
         env: &Env,
     ) -> Result<(), RubyBuildpackError> {
-        match detect_rake_can_run(has_rakefile(&context.app_dir), gem_list.has("rake")) {
+        match detect_rake_can_run(
+            &dir_has_rakefile(&context.app_dir),
+            &gem_list_has_rake(gem_list),
+            &has_asset_manifest(&context.app_dir),
+        ) {
             CanRunRake::NoRakeGem => {
                 println!("---> Skipping rake task detection, add `gem 'rake'` to your Gemfile");
             }
             CanRunRake::MissingRakefile => {
                 println!("    Rake task `rake assets:precompile` not found, skipping");
+            }
+            CanRunRake::AssetManifestSkip(paths) => {
+                println!(
+                    "    Manifest file(s) found {}. Skipping `rake assets:precompile`",
+                    paths
+                        .iter()
+                        .map(|path| path.clone().into_os_string().into_string().unwrap())
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                );
             }
             CanRunRake::Ok => {
                 println!("---> Detecting rake tasks");
@@ -105,16 +172,60 @@ impl RakeApplicationTasksExecute {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_helper::touch_file;
 
     #[test]
     fn test_detect_rake_can_run() {
-        assert_eq!(detect_rake_can_run(false, false), CanRunRake::NoRakeGem);
         assert_eq!(
-            detect_rake_can_run(false, true),
+            detect_rake_can_run(
+                &HasRakefile(false),
+                &HasGem(false),
+                &AssetManifestList(vec![])
+            ),
+            CanRunRake::NoRakeGem
+        );
+        assert_eq!(
+            detect_rake_can_run(
+                &HasRakefile(false),
+                &HasGem(true),
+                &AssetManifestList(vec![])
+            ),
             CanRunRake::MissingRakefile
         );
-        assert_eq!(detect_rake_can_run(true, false), CanRunRake::NoRakeGem);
-        assert_eq!(detect_rake_can_run(true, true), CanRunRake::Ok);
+        assert_eq!(
+            detect_rake_can_run(
+                &HasRakefile(true),
+                &HasGem(false),
+                &AssetManifestList(vec![])
+            ),
+            CanRunRake::NoRakeGem
+        );
+        assert_eq!(
+            detect_rake_can_run(
+                &HasRakefile(true),
+                &HasGem(true),
+                &AssetManifestList(vec![])
+            ),
+            CanRunRake::Ok
+        );
+        assert_eq!(
+            detect_rake_can_run(
+                &HasRakefile(true),
+                &HasGem(true),
+                &AssetManifestList(vec![])
+            ),
+            CanRunRake::Ok
+        );
+
+        let path = PathBuf::new();
+        assert_eq!(
+            detect_rake_can_run(
+                &HasRakefile(true),
+                &HasGem(true),
+                &AssetManifestList(vec![path.clone()])
+            ),
+            CanRunRake::AssetManifestSkip(vec![path])
+        );
     }
 
     #[test]
@@ -124,14 +235,31 @@ mod tests {
         for name in &["rakefile", "Rakefile", "rakefile.rb;", "Rakefile.rb"] {
             let file = tmpdir.path().join(name);
             std::fs::write(&file, "").unwrap();
-            assert!(
-                has_rakefile(tmpdir.path()),
-                "Expected `has_rakefile` to return true for '{}' but it did not",
-                name
-            );
+            assert_eq!(HasRakefile(true), dir_has_rakefile(tmpdir.path()));
             std::fs::remove_file(&file).unwrap();
         }
 
-        assert!(!has_rakefile(tmpdir.path()));
+        assert_eq!(HasRakefile(false), dir_has_rakefile(tmpdir.path()));
+    }
+
+    #[test]
+    fn test_has_asset_manifest() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let assets_dir = tmpdir.path().join("public").join("assets");
+        assert_eq!(has_asset_manifest(tmpdir.path()), AssetManifestList(vec![]));
+
+        touch_file(&assets_dir.join("manifest-lol.json"), |path| {
+            assert_eq!(
+                has_asset_manifest(tmpdir.path()),
+                AssetManifestList(vec![path.clone()])
+            );
+        });
+
+        touch_file(&assets_dir.join(".sprockets-manifest-lol.json"), |path| {
+            assert_eq!(
+                has_asset_manifest(tmpdir.path()),
+                AssetManifestList(vec![path.clone()])
+            );
+        });
     }
 }

@@ -1,3 +1,4 @@
+use byte_unit::{Byte, ByteUnit};
 use libcnb::Env;
 
 use crate::RubyBuildpackError;
@@ -148,8 +149,13 @@ impl RakeApplicationTasksExecute {
                             EnvCommand::new("rake", &["assets:clean", "--trace"], env);
                         assets_clean.stream().unwrap();
 
-                        public_assets_cache.to_cache();
-                        fragments_cache.to_cache();
+                        public_assets_cache.copy_app_path_to_cache();
+                        fragments_cache.move_app_path_to_cache();
+
+                        clean_stale_files_in_cache(
+                            &fragments_cache,
+                            Byte::from_bytes(byte_unit::n_mib_bytes!(100)),
+                        );
                     } else {
                         println!("    Rake task `rake assets:clean` not found, skipping");
                         println!(
@@ -166,6 +172,21 @@ impl RakeApplicationTasksExecute {
         }
 
         Ok(())
+    }
+}
+
+fn clean_stale_files_in_cache(cache: &InAppDirCache, max_bytes: Byte) {
+    let overage = cache.least_recently_used_files_above_limit(max_bytes);
+
+    if overage.bytes > 0 {
+        println!(
+            "Cache for {} exceeded {} limit by {}, clearing {} files",
+            cache.app_path.display(),
+            max_bytes.get_adjusted_unit(ByteUnit::MiB),
+            overage.to_byte().get_adjusted_unit(ByteUnit::MiB),
+            overage.files.len()
+        );
+        overage.clean();
     }
 }
 

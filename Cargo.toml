@@ -7,6 +7,7 @@ edition = "2021"
 rust-version = "1.64"
 
 [dependencies]
+byte-unit = "4.0.14"
 glob = { git = "https://github.com/rust-lang/glob"} # https://github.com/rust-lang/glob/issues/117
 libcnb = "0.11.0"
 tempfile = "3.3.0"

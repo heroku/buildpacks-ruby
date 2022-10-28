@@ -176,9 +176,72 @@ impl FilesWithSize {
 #[cfg(test)]
 mod tests {
     use byte_unit::n_mib_bytes;
+    use libcnb::data::layer_name;
 
     use super::*;
     use crate::test_helper::touch_file;
+
+    #[test]
+    fn test_makes_app_dir_if_it_doesnt_already_exist() {
+        let tmp_context =
+            crate::test_helper::TempContext::new(include_str!("../../buildpack.toml"));
+        let cache = InAppDirCache::new_and_load(
+            &tmp_context.build,
+            layer_name!("lol"),
+            &tmp_context
+                .build
+                .app_dir
+                .join("make")
+                .join("path")
+                .join("here"),
+        );
+
+        assert!(cache.cache_path.exists());
+        assert!(cache.app_path.exists());
+    }
+
+    #[test]
+    fn test_populates_app_dir_automatically() {
+        let tmp_context =
+            crate::test_helper::TempContext::new(include_str!("../../buildpack.toml"));
+
+        let lol_layer = tmp_context.build.layers_dir.clone();
+        let app_path = tmp_context.build.app_dir.join("muh_path");
+
+        std::fs::write(&lol_layer.join("lol.txt"), "lol").unwrap();
+
+        assert!(!app_path.exists());
+
+        InAppDirCache::new_and_load(&tmp_context.build, layer_name!("lol"), &app_path);
+
+        assert!(app_path.exists());
+    }
+
+    #[test]
+    fn test_copying_back_to_cache() {
+        let tmp_context =
+            crate::test_helper::TempContext::new(include_str!("../../buildpack.toml"));
+
+        let app_path = tmp_context.build.app_dir.join("muh_path");
+
+        std::fs::create_dir_all(&app_path).unwrap();
+
+        // Assert empty dir
+        assert!(app_path.read_dir().unwrap().next().is_none());
+        let cache = InAppDirCache::new_and_load(&tmp_context.build, layer_name!("lol"), &app_path);
+
+        // Assert empty dir
+        assert!(app_path.read_dir().unwrap().next().is_none());
+
+        // Test copy logic
+        assert!(!cache.cache_path.join("lol.txt").exists());
+        std::fs::write(app_path.join("lol.txt"), "hahaha").unwrap();
+        cache.copy_app_path_to_cache();
+        for f in cache.app_path.read_dir().unwrap() {
+            println!("{:?}", f.unwrap());
+        }
+        assert!(cache.cache_path.join("lol.txt").exists());
+    }
 
     #[test]
     fn test_lru_only_returns_based_on_size() {

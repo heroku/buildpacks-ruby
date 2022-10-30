@@ -34,9 +34,10 @@ impl InAppDirCache {
     pub fn new_and_load(
         context: &BuildContext<RubyBuildpack>,
         name: LayerName,
-        path: &Path,
+        app_path: &Path,
     ) -> Self {
-        let app_path = path.to_path_buf();
+        let app_path = app_path.to_path_buf();
+
         let cache_path = context
             .handle_layer(
                 name,
@@ -48,6 +49,7 @@ impl InAppDirCache {
             .path;
 
         std::fs::create_dir_all(&app_path).unwrap();
+
         let out = Self {
             app_path,
             cache_path,
@@ -64,6 +66,7 @@ impl InAppDirCache {
                 overwrite: false,
                 skip_exist: true,
                 copy_inside: true,
+                content_only: true,
                 ..CopyOptions::default()
             },
         )
@@ -80,6 +83,7 @@ impl InAppDirCache {
                 overwrite: false,
                 skip_exist: true,
                 copy_inside: true,
+                content_only: true,
                 ..CopyOptions::default()
             },
         )
@@ -95,6 +99,8 @@ impl InAppDirCache {
                 overwrite: false,
                 skip_exist: true,
                 copy_inside: true,
+
+                content_only: true,
                 ..CopyOptions::default()
             },
         )

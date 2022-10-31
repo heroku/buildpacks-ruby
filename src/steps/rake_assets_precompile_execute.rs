@@ -7,6 +7,7 @@ use crate::lib::env_command::EnvCommand;
 use crate::lib::gem_list::GemList;
 use crate::lib::in_app_dir_cache::InAppDirCache;
 use crate::lib::rake_detect::RakeDetect;
+use crate::lib::InAppDirCacheWithLayername;
 use std::path::Path;
 
 use crate::RubyBuildpack;
@@ -128,12 +129,12 @@ impl RakeApplicationTasksExecute {
                     let assets_precompile =
                         EnvCommand::new("rake", &["assets:precompile", "--trace"], env);
 
-                    let public_assets_cache = InAppDirCache::new_and_load(
+                    let public_assets_cache = InAppDirCacheWithLayername::new_and_load(
                         context,
                         layer_name!("public_assets"),
                         &context.app_dir.join("public").join("assets"),
                     );
-                    let fragments_cache = InAppDirCache::new_and_load(
+                    let fragments_cache = InAppDirCacheWithLayername::new_and_load(
                         context,
                         layer_name!("tmp_cache"),
                         &context.app_dir.join("tmp").join("cache").join("assets"),

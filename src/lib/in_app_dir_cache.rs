@@ -14,7 +14,7 @@ use byte_unit::Byte;
 /// Example:
 ///
 /// ```rust,no_run,not-actually-run-since-not-exposed-in-lib.rs
-/// let public_assets_cache = InAppDirCache::new_and_load(
+/// let public_assets_cache = InAppDirCacheWithLayername::new_and_load(
 ///     &context,
 ///     layer_name!("public_assets"),
 ///     &context.app_dir.join("public").join("assets"),
@@ -25,17 +25,20 @@ use byte_unit::Byte;
 /// public_assets_cache.to_cache();
 /// ```
 ///
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct InAppDirCache {
     pub app_path: PathBuf,
     pub cache_path: PathBuf,
 }
 
-impl InAppDirCache {
+pub struct InAppDirCacheWithLayername;
+
+impl InAppDirCacheWithLayername {
     pub fn new_and_load(
         context: &BuildContext<RubyBuildpack>,
         name: LayerName,
         app_path: &Path,
-    ) -> Self {
+    ) -> InAppDirCache {
         let app_path = app_path.to_path_buf();
 
         let cache_path = context
@@ -48,17 +51,23 @@ impl InAppDirCache {
             .unwrap()
             .path;
 
-        std::fs::create_dir_all(&app_path).unwrap();
-
-        let out = Self {
+        let out = InAppDirCache {
             app_path,
             cache_path,
         };
-        out.to_app();
+        out.mkdir_p();
+        out.move_cache_to_app();
         out
     }
+}
 
-    fn to_app(&self) -> &Self {
+impl InAppDirCache {
+    fn mkdir_p(&self) {
+        std::fs::create_dir_all(&self.app_path).unwrap();
+        std::fs::create_dir_all(&self.cache_path).unwrap();
+    }
+
+    fn move_cache_to_app(&self) -> &Self {
         fs_extra::dir::move_dir(
             &self.cache_path,
             &self.app_path,
@@ -188,10 +197,29 @@ mod tests {
     use crate::test_helper::touch_file;
 
     #[test]
+    fn test_makes_layer_correctly() {
+        let tmp_context =
+            crate::test_helper::TempContext::new(include_str!("../../buildpack.toml"));
+
+        let app_path = tmp_context.build.app_dir.join("hahaha");
+
+        assert!(!app_path.exists());
+        let cache = InAppDirCacheWithLayername::new_and_load(
+            &tmp_context.build,
+            layer_name!("lol"),
+            &app_path,
+        );
+
+        assert!(cache.app_path.exists()); // Creates app path
+        assert_eq!(cache.app_path, app_path);
+        assert_eq!(cache.cache_path, tmp_context.build.layers_dir.join("lol"));
+    }
+
+    #[test]
     fn test_makes_app_dir_if_it_doesnt_already_exist() {
         let tmp_context =
             crate::test_helper::TempContext::new(include_str!("../../buildpack.toml"));
-        let cache = InAppDirCache::new_and_load(
+        let cache = InAppDirCacheWithLayername::new_and_load(
             &tmp_context.build,
             layer_name!("lol"),
             &tmp_context
@@ -218,41 +246,68 @@ mod tests {
 
         assert!(!app_path.exists());
 
-        InAppDirCache::new_and_load(&tmp_context.build, layer_name!("lol"), &app_path);
+        InAppDirCacheWithLayername::new_and_load(&tmp_context.build, layer_name!("lol"), &app_path);
 
         assert!(app_path.exists());
     }
 
     #[test]
     fn test_copying_back_to_cache() {
-        let tmp_context =
-            crate::test_helper::TempContext::new(include_str!("../../buildpack.toml"));
+        let tmpdir = tempfile::tempdir().unwrap();
+        let cache_path = tmpdir.path().join("cache");
+        let app_path = tmpdir.path().join("app");
+        let cache = InAppDirCache {
+            app_path: app_path.clone(),
+            cache_path: cache_path.clone(),
+        };
+        cache.mkdir_p();
 
-        let app_path = tmp_context.build.app_dir.join("muh_path");
+        assert!(app_path.read_dir().unwrap().next().is_none()); // Assert empty dir
+        cache.move_cache_to_app();
+        assert!(app_path.read_dir().unwrap().next().is_none()); // Assert dir not changed
 
-        std::fs::create_dir_all(&app_path).unwrap();
-
-        // Assert empty dir
-        assert!(app_path.read_dir().unwrap().next().is_none());
-        let cache = InAppDirCache::new_and_load(&tmp_context.build, layer_name!("lol"), &app_path);
-
-        // Assert empty dir
-        assert!(app_path.read_dir().unwrap().next().is_none());
-
-        // Test copy logic
-        assert!(!cache.cache_path.join("lol.txt").exists());
         std::fs::write(app_path.join("lol.txt"), "hahaha").unwrap();
+
+        // Test copy logic from app to cache
+        assert!(!cache.cache_path.join("lol.txt").exists());
+        assert!(cache_path.read_dir().unwrap().next().is_none());
         cache.copy_app_path_to_cache();
-        for f in cache.app_path.read_dir().unwrap() {
-            println!("{:?}", f.unwrap());
-        }
         assert!(cache.cache_path.join("lol.txt").exists());
+        assert!(cache.app_path.join("lol.txt").exists());
+    }
+
+    #[test]
+    fn test_moving_back_to_cache() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let cache_path = tmpdir.path().join("cache");
+        let app_path = tmpdir.path().join("app");
+        let cache = InAppDirCache {
+            app_path: app_path.clone(),
+            cache_path: cache_path.clone(),
+        };
+        cache.mkdir_p();
+
+        assert!(app_path.read_dir().unwrap().next().is_none()); // Assert empty dir
+        cache.move_cache_to_app();
+        assert!(app_path.read_dir().unwrap().next().is_none()); // Assert dir not changed
+
+        std::fs::write(app_path.join("lol.txt"), "hahaha").unwrap();
+
+        // Test copy logic from app to cache
+        assert!(!cache.cache_path.join("lol.txt").exists());
+        assert!(cache_path.read_dir().unwrap().next().is_none());
+        cache.move_app_path_to_cache();
+        assert!(cache.cache_path.join("lol.txt").exists());
+        assert!(!cache.app_path.join("lol.txt").exists());
     }
 
     #[test]
     fn test_lru_only_returns_based_on_size() {
         let tmpdir = tempfile::tempdir().unwrap();
-        let dir = tmpdir.path().join("");
+        let dir = tmpdir.path().join("dir");
+
+        std::fs::create_dir_all(&dir).unwrap();
+
         assert_eq!(
             InAppDirCache::least_recently_used_files_above_limit_from_path(
                 &dir,

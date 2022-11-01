@@ -340,6 +340,9 @@ mod tests {
 
         touch_file(&dir.join("z_older"), |a| {
             touch_file(&dir.join("a_newer"), |b| {
+                filetime::set_file_mtime(a, filetime::FileTime::from_unix_time(0, 0)).unwrap();
+                filetime::set_file_mtime(b, filetime::FileTime::from_unix_time(1, 0)).unwrap();
+
                 let overage = InAppDirCache::least_recently_used_files_above_limit_from_path(
                     &dir,
                     Byte::from_bytes(n_mib_bytes!(0)),
@@ -353,7 +356,6 @@ mod tests {
     fn test_lru_does_not_grab_directories() {
         let tmpdir = tempfile::tempdir().unwrap();
         let dir = tmpdir.path().join("");
-
         std::fs::create_dir_all(dir.join("preservation_society")).unwrap();
         let overage = InAppDirCache::least_recently_used_files_above_limit_from_path(
             &dir,

@@ -18,7 +18,6 @@ serde = "1.0.145"
 url = "2.3.1"
 thiserror = "1.0.36"
 regex = "1.6.0"
-fancy-regex = "0.10.0"
 rand = "0.8.5"
 fs_extra = "1.2.0"
 commons = {path = "../../commons" }

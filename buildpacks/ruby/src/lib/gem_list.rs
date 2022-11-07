@@ -2,8 +2,8 @@ use core::str::FromStr;
 use regex::Regex;
 use std::collections::HashMap;
 
-use crate::lib::gem_version::GemVersion;
 use commons::env_command::{EnvCommand, EnvCommandError};
+use commons::gem_version::GemVersion;
 use libcnb::Env;
 
 // ## Gets list of an application's dependencies

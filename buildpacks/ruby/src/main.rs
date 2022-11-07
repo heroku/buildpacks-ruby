@@ -3,7 +3,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 use crate::layers::{InAppDirCacheLayer, RubyVersionInstallLayer};
-use crate::lib::gemfile_lock::{GemfileLock, GemfileLockError, RubyVersion};
+use crate::lib::gemfile_lock::{GemfileLock, GemfileLockError};
 use crate::lib::GemList;
 // use heroku_ruby_buildpack as _;
 
@@ -86,26 +86,26 @@ impl Buildpack for RubyBuildpack {
         let mut env = DefaultEnv::call(&context, &context.platform.env().clone())?;
 
         // Gather static information about project
-        let gemfile_lock = std::fs::read_to_string(context.app_dir.join("Gemfile.lock")).unwrap();
-        let bundle_info = GemfileLock::from_str(&gemfile_lock)
+        let gemfile_lock_string =
+            std::fs::read_to_string(context.app_dir.join("Gemfile.lock")).unwrap();
+        let gemfile_lock = GemfileLock::from_str(&gemfile_lock_string)
             .map_err(RubyBuildpackError::GemfileLockParsingError)?;
+        let bundler_version = gemfile_lock.resolve_bundler("2.3.7");
+        let ruby_version = gemfile_lock.resolve_ruby("3.1.2");
 
         // ## Install executable ruby version
         let ruby_layer = context //
             .handle_layer(
                 layer_name!("ruby"),
                 RubyVersionInstallLayer {
-                    version: bundle_info.ruby_version,
+                    version: ruby_version.clone(),
                 },
             )?;
 
         env = ruby_layer.env.apply(Scope::Build, &env);
 
         // Bundle install
-        let ruby_version = crate::lib::ResolvedRubyVersion {
-            version: ruby_layer.content_metadata.metadata.version,
-        };
-        env = BundleInstall::call(ruby_version, bundle_info.bundler_version, &context, &env)?;
+        env = BundleInstall::call(ruby_version, bundler_version, &context, &env)?;
 
         println!("---> Detecting gems");
         let gem_list =

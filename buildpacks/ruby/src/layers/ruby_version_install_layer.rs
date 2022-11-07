@@ -10,7 +10,7 @@ use libcnb::build::BuildContext;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 
-use crate::RubyVersion;
+use crate::lib::gemfile_lock::ResolvedRubyVersion;
 use libcnb::data::buildpack::StackId;
 
 use serde::{Deserialize, Serialize};
@@ -36,22 +36,13 @@ When the Ruby version changes, invalidate and re-run.
 
 #[derive(PartialEq, Eq)]
 pub struct RubyVersionInstallLayer {
-    pub version: RubyVersion,
+    pub version: ResolvedRubyVersion,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct RubyMetadata {
     pub version: String,
     pub stack: StackId,
-}
-
-impl RubyVersionInstallLayer {
-    pub fn version_string(&self) -> String {
-        match &self.version {
-            RubyVersion::Explicit(v) => v.clone(),
-            RubyVersion::Default => String::from("3.1.2"),
-        }
-    }
 }
 
 use url::Url;
@@ -73,15 +64,12 @@ impl Layer for RubyVersionInstallLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        println!(
-            "---> Download and extracting Ruby {}",
-            &self.version_string()
-        );
+        println!("---> Download and extracting Ruby {}", &self.version);
 
         let tmp_ruby_tgz =
             NamedTempFile::new().map_err(RubyBuildpackError::CouldNotCreateTemporaryFile)?;
 
-        let url = RubyVersionInstallLayer::download_url(&context.stack_id, &self.version_string())
+        let url = RubyVersionInstallLayer::download_url(&context.stack_id, &self.version)
             .map_err(RubyBuildpackError::UrlParseError)?;
 
         util::download(url.as_ref(), tmp_ruby_tgz.path())
@@ -90,7 +78,7 @@ impl Layer for RubyVersionInstallLayer {
         util::untar(tmp_ruby_tgz.path(), layer_path).map_err(RubyBuildpackError::RubyUntarError)?;
 
         LayerResultBuilder::new(RubyMetadata {
-            version: self.version_string(),
+            version: self.version.to_string(),
             stack: context.stack_id.clone(),
         })
         .build()
@@ -102,17 +90,16 @@ impl Layer for RubyVersionInstallLayer {
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
         if context.stack_id == layer_data.content_metadata.metadata.stack {
-            if self.version_string() == layer_data.content_metadata.metadata.version {
+            if self.version.to_string() == layer_data.content_metadata.metadata.version {
                 println!(
                     "---> Using previously installed Ruby version {}",
-                    self.version_string()
+                    self.version
                 );
                 Ok(ExistingLayerStrategy::Keep)
             } else {
                 println!(
                     "---> Changing Ruby version from {} to {}",
-                    layer_data.content_metadata.metadata.version,
-                    self.version_string()
+                    layer_data.content_metadata.metadata.version, self.version
                 );
                 Ok(ExistingLayerStrategy::Recreate)
             }

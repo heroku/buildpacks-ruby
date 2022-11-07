@@ -10,7 +10,7 @@ use libcnb::build::BuildContext;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 
-use crate::lib::gemfile_lock::ResolvedRubyVersion;
+use commons::gemfile_lock::ResolvedRubyVersion;
 use libcnb::data::buildpack::StackId;
 
 use serde::{Deserialize, Serialize};

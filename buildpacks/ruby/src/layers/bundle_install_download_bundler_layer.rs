@@ -1,5 +1,5 @@
-use crate::lib::gemfile_lock::ResolvedBundlerVersion;
 use crate::RubyBuildpackError;
+use commons::gemfile_lock::ResolvedBundlerVersion;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use serde::{Deserialize, Serialize};
 

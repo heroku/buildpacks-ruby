@@ -3,9 +3,8 @@
 #![allow(clippy::module_name_repetitions)]
 
 use crate::layers::{InAppDirCacheLayer, RubyVersionInstallLayer};
-use crate::lib::gemfile_lock::{GemfileLock, GemfileLockError};
 use crate::lib::GemList;
-// use heroku_ruby_buildpack as _;
+use commons::gemfile_lock::{GemfileLock, GemfileLockError};
 
 use crate::lib::gem_list::GemListError;
 use crate::lib::rake_detect::RakeDetectError;
@@ -86,9 +85,9 @@ impl Buildpack for RubyBuildpack {
         let mut env = DefaultEnv::call(&context, &context.platform.env().clone())?;
 
         // Gather static information about project
-        let gemfile_lock_string =
+        let lockfile_contents =
             std::fs::read_to_string(context.app_dir.join("Gemfile.lock")).unwrap();
-        let gemfile_lock = GemfileLock::from_str(&gemfile_lock_string)
+        let gemfile_lock = GemfileLock::from_str(&lockfile_contents)
             .map_err(RubyBuildpackError::GemfileLockParsingError)?;
         let bundler_version = gemfile_lock.resolve_bundler("2.3.7");
         let ruby_version = gemfile_lock.resolve_ruby("3.1.2");

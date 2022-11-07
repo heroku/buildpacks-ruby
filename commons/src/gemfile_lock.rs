@@ -7,36 +7,37 @@ use std::fmt::Display;
 /// Before installing bundler or Ruby versions we first need information about the application.
 /// This struct holds both of these values. When no value is present it will return a `Default`
 /// enum.
-/// ```
+/// ```rust
+/// use core::str::FromStr;
+/// use commons::gemfile_lock::BundlerVersion;
+/// use commons::gemfile_lock::GemfileLock;
 ///
-///          let info = GemfileLock::from_str(
-///              r#"
-///  GEM
-///    remote: https://rubygems.org/
-///    specs:
-///      mini_histogram (0.3.1)
+/// let contents = r#"
+/// GEM
+///   remote: https://rubygems.org/
+///   specs:
+///     mini_histogram (0.3.1)
 ///
-///  PLATFORMS
-///    ruby
-///    x86_64-darwin-20
-///    x86_64-linux
+/// PLATFORMS
+///   ruby
+///   x86_64-darwin-20
+///   x86_64-linux
 ///
-///  DEPENDENCIES
-///    mini_histogram
+/// DEPENDENCIES
+///   mini_histogram
 ///
-///  RUBY VERSION
-///     ruby 3.1.0p-1
+/// RUBY VERSION
+///    ruby 3.1.0p-1
 ///
-///  BUNDLED WITH
-///     2.3.4
-///  "#,
-///          )
-///          .unwrap();
+/// BUNDLED WITH
+///    2.3.4
+/// "#;
+/// let info = GemfileLock::from_str(contents).unwrap();
 ///
-///          assert_eq!(
-///              info.bundler_version,
-///              BundlerVersion::Explicit("2.3.4".to_string())
-///          );
+/// assert_eq!(
+///     info.bundler_version,
+///     BundlerVersion::Explicit("2.3.4".to_string())
+/// );
 /// ```
 ///
 #[derive(Debug)]

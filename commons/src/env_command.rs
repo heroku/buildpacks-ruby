@@ -1,4 +1,5 @@
-use libcnb::Env;
+use std::borrow::Borrow;
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fmt;
 use std::io::BufRead;
@@ -13,6 +14,8 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use std::thread;
+
+// type IntoEnvMap = Into<HashMap<OsString, OsString>>;
 
 /// # Run a command, with an env!
 ///
@@ -81,7 +84,7 @@ use std::thread;
 pub struct EnvCommand {
     base: OsString,
     args: Vec<OsString>,
-    env: Env,
+    env: HashMap<OsString, OsString>,
     show_env_keys: Vec<OsString>,
     on_non_zero_exit:
         Box<dyn Fn(NonZeroExitStatusError) -> Result<EnvCommandResult, NonZeroExitStatusError>>,
@@ -122,14 +125,21 @@ impl EnvCommand {
     /// Main entrypoint, builds a struct with defaults and the arguments
     /// given
     #[allow(dead_code)]
-    pub fn new(base: &str, args: &[&str], env: &Env) -> Self {
+    pub fn new<T: IntoIterator<Item = (K, V)>, K: Into<OsString>, V: Into<OsString>>(
+        base: &str,
+        args: &[&str],
+        env: T,
+    ) -> Self {
         EnvCommand {
             base: base.into(),
             args: args
                 .iter()
                 .map(std::convert::Into::into)
                 .collect::<Vec<OsString>>(),
-            env: env.clone(),
+            env: env
+                .into_iter()
+                .map(|(k, v)| (k.into(), v.into()))
+                .collect::<HashMap<OsString, OsString>>(),
             show_env_keys: Vec::new(),
             on_non_zero_exit: Box::new(Err),
         }
@@ -341,12 +351,13 @@ impl EnvCommand {
         (self.on_non_zero_exit)(error).map_err(EnvCommandError::UnexpectedExitStatusError)
     }
 
-    pub fn to_string(
+    pub fn to_string<T: Borrow<HashMap<OsString, OsString>>>(
         command: &Command,
         show_env_keys: impl Iterator<Item = impl Into<OsString>>,
-        env: &Env,
+        env: T,
     ) -> String {
         let escape_pattern = Regex::new(r"([^A-Za-z0-9_\-.,:/@\n])").unwrap(); // https://github.com/jimmycuadra/rust-shellwords/blob/d23b853a850ceec358a4137d5e520b067ddb7abc/src/lib.rs#L23
+        let env = env.borrow();
 
         // Env keys
         show_env_keys
@@ -355,7 +366,7 @@ impl EnvCommand {
                 format!(
                     "{}={:?}",
                     key.to_string_lossy(),
-                    env.get(key.clone()).unwrap_or_else(|| OsString::from(""))
+                    env.get(&key).cloned().unwrap_or_else(|| OsString::from(""))
                 )
             })
             // Main command
@@ -392,6 +403,7 @@ impl fmt::Display for EnvCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use libcnb::Env;
 
     #[test]
     fn test_to_string() {

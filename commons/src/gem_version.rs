@@ -1,7 +1,8 @@
+use fancy_regex::Regex;
 use std::cmp;
 use std::cmp::Ordering;
 use std::fmt;
-use std::str::FromStr;
+use std::str::FromStr; // needed for lookahead/behind
 
 /// # Struct to hold semver-ish versions for comparison
 ///
@@ -13,10 +14,8 @@ use std::str::FromStr;
 /// Example:
 ///
 /// ```rust
-/// panic!("Not actually run: error: no library targets found in package `heroku-ruby-buildpack`");
-///
 /// use std::str::FromStr;
-/// use crate::gem_version::GemVersion;
+/// use commons::gem_version::GemVersion;
 ///
 /// let version = GemVersion::from_str("1.0.0").unwrap();
 /// assert!(version < GemVersion::from_str("2.0.0").unwrap());
@@ -50,13 +49,13 @@ impl FromStr for GemVersion {
                 segments: vec![VersionSegment::U32(0)],
             })
         } else {
-            let validation_regex = fancy_regex::Regex::new(
+            let validation_regex = Regex::new(
                 "\\A\\s*([0-9]+(?>\\.[0-9a-zA-Z]+)*(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?)?\\s*\\z",
             )
             .expect("Internal Error: Invalid Regular Expression!");
 
-            let segment_regex = fancy_regex::Regex::new("[0-9]+|[a-z]+")
-                .expect("Internal Error: Invalid Regular Expression!");
+            let segment_regex =
+                Regex::new("[0-9]+|[a-z]+").expect("Internal Error: Invalid Regular Expression!");
 
             if validation_regex.is_match(version_string).unwrap_or(false) {
                 let (segments_l, segments_r) = segment_regex

@@ -164,6 +164,7 @@ checksum = "fff857943da45f546682664a79488be82e69e43c1a7a2307679ab9afb3a66d2e"
 name = "commons"
 version = "0.1.0"
 dependencies = [
+ "fancy-regex",
  "libcnb",
  "regex",
  "thiserror",
@@ -389,7 +390,6 @@ version = "0.0.0"
 dependencies = [
  "byte-unit",
  "commons",
- "fancy-regex",
  "filetime",
  "flate2",
  "fs_extra",

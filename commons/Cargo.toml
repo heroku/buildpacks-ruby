@@ -7,6 +7,9 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-libcnb = "0.11.0"
 regex = "1.6.0"
 thiserror = "1.0.36"
+fancy-regex = "0.10.0"
+
+[dev-dependencies]
+libcnb = "0.11.0"

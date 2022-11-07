@@ -1,5 +1,6 @@
 use core::str::FromStr;
 use regex::Regex;
+use std::fmt::Display;
 
 /// # Parse and store contents of Gemfile.lock
 ///
@@ -44,9 +45,50 @@ pub struct GemfileLock {
     pub ruby_version: RubyVersion,
 }
 
+impl GemfileLock {
+    pub fn resolve_ruby(&self, default: &str) -> ResolvedRubyVersion {
+        match &self.ruby_version {
+            RubyVersion::Explicit(version) => ResolvedRubyVersion {
+                version: version.to_string(),
+            },
+            RubyVersion::Default => ResolvedRubyVersion {
+                version: default.to_string(),
+            },
+        }
+    }
+
+    pub fn resolve_bundler(&self, default: &str) -> ResolvedBundlerVersion {
+        match &self.bundler_version {
+            BundlerVersion::Explicit(version) => ResolvedBundlerVersion {
+                version: version.to_string(),
+            },
+            BundlerVersion::Default => ResolvedBundlerVersion {
+                version: default.to_string(),
+            },
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ResolvedRubyVersion {
     pub version: String,
+}
+
+impl Display for ResolvedRubyVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.version)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ResolvedBundlerVersion {
+    pub version: String,
+}
+
+impl Display for ResolvedBundlerVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.version)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

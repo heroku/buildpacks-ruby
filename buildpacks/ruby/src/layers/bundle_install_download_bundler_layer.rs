@@ -1,3 +1,4 @@
+use crate::lib::gemfile_lock::ResolvedBundlerVersion;
 use crate::RubyBuildpackError;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use serde::{Deserialize, Serialize};
@@ -5,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use commons::env_command::EnvCommand;
 use std::path::Path;
 
-use crate::lib::gemfile_lock::BundlerVersion;
 use crate::RubyBuildpack;
 use libcnb::build::BuildContext;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
@@ -38,17 +38,8 @@ to `GEM_PATH` which tells rubygems where it can search for gems.
 
 */
 pub struct BundleInstallDownloadBundlerLayer {
-    pub version: BundlerVersion,
+    pub version: ResolvedBundlerVersion,
     pub env: Env,
-}
-
-impl BundleInstallDownloadBundlerLayer {
-    fn version_string(&self) -> String {
-        match &self.version {
-            BundlerVersion::Explicit(v) => v.clone(),
-            BundlerVersion::Default => String::from("2.3.7"),
-        }
-    }
 }
 
 impl Layer for BundleInstallDownloadBundlerLayer {
@@ -67,7 +58,7 @@ impl Layer for BundleInstallDownloadBundlerLayer {
         _context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        println!("---> Installing bundler {}", self.version_string());
+        println!("---> Installing bundler {}", self.version);
 
         EnvCommand::new(
             "gem",
@@ -78,7 +69,7 @@ impl Layer for BundleInstallDownloadBundlerLayer {
                 "--no-document", // Don't install ri or rdoc which takes extra time
                 "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
                 "--version",     // Specify exact version to install
-                &self.version_string(),
+                &self.version.to_string(),
                 "--install-dir", // Directory where bundler's contents will live
                 &layer_path.to_string_lossy(),
                 "--bindir", // Directory where `bundle` executable lives
@@ -90,7 +81,7 @@ impl Layer for BundleInstallDownloadBundlerLayer {
         .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
 
         LayerResultBuilder::new(BundleInstallDownloadBundlerLayerMetadata {
-            version: self.version_string(),
+            version: self.version.to_string(),
         })
         .env(
             LayerEnv::new()
@@ -118,8 +109,8 @@ impl Layer for BundleInstallDownloadBundlerLayer {
         layer: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
         let old_version = &layer.content_metadata.metadata.version;
-        if &self.version_string() == old_version {
-            println!("---> Bundler {} already installed", self.version_string());
+        if &self.version.to_string() == old_version {
+            println!("---> Bundler {} already installed", self.version);
             Ok(ExistingLayerStrategy::Keep)
         } else {
             println!(

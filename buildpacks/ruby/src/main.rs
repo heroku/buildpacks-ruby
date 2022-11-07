@@ -24,7 +24,8 @@ use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 
-use crate::lib::env_command::EnvCommandError;
+use commons::env_command::EnvCommandError;
+
 #[cfg(test)]
 use libcnb_test as _;
 

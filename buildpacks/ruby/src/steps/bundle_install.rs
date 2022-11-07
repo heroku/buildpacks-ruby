@@ -2,8 +2,9 @@ use libcnb::Env;
 use libcnb::{build::BuildContext, data::layer_name, layer_env::Scope};
 
 use crate::layers::{BundleInstallConfigureEnvLayer, BundleInstallDownloadBundlerLayer};
-use crate::lib::{BundlerVersion, EnvCommand, ResolvedRubyVersion};
+use crate::lib::{BundlerVersion, ResolvedRubyVersion};
 use crate::{layers::BundleInstallCreatePathLayer, RubyBuildpack, RubyBuildpackError};
+use commons::env_command::EnvCommand;
 
 pub struct BundleInstall;
 

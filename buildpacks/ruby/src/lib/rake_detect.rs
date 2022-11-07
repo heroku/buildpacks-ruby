@@ -1,7 +1,7 @@
 use core::str::FromStr;
 use regex::Regex;
 
-use crate::lib::env_command::{EnvCommand, EnvCommandError};
+use commons::env_command::{EnvCommand, EnvCommandError};
 use libcnb::Env;
 
 /// Run `rake -P` and parse output to show what rake tasks an application has

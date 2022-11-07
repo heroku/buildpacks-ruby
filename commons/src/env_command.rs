@@ -26,9 +26,8 @@ use std::thread;
 /// Example:
 ///
 /// ```rust,no_run
-/// use heroku_ruby_buildpack::env_command::EnvCommand;
+/// use commons::env_command::EnvCommand;
 /// use libcnb::Env;
-/// lakjsdflkajsdflkjasdfkljasdf
 ///
 /// let env = Env::new();
 /// let mut command = EnvCommand::new("echo", &["hello world"], &env);
@@ -50,7 +49,7 @@ use std::thread;
 /// The command can advertize itself via `to_string()`:
 ///
 /// ```rust,no_run
-/// use heroku_ruby_buildpack::env_command::EnvCommand;
+/// use commons::env_command::EnvCommand;
 /// use libcnb::Env;
 ///
 ///
@@ -67,7 +66,7 @@ use std::thread;
 /// The command can advertize itself with accept list env vars via `show_env_keys()`:
 ///
 /// ```rust,no_run
-/// use heroku_ruby_buildpack::env_command::EnvCommand;
+/// use commons::env_command::EnvCommand;
 /// use libcnb::Env;
 ///
 /// let mut env = Env::new();
@@ -140,7 +139,7 @@ impl EnvCommand {
     /// `Display` is called on it.
     ///
     /// ```rust,no_run
-    /// use heroku_ruby_buildpack::env_command::EnvCommand;
+    /// use commons::env_command::EnvCommand;
     /// use libcnb::Env;
     ///
     /// let mut env = Env::new();
@@ -177,7 +176,7 @@ impl EnvCommand {
     /// Runs the command silently and capture STDOUT & STDERR
     ///
     /// ```rust,no_run
-    /// use heroku_ruby_buildpack::env_command::EnvCommand;
+    /// use commons::env_command::EnvCommand;
     /// use libcnb::Env;
     ///
     /// let env = Env::new();
@@ -221,7 +220,7 @@ impl EnvCommand {
     /// Runs the command and streams contents to STDOUT/STDERR
     ///
     /// ```rust,no_run
-    /// use heroku_ruby_buildpack::env_command::EnvCommand;
+    /// use commons::env_command::EnvCommand;
     /// use libcnb::Env;
     ///
     /// let env = Env::new();
@@ -260,7 +259,7 @@ impl EnvCommand {
     /// use this method to implement custom behavior.
     ///
     /// ```rust,no_run
-    /// use heroku_ruby_buildpack::env_command::EnvCommand;
+    /// use commons::env_command::EnvCommand;
     /// use libcnb::Env;
     ///
     /// let env = Env::new();

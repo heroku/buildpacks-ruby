@@ -2,7 +2,7 @@ use crate::RubyBuildpackError;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use serde::{Deserialize, Serialize};
 
-use crate::lib::env_command::EnvCommand;
+use commons::env_command::EnvCommand;
 use std::path::Path;
 
 use crate::lib::gemfile_lock::BundlerVersion;

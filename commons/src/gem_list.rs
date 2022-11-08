@@ -1,10 +1,10 @@
 use core::str::FromStr;
 use regex::Regex;
 use std::collections::HashMap;
+use std::ffi::OsString;
 
-use commons::env_command::{EnvCommand, EnvCommandError};
-use commons::gem_version::GemVersion;
-use libcnb::Env;
+use crate::env_command::{EnvCommand, EnvCommandError};
+use crate::gem_version::GemVersion;
 
 // ## Gets list of an application's dependencies
 //
@@ -27,6 +27,10 @@ pub enum GemListError {
 /// Converts the output of `$ gem list` into a data structure that can be inspected and compared
 ///
 /// ```
+/// use commons::gem_list::GemList;
+/// use commons::gem_version::GemVersion;
+/// use std::str::FromStr;
+///
 ///         let gem_list = GemList::from_str(
 ///             r#"
 /// Gems included by the bundle:
@@ -46,7 +50,7 @@ pub enum GemListError {
 ///   * railties (6.1.4.1)
 /// Use `bundle info` to print more detailed information about a gem
 ///             "#,
-///         )
+///         ).unwrap();
 ///
 ///         assert!(gem_list.has("railties"));
 ///
@@ -58,7 +62,13 @@ pub enum GemListError {
 #[allow(dead_code)]
 impl GemList {
     // Calls `bundle list` and returns a `GemList` struct
-    pub fn from_bundle_list(env: &Env) -> Result<Self, GemListError> {
+    pub fn from_bundle_list<
+        T: IntoIterator<Item = (K, V)>,
+        K: Into<OsString>,
+        V: Into<OsString>,
+    >(
+        env: T,
+    ) -> Result<Self, GemListError> {
         let output = EnvCommand::new("bundle", &["list"], env)
             .call()
             .map_err(GemListError::BundleListShellCommandError)?;

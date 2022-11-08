@@ -3,11 +3,11 @@
 #![allow(clippy::module_name_repetitions)]
 
 use crate::layers::{InAppDirCacheLayer, RubyVersionInstallLayer};
-use crate::lib::GemList;
+use commons::gem_list::GemList;
 use commons::gemfile_lock::{GemfileLock, GemfileLockError};
 
-use crate::lib::gem_list::GemListError;
 use crate::lib::rake_detect::RakeDetectError;
+use commons::gem_list::GemListError;
 use regex::Regex;
 
 use crate::steps::bundle_install::BundleInstall;

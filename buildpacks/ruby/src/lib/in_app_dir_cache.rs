@@ -1,8 +1,9 @@
 use crate::InAppDirCacheLayer;
-use crate::RubyBuildpack;
 use fs_extra::dir::CopyOptions;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
+use libcnb::Buildpack;
+use std::marker::PhantomData;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::path::PathBuf;
@@ -31,23 +32,20 @@ pub struct InAppDirCache {
     pub cache_path: PathBuf,
 }
 
-pub struct InAppDirCacheWithLayername;
+pub struct InAppDirCacheWithLayername<B> {
+    buildpack: PhantomData<B>,
+}
 
-impl InAppDirCacheWithLayername {
+impl<B: Buildpack> InAppDirCacheWithLayername<B> {
     pub fn new_and_load(
-        context: &BuildContext<RubyBuildpack>,
+        context: &BuildContext<B>,
         name: LayerName,
         app_path: &Path,
     ) -> InAppDirCache {
         let app_path = app_path.to_path_buf();
 
         let cache_path = context
-            .handle_layer(
-                name,
-                InAppDirCacheLayer {
-                    app_dir_path: app_path.clone(),
-                },
-            )
+            .handle_layer(name, InAppDirCacheLayer::new(app_path.clone()))
             .unwrap()
             .path;
 

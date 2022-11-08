@@ -164,9 +164,15 @@ checksum = "fff857943da45f546682664a79488be82e69e43c1a7a2307679ab9afb3a66d2e"
 name = "commons"
 version = "0.1.0"
 dependencies = [
+ "byte-unit",
  "fancy-regex",
+ "filetime",
+ "fs_extra",
+ "glob",
  "libcnb",
  "regex",
+ "serde",
+ "tempfile",
  "thiserror",
 ]
 
@@ -348,7 +354,7 @@ dependencies = [
 [[package]]
 name = "glob"
 version = "0.3.0"
-source = "git+https://github.com/rust-lang/glob#d533867659a7df478d8bd53329af33b99f3e4130"
+source = "git+https://github.com/rust-lang/glob#5a5aad93339c8dcf88bf000a1868f0c04ccbf819"
 
 [[package]]
 name = "h2"
@@ -390,9 +396,7 @@ version = "0.0.0"
 dependencies = [
  "byte-unit",
  "commons",
- "filetime",
  "flate2",
- "fs_extra",
  "glob",
  "libcnb",
  "libcnb-test",

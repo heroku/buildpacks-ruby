@@ -3,10 +3,9 @@ use libcnb::Env;
 
 use crate::RubyBuildpackError;
 
-use crate::lib::in_app_dir_cache::InAppDirCache;
-use crate::lib::InAppDirCacheWithLayername;
 use commons::env_command::EnvCommand;
 use commons::gem_list::GemList;
+use commons::in_app_dir_cache::{InAppDirCache, InAppDirCacheWithLayername};
 use commons::rake_detect::RakeDetect;
 use std::path::Path;
 
@@ -151,7 +150,7 @@ impl RakeApplicationTasksExecute {
                         assets_clean.stream().unwrap();
 
                         public_assets_cache.copy_app_path_to_cache();
-                        fragments_cache.move_app_path_to_cache();
+                        fragments_cache.destructive_move_app_path_to_cache();
 
                         clean_stale_files_in_cache(
                             &fragments_cache,

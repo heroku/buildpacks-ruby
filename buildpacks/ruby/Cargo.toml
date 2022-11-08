@@ -7,10 +7,9 @@ edition = "2021"
 rust-version = "1.64"
 
 [dependencies]
+commons = {path = "../../commons" }
 byte-unit = "4.0.14"
-glob = { git = "https://github.com/rust-lang/glob"} # https://github.com/rust-lang/glob/issues/117
 libcnb = "0.11.0"
-tempfile = "3.3.0"
 flate2 = "1"
 ureq = "2.5.0"
 tar = "0.4"
@@ -19,10 +18,9 @@ url = "2.3.1"
 thiserror = "1.0.36"
 regex = "1.6.0"
 rand = "0.8.5"
-fs_extra = "1.2.0"
-commons = {path = "../../commons" }
+glob = { git = "https://github.com/rust-lang/glob" } # https://github.com/rust-lang/glob/issues/117
+tempfile = "3.3.0"
 
 [dev-dependencies]
 libcnb-test = "0.11.0"
-filetime = "0.2.18"
 toml = "0.5.9"

@@ -1,4 +1,4 @@
-use crate::InAppDirCacheLayer;
+use crate::in_app_dir_cache_layer::InAppDirCacheLayer;
 use fs_extra::dir::CopyOptions;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
@@ -14,16 +14,45 @@ use byte_unit::Byte;
 ///
 /// Example:
 ///
-/// ```rust,no_run,not-actually-run-since-not-exposed-in-lib.rs
-/// let public_assets_cache = InAppDirCacheWithLayername::new_and_load(
-///     &context,
-///     layer_name!("public_assets"),
-///     &context.app_dir.join("public").join("assets"),
-/// );
+///```rust
+/// use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
+/// use libcnb::data::launch::{LaunchBuilder, ProcessBuilder};
+/// use libcnb::data::process_type;
+/// use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
+/// use libcnb::generic::{GenericError, GenericMetadata, GenericPlatform};
+/// use libcnb::{buildpack_main, Buildpack};
+/// use libcnb::data::layer_name;
+/// use libcnb::data::layer::LayerName;
 ///
-/// assets_precompile.call().unwrap();
+/// pub(crate) struct HelloWorldBuildpack;
 ///
-/// public_assets_cache.to_cache();
+/// use commons::in_app_dir_cache::InAppDirCacheWithLayername;
+///
+/// impl Buildpack for HelloWorldBuildpack {
+///     type Platform = GenericPlatform;
+///     type Metadata = GenericMetadata;
+///     type Error = GenericError;
+///
+///     fn detect(&self, _context: DetectContext<Self>) -> libcnb::Result<DetectResult, Self::Error> {
+///         todo!()
+///     }
+///
+///     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
+///         println!("Hello World!");
+///
+///         let public_assets_cache = InAppDirCacheWithLayername::new_and_load(
+///             &context,
+///             layer_name!("public_assets"),
+///             &context.app_dir.join("public").join("assets"),
+///         );
+///
+///         std::fs::write(context.app_dir.join("public").join("assets").join("lol"), "hahaha");
+///
+///         public_assets_cache.copy_app_path_to_cache();
+///
+///         todo!()
+///     }
+/// }
 /// ```
 ///
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -81,7 +110,7 @@ impl InAppDirCache {
         self
     }
 
-    pub fn move_app_path_to_cache(&self) {
+    pub fn destructive_move_app_path_to_cache(&self) {
         println!("---> Storing cache for {}", self.app_path.display());
         fs_extra::dir::move_dir(
             &self.app_path,
@@ -189,65 +218,77 @@ impl FilesWithSize {
 #[cfg(test)]
 mod tests {
     use byte_unit::n_mib_bytes;
-    use libcnb::data::layer_name;
 
     use super::*;
-    use crate::test_helper::touch_file;
 
-    #[test]
-    fn test_makes_layer_correctly() {
-        let tmp_context =
-            crate::test_helper::TempContext::new(include_str!("../../buildpack.toml"));
-
-        let app_path = tmp_context.build.app_dir.join("hahaha");
-
-        assert!(!app_path.exists());
-        let cache = InAppDirCacheWithLayername::new_and_load(
-            &tmp_context.build,
-            layer_name!("lol"),
-            &app_path,
-        );
-
-        assert!(cache.app_path.exists()); // Creates app path
-        assert_eq!(cache.app_path, app_path);
-        assert_eq!(cache.cache_path, tmp_context.build.layers_dir.join("lol"));
+    pub fn touch_file(path: &PathBuf, f: impl FnOnce(&PathBuf)) {
+        if let Some(parent) = path.parent() {
+            println!("path {:?}", path);
+            println!("parent {:?}", parent);
+            if !parent.exists() {
+                std::fs::create_dir_all(parent).unwrap();
+            }
+        }
+        std::fs::write(&path, "").unwrap();
+        f(path);
+        std::fs::remove_file(&path).unwrap();
     }
 
-    #[test]
-    fn test_makes_app_dir_if_it_doesnt_already_exist() {
-        let tmp_context =
-            crate::test_helper::TempContext::new(include_str!("../../buildpack.toml"));
-        let cache = InAppDirCacheWithLayername::new_and_load(
-            &tmp_context.build,
-            layer_name!("lol"),
-            &tmp_context
-                .build
-                .app_dir
-                .join("make")
-                .join("path")
-                .join("here"),
-        );
+    // fn buildpack_toml<'a>() -> &'a str {
+    //     include_str!("../../buildpacks/ruby/buildpack.toml")
+    // }
 
-        assert!(cache.cache_path.exists());
-        assert!(cache.app_path.exists());
-    }
+    // #[test]
+    // fn test_makes_layer_correctly() {
+    //     let tmp_context = crate::test_helper::TempContext::new(buildpack_toml());
 
-    #[test]
-    fn test_populates_app_dir_automatically() {
-        let tmp_context =
-            crate::test_helper::TempContext::new(include_str!("../../buildpack.toml"));
+    //     let app_path = tmp_context.build.app_dir.join("hahaha");
 
-        let lol_layer = tmp_context.build.layers_dir.clone();
-        let app_path = tmp_context.build.app_dir.join("muh_path");
+    //     assert!(!app_path.exists());
+    //     let cache = InAppDirCacheWithLayername::new_and_load(
+    //         &tmp_context.build,
+    //         layer_name!("lol"),
+    //         &app_path,
+    //     );
 
-        std::fs::write(&lol_layer.join("lol.txt"), "lol").unwrap();
+    //     assert!(cache.app_path.exists()); // Creates app path
+    //     assert_eq!(cache.app_path, app_path);
+    //     assert_eq!(cache.cache_path, tmp_context.build.layers_dir.join("lol"));
+    // }
 
-        assert!(!app_path.exists());
+    // #[test]
+    // fn test_makes_app_dir_if_it_doesnt_already_exist() {
+    //     let tmp_context = crate::test_helper::TempContext::new(buildpack_toml());
+    //     let cache = InAppDirCacheWithLayername::new_and_load(
+    //         &tmp_context.build,
+    //         layer_name!("lol"),
+    //         &tmp_context
+    //             .build
+    //             .app_dir
+    //             .join("make")
+    //             .join("path")
+    //             .join("here"),
+    //     );
 
-        InAppDirCacheWithLayername::new_and_load(&tmp_context.build, layer_name!("lol"), &app_path);
+    //     assert!(cache.cache_path.exists());
+    //     assert!(cache.app_path.exists());
+    // }
 
-        assert!(app_path.exists());
-    }
+    // #[test]
+    // fn test_populates_app_dir_automatically() {
+    //     let tmp_context = crate::test_helper::TempContext::new(buildpack_toml());
+
+    //     let lol_layer = tmp_context.build.layers_dir.clone();
+    //     let app_path = tmp_context.build.app_dir.join("muh_path");
+
+    //     std::fs::write(&lol_layer.join("lol.txt"), "lol").unwrap();
+
+    //     assert!(!app_path.exists());
+
+    //     InAppDirCacheWithLayername::new_and_load(&tmp_context.build, layer_name!("lol"), &app_path);
+
+    //     assert!(app_path.exists());
+    // }
 
     #[test]
     fn test_copying_back_to_cache() {
@@ -294,7 +335,7 @@ mod tests {
         // Test copy logic from app to cache
         assert!(!cache.cache_path.join("lol.txt").exists());
         assert!(cache_path.read_dir().unwrap().next().is_none());
-        cache.move_app_path_to_cache();
+        cache.destructive_move_app_path_to_cache();
         assert!(cache.cache_path.join("lol.txt").exists());
         assert!(!cache.app_path.join("lol.txt").exists());
     }

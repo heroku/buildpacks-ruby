@@ -2,7 +2,7 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
-use crate::layers::{InAppDirCacheLayer, RubyVersionInstallLayer};
+use crate::layers::RubyVersionInstallLayer;
 use commons::gem_list::GemList;
 use commons::gemfile_lock::{GemfileLock, GemfileLockError};
 
@@ -34,7 +34,6 @@ use crate::util::{DownloadError, UntarError, UrlError};
 use std::process::ExitStatus;
 
 mod layers;
-mod lib;
 mod steps;
 
 #[cfg(test)]

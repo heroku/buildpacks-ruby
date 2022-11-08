@@ -115,7 +115,7 @@ impl Buildpack for RubyBuildpack {
 
         let default_process = if gem_list.has("railties") {
             ProcessBuilder::new(process_type!("web"), "bin/rails")
-                .args(["server", "--port", "$PORT", "-e", "$RAILS_ENV"])
+                .args(["server", "--port", "$PORT", "--environment", "$RAILS_ENV"])
                 .default(true)
                 .build()
         } else {

@@ -6,8 +6,8 @@ use crate::layers::{InAppDirCacheLayer, RubyVersionInstallLayer};
 use commons::gem_list::GemList;
 use commons::gemfile_lock::{GemfileLock, GemfileLockError};
 
-use crate::lib::rake_detect::RakeDetectError;
 use commons::gem_list::GemListError;
+use commons::rake_detect::RakeDetectError;
 use regex::Regex;
 
 use crate::steps::bundle_install::BundleInstall;

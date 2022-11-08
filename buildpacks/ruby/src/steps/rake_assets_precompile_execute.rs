@@ -4,10 +4,10 @@ use libcnb::Env;
 use crate::RubyBuildpackError;
 
 use crate::lib::in_app_dir_cache::InAppDirCache;
-use crate::lib::rake_detect::RakeDetect;
 use crate::lib::InAppDirCacheWithLayername;
 use commons::env_command::EnvCommand;
 use commons::gem_list::GemList;
+use commons::rake_detect::RakeDetect;
 use std::path::Path;
 
 use crate::RubyBuildpack;

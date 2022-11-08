@@ -1,14 +1,17 @@
 use core::str::FromStr;
 use regex::Regex;
+use std::ffi::OsString;
 
-use commons::env_command::{EnvCommand, EnvCommandError};
-use libcnb::Env;
+use crate::env_command::{EnvCommand, EnvCommandError};
 
 /// Run `rake -P` and parse output to show what rake tasks an application has
 ///
-/// ```
-/// let rake_detect = RakeDetect::from_rake_command(env, false).unwrap()
-/// assert!(rake_detect.has_task("assets:precompile"))
+/// ```rust,no_run
+/// use commons::rake_detect::RakeDetect;
+/// use libcnb::Env;
+///
+/// let rake_detect = RakeDetect::from_rake_command(&Env::new(), false).unwrap();
+/// assert!(!rake_detect.has_task("assets:precompile"));
 /// ```
 #[derive(Default)]
 pub struct RakeDetect {
@@ -27,7 +30,14 @@ pub enum RakeDetectError {
 
 impl RakeDetect {
     #[allow(dead_code)]
-    pub fn from_rake_command(env: &Env, error_on_failure: bool) -> Result<Self, RakeDetectError> {
+    pub fn from_rake_command<
+        T: IntoIterator<Item = (K, V)>,
+        K: Into<OsString>,
+        V: Into<OsString>,
+    >(
+        env: T,
+        error_on_failure: bool,
+    ) -> Result<Self, RakeDetectError> {
         let mut command = EnvCommand::new("bundle", &["exec", "rake", "-P", "--trace"], env);
         let outcome = command
             .on_non_zero_exit(move |error| {

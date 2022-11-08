@@ -1,8 +1,8 @@
-use crate::RubyBuildpackError;
 use libcnb::data::layer_content_metadata::LayerTypes;
+use libcnb::Buildpack;
+use std::marker::PhantomData;
 use std::path::Path;
 
-use crate::RubyBuildpack;
 use libcnb::build::BuildContext;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 
@@ -28,8 +28,9 @@ for faster deploys, and also allows for prior generated asssets to remain on the
 */
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct InAppDirCacheLayer {
+pub struct InAppDirCacheLayer<B> {
     pub app_dir_path: PathBuf,
+    buildpack: PhantomData<B>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -37,8 +38,20 @@ pub struct InAppDirCacheLayerMetadata {
     app_dir_path: PathBuf,
 }
 
-impl Layer for InAppDirCacheLayer {
-    type Buildpack = RubyBuildpack;
+impl<B> InAppDirCacheLayer<B> {
+    pub fn new(app_dir_path: PathBuf) -> Self {
+        Self {
+            app_dir_path,
+            buildpack: PhantomData,
+        }
+    }
+}
+
+impl<B> Layer for InAppDirCacheLayer<B>
+where
+    B: Buildpack,
+{
+    type Buildpack = B;
     type Metadata = InAppDirCacheLayerMetadata;
 
     fn types(&self) -> LayerTypes {
@@ -53,7 +66,7 @@ impl Layer for InAppDirCacheLayer {
         &self,
         _context: &BuildContext<Self::Buildpack>,
         _layer_path: &Path,
-    ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
+    ) -> Result<LayerResult<Self::Metadata>, B::Error> {
         println!("---> Creating cache for {}", self.app_dir_path.display());
 
         LayerResultBuilder::new(InAppDirCacheLayerMetadata {
@@ -66,7 +79,7 @@ impl Layer for InAppDirCacheLayer {
         &self,
         _context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
-    ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
+    ) -> Result<ExistingLayerStrategy, B::Error> {
         if self.app_dir_path == layer_data.content_metadata.metadata.app_dir_path {
             println!("---> Loading cache for {}", self.app_dir_path.display());
 

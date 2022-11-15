@@ -125,7 +125,7 @@ impl RakeApplicationTasksExecute {
                     .map_err(RubyBuildpackError::RakeDetectError)?;
                 if rake_detect.has_task("assets:precompile") {
                     let assets_precompile =
-                        EnvCommand::new("rake", &["assets:precompile", "--trace"], env);
+                        EnvCommand::new("bundle exec rake", &["assets:precompile", "--trace"], env);
 
                     let public_assets_cache = InAppDirCacheWithLayer::new_and_load(
                         context,
@@ -143,7 +143,7 @@ impl RakeApplicationTasksExecute {
                         println!("    Rake task `rake assets:clean` found, running");
 
                         let assets_clean =
-                            EnvCommand::new("rake", &["assets:clean", "--trace"], env);
+                            EnvCommand::new("bundle exec rake", &["assets:clean", "--trace"], env);
                         assets_clean.stream().unwrap();
 
                         public_assets_cache.copy_app_path_to_cache();

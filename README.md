@@ -114,7 +114,7 @@ This buildpack does not port all behaviors of the original buildpack for Ruby (h
 - Run:
 
 ```
-cargo libcnb package
+cd buildpacks/ruby && cargo libcnb package ; cd -
 ```
 
 - Build the app:

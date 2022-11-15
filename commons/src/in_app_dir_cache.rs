@@ -15,34 +15,31 @@ use byte_unit::Byte;
 /// Example:
 ///
 ///```rust
-/// use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
-/// use libcnb::data::launch::{LaunchBuilder, ProcessBuilder};
-/// use libcnb::data::process_type;
-/// use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
-/// use libcnb::generic::{GenericError, GenericMetadata, GenericPlatform};
-/// use libcnb::{buildpack_main, Buildpack};
-/// use libcnb::data::layer_name;
-/// use libcnb::data::layer::LayerName;
+///# use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
+///# use libcnb::data::launch::{LaunchBuilder, ProcessBuilder};
+///# use libcnb::data::process_type;
+///# use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
+///# use libcnb::generic::{GenericError, GenericMetadata, GenericPlatform};
+///# use libcnb::{buildpack_main, Buildpack};
+///# use libcnb::data::layer_name;
+///# use libcnb::data::layer::LayerName;
 ///
-/// pub(crate) struct HelloWorldBuildpack;
+///# pub(crate) struct HelloWorldBuildpack;
 ///
-/// use commons::in_app_dir_cache::InAppDirCacheWithLayername;
+///use commons::in_app_dir_cache::InAppDirCacheWithLayer;
 ///
-/// impl Buildpack for HelloWorldBuildpack {
-///     type Platform = GenericPlatform;
-///     type Metadata = GenericMetadata;
-///     type Error = GenericError;
+///# impl Buildpack for HelloWorldBuildpack {
+///#     type Platform = GenericPlatform;
+///#     type Metadata = GenericMetadata;
+///#     type Error = GenericError;
 ///
-///     fn detect(&self, _context: DetectContext<Self>) -> libcnb::Result<DetectResult, Self::Error> {
-///         todo!()
-///     }
+///#     fn detect(&self, _context: DetectContext<Self>) -> libcnb::Result<DetectResult, Self::Error> {
+///#         todo!()
+///#     }
 ///
-///     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
-///         println!("Hello World!");
-///
-///         let public_assets_cache = InAppDirCacheWithLayername::new_and_load(
+///#     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
+///         let public_assets_cache = InAppDirCacheWithLayer::new_and_load(
 ///             &context,
-///             layer_name!("public_assets"),
 ///             &context.app_dir.join("public").join("assets"),
 ///         );
 ///
@@ -50,9 +47,9 @@ use byte_unit::Byte;
 ///
 ///         public_assets_cache.copy_app_path_to_cache();
 ///
-///         todo!()
-///     }
-/// }
+///#         todo!()
+///#     }
+///# }
 /// ```
 ///
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -61,20 +58,40 @@ pub struct InAppDirCache {
     pub cache_path: PathBuf,
 }
 
-pub struct InAppDirCacheWithLayername<B> {
+pub struct InAppDirCacheWithLayer<B> {
     buildpack: PhantomData<B>,
 }
 
-impl<B: Buildpack> InAppDirCacheWithLayername<B> {
-    pub fn new_and_load(
-        context: &BuildContext<B>,
-        name: LayerName,
-        app_path: &Path,
-    ) -> InAppDirCache {
+fn to_layer_name(base: &Path, app_path: &Path) -> LayerName {
+    format!(
+        "cache_{}",
+        app_path
+            .strip_prefix(base)
+            .unwrap_or_else(|_| {
+                panic!(
+                    "Internal error: Expected {} to be part of {} but it was not",
+                    base.display(),
+                    app_path.display(),
+                )
+            })
+            .iter()
+            .map(|p| p.to_string_lossy())
+            .collect::<Vec<_>>()
+            .join("_")
+    )
+    .parse()
+    .unwrap()
+}
+
+impl<B: Buildpack> InAppDirCacheWithLayer<B> {
+    pub fn new_and_load(context: &BuildContext<B>, app_path: &Path) -> InAppDirCache {
         let app_path = app_path.to_path_buf();
 
         let cache_path = context
-            .handle_layer(name, InAppDirCacheLayer::new(app_path.clone()))
+            .handle_layer(
+                to_layer_name(&context.app_dir, &app_path),
+                InAppDirCacheLayer::new(app_path.clone()),
+            )
             .unwrap()
             .path;
 
@@ -217,7 +234,10 @@ impl FilesWithSize {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use byte_unit::n_mib_bytes;
+    use libcnb::data::layer_name;
 
     use super::*;
 
@@ -289,6 +309,12 @@ mod tests {
 
     //     assert!(app_path.exists());
     // }
+    #[test]
+    fn test_to_layer_name() {
+        let dir = PathBuf::from_str("muh_base").unwrap();
+        let layer = to_layer_name(&dir, &dir.join("my").join("input"));
+        assert_eq!(layer_name!("cache_my_input"), layer);
+    }
 
     #[test]
     fn test_copying_back_to_cache() {

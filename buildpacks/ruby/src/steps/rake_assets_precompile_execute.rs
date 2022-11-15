@@ -5,13 +5,12 @@ use crate::RubyBuildpackError;
 
 use commons::env_command::EnvCommand;
 use commons::gem_list::GemList;
-use commons::in_app_dir_cache::{InAppDirCache, InAppDirCacheWithLayername};
+use commons::in_app_dir_cache::{InAppDirCache, InAppDirCacheWithLayer};
 use commons::rake_detect::RakeDetect;
 use std::path::Path;
 
 use crate::RubyBuildpack;
 use libcnb::build::BuildContext;
-use libcnb::data::layer_name;
 
 pub struct RakeApplicationTasksExecute;
 
@@ -128,14 +127,12 @@ impl RakeApplicationTasksExecute {
                     let assets_precompile =
                         EnvCommand::new("rake", &["assets:precompile", "--trace"], env);
 
-                    let public_assets_cache = InAppDirCacheWithLayername::new_and_load(
+                    let public_assets_cache = InAppDirCacheWithLayer::new_and_load(
                         context,
-                        layer_name!("public_assets"),
                         &context.app_dir.join("public").join("assets"),
                     );
-                    let fragments_cache = InAppDirCacheWithLayername::new_and_load(
+                    let fragments_cache = InAppDirCacheWithLayer::new_and_load(
                         context,
-                        layer_name!("tmp_cache"),
                         &context.app_dir.join("tmp").join("cache").join("assets"),
                     );
 

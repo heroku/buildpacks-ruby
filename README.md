@@ -145,6 +145,12 @@ pack build my-image --buildpack target/buildpack/debug/heroku_ruby --path tests/
 docker run -it --rm --entrypoint='/cnb/lifecycle/launcher' my-image 'which bundle'
 ```
 
+Run it interactively:
+
+```
+$ docker run -it --rm --entrypoint='/cnb/lifecycle/launcher' my-image bash
+```
+
 Run the webserver:
 
 ```

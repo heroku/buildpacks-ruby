@@ -249,9 +249,9 @@ mod tests {
                 std::fs::create_dir_all(parent).unwrap();
             }
         }
-        std::fs::write(&path, "").unwrap();
+        std::fs::write(path, "").unwrap();
         f(path);
-        std::fs::remove_file(&path).unwrap();
+        std::fs::remove_file(path).unwrap();
     }
 
     // fn buildpack_toml<'a>() -> &'a str {

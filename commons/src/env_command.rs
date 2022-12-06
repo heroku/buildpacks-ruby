@@ -109,15 +109,22 @@ pub enum EnvCommandError {
 pub struct NonZeroExitStatusError {
     pub command: String,
     pub result: EnvCommandResult,
+    already_streamed: bool,
 }
 
 impl Display for NonZeroExitStatusError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Command {} exited with non-zero error code {} stdout:\n{}\nstderr:\n{}\n",
-            self.command, self.result.status, self.result.stdout, self.result.stderr
-        )
+        let mut output = format!(
+            "Command '{}' exited with non-zero status code '{}'\n",
+            self.command, self.result.status
+        );
+        if !self.already_streamed {
+            output.push_str(&format!(
+                "stdout: {}\nstderr{}\n",
+                self.result.stdout, self.result.stderr
+            ));
+        };
+        write!(f, "{}", output)
     }
 }
 
@@ -141,6 +148,32 @@ impl EnvCommand {
                 .map(|(k, v)| (k.into(), v.into()))
                 .collect::<HashMap<OsString, OsString>>(),
             show_env_keys: Vec::new(),
+            on_non_zero_exit: Box::new(Err),
+        }
+    }
+
+    /// New with keys defined from the beginning
+    #[allow(dead_code)]
+    pub fn new_show_keys<T: IntoIterator<Item = (K, V)>, K: Into<OsString>, V: Into<OsString>>(
+        base: &str,
+        args: &[&str],
+        env: T,
+        show_env_keys: impl IntoIterator<Item = impl Into<OsString>>,
+    ) -> Self {
+        EnvCommand {
+            base: base.into(),
+            args: args
+                .iter()
+                .map(std::convert::Into::into)
+                .collect::<Vec<OsString>>(),
+            env: env
+                .into_iter()
+                .map(|(k, v)| (k.into(), v.into()))
+                .collect::<HashMap<OsString, OsString>>(),
+            show_env_keys: show_env_keys
+                .into_iter()
+                .map(std::convert::Into::into)
+                .collect::<Vec<OsString>>(),
             on_non_zero_exit: Box::new(Err),
         }
     }
@@ -222,6 +255,7 @@ impl EnvCommand {
                     self.handle_non_zero_exit_error(NonZeroExitStatusError {
                         command: self.to_string(),
                         result,
+                        already_streamed: false,
                     })
                 }
             })
@@ -260,6 +294,7 @@ impl EnvCommand {
                     self.handle_non_zero_exit_error(NonZeroExitStatusError {
                         command: self.to_string(),
                         result,
+                        already_streamed: true,
                     })
                 }
             })

@@ -151,7 +151,7 @@ impl RakeApplicationTasksExecute {
                             env,
                         )
                         .stream()
-                        .unwrap();
+                        .map_err(RubyBuildpackError::RakeAssetsCleanFailed)?;
 
                         public_assets_cache.copy_app_path_to_cache();
                         fragments_cache.destructive_move_app_path_to_cache();

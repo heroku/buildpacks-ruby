@@ -49,15 +49,19 @@ impl BundleInstall {
 
         // ## Run `$ bundle install`
         println!("---> Installing gems");
-        let mut command = EnvCommand::new("bundle", &["install"], &env);
-        command.show_env_keys([
-            "BUNDLE_BIN",
-            "BUNDLE_CLEAN",
-            "BUNDLE_DEPLOYMENT",
-            "BUNDLE_GEMFILE",
-            "BUNDLE_PATH",
-            "BUNDLE_WITHOUT",
-        ]);
+        let command = EnvCommand::new_show_keys(
+            "bundle",
+            &["install"],
+            &env,
+            [
+                "BUNDLE_BIN",
+                "BUNDLE_CLEAN",
+                "BUNDLE_DEPLOYMENT",
+                "BUNDLE_GEMFILE",
+                "BUNDLE_PATH",
+                "BUNDLE_WITHOUT",
+            ],
+        );
 
         println!("Running: $ {} ", command);
 

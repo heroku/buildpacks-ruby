@@ -163,6 +163,12 @@ pub enum RubyBuildpackError {
     #[error("Error detecting rake tasks: {0}")]
     RakeDetectError(RakeDetectError),
 
+    #[error("Error running rake assets precompile: {0}")]
+    RakeAssetsPrecompileFailed(commons::env_command::EnvCommandError),
+
+    #[error("Error cleaning asset cache: {0}")]
+    RakeAssetsCleanFailed(commons::env_command::EnvCommandError),
+
     #[error("Error evaluating Gemfile.lock: {0}")]
     GemfileLockParsingError(GemfileLockError),
 }

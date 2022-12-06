@@ -18,9 +18,9 @@ pub fn touch_file(path: &PathBuf, f: impl FnOnce(&PathBuf)) {
             std::fs::create_dir_all(parent).unwrap();
         }
     }
-    std::fs::write(&path, "").unwrap();
+    std::fs::write(path, "").unwrap();
     f(path);
-    std::fs::remove_file(&path).unwrap();
+    std::fs::remove_file(path).unwrap();
 }
 
 #[allow(dead_code)]

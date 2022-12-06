@@ -6,6 +6,7 @@ use libcnb_test::{
 };
 use std::thread;
 use std::time::Duration;
+use thiserror::__private::DisplayAsDisplay;
 use ureq::Response;
 
 #[test]
@@ -138,13 +139,16 @@ fn request_container(
     container: &ContainerContext,
     port: u16,
     path: &str,
-) -> Result<Response, ureq::Error> {
+) -> Result<Response, Box<ureq::Error>> {
     let addr = container.address_for_port(port).unwrap();
     let req = ureq::get(&format!("http://{}:{}/{}", addr.ip(), addr.port(), path));
-    req.call()
+    req.call().map_err(Box::new)
 }
 
-fn call_root_until_boot(container: &ContainerContext, port: u16) -> Result<Response, ureq::Error> {
+fn call_root_until_boot(
+    container: &ContainerContext,
+    port: u16,
+) -> Result<Response, Box<ureq::Error>> {
     let mut count = 0;
     let max_time = 10.0; //Seconds
     let sleep = 0.1;
@@ -156,10 +160,17 @@ fn call_root_until_boot(container: &ContainerContext, port: u16) -> Result<Respo
     while count < max_count {
         count += 1;
         match response {
-            Err(ureq::Error::Transport(e)) => {
-                response = request_container(container, port, "");
-                println!("Waiting for connection {}, retrying in {}", e, sleep);
-            }
+            Err(ref box_e) => match box_e.as_ref() {
+                ureq::Error::Transport(e) => {
+                    println!(
+                        "Waiting for connection {}, retrying in {}",
+                        e.as_display(),
+                        sleep
+                    );
+                    response = request_container(container, port, "");
+                }
+                ureq::Error::Status(..) => break,
+            },
             _ => break,
         }
 

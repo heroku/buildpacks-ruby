@@ -26,7 +26,6 @@ None
 - `BUNDLE_DEPLOYMENT=1` - Requires the `Gemfile.lock` to be in sync with the current `Gemfile`.
 - `BUNDLE_GEMFILE=<app-dir>/Gemfile` - Tells bundler where to find the `Gemfile`.
 - `BUNDLE_WITHOUT=development:test:$BUNDLE_WITHOUT` - Do not install `development` or `test` groups via bundle isntall. Additional groups can be specified via user config.
-- `NOKOGIRI_USE_SYSTEM_LIBRARIES=1` - Tells `nokogiri` to use the system packages, mostly `openssl`, which Heroku maintains and patches as part of its [stack](https://devcenter.heroku.com/articles/stack-packages). This setting means when a patched version is rolled out on Heroku your application will pick up the new version with no update required to libraries.
 
 ## Environment NOT set by this buildpack
 
@@ -87,12 +86,6 @@ impl Layer for BundleInstallConfigureEnvLayer {
                         Scope::All,
                         ModificationBehavior::Override,
                         "BUNDLE_DEPLOYMENT",
-                        "1",
-                    )
-                    .chainable_insert(
-                        Scope::All,
-                        ModificationBehavior::Override,
-                        "NOKOGIRI_USE_SYSTEM_LIBRARIES",
                         "1",
                     ),
             )

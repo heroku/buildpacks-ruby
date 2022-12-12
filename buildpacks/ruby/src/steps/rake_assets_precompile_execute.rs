@@ -114,7 +114,7 @@ impl RakeApplicationTasksExecute {
                     "    Manifest file(s) found {}. Skipping `rake assets:precompile`",
                     paths
                         .iter()
-                        .map(|path| path.clone().into_os_string().into_string().unwrap())
+                        .map(|path| path.clone().into_os_string().into_string().expect("Non-utf8 encoded filename in public/assets that matches manifest file glob"))
                         .collect::<Vec<String>>()
                         .join(", ")
                 );
@@ -140,7 +140,9 @@ impl RakeApplicationTasksExecute {
                     );
 
                     println!("    Rake task `rake assets:precompile` found, running");
-                    assets_precompile.stream().unwrap();
+                    assets_precompile
+                        .stream()
+                        .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
 
                     if rake_detect.has_task("assets:clean") {
                         println!("    Rake task `rake assets:clean` found, running");

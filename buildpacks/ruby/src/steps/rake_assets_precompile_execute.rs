@@ -72,23 +72,23 @@ use std::path::PathBuf;
 fn has_asset_manifest(app_dir: &Path) -> AssetManifestList {
     let manifests = [".sprockets-manifest-*.json", "manifest-*.json"]
         .iter()
-        .map(|glob_pattern| app_dir.join("public").join("assets").join(glob_pattern))
-        .map(|path| path.into_os_string().into_string().unwrap())
-        .map(|string| glob(&string))
-        .filter_map(Result::ok)
-        .find_map(|paths| {
-            let paths = paths
-                .into_iter()
-                .map(std::result::Result::unwrap)
-                .collect::<Vec<PathBuf>>();
-
-            if paths.is_empty() {
-                None
-            } else {
-                Some(paths)
-            }
+        .map(|glob_pattern| {
+            app_dir
+                .join("public")
+                .join("assets")
+                .join(glob_pattern)
+                .into_os_string()
+                .into_string()
+                .expect("Internal error: Non-unicode bytes in hardcoded internal str")
         })
-        .unwrap_or_default();
+        .flat_map(|string| {
+            glob(&string)
+                .expect("Internal error: Bad manifest glob pattern")
+                .into_iter()
+        })
+        .filter_map(Result::ok) // Err contains io errors if directory is unreachable
+        .collect::<Vec<PathBuf>>();
+
     AssetManifestList(manifests)
 }
 

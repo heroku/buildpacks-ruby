@@ -81,11 +81,7 @@ fn has_asset_manifest(app_dir: &Path) -> AssetManifestList {
                 .into_string()
                 .expect("Internal error: Non-unicode bytes in hardcoded internal str")
         })
-        .flat_map(|string| {
-            glob(&string)
-                .expect("Internal error: Bad manifest glob pattern")
-                .into_iter()
-        })
+        .flat_map(|string| glob(&string).expect("Internal error: Bad manifest glob pattern"))
         .filter_map(Result::ok) // Err contains io errors if directory is unreachable
         .collect::<Vec<PathBuf>>();
 
@@ -133,11 +129,13 @@ impl RakeApplicationTasksExecute {
                     let public_assets_cache = InAppDirCacheWithLayer::new_and_load(
                         context,
                         &context.app_dir.join("public").join("assets"),
-                    );
+                    )
+                    .map_err(RubyBuildpackError::InAppDirCacheError)?;
                     let fragments_cache = InAppDirCacheWithLayer::new_and_load(
                         context,
                         &context.app_dir.join("tmp").join("cache").join("assets"),
-                    );
+                    )
+                    .map_err(RubyBuildpackError::InAppDirCacheError)?;
 
                     println!("    Rake task `rake assets:precompile` found, running");
                     assets_precompile
@@ -155,13 +153,18 @@ impl RakeApplicationTasksExecute {
                         .stream()
                         .map_err(RubyBuildpackError::RakeAssetsCleanFailed)?;
 
-                        public_assets_cache.copy_app_path_to_cache();
-                        fragments_cache.destructive_move_app_path_to_cache();
+                        public_assets_cache
+                            .copy_app_path_to_cache()
+                            .map_err(RubyBuildpackError::InAppDirCacheError)?;
+
+                        fragments_cache
+                            .destructive_move_app_path_to_cache()
+                            .map_err(RubyBuildpackError::InAppDirCacheError)?;
 
                         clean_stale_files_in_cache(
                             &fragments_cache,
                             Byte::from_bytes(byte_unit::n_mib_bytes!(100)),
-                        );
+                        )?;
                     } else {
                         println!("    Rake task `rake assets:clean` not found, skipping");
                         println!(
@@ -181,8 +184,13 @@ impl RakeApplicationTasksExecute {
     }
 }
 
-fn clean_stale_files_in_cache(cache: &InAppDirCache, max_bytes: Byte) {
-    let overage = cache.least_recently_used_files_above_limit(max_bytes);
+fn clean_stale_files_in_cache(
+    cache: &InAppDirCache,
+    max_bytes: Byte,
+) -> Result<(), RubyBuildpackError> {
+    let overage = cache
+        .least_recently_used_files_above_limit(max_bytes)
+        .map_err(RubyBuildpackError::InAppDirCacheError)?;
 
     if overage.bytes > 0 {
         println!(
@@ -192,8 +200,13 @@ fn clean_stale_files_in_cache(cache: &InAppDirCache, max_bytes: Byte) {
             overage.to_byte().get_adjusted_unit(ByteUnit::MiB),
             overage.files.len()
         );
-        overage.clean();
+
+        overage
+            .clean()
+            .map_err(RubyBuildpackError::InAppDirCacheError)?;
     }
+
+    Ok(())
 }
 
 #[cfg(test)]

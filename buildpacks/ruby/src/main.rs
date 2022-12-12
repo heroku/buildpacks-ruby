@@ -7,6 +7,7 @@ use commons::gem_list::GemList;
 use commons::gemfile_lock::{GemfileLock, GemfileLockError};
 
 use commons::gem_list::GemListError;
+use commons::in_app_dir_cache::InAppDirCacheError;
 use commons::rake_detect::RakeDetectError;
 use regex::Regex;
 
@@ -171,6 +172,9 @@ pub enum RubyBuildpackError {
 
     #[error("Error evaluating Gemfile.lock: {0}")]
     GemfileLockParsingError(GemfileLockError),
+
+    #[error("Error caching application path: {0}")]
+    InAppDirCacheError(InAppDirCacheError),
 }
 impl From<RubyBuildpackError> for libcnb::Error<RubyBuildpackError> {
     fn from(error: RubyBuildpackError) -> Self {

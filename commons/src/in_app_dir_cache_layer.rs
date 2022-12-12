@@ -85,8 +85,6 @@ where
 
             Ok(ExistingLayerStrategy::Keep)
         } else {
-            // prinln in inside of create()
-
             Ok(ExistingLayerStrategy::Recreate)
         }
     }

@@ -44,13 +44,15 @@ mod util;
 pub struct RubyBuildpack;
 use libcnb::data::build_plan::BuildPlanBuilder;
 
-fn app_needs_java(context: &DetectContext<RubyBuildpack>) -> bool {
-    let gemfile_lock = std::fs::read_to_string(context.app_dir.join("Gemfile.lock")).unwrap();
-    needs_java(&gemfile_lock)
+fn app_needs_java(context: &DetectContext<RubyBuildpack>) -> Result<bool, RubyBuildpackError> {
+    let gemfile_lock = std::fs::read_to_string(context.app_dir.join("Gemfile.lock"))
+        .map_err(RubyBuildpackError::CannotReadFile)?;
+
+    Ok(needs_java(&gemfile_lock))
 }
 
 fn needs_java(gemfile_lock: &str) -> bool {
-    let java_regex = Regex::new(r"\(jruby ").unwrap();
+    let java_regex = Regex::new(r"\(jruby ").expect("Internal Error: Invalid regex");
     java_regex.is_match(gemfile_lock)
 }
 
@@ -69,7 +71,11 @@ impl Buildpack for RubyBuildpack {
                 plan_builder = plan_builder.requires("node");
             }
 
-            if app_needs_java(&context) {
+            if context.app_dir.join("yarn.lock").exists() {
+                plan_builder = plan_builder.requires("yarn");
+            }
+
+            if app_needs_java(&context)? {
                 plan_builder = plan_builder.requires("jdk");
             }
         }
@@ -85,8 +91,8 @@ impl Buildpack for RubyBuildpack {
         let mut env = DefaultEnv::call(&context, &context.platform.env().clone())?;
 
         // Gather static information about project
-        let lockfile_contents =
-            std::fs::read_to_string(context.app_dir.join("Gemfile.lock")).unwrap();
+        let lockfile_contents = std::fs::read_to_string(context.app_dir.join("Gemfile.lock"))
+            .map_err(RubyBuildpackError::CannotReadFile)?;
         let gemfile_lock = GemfileLock::from_str(&lockfile_contents)
             .map_err(RubyBuildpackError::GemfileLockParsingError)?;
         let bundler_version = gemfile_lock.resolve_bundler("2.3.7");
@@ -132,6 +138,9 @@ impl Buildpack for RubyBuildpack {
 
 #[derive(thiserror::Error, Debug)]
 pub enum RubyBuildpackError {
+    #[error("Cannot read_file: {0}")]
+    CannotReadFile(std::io::Error),
+
     #[error("Cannot download: {0}")]
     RubyDownloadError(DownloadError),
     #[error("Cannot untar: {0}")]
@@ -152,6 +161,7 @@ pub enum RubyBuildpackError {
     BundleInstallUnexpectedExitStatus(ExitStatus),
     #[error("Bundle config error: {0}")]
     BundleConfigCommandError(std::io::Error),
+
     #[error("Bundle config exit: {0}")]
     BundleConfigUnexpectedExitStatus(ExitStatus),
 

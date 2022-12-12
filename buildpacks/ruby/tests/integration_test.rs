@@ -135,6 +135,27 @@ DEPENDENCIES
             });
 }
 
+#[test]
+#[ignore = "integration test"]
+fn test_ruby_app_with_yarn_app() {
+    TestRunner::default().build(
+        BuildConfig::new("heroku/builder:22", "tests/fixtures/yarn-ruby-app")
+        .buildpacks(vec![
+            BuildpackReference::Other(String::from("heroku/nodejs-engine")),
+            BuildpackReference::Other(String::from("heroku/nodejs-yarn")),
+            BuildpackReference::Crate,
+        ]),
+        |context| {
+            println!("{}", context.pack_stdout);
+            assert_contains!(context.pack_stdout, "---> Download and extracting Ruby");
+            assert_contains!(
+                context.pack_stdout,
+                r#"Running: $ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#);
+
+            }
+        );
+}
+
 fn request_container(
     container: &ContainerContext,
     port: u16,

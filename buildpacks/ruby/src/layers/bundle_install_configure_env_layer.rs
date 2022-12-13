@@ -25,7 +25,7 @@ None
 - `BUNDLE_CLEAN=1` - After successful `bundle install` bundler will automatically run `bundle clean`.
 - `BUNDLE_DEPLOYMENT=1` - Requires the `Gemfile.lock` to be in sync with the current `Gemfile`.
 - `BUNDLE_GEMFILE=<app-dir>/Gemfile` - Tells bundler where to find the `Gemfile`.
-- `BUNDLE_WITHOUT=development:test:$BUNDLE_WITHOUT` - Do not install `development` or `test` groups via bundle isntall. Additional groups can be specified via user config.
+- `BUNDLE_WITHOUT=development:test:$BUNDLE_WITHOUT` - Do not install `development` or `test` groups via bundle install. Additional groups can be specified via user config.
 
 ## Environment NOT set by this buildpack
 

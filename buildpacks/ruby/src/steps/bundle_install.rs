@@ -1,11 +1,9 @@
-use libcnb::Env;
-use libcnb::{build::BuildContext, data::layer_name, layer_env::Scope};
-
 use crate::layers::{BundleInstallConfigureEnvLayer, BundleInstallDownloadBundlerLayer};
 use crate::{layers::BundleInstallCreatePathLayer, RubyBuildpack, RubyBuildpackError};
-use commons::gemfile_lock::{ResolvedBundlerVersion, ResolvedRubyVersion};
-
 use commons::env_command::EnvCommand;
+use commons::gemfile_lock::{ResolvedBundlerVersion, ResolvedRubyVersion};
+use libcnb::Env;
+use libcnb::{build::BuildContext, data::layer_name, layer_env::Scope};
 
 pub struct BundleInstall;
 

@@ -1,28 +1,23 @@
-use crate::RubyBuildpackError;
-use libcnb::data::layer_content_metadata::LayerTypes;
-use std::path::Path;
-
-use serde::{Deserialize, Serialize};
-
 use crate::RubyBuildpack;
+use crate::RubyBuildpackError;
 use libcnb::build::BuildContext;
+use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
-
 use rand::Rng;
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 pub struct EnvDefaultsSetSecretKeyBaseLayer;
 
-///
 /// # Set the `SECRET_KEY_BASE` environment variable
 ///
-/// This environment variable is primarially used for
-/// encrypting/decrypting user sessions. Developers
-/// should not need to set it themselves, however if they
-/// want to they can over-write the default.
+/// This environment variable is primarially used for encrypting/decrypting user sessions.
+/// Developers should not need to set it themselves, however if they want,
+/// they can over-write the default.
 ///
-/// Must run before any `rake` or `rails` commands are executed
-/// as the application may error without this environment variable.
+/// Must run before any `rake` or `rails` commands are executed as the application may
+/// error without this environment variable.
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct EnvDefaultsSetSecretKeyBaseLayerMetadata {
     default_value: String,

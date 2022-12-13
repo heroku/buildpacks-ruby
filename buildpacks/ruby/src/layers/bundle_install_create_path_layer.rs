@@ -1,37 +1,25 @@
-use crate::RubyBuildpackError;
-use libcnb::data::layer_content_metadata::LayerTypes;
-use std::path::Path;
-
 use crate::RubyBuildpack;
+use crate::RubyBuildpackError;
 use libcnb::build::BuildContext;
-use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
-
 use libcnb::data::buildpack::StackId;
+use libcnb::data::layer_content_metadata::LayerTypes;
+use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
-/*
-
-# Set up path for `bundle install` dependencies
-
-Must run before `execute_bundle_install_layer` to create directory for dependencies.
-
-## Layer dir: Create directory for dependencies
-
-Dependencies installed via `bundle install` will be stored in this layer's directory.
-This is accomplished via configuring bundler via environment variables
-
-## Set environment variables
-
-- `BUNDLE_BIN=<layer-dir>/bin` - Install executables for all gems into specified path.
-- `BUNDLE_PATH=<layer-dir>` - Directs bundler to install gems to this path
-- `GEM_PATH=<layer-dir>` - Tells Ruby where gems are located. Should match BUNDLE_PATH.
-
-Other environment variables for bundler are configured by another layer that is decoupled
-from dependency storage on disk to miminimize the risk of having to clear dependencies
-to update an environment variable.
-
-*/
+/// # Set up path for `bundle install` dependencies
+///
+/// Must run before `execute_bundle_install_layer` to create directory for dependencies.
+///
+/// ## Layer dir: Create directory for dependencies
+///
+/// Dependencies installed via `bundle install` will be stored in this layer's directory.
+/// This is accomplished via configuring bundler via environment variables
+///
+/// Other environment variables for bundler are configured by another layer that is decoupled
+/// from dependency storage on disk to miminimize the risk of having to clear dependencies
+/// to update an environment variable. [`BundleInstallConfigureEnvLayer`]
 pub struct BundleInstallCreatePathLayer {
     pub ruby_version: String,
 }
@@ -68,20 +56,20 @@ impl Layer for BundleInstallCreatePathLayer {
                 .chainable_insert(
                     Scope::All,
                     ModificationBehavior::Override,
-                    "BUNDLE_PATH",
+                    "BUNDLE_PATH", // Directs bundler to install gems to this path.
                     layer_path,
                 )
                 .chainable_insert(
                     Scope::All,
                     ModificationBehavior::Override,
-                    "BUNDLE_BIN",
+                    "BUNDLE_BIN", // Install executables for all gems into specified path.
                     &layer_path.join("bin"),
                 )
                 .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
                 .chainable_insert(
                     Scope::All,
                     ModificationBehavior::Append,
-                    "GEM_PATH",
+                    "GEM_PATH", // Tells Ruby where gems are located. Should match `BUNDLE_PATH`.
                     layer_path,
                 ),
         )

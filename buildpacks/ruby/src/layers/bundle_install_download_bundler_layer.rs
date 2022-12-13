@@ -1,42 +1,26 @@
-use crate::RubyBuildpackError;
-use commons::gemfile_lock::ResolvedBundlerVersion;
-use libcnb::data::layer_content_metadata::LayerTypes;
-use serde::{Deserialize, Serialize};
-
-use commons::env_command::EnvCommand;
-use std::path::Path;
-
 use crate::RubyBuildpack;
+use crate::RubyBuildpackError;
+use commons::env_command::EnvCommand;
+use commons::gemfile_lock::ResolvedBundlerVersion;
 use libcnb::build::BuildContext;
+use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Env;
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct BundleInstallDownloadBundlerLayerMetadata {
     version: String,
 }
 
-/*
-
-# Install the bundler gem
-
-## Layer dir: Install bundler to disk
-
-Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
-`<layer-dir>/bin`. Must run before `execute_bundle_install_layer`.
-
-## Set environment variables
-
-- `PATH=<layer-dir>/bin:$PATH` - Ruby ships with a bundler executable and we
-want to make sure that the version installed via this layer always comes first.
-To accomplish that we manually place the directory on the PATH (instead of relying on
-the CNB lifecycle to place `<layer-dir>/bin` on the path).
-- `GEM_PATH=<layer-dir>:$GEM_PATH` - Beyond installing bundler we want to make it
-requireable to the target application. This is accomplished by prepending the layer path
-to `GEM_PATH` which tells rubygems where it can search for gems.
-
-*/
+/// # Install the bundler gem
+///
+/// ## Layer dir: Install bundler to disk
+///
+/// Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
+/// `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
 pub struct BundleInstallDownloadBundlerLayer {
     pub version: ResolvedBundlerVersion,
     pub env: Env,
@@ -89,14 +73,14 @@ impl Layer for BundleInstallDownloadBundlerLayer {
                 .chainable_insert(
                     Scope::All,
                     ModificationBehavior::Prepend,
-                    "PATH",
+                    "PATH", // Ensure this path comes before default bundler that ships with ruby, don't rely on the lifecycle
                     &layer_path.join("bin"),
                 )
                 .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
                 .chainable_insert(
                     Scope::All,
                     ModificationBehavior::Prepend,
-                    "GEM_PATH",
+                    "GEM_PATH", // Bundler is a gem too, allow it to be required
                     layer_path,
                 ),
         )

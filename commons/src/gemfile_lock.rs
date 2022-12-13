@@ -39,7 +39,6 @@ use std::fmt::Display;
 ///     BundlerVersion::Explicit("2.3.4".to_string())
 /// );
 /// ```
-///
 #[derive(Debug)]
 pub struct GemfileLock {
     pub bundler_version: BundlerVersion,

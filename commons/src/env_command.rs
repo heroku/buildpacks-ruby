@@ -1,21 +1,16 @@
+use regex::Regex;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
 use std::io::BufRead;
 use std::io::BufReader;
-
 use std::os::unix::prelude::ExitStatusExt;
 use std::process::Stdio;
 use std::process::{Command, ExitStatus};
-
-use regex::Regex;
-use std::fmt::Debug;
-use std::fmt::Display;
-
 use std::thread;
-
-// type IntoEnvMap = Into<HashMap<OsString, OsString>>;
 
 /// # Run a command, with an env!
 ///

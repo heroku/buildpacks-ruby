@@ -1,4 +1,5 @@
 use crate::in_app_dir_cache_layer::InAppDirCacheLayer;
+use byte_unit::Byte;
 use fs_extra::dir::CopyOptions;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
@@ -8,8 +9,6 @@ use std::marker::PhantomData;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::path::PathBuf;
-
-use byte_unit::Byte;
 
 /// Store data generated in the `<app_dir>` between builds
 ///

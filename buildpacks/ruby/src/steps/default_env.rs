@@ -1,9 +1,8 @@
-use libcnb::{build::BuildContext, data::layer_name, layer_env::Scope, Env};
-
 use crate::{
     layers::{EnvDefaultsSetSecretKeyBaseLayer, EnvDefaultsSetStaticVarsLayer},
     RubyBuildpack, RubyBuildpackError,
 };
+use libcnb::{build::BuildContext, data::layer_name, layer_env::Scope, Env};
 
 pub struct DefaultEnv;
 

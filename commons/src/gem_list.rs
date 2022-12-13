@@ -1,15 +1,13 @@
+use crate::env_command::{EnvCommand, EnvCommandError};
+use crate::gem_version::GemVersion;
 use core::str::FromStr;
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::OsString;
 
-use crate::env_command::{EnvCommand, EnvCommandError};
-use crate::gem_version::GemVersion;
-
-// ## Gets list of an application's dependencies
-//
-// Requires `ruby` and `bundle` to be installed and on the PATH
-//
+/// ## Gets list of an application's dependencies
+///
+/// Requires `ruby` and `bundle` to be installed and on the PATH
 #[derive(Debug)]
 pub struct GemList {
     pub gems: HashMap<String, GemVersion>,

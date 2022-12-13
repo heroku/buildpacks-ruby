@@ -1,39 +1,29 @@
-use std::path::Path;
-
 use crate::util;
 use crate::util::UrlError;
-
-use tempfile::NamedTempFile;
-
 use crate::{RubyBuildpack, RubyBuildpackError};
+use commons::gemfile_lock::ResolvedRubyVersion;
 use libcnb::build::BuildContext;
+use libcnb::data::buildpack::StackId;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
-
-use commons::gemfile_lock::ResolvedRubyVersion;
-use libcnb::data::buildpack::StackId;
-
 use serde::{Deserialize, Serialize};
+use std::path::Path;
+use tempfile::NamedTempFile;
+use url::Url;
 
-/*
-# Install Ruby version
-
-## Layer dir
-
-The compiled Ruby tgz file is downloaded to a temporary directory and exported to `<layer-dir>`.
-The tgz already contains a `bin/` directory with a `ruby` executable file.
-
-## Environment variables
-
-No environment variables are manually set. This layer relies on the
-CNB lifecycle to add `<layer-dir>/bin` to the PATH.
-
-## Cache invalidation
-
-When the Ruby version changes, invalidate and re-run.
-
-*/
-
+/// # Install Ruby version
+///
+/// ## Layer dir
+///
+/// The compiled Ruby tgz file is downloaded to a temporary directory and exported to `<layer-dir>`.
+/// The tgz already contains a `bin/` directory with a `ruby` executable file.
+///
+/// This layer relies on the CNB lifecycle to add `<layer-dir>/bin` to the PATH.
+///
+/// ## Cache invalidation
+///
+/// When the Ruby version changes, invalidate and re-run.
+///
 #[derive(PartialEq, Eq)]
 pub struct RubyVersionInstallLayer {
     pub version: ResolvedRubyVersion,
@@ -44,8 +34,6 @@ pub struct RubyMetadata {
     pub version: String,
     pub stack: StackId,
 }
-
-use url::Url;
 
 impl Layer for RubyVersionInstallLayer {
     type Buildpack = RubyBuildpack;

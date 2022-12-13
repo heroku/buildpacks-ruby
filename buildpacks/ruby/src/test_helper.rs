@@ -6,7 +6,6 @@ use libcnb::data::{buildpack::SingleBuildpackDescriptor, buildpack_plan::Buildpa
 use libcnb::detect::DetectContext;
 use libcnb::generic::{GenericMetadata, GenericPlatform};
 use libcnb::Platform;
-
 use std::fs;
 use std::path::PathBuf;
 

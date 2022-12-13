@@ -1,8 +1,7 @@
+use crate::env_command::{EnvCommand, EnvCommandError};
 use core::str::FromStr;
 use regex::Regex;
 use std::ffi::OsString;
-
-use crate::env_command::{EnvCommand, EnvCommandError};
 
 /// Run `rake -P` and parse output to show what rake tasks an application has
 ///

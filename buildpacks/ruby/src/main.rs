@@ -1,21 +1,20 @@
 #![warn(unused_crate_dependencies)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
-
 use crate::layers::RubyVersionInstallLayer;
-use commons::gem_list::GemList;
-use commons::gemfile_lock::{GemfileLock, GemfileLockError};
-
-use commons::gem_list::GemListError;
-use commons::in_app_dir_cache::InAppDirCacheError;
-use commons::rake_detect::RakeDetectError;
-use regex::Regex;
-
 use crate::steps::bundle_install::BundleInstall;
 use crate::steps::default_env::DefaultEnv;
 use crate::steps::RakeApplicationTasksExecute;
-
+use crate::util::{DownloadError, UntarError, UrlError};
+use commons::env_command::EnvCommandError;
+use commons::gem_list::GemList;
+use commons::gem_list::GemListError;
+use commons::gemfile_lock::{GemfileLock, GemfileLockError};
+use commons::in_app_dir_cache::InAppDirCacheError;
+use commons::rake_detect::RakeDetectError;
+use core::str::FromStr;
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
+use libcnb::data::build_plan::BuildPlanBuilder;
 use libcnb::data::launch::{LaunchBuilder, ProcessBuilder};
 use libcnb::data::{layer_name, process_type};
 use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
@@ -23,38 +22,19 @@ use libcnb::generic::{GenericMetadata, GenericPlatform};
 use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
-
-use commons::env_command::EnvCommandError;
-
-#[cfg(test)]
-use libcnb_test as _;
-
-use core::str::FromStr;
-
-use crate::util::{DownloadError, UntarError, UrlError};
+use regex::Regex;
 use std::process::ExitStatus;
 
 mod layers;
 mod steps;
-
-#[cfg(test)]
-mod test_helper;
 mod util;
 
+#[cfg(test)]
+use libcnb_test as _;
+#[cfg(test)]
+mod test_helper;
+
 pub struct RubyBuildpack;
-use libcnb::data::build_plan::BuildPlanBuilder;
-
-fn app_needs_java(context: &DetectContext<RubyBuildpack>) -> Result<bool, RubyBuildpackError> {
-    let gemfile_lock = std::fs::read_to_string(context.app_dir.join("Gemfile.lock"))
-        .map_err(RubyBuildpackError::CannotReadFile)?;
-
-    Ok(needs_java(&gemfile_lock))
-}
-
-fn needs_java(gemfile_lock: &str) -> bool {
-    let java_regex = Regex::new(r"\(jruby ").expect("Internal Error: Invalid regex");
-    java_regex.is_match(gemfile_lock)
-}
 
 impl Buildpack for RubyBuildpack {
     type Platform = GenericPlatform;
@@ -134,6 +114,18 @@ impl Buildpack for RubyBuildpack {
             .launch(LaunchBuilder::new().process(default_process).build())
             .build()
     }
+}
+
+fn app_needs_java(context: &DetectContext<RubyBuildpack>) -> Result<bool, RubyBuildpackError> {
+    let gemfile_lock = std::fs::read_to_string(context.app_dir.join("Gemfile.lock"))
+        .map_err(RubyBuildpackError::CannotReadFile)?;
+
+    Ok(needs_java(&gemfile_lock))
+}
+
+fn needs_java(gemfile_lock: &str) -> bool {
+    let java_regex = Regex::new(r"\(jruby ").expect("Internal Error: Invalid regex");
+    java_regex.is_match(gemfile_lock)
 }
 
 #[derive(thiserror::Error, Debug)]

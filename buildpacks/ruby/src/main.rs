@@ -87,7 +87,7 @@ impl Buildpack for RubyBuildpack {
         env = crate::steps::bundle_install(
             ruby_version,
             bundler_version,
-            String::from("development::test"),
+            String::from("development:test"),
             &context,
             &env,
         )?;

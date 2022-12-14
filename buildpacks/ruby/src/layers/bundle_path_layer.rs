@@ -25,7 +25,7 @@ pub(crate) struct BundlePathLayer {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct BundlePathLayerMetadata {
+pub(crate) struct BundlePathLayerMetadata {
     ruby_version: String,
     stack: StackId,
 }

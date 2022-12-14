@@ -1,5 +1,5 @@
-use crate::layers::{BundleDownloadLayer, BundleEnvLayer};
-use crate::{layers::BundlePathLayer, RubyBuildpack, RubyBuildpackError};
+use crate::layers::{BundleDownloadLayer, BundleEnvLayer, BundlePathLayer};
+use crate::{RubyBuildpack, RubyBuildpackError};
 use commons::env_command::EnvCommand;
 use commons::gemfile_lock::{ResolvedBundlerVersion, ResolvedRubyVersion};
 use libcnb::Env;

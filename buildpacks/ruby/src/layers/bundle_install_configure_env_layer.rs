@@ -13,7 +13,9 @@ use std::path::Path;
 /// storage so that it can be updated without having to reinstall gems.
 ///
 /// Path specific bundler environment variables are set in [`BundleInstallCreatePathLayer`]
-pub(crate) struct BundleInstallConfigureEnvLayer;
+pub(crate) struct BundleInstallConfigureEnvLayer {
+    pub(crate) without_default: String,
+}
 
 impl Layer for BundleInstallConfigureEnvLayer {
     type Buildpack = RubyBuildpack;
@@ -37,15 +39,9 @@ impl Layer for BundleInstallConfigureEnvLayer {
                 LayerEnv::new()
                     .chainable_insert(
                         Scope::All,
-                        ModificationBehavior::Delimiter,
-                        "BUNDLE_WITHOUT",
-                        ":",
-                    )
-                    .chainable_insert(
-                        Scope::All,
-                        ModificationBehavior::Prepend,
+                        ModificationBehavior::Default,
                         "BUNDLE_WITHOUT", // Do not install `development` or `test` groups via bundle install. Additional groups can be specified via user config.
-                        "development:test",
+                        &self.without_default,
                     )
                     .chainable_insert(
                         Scope::All,

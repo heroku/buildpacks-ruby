@@ -9,6 +9,7 @@ use libcnb::{build::BuildContext, data::layer_name, layer_env::Scope};
 pub(crate) fn install(
     ruby_version: ResolvedRubyVersion,
     bundler_version: ResolvedBundlerVersion,
+    without_default: String,
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
 ) -> libcnb::Result<Env, RubyBuildpackError> {
@@ -27,7 +28,7 @@ pub(crate) fn install(
     // Configures other `BUNDLE_*` settings not based on a layer path.
     let configure_env_layer = context.handle_layer(
         layer_name!("bundle_configure_env"),
-        BundleInstallConfigureEnvLayer,
+        BundleInstallConfigureEnvLayer { without_default },
     )?;
     env = configure_env_layer.env.apply(Scope::Build, &env);
 

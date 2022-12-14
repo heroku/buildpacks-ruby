@@ -86,7 +86,13 @@ impl Buildpack for RubyBuildpack {
         env = ruby_layer.env.apply(Scope::Build, &env);
 
         // ## Bundle install
-        env = crate::steps::bundle::install(ruby_version, bundler_version, &context, &env)?;
+        env = crate::steps::bundle::install(
+            ruby_version,
+            bundler_version,
+            String::from("development::test"),
+            &context,
+            &env,
+        )?;
 
         println!("---> Detecting gems");
         let gem_list =

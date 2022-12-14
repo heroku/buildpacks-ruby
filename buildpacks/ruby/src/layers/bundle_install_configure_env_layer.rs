@@ -13,7 +13,7 @@ use std::path::Path;
 /// storage so that it can be updated without having to reinstall gems.
 ///
 /// Path specific bundler environment variables are set in [`BundleInstallCreatePathLayer`]
-pub struct BundleInstallConfigureEnvLayer;
+pub(crate) struct BundleInstallConfigureEnvLayer;
 
 impl Layer for BundleInstallConfigureEnvLayer {
     type Buildpack = RubyBuildpack;

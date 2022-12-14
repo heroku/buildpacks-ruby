@@ -20,12 +20,12 @@ use std::path::Path;
 /// Other environment variables for bundler are configured by another layer that is decoupled
 /// from dependency storage on disk to miminimize the risk of having to clear dependencies
 /// to update an environment variable. [`BundleInstallConfigureEnvLayer`]
-pub struct BundleInstallCreatePathLayer {
+pub(crate) struct BundleInstallCreatePathLayer {
     pub ruby_version: String,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct BundleInstallCreatePathLayerMetadata {
+pub(crate) struct BundleInstallCreatePathLayerMetadata {
     ruby_version: String,
     stack: StackId,
 }

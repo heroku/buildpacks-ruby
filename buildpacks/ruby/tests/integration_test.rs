@@ -11,45 +11,6 @@ use ureq::Response;
 
 #[test]
 #[ignore = "integration test"]
-fn test_getting_started_rails_app() {
-    TestRunner::default().build(
-        BuildConfig::new("heroku/builder:22", "tests/fixtures/ruby-getting-started")
-        .buildpacks(vec![
-            BuildpackReference::Other(String::from("heroku/nodejs-engine")),
-            BuildpackReference::Crate,
-            BuildpackReference::Other(String::from("heroku/procfile")),
-        ]),
-        |context| {
-            println!("{}", context.pack_stdout);
-            assert_contains!(context.pack_stdout, "---> Download and extracting Ruby");
-            assert_contains!(
-                context.pack_stdout,
-                r#"Running: $ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#
-            );
-
-            context.start_container(
-                ContainerConfig::new()
-                    .env("PORT", TEST_PORT.to_string())
-                    .expose_port(TEST_PORT),
-                |container| {
-                    let response = call_root_until_boot(&container, TEST_PORT).unwrap();
-                    let body = response.into_string().unwrap();
-
-                    let server_logs = container.logs_now();
-                    assert_contains!(
-                        server_logs.stdout.clone() + &server_logs.stderr,
-                        "Puma starting"
-                    );
-
-                    assert_contains!(body, "Getting Started with Ruby on Heroku");
-                },
-            );
-        },
-    );
-}
-
-#[test]
-#[ignore = "integration test"]
 fn test_default_app() {
     TestRunner::default().build(
         BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby")

@@ -65,7 +65,7 @@ impl Buildpack for RubyBuildpack {
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         println!("---> Ruby Buildpack");
         // ## Set default environment
-        let mut env = crate::steps::default_env::set(&context, &context.platform.env().clone())?;
+        let mut env = crate::steps::default_env(&context, &context.platform.env().clone())?;
 
         // Gather static information about project
         let lockfile_contents = std::fs::read_to_string(context.app_dir.join("Gemfile.lock"))
@@ -86,7 +86,7 @@ impl Buildpack for RubyBuildpack {
         env = ruby_layer.env.apply(Scope::Build, &env);
 
         // ## Bundle install
-        env = crate::steps::bundle::install(
+        env = crate::steps::bundle_install(
             ruby_version,
             bundler_version,
             String::from("development::test"),
@@ -99,7 +99,7 @@ impl Buildpack for RubyBuildpack {
             GemList::from_bundle_list(&env).map_err(RubyBuildpackError::GemListGetError)?;
 
         // ## Assets install
-        crate::steps::rake_assets::precompile(&gem_list, &context, &env)?;
+        crate::steps::rake_assets_precompile(&gem_list, &context, &env)?;
 
         let default_process = if gem_list.has("railties") {
             ProcessBuilder::new(process_type!("web"), "bin/rails")

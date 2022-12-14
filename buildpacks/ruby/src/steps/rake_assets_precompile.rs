@@ -27,7 +27,7 @@ struct HasGem(bool);
 struct AssetManifestList(Vec<PathBuf>);
 
 /// Invoke `rake assets:precompile`
-pub(crate) fn precompile(
+pub(crate) fn rake_assets_precompile(
     gem_list: &GemList,
     context: &BuildContext<RubyBuildpack>,
     env: &Env,

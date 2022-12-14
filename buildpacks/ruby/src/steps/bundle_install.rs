@@ -6,7 +6,7 @@ use libcnb::Env;
 use libcnb::{build::BuildContext, data::layer_name, layer_env::Scope};
 
 /// Primary interface for `bundle install`
-pub(crate) fn install(
+pub(crate) fn bundle_install(
     ruby_version: ResolvedRubyVersion,
     bundler_version: ResolvedBundlerVersion,
     without_default: String,

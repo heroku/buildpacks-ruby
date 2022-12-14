@@ -25,12 +25,12 @@ use url::Url;
 /// When the Ruby version changes, invalidate and re-run.
 ///
 #[derive(PartialEq, Eq)]
-pub struct RubyVersionInstallLayer {
+pub(crate) struct RubyVersionInstallLayer {
     pub version: ResolvedRubyVersion,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct RubyMetadata {
+pub(crate) struct RubyMetadata {
     pub version: String,
     pub stack: StackId,
 }

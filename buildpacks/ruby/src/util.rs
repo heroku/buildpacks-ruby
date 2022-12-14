@@ -4,7 +4,10 @@ use std::io;
 use std::path::Path;
 use tar::Archive;
 
-pub fn download(uri: impl AsRef<str>, destination: impl AsRef<Path>) -> Result<(), DownloadError> {
+pub(crate) fn download(
+    uri: impl AsRef<str>,
+    destination: impl AsRef<Path>,
+) -> Result<(), DownloadError> {
     let mut response_reader = ureq::get(uri.as_ref())
         .call()
         .map_err(|err| DownloadError::RequestError(Box::new(err)))?
@@ -30,7 +33,10 @@ pub enum DownloadError {
     CouldNotWriteDestinationFile(std::io::Error),
 }
 
-pub fn untar(path: impl AsRef<Path>, destination: impl AsRef<Path>) -> Result<(), UntarError> {
+pub(crate) fn untar(
+    path: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<(), UntarError> {
     let file = fs::File::open(path.as_ref()).map_err(UntarError::CouldNotOpenFile)?;
 
     Archive::new(GzDecoder::new(file))

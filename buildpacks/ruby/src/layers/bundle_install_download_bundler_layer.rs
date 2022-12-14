@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct BundleInstallDownloadBundlerLayerMetadata {
+pub(crate) struct BundleInstallDownloadBundlerLayerMetadata {
     version: String,
 }
 
@@ -21,7 +21,7 @@ pub struct BundleInstallDownloadBundlerLayerMetadata {
 ///
 /// Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
 /// `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
-pub struct BundleInstallDownloadBundlerLayer {
+pub(crate) struct BundleInstallDownloadBundlerLayer {
     pub version: ResolvedBundlerVersion,
     pub env: Env,
 }

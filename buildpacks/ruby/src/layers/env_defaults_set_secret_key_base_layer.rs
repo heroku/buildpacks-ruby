@@ -8,7 +8,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-pub struct EnvDefaultsSetSecretKeyBaseLayer;
+pub(crate) struct EnvDefaultsSetSecretKeyBaseLayer;
 
 /// # Set the `SECRET_KEY_BASE` environment variable
 ///
@@ -19,7 +19,7 @@ pub struct EnvDefaultsSetSecretKeyBaseLayer;
 /// Must run before any `rake` or `rails` commands are executed as the application may
 /// error without this environment variable.
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct EnvDefaultsSetSecretKeyBaseLayerMetadata {
+pub(crate) struct EnvDefaultsSetSecretKeyBaseLayerMetadata {
     default_value: String,
 }
 

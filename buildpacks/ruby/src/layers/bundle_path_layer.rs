@@ -20,19 +20,19 @@ use std::path::Path;
 /// Other environment variables for bundler are configured by another layer that is decoupled
 /// from dependency storage on disk to miminimize the risk of having to clear dependencies
 /// to update an environment variable. [`BundleInstallConfigureEnvLayer`]
-pub(crate) struct BundleInstallCreatePathLayer {
+pub(crate) struct BundlePathLayer {
     pub ruby_version: String,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub(crate) struct BundleInstallCreatePathLayerMetadata {
+pub struct BundlePathLayerMetadata {
     ruby_version: String,
     stack: StackId,
 }
 
-impl Layer for BundleInstallCreatePathLayer {
+impl Layer for BundlePathLayer {
     type Buildpack = RubyBuildpack;
-    type Metadata = BundleInstallCreatePathLayerMetadata;
+    type Metadata = BundlePathLayerMetadata;
 
     fn types(&self) -> LayerTypes {
         LayerTypes {
@@ -47,7 +47,7 @@ impl Layer for BundleInstallCreatePathLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        LayerResultBuilder::new(BundleInstallCreatePathLayerMetadata {
+        LayerResultBuilder::new(BundlePathLayerMetadata {
             ruby_version: self.ruby_version.clone(),
             stack: context.stack_id.clone(),
         })

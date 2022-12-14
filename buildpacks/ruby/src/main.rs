@@ -1,7 +1,7 @@
 #![warn(unused_crate_dependencies)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
-use crate::layers::RubyVersionInstallLayer;
+use crate::layers::RubyInstallLayer;
 use crate::util::{DownloadError, UntarError, UrlError};
 use commons::env_command::EnvCommandError;
 use commons::gem_list::GemList;
@@ -79,7 +79,7 @@ impl Buildpack for RubyBuildpack {
         let ruby_layer = context //
             .handle_layer(
                 layer_name!("ruby"),
-                RubyVersionInstallLayer {
+                RubyInstallLayer {
                     version: ruby_version.clone(),
                 },
             )?;

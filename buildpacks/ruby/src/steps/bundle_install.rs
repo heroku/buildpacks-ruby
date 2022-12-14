@@ -1,5 +1,5 @@
-use crate::layers::{BundleInstallConfigureEnvLayer, BundleInstallDownloadBundlerLayer};
-use crate::{layers::BundleInstallCreatePathLayer, RubyBuildpack, RubyBuildpackError};
+use crate::layers::{BundleDownloadLayer, BundleEnvLayer};
+use crate::{layers::BundlePathLayer, RubyBuildpack, RubyBuildpackError};
 use commons::env_command::EnvCommand;
 use commons::gemfile_lock::{ResolvedBundlerVersion, ResolvedRubyVersion};
 use libcnb::Env;
@@ -19,7 +19,7 @@ pub(crate) fn bundle_install(
     // Gems will be installed here, sets BUNDLE_PATH env var
     let create_bundle_path_layer = context.handle_layer(
         layer_name!("gems"),
-        BundleInstallCreatePathLayer {
+        BundlePathLayer {
             ruby_version: ruby_version.version,
         },
     )?;
@@ -28,7 +28,7 @@ pub(crate) fn bundle_install(
     // Configures other `BUNDLE_*` settings not based on a layer path.
     let configure_env_layer = context.handle_layer(
         layer_name!("bundle_configure_env"),
-        BundleInstallConfigureEnvLayer { without_default },
+        BundleEnvLayer { without_default },
     )?;
     env = configure_env_layer.env.apply(Scope::Build, &env);
 
@@ -37,7 +37,7 @@ pub(crate) fn bundle_install(
     // Download the specified bundler version
     let download_bundler_layer = context.handle_layer(
         layer_name!("bundler"),
-        BundleInstallDownloadBundlerLayer {
+        BundleDownloadLayer {
             version: bundler_version,
             env: env.clone(),
         },

@@ -8,7 +8,7 @@ use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-pub(crate) struct EnvDefaultsSetStaticVarsLayer;
+pub(crate) struct EnvDefaultsLayer;
 
 ///
 /// # Set application environment variables
@@ -18,11 +18,11 @@ pub(crate) struct EnvDefaultsSetStaticVarsLayer;
 /// This must be done prior to running `bundle install` as some apps use dynamic code inside of their Gemfile and will
 /// expect certain env vars to already be set.
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub(crate) struct EnvDefaultsSetStaticVarsLayerMetadata {
+pub(crate) struct EnvDefaultsLayerMetadata {
     default_value: String,
 }
 
-impl Layer for EnvDefaultsSetStaticVarsLayer {
+impl Layer for EnvDefaultsLayer {
     type Buildpack = RubyBuildpack;
     type Metadata = GenericMetadata;
 

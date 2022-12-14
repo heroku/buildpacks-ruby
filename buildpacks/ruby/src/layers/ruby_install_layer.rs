@@ -25,19 +25,19 @@ use url::Url;
 /// When the Ruby version changes, invalidate and re-run.
 ///
 #[derive(PartialEq, Eq)]
-pub(crate) struct RubyVersionInstallLayer {
+pub(crate) struct RubyInstallLayer {
     pub version: ResolvedRubyVersion,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub(crate) struct RubyMetadata {
+pub(crate) struct RubyInstallLayerMetadata {
     pub version: String,
     pub stack: StackId,
 }
 
-impl Layer for RubyVersionInstallLayer {
+impl Layer for RubyInstallLayer {
     type Buildpack = RubyBuildpack;
-    type Metadata = RubyMetadata;
+    type Metadata = RubyInstallLayerMetadata;
 
     fn types(&self) -> LayerTypes {
         LayerTypes {
@@ -57,7 +57,7 @@ impl Layer for RubyVersionInstallLayer {
         let tmp_ruby_tgz =
             NamedTempFile::new().map_err(RubyBuildpackError::CouldNotCreateTemporaryFile)?;
 
-        let url = RubyVersionInstallLayer::download_url(&context.stack_id, &self.version)
+        let url = RubyInstallLayer::download_url(&context.stack_id, &self.version)
             .map_err(RubyBuildpackError::UrlParseError)?;
 
         util::download(url.as_ref(), tmp_ruby_tgz.path())
@@ -65,7 +65,7 @@ impl Layer for RubyVersionInstallLayer {
 
         util::untar(tmp_ruby_tgz.path(), layer_path).map_err(RubyBuildpackError::RubyUntarError)?;
 
-        LayerResultBuilder::new(RubyMetadata {
+        LayerResultBuilder::new(RubyInstallLayerMetadata {
             version: self.version.to_string(),
             stack: context.stack_id.clone(),
         })
@@ -98,7 +98,7 @@ impl Layer for RubyVersionInstallLayer {
     }
 }
 
-impl RubyVersionInstallLayer {
+impl RubyInstallLayer {
     fn download_url(stack: &StackId, version: impl std::fmt::Display) -> Result<Url, UrlError> {
         let filename = format!("ruby-{}.tgz", version);
         let base = "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com";
@@ -120,7 +120,7 @@ mod tests {
 
     #[test]
     fn test_ruby_url() {
-        let out = RubyVersionInstallLayer::download_url(&stack_id!("heroku-20"), "2.7.4").unwrap();
+        let out = RubyInstallLayer::download_url(&stack_id!("heroku-20"), "2.7.4").unwrap();
         assert_eq!(
             out.as_ref(),
             "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com/heroku-20/ruby-2.7.4.tgz",

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub(crate) struct BundleInstallDownloadBundlerLayerMetadata {
+pub(crate) struct BundleDownloadLayerMetadata {
     version: String,
 }
 
@@ -21,14 +21,14 @@ pub(crate) struct BundleInstallDownloadBundlerLayerMetadata {
 ///
 /// Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
 /// `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
-pub(crate) struct BundleInstallDownloadBundlerLayer {
+pub(crate) struct BundleDownloadLayer {
     pub version: ResolvedBundlerVersion,
     pub env: Env,
 }
 
-impl Layer for BundleInstallDownloadBundlerLayer {
+impl Layer for BundleDownloadLayer {
     type Buildpack = RubyBuildpack;
-    type Metadata = BundleInstallDownloadBundlerLayerMetadata;
+    type Metadata = BundleDownloadLayerMetadata;
 
     fn types(&self) -> LayerTypes {
         LayerTypes {
@@ -64,7 +64,7 @@ impl Layer for BundleInstallDownloadBundlerLayer {
         .call()
         .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
 
-        LayerResultBuilder::new(BundleInstallDownloadBundlerLayerMetadata {
+        LayerResultBuilder::new(BundleDownloadLayerMetadata {
             version: self.version.to_string(),
         })
         .env(

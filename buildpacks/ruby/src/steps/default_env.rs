@@ -5,7 +5,7 @@ use crate::{
 use libcnb::{build::BuildContext, data::layer_name, layer_env::Scope, Env};
 
 // Set default environment values
-pub(crate) fn set(
+pub(crate) fn default_env(
     context: &BuildContext<RubyBuildpack>,
     platform_env: &Env,
 ) -> libcnb::Result<Env, RubyBuildpackError> {

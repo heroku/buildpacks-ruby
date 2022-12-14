@@ -20,7 +20,6 @@ use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 use regex::Regex;
-use std::process::ExitStatus;
 
 mod layers;
 mod steps;
@@ -31,7 +30,7 @@ use libcnb_test as _;
 #[cfg(test)]
 mod test_helper;
 
-pub struct RubyBuildpack;
+pub(crate) struct RubyBuildpack;
 
 impl Buildpack for RubyBuildpack {
     type Platform = GenericPlatform;
@@ -131,7 +130,7 @@ fn needs_java(gemfile_lock: &str) -> bool {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum RubyBuildpackError {
+pub(crate) enum RubyBuildpackError {
     #[error("Cannot read_file: {0}")]
     CannotReadFile(std::io::Error),
 
@@ -141,23 +140,12 @@ pub enum RubyBuildpackError {
     RubyUntarError(UntarError),
     #[error("Cannot create temporary file: {0}")]
     CouldNotCreateTemporaryFile(std::io::Error),
-    #[error("Cannot generate checksum: {0}")]
-    CouldNotGenerateChecksum(std::io::Error),
-    #[error("Bundler gem install exit: {0}")]
-    GemInstallBundlerUnexpectedExitStatus(ExitStatus),
+
     #[error("Bundle install command errored: {0}")]
     BundleInstallCommandError(EnvCommandError),
 
     #[error("Could not install bundler: {0}")]
     GemInstallBundlerCommandError(EnvCommandError),
-
-    #[error("Bundle install exit: {0}")]
-    BundleInstallUnexpectedExitStatus(ExitStatus),
-    #[error("Bundle config error: {0}")]
-    BundleConfigCommandError(std::io::Error),
-
-    #[error("Bundle config exit: {0}")]
-    BundleConfigUnexpectedExitStatus(ExitStatus),
 
     #[error("Url error: {0}")]
     UrlParseError(UrlError),

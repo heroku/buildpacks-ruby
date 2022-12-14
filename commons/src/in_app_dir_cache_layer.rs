@@ -22,13 +22,13 @@ use std::path::PathBuf;
 ///  allows for emails, that might live a long time, to reference a specific SHA of an
 ///  asset.
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct InAppDirCacheLayer<B> {
+pub(crate) struct InAppDirCacheLayer<B> {
     pub app_dir_path: PathBuf,
     buildpack: PhantomData<B>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct InAppDirCacheLayerMetadata {
+pub(crate) struct InAppDirCacheLayerMetadata {
     app_dir_path: PathBuf,
 }
 

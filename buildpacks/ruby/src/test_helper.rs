@@ -23,7 +23,7 @@ pub fn touch_file(path: &PathBuf, f: impl FnOnce(&PathBuf)) {
 }
 
 #[allow(dead_code)]
-pub struct TempContext {
+pub(crate) struct TempContext {
     pub detect: DetectContext<RubyBuildpack>,
     pub build: BuildContext<RubyBuildpack>,
     _tmp_dir: tempfile::TempDir,

@@ -1,8 +1,8 @@
 #![warn(unused_crate_dependencies)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
-use crate::layers::RubyInstallLayer;
-use crate::util::{DownloadError, UntarError, UrlError};
+use crate::layers::{RubyInstallError, RubyInstallLayer};
+
 use commons::env_command::EnvCommandError;
 use commons::gem_list::GemList;
 use commons::gem_list::GemListError;
@@ -23,7 +23,6 @@ use regex::Regex;
 
 mod layers;
 mod steps;
-mod util;
 
 #[cfg(test)]
 use libcnb_test as _;
@@ -134,21 +133,14 @@ pub(crate) enum RubyBuildpackError {
     #[error("Cannot read_file: {0}")]
     CannotReadFile(std::io::Error),
 
-    #[error("Cannot download: {0}")]
-    RubyDownloadError(DownloadError),
-    #[error("Cannot untar: {0}")]
-    RubyUntarError(UntarError),
-    #[error("Cannot create temporary file: {0}")]
-    CouldNotCreateTemporaryFile(std::io::Error),
+    #[error("Cannot install ruby: {0}")]
+    RubyInstallError(RubyInstallError),
 
     #[error("Bundle install command errored: {0}")]
     BundleInstallCommandError(EnvCommandError),
 
     #[error("Could not install bundler: {0}")]
     GemInstallBundlerCommandError(EnvCommandError),
-
-    #[error("Url error: {0}")]
-    UrlParseError(UrlError),
 
     #[error("Error building list of gems for application: {0}")]
     GemListGetError(GemListError),

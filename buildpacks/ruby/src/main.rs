@@ -2,9 +2,6 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 use crate::layers::RubyVersionInstallLayer;
-use crate::steps::bundle_install::BundleInstall;
-use crate::steps::default_env::DefaultEnv;
-use crate::steps::RakeApplicationTasksExecute;
 use crate::util::{DownloadError, UntarError, UrlError};
 use commons::env_command::EnvCommandError;
 use commons::gem_list::GemList;
@@ -67,8 +64,8 @@ impl Buildpack for RubyBuildpack {
 
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         println!("---> Ruby Buildpack");
-
-        let mut env = DefaultEnv::call(&context, &context.platform.env().clone())?;
+        // ## Set default environment
+        let mut env = crate::steps::default_env::set(&context, &context.platform.env().clone())?;
 
         // Gather static information about project
         let lockfile_contents = std::fs::read_to_string(context.app_dir.join("Gemfile.lock"))
@@ -86,18 +83,17 @@ impl Buildpack for RubyBuildpack {
                     version: ruby_version.clone(),
                 },
             )?;
-
         env = ruby_layer.env.apply(Scope::Build, &env);
 
-        // Bundle install
-        env = BundleInstall::call(ruby_version, bundler_version, &context, &env)?;
+        // ## Bundle install
+        env = crate::steps::bundle::install(ruby_version, bundler_version, &context, &env)?;
 
         println!("---> Detecting gems");
         let gem_list =
             GemList::from_bundle_list(&env).map_err(RubyBuildpackError::GemListGetError)?;
 
-        // Assets install
-        RakeApplicationTasksExecute::call(&gem_list, &context, &env)?;
+        // ## Assets install
+        crate::steps::rake_assets::precompile(&gem_list, &context, &env)?;
 
         let default_process = if gem_list.has("railties") {
             ProcessBuilder::new(process_type!("web"), "bin/rails")

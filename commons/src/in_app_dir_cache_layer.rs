@@ -15,7 +15,7 @@ use std::path::PathBuf;
 ///
 /// The primary usecase of this is for caching assets. After `rake assets:precompile` runs
 /// file in `<app-dir>/public/assets` need to be preserved between deploys. This allows
-/// for faster deploys, and also allows for prior generated asssets to remain on the system
+/// for faster deploys, and also allows for prior generated assets to remain on the system
 ///  until "cleaned."
 ///
 ///  Historically, sprockets will keep 3 versions of old files on disk. This

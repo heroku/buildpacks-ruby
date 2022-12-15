@@ -201,8 +201,8 @@ impl EnvCommand {
         self
     }
 
-    // Command is not clonable because it can contain things that are not
-    // clonable such as file descriptors. Instead we remember the
+    // Command is not cloneable because it can contain things that are not
+    // cloneable such as file descriptors. Instead we remember the
     // inputs to Command so we can re-create it at will.
     fn command(&self) -> Command {
         let mut command = Command::new(&self.base);

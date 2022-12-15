@@ -1,22 +1,50 @@
-## Develoment
+# Heroku Ruby cloud native buildpack (CNB)
 
-### Application Contract Detect
+[![CI](https://github.com/heroku/buildpacks-ruby/actions/workflows/ci.yml/badge.svg)](https://github.com/heroku/buildpacks-ruby/actions/workflows/ci.yml)
+
+Heroku's official [Cloud Native Buildpacks](https://buildpacks.io/) for the Ruby ecosystem.
+
+## Classic Heroku Buildpack
+
+If you're looking for the repositories of the classic Ruby Heroku buildpack for usage on the Heroku platform, please see [heroku/ruby](https://github.com/heroku/heroku-buildpack-ruby).
+
+If you're migrating from the classic buildpack, known differences are documented below.
+
+## What is a buildpack?
+
+Buildpacks take in an application's code and prepare it to run, usually in production. Unlike a declarative system like Dockerfile, buildpacks are designed to be low or no configuration required. They can inspect the application and make dynamic adjustments using common community standards.
+
+This buildpack is a Cloud Native Buildpack (CNB). CNB is a specification for building [OCI images](https://opencontainers.org/) (like docker). Some services natively support CNBs while other services might require you to generate an image locally and deploy that image through a container registry service.
+
+You can find out more about the CNB project at https://buildpacks.io/.
+
+## Application contract
+
+The sections below describe the expected behavior of the buildpack. The codebase must be updated if a difference exists between this contract and actual behavior. Either the code needs to change to suit the contract, or the contract needs to be updated. If you see a difference, please open an issue with a [minimal application that reproduces the problem](https://www.codetriage.com/example_app).
+
+If you need application-specific support, you can ask on an official Heroku support channel or Stack Overflow.
+
+### Application Contract: Detect
+
+The detect phase determine whether or not this buildpack can execute. It can also be used to request additional functionality via "requiring" behavior from other buildpacks.
 
 - Node version
-  - Given a `package.json` file in the root of the application the `heroku/nodejs` buildpack will be required. [See README for behavior](https://github.com/heroku/buildpacks-nodejs/)
+  - Given a `package.json` file in the root of the application the `heroku/nodejs-engine` buildpack will be required. [See README for behavior](https://github.com/heroku/buildpacks-nodejs/tree/main/buildpacks/nodejs-engine)
 - Yarn version
-  - Given a `yarn.lock` file in the root of the application the TODO buildpack will be required. [See README for behavior TODO](https://github.com/heroku/buildpacks-nodejs/)
+  - Given a `yarn.lock` file in the root of the application the `heroku/nodejs-yarn` buildpack will be required. [See README for behavior](https://github.com/heroku/buildpacks-nodejs/tree/main/buildpacks/nodejs-yarn)
 - Java version
   - Given a `Gemfile.lock` file that specifies jruby the `heroku/jvm` buildpack will be required. [See README for behavior](https://github.com/heroku/buildpacks-jvm/)
 - Ruby version
-  - Given a `Gemfile.lock` this buildpack will execute the Ruby compile contract.
+  - Given a `Gemfile.lock` this buildpack will execute the Ruby build contract below.
 
-### Application Contract Compile
+### Application Contract: Build
+
+Once an application has passed the detect phase, the build phase will execute to prepare the application to run.
 
 - Ruby version
   - Given a `Gemfile.lock` with an explicit Ruby version we will install that Ruby version.
   - Given a `Gemfile.lock` without an explicit Ruby version we will install a default Ruby version.
-    - When the default value changes, applications without an explicit Ruby version will receive the updated default Ruby version.
+    - When the default value changes, applications without an explicit Ruby version will receive the updated default Ruby version on their next deployment.
   - We will reinstall Ruby if your stack changes.
 - Bundler version
   - Given a `Gemfile.lock` with an explicit Bundler version we will install that bundler version.
@@ -47,7 +75,7 @@
   - Given an application with the `railties` gem we will run `bin/rails server` while specfying `-p $PORT` and `-e $RAILS_ENV"` by default as the `web` process. Use the `Procfile` to override.
   - If the `railties` gem is not present we will run `rackup` while specifying `-p $PORT` and `-h 0.0.0.0` by default as the `web` process. Use the `Procfile` to override. This requires the `rack` gem and a `config.ru` file.
 - Environment variable defaults - We will set a default for the following environment variables:
-  - `JRUBY_OPTS="-Xcompile.invokedynamic=false"` - Invoke dynamic is a feature of the JVM intended to enhance support for dynamically typed languages (such as Ruby). This caused issues with Physion Passenger 4.0.16 and was disabled [details](https://github.com/heroku/heroku-buildpack-ruby/issues/145).
+  - `JRUBY_OPTS="-Xcompile.invokedynamic=false"` - Invoke dynamic is a feature of the JVM intended to enhance support for dynamicaly typed languages (such as Ruby). This caused issues with Physion Passenger 4.0.16 and was disabled [details](https://github.com/heroku/heroku-buildpack-ruby/issues/145).
   - `RACK_ENV=${RACK_ENV:-"production"}` - An environment variable that may affect the behavior of Rack based webservers and webapps.
   - `RAILS_ENV=${RAILS_ENV:-"production"}` - A value used by all Rails apps. By default Rails ships with three environments: `development`, `test,` and `production`. We recommend all apps being deployed to use `production` and recommend against using a custom env such as `staging` [details](https://devcenter.heroku.com/articles/deploying-to-a-custom-rails-environment).
   - `SECRET_KEY_BASE=${SECRET_KEY_BASE:-<generate a secret key>}` - In Rails 4.1+ apps a value is needed to generate crypographic tokens used for a variety of things. Notably this value is used in generating user sessions so modifying it between builds will have the effect of logging out all users. Heroku provides a default generated value.
@@ -65,7 +93,7 @@
   - `RAILS_LOG_TO_STDOUT="enabled"` - Sets the default logging target to STDOUT for Rails 5+ apps. [details](https://blog.heroku.com/container_ready_rails_5)
   - `RAILS_SERVE_STATIC_FILES="enabled"` - Enables the `ActionDispatch::Static` middleware for Rails 5+ apps so that static files such as those in `public/assets` are served by the Ruby webserver such as Puma [details](https://blog.heroku.com/container_ready_rails_5).
 
-## Next-gen application contract
+### Next-gen application contract
 
 These are tracked things the buildpack will eventually do in the application contract but are not currently priorities.
 
@@ -98,7 +126,7 @@ end
 
 ### Known differences against `heroku/heroku-buildpack-ruby`
 
-This buildpack does not port all behaviors of the original buildpack for Ruby (https://github.com/heroku/heroku-buildpack-ruby). This buildpack is also known as `v2` as it implements version 2 of the heroku buildpack interface (instead of the Cloud Native Buildpack interface).
+This buildpack does not port all behaviors of the [original buildpack for Ruby ](https://github.com/heroku/heroku-buildpack-ruby). This buildpack is also known as "classic". This section outlines the known behaviors where the two buildpacks diverge.
 
 - Rails 5+ support only. The v2 buildpack supports Rails 2+. There are significant maintenace gains for buildpack authors [starting in Rails 5](https://blog.heroku.com/container_ready_rails_5) which was released in 2016. In an effort to reduce overall internal complexity this buildpack does not explicitly support Rails before version 5.
 - Rails support is now based on the above application contract. Previously there was no official policy for dropping support for older Rails versions. Support was based on whether or not an older version could run on a currently supported Ruby version. With [Rails LTS](https://railslts.com/) this can mean a very old version of Rails. Now we will actively support Rails versions currently [under the Rails core maintenance policy](https://guides.rubyonrails.org/maintenance_policy.html) provided those versions can run on a supported Ruby version. As Rails versions go out of official maintenance compatability features may be removed with no supported replacement.
@@ -109,22 +137,47 @@ This buildpack does not port all behaviors of the original buildpack for Ruby (h
 - Caching of `public/assets` is gated on the presence of `rake assets:clean`. Previously this behavior was gated on the existance of a certain version of the Rails framework.
 - Caching of `tmp/cache/assets` (fragments) is gated on the presence of `rake assets:clean`. Previously this behavior was gated on the existance of a certain version of the Rails framework.
 
-### Build
+## Develoment
+
+### Setup the project
 
 - Follow setup instructions on https://github.com/Malax/libcnb.rs
+
+### Compile the buildpack
+
 - Run:
 
 ```
 cd buildpacks/ruby && cargo libcnb package ; cd -
 ```
 
-- Build the app:
+### Use that compiled buildpack on an application
+
+To build the application vendored in `buildpacks/ruby/tests/fixtures/default_ruby` you can run:
 
 ```
-pack build my-image --buildpack heroku/nodejs-engine --buildpack heroku/procfile  --buildpack target/buildpack/debug/heroku_ruby --path tests/fixtures/ruby-getting-started
+pack build my-image --buildpack target/buildpack/debug/heroku_ruby --path buildpacks/ruby/tests/fixtures/default_ruby --verbose
 ```
 
-- Validate that it's working:
+The deployed buildpack ships with a builder that tells the `pack` CLI what other builpacks it needs. In development you must specify them via the `--buildpack` flag before this buildpack.
+
+For example to build an app that needs nodejs:
+
+```
+pack build my-image  --buildpack heroku/nodejs-engine --buildpack heroku/procfile  --buildpack target/buildpack/debug/heroku_ruby --path <path/to/application> --verbose
+```
+
+List of buildpacks this buildpack depends on:
+
+```
+--buildpack heroku/nodejs-engine
+--buildpack heroku/nodejs-yarn
+--buildpack heroku/jvm
+```
+
+### Run the image
+
+Run a command and exit:
 
 ```
 $ docker run -it --rm --entrypoint='/cnb/lifecycle/launcher' my-image 'which ruby'
@@ -140,31 +193,25 @@ As a oneliner:
 ```
 cargo libcnb package && \
 docker rmi my-image --force  && \
-pack build my-image --buildpack target/buildpack/debug/heroku_ruby --path tests/fixtures/default_ruby && \
+pack build my-image --buildpack target/buildpack/debug/heroku_ruby --path buildpacks/ruby/tests/fixtures/default_ruby --verbose && \
 docker run -it --rm --entrypoint='/cnb/lifecycle/launcher' my-image 'which bundle'
 ```
 
 Run it interactively:
 
 ```
-$ docker run -it --rm --entrypoint='/cnb/lifecycle/launcher' my-image bash
+docker run -it --rm --entrypoint='/cnb/lifecycle/launcher' my-image bash
 ```
 
 Run the webserver:
 
 ```
-$ docker run -it --rm --env PORT=9292 -p 9292:9292 my-image --debug
+docker run -it --rm --env PORT=9292 -p 9292:9292 my-image
 ```
 
 
 Inspect the image:
 
 ```
-$ pack inspect my-image
-```
-
-##
-
-```
-$ pack build my-image --buildpack target/buildpack/debug/heroku_ruby --buildpack=heroku/nodejs-engine --buildpack=heroku/procfile  --path tests/fixtures/ruby-getting-started
+pack inspect my-image
 ```

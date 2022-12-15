@@ -12,7 +12,7 @@ pub(crate) struct EnvSecretKeyBaseLayer;
 
 /// # Set the `SECRET_KEY_BASE` environment variable
 ///
-/// This environment variable is primarially used for encrypting/decrypting user sessions.
+/// This environment variable is primarily used for encrypting/decrypting user sessions.
 /// Developers should not need to set it themselves, however if they want,
 /// they can over-write the default.
 ///

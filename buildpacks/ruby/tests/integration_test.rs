@@ -123,7 +123,9 @@ fn request_container(
     path: &str,
 ) -> Result<Response, Box<ureq::Error>> {
     let addr = container.address_for_port(port).unwrap();
-    let req = ureq::get(&format!("http://{}:{}/{}", addr.ip(), addr.port(), path));
+    let ip = addr.ip();
+    let port = addr.port();
+    let req = ureq::get(&format!("http://{ip}:{port}/{path}"));
     req.call().map_err(Box::new)
 }
 
@@ -132,12 +134,11 @@ fn call_root_until_boot(
     port: u16,
 ) -> Result<Response, Box<ureq::Error>> {
     let mut count = 0;
-    let max_time = 10.0; //Seconds
-    let sleep = 0.1;
+    let max_time = 10.0_f64; // Seconds
+    let sleep = 0.1_f64;
 
     #[allow(clippy::cast_possible_truncation)]
-    #[allow(clippy::cast_sign_loss)]
-    let max_count = (max_time / sleep as f64).floor() as u64;
+    let max_count = (max_time / sleep).floor() as i64;
     let mut response = request_container(container, port, "");
     while count < max_count {
         count += 1;

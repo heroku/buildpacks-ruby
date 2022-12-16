@@ -60,7 +60,7 @@ pub(crate) fn bundle_install(
         ],
     );
 
-    println!("Running: $ {} ", command);
+    println!("Running: $ {command}");
 
     command
         .stream()

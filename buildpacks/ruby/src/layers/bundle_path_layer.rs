@@ -63,7 +63,7 @@ impl Layer for BundlePathLayer {
                     Scope::All,
                     ModificationBehavior::Override,
                     "BUNDLE_BIN", // Install executables for all gems into specified path.
-                    &layer_path.join("bin"),
+                    layer_path.join("bin"),
                 )
                 .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
                 .chainable_insert(

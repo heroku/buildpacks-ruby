@@ -106,7 +106,7 @@ impl RubyInstallLayer {
         stack: &StackId,
         version: impl std::fmt::Display,
     ) -> Result<Url, RubyInstallError> {
-        let filename = format!("ruby-{}.tgz", version);
+        let filename = format!("ruby-{version}.tgz");
         let base = "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com";
         let mut url = Url::parse(base).map_err(RubyInstallError::UrlParseError)?;
 

@@ -74,7 +74,7 @@ impl Layer for BundleDownloadLayer {
                     Scope::All,
                     ModificationBehavior::Prepend,
                     "PATH", // Ensure this path comes before default bundler that ships with ruby, don't rely on the lifecycle
-                    &layer_path.join("bin"),
+                    layer_path.join("bin"),
                 )
                 .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
                 .chainable_insert(

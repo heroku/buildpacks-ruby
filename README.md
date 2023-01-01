@@ -177,3 +177,4 @@ This invocation is frequently used in tests. It essentially tells bundler to set
 
 - A "HEROKU_DEBUG_DEPLOY" mode that stops execution but still attempts to write out env vars for what it's got so far so that the results on disk can be interactively inspected
 - The ability to record and replay the actions of the buildpack as bash commands. This could be useful for reproducing and reporting issues for maintainers of other projects, for example we could give rubygems or bundler a repro with docker and bash commands.
+test

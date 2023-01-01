@@ -6,3 +6,4 @@ repos/*
 *.gemspec
 vendor/
 target/
+.git/

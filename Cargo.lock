@@ -546,23 +546,22 @@ checksum = "fc7fcc620a3bff7cdd7a365be3376c97191aeaccc2a603e600951e452615bf89"
 
 [[package]]
 name = "libcnb"
-version = "0.11.1"
+version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88e7663908798e4c9a6ce419220e9493ad19dd12a70fa605dd4e927e3fdc1fc9"
+checksum = "d50542bddae22d7da6a97e168404ad5cde0b567f9d54f8212a1f3aa8eb6a13f1"
 dependencies = [
  "libcnb-data",
  "libcnb-proc-macros",
  "serde",
- "stacker",
  "thiserror",
  "toml",
 ]
 
 [[package]]
 name = "libcnb-data"
-version = "0.11.1"
+version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "066632abe99f4ca2de170a3c3f5946253e63c715e9b7b1a31341de883cb03246"
+checksum = "4484eb6da39a4e7b293960370565f07c8024a0f393ca6a40d92b9359ff9a4a53"
 dependencies = [
  "fancy-regex",
  "libcnb-proc-macros",
@@ -573,9 +572,9 @@ dependencies = [
 
 [[package]]
 name = "libcnb-package"
-version = "0.11.1"
+version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa1d102e9d744212b2bfe650a5012fb93609700642fde5e778dc27103fc1b26e"
+checksum = "2f81ea1c3e50617a6455792508406e072ee5942b0a6527a58f08e1d629a48bc8"
 dependencies = [
  "cargo_metadata",
  "libcnb-data",
@@ -585,9 +584,9 @@ dependencies = [
 
 [[package]]
 name = "libcnb-proc-macros"
-version = "0.11.1"
+version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "092a9091dc629e2fafb9a24e7b9050ca3e84565f82c5a67aecaf8afa24234d32"
+checksum = "355068d72a04c5162ea2c905af70f29c42bec3f316885c8820931aacc63b7a9c"
 dependencies = [
  "cargo_metadata",
  "fancy-regex",
@@ -597,9 +596,9 @@ dependencies = [
 
 [[package]]
 name = "libcnb-test"
-version = "0.11.1"
+version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "318a615aed63ac85117eb0c149105ad9ca956cd3133d11d1a83fb011941802f8"
+checksum = "40cd5ae55b18d8d827c3e6c4740701512f1594bcefe5792ec6685231855b0409"
 dependencies = [
  "bollard",
  "cargo_metadata",
@@ -716,15 +715,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ea3d908b0e36316caf9e9e2c4625cdde190a7e6f440d794667ed17a1855e725"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "psm"
-version = "0.1.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5787f7cda34e3033a72192c018bc5883100330f362ef279a8cbccfce8bb4e874"
-dependencies = [
- "cc",
 ]
 
 [[package]]
@@ -942,19 +932,6 @@ name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
-
-[[package]]
-name = "stacker"
-version = "0.1.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c886bd4480155fd3ef527d45e9ac8dd7118a898a46530b7b94c3e21866259fce"
-dependencies = [
- "cc",
- "cfg-if",
- "libc",
- "psm",
- "winapi",
-]
 
 [[package]]
 name = "strsim"

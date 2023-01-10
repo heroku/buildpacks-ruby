@@ -63,7 +63,8 @@ impl Buildpack for RubyBuildpack {
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         println!("---> Ruby Buildpack");
         // ## Set default environment
-        let mut env = crate::steps::default_env(&context, &context.platform.env().clone())?;
+        let (mut env, store) =
+            crate::steps::default_env(&context, &context.platform.env().clone())?;
 
         // Gather static information about project
         let lockfile_contents = std::fs::read_to_string(context.app_dir.join("Gemfile.lock"))
@@ -110,8 +111,10 @@ impl Buildpack for RubyBuildpack {
                 .default(true)
                 .build()
         };
+
         BuildResultBuilder::new()
             .launch(LaunchBuilder::new().process(default_process).build())
+            .store(store)
             .build()
     }
 }

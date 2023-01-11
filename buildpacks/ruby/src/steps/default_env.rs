@@ -24,12 +24,9 @@ pub(crate) fn default_env(
         env.insert(k, v);
     }
 
-    let mut metadata = match &context.store {
-        Some(store) => store.metadata.clone(),
-        None => toml::value::Table::default(),
-    };
-
-    let default_secret_key_base = metadata
+    let mut store = context.store.clone().unwrap_or_default();
+    let default_secret_key_base = store
+        .metadata
         .entry("SECRET_KEY_BASE")
         .or_insert_with(|| {
             let mut rng = rand::thread_rng();
@@ -40,8 +37,6 @@ pub(crate) fn default_env(
                 .into()
         })
         .to_string();
-
-    let store = Store { metadata };
 
     // Setup default environment variables
     let secret_key_base_layer = context //

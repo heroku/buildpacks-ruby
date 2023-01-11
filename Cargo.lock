@@ -406,7 +406,6 @@ dependencies = [
  "tar",
  "tempfile",
  "thiserror",
- "toml",
  "ureq",
  "url",
 ]
@@ -546,9 +545,9 @@ checksum = "fc7fcc620a3bff7cdd7a365be3376c97191aeaccc2a603e600951e452615bf89"
 
 [[package]]
 name = "libcnb"
-version = "0.11.3"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d50542bddae22d7da6a97e168404ad5cde0b567f9d54f8212a1f3aa8eb6a13f1"
+checksum = "a69d45189983fb0a9996ded95236bb8689437b0e1e636dddf2500e9ec27ab4c0"
 dependencies = [
  "libcnb-data",
  "libcnb-proc-macros",
@@ -559,9 +558,9 @@ dependencies = [
 
 [[package]]
 name = "libcnb-data"
-version = "0.11.3"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4484eb6da39a4e7b293960370565f07c8024a0f393ca6a40d92b9359ff9a4a53"
+checksum = "d3a065640c66df2a6e54aedbb805d264c87020937323b90eea7397108b73d3aa"
 dependencies = [
  "fancy-regex",
  "libcnb-proc-macros",
@@ -572,9 +571,9 @@ dependencies = [
 
 [[package]]
 name = "libcnb-package"
-version = "0.11.3"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f81ea1c3e50617a6455792508406e072ee5942b0a6527a58f08e1d629a48bc8"
+checksum = "d9ed34a92d997ad9b0666ddbcc3995191e7642ee50ffa760497d2fb3bff7c5b5"
 dependencies = [
  "cargo_metadata",
  "libcnb-data",
@@ -584,9 +583,9 @@ dependencies = [
 
 [[package]]
 name = "libcnb-proc-macros"
-version = "0.11.3"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "355068d72a04c5162ea2c905af70f29c42bec3f316885c8820931aacc63b7a9c"
+checksum = "25b3879fd4fc4338421de1ec797ab5ef0abe6d0e90f843dbf3b56c25bc703ebe"
 dependencies = [
  "cargo_metadata",
  "fancy-regex",
@@ -596,9 +595,9 @@ dependencies = [
 
 [[package]]
 name = "libcnb-test"
-version = "0.11.3"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40cd5ae55b18d8d827c3e6c4740701512f1594bcefe5792ec6685231855b0409"
+checksum = "5f414f5b106078d0bbb67b9e3d3bf9e21012f3a318505649e8e99c9d36d200ea"
 dependencies = [
  "bollard",
  "cargo_metadata",

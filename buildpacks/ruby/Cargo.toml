@@ -9,7 +9,7 @@ rust-version = "1.64"
 [dependencies]
 commons = {path = "../../commons" }
 byte-unit = "4.0.14"
-libcnb = "0.11.3"
+libcnb = "0.11.4"
 flate2 = "1"
 ureq = "2.5.0"
 tar = "0.4"
@@ -20,8 +20,6 @@ regex = "1.6.0"
 rand = "0.8.5"
 glob = { git = "https://github.com/rust-lang/glob" } # https://github.com/rust-lang/glob/issues/117
 tempfile = "3.3.0"
-toml = "*"
 
 [dev-dependencies]
-libcnb-test = "0.11.3"
-toml = "0.5.9"
+libcnb-test = ">= 0.11.4"

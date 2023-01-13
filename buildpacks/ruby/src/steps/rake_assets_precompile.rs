@@ -138,7 +138,7 @@ fn detect_rake_can_run(
     }
 }
 
-/// Checks directory for rakefile varients
+/// Checks directory for rakefile variants
 fn dir_has_rakefile(path: &Path) -> HasRakefile {
     HasRakefile(
         ["rakefile", "Rakefile", "rakefile.rb;", "Rakefile.rb"]

@@ -13,7 +13,7 @@ fancy-regex = ">= 0.10.0"
 fs_extra = ">= 1.2.0"
 byte-unit = ">= 4.0.14"
 libcnb = ">= 0.11.0"
-glob = { git = "https://github.com/rust-lang/glob" } # https://github.com/rust-lang/glob/issues/117
+glob = "0.3.1"
 tempfile = ">= 3.3.0"
 serde = ">= 1.0.145"
 

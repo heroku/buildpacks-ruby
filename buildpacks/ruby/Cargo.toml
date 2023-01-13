@@ -18,7 +18,7 @@ url = "2.3.1"
 thiserror = "1.0.36"
 regex = "1.6.0"
 rand = "0.8.5"
-glob = { git = "https://github.com/rust-lang/glob" } # https://github.com/rust-lang/glob/issues/117
+glob = "0.3.1"
 tempfile = "3.3.0"
 
 [dev-dependencies]

@@ -57,7 +57,6 @@ pub enum GemListError {
 ///            &GemVersion::from_str("6.1.4.1").unwrap()
 ///         );
 /// ```
-#[allow(dead_code)]
 impl GemList {
     // Calls `bundle list` and returns a `GemList` struct
     pub fn from_bundle_list<
@@ -74,12 +73,10 @@ impl GemList {
         GemList::from_str(&output.stdout)
     }
 
-    #[allow(dead_code)]
     pub fn has(&self, str: &str) -> bool {
         self.gems.get(&str.trim().to_lowercase()).is_some()
     }
 
-    #[allow(dead_code)]
     pub fn version_for(&self, str: &str) -> Option<&GemVersion> {
         self.gems.get(&str.trim().to_lowercase())
     }

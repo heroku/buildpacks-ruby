@@ -14,7 +14,6 @@ use std::ffi::OsString;
 /// ```
 #[derive(Default)]
 pub struct RakeDetect {
-    #[allow(dead_code)]
     output: String,
 }
 
@@ -28,7 +27,6 @@ pub enum RakeDetectError {
 }
 
 impl RakeDetect {
-    #[allow(dead_code)]
     pub fn from_rake_command<
         T: IntoIterator<Item = (K, V)>,
         K: Into<OsString>,
@@ -56,7 +54,6 @@ impl RakeDetect {
         }
     }
 
-    #[allow(dead_code)]
     pub fn has_task(&self, string: &str) -> bool {
         let task_re = Regex::new(&format!("\\s{}", string)).expect("Internal error with regex");
         task_re.is_match(&self.output)

@@ -75,7 +75,6 @@ use std::thread;
 ///
 /// assert_eq!(command.to_string(), "DOG=\"cinco\" echo \"hello world\"")
 /// ```
-#[allow(dead_code)]
 pub struct EnvCommand {
     base: OsString,
     args: Vec<OsString>,
@@ -86,14 +85,12 @@ pub struct EnvCommand {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct EnvCommandResult {
     pub stdout: String,
     pub stderr: String,
     pub status: ExitStatus,
 }
 
-#[allow(dead_code)]
 #[derive(thiserror::Error, Debug)]
 pub enum EnvCommandError {
     #[error("{0}")]
@@ -126,7 +123,6 @@ impl Display for NonZeroExitStatusError {
 impl EnvCommand {
     /// Main entrypoint, builds a struct with defaults and the arguments
     /// given
-    #[allow(dead_code)]
     pub fn new<T: IntoIterator<Item = (K, V)>, K: Into<OsString>, V: Into<OsString>>(
         base: &str,
         args: &[&str],
@@ -148,7 +144,6 @@ impl EnvCommand {
     }
 
     /// New with keys defined from the beginning
-    #[allow(dead_code)]
     pub fn new_show_keys<T: IntoIterator<Item = (K, V)>, K: Into<OsString>, V: Into<OsString>>(
         base: &str,
         args: &[&str],
@@ -223,7 +218,6 @@ impl EnvCommand {
     ///
     /// assert_eq!(outcome.stdout.trim(), "hello world".to_string());
     /// ```
-    #[allow(dead_code)]
     pub fn call(&self) -> Result<EnvCommandResult, EnvCommandError> {
         self.command()
             .output()
@@ -268,7 +262,6 @@ impl EnvCommand {
     ///
     /// assert_eq!(outcome.stdout.trim(), "hello world".to_string());
     /// ```
-    #[allow(dead_code)]
     pub fn stream(&self) -> Result<EnvCommandResult, EnvCommandError> {
         self.command()
             .stdout(Stdio::piped())

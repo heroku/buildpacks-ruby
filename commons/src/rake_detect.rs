@@ -18,15 +18,18 @@ pub struct RakeDetect {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum RakeDetectError {
+pub enum RakeError {
     #[error("Regex error: {0}")]
     RegexError(#[from] regex::Error),
 
     #[error("Error detecting rake tasks: {0}")]
-    RakeDashpCommandError(EnvCommandError),
+    DashpCommandError(EnvCommandError),
 }
 
 impl RakeDetect {
+    /// # Errors
+    ///
+    /// Will return `Err` if `bundle exec rake -p` command cannot be invoked by the operating system.
     pub fn from_rake_command<
         T: IntoIterator<Item = (K, V)>,
         K: Into<OsString>,
@@ -34,7 +37,7 @@ impl RakeDetect {
     >(
         env: T,
         error_on_failure: bool,
-    ) -> Result<Self, RakeDetectError> {
+    ) -> Result<Self, RakeError> {
         let mut command = EnvCommand::new("bundle", &["exec", "rake", "-P", "--trace"], env);
         let outcome = command
             .on_non_zero_exit(move |error| {
@@ -45,7 +48,7 @@ impl RakeDetect {
                 }
             })
             .call()
-            .map_err(RakeDetectError::RakeDashpCommandError)?;
+            .map_err(RakeError::DashpCommandError)?;
 
         if outcome.status.success() {
             RakeDetect::from_str(&outcome.stdout)
@@ -54,14 +57,15 @@ impl RakeDetect {
         }
     }
 
+    #[must_use]
     pub fn has_task(&self, string: &str) -> bool {
-        let task_re = Regex::new(&format!("\\s{}", string)).expect("Internal error with regex");
+        let task_re = Regex::new(&format!("\\s{string}")).expect("Internal error with regex");
         task_re.is_match(&self.output)
     }
 }
 
 impl FromStr for RakeDetect {
-    type Err = RakeDetectError;
+    type Err = RakeError;
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         Ok(RakeDetect {

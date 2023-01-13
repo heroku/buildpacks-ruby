@@ -8,7 +8,7 @@ use commons::gem_list::GemList;
 use commons::gem_list::GemListError;
 use commons::gemfile_lock::{GemfileLock, GemfileLockError};
 use commons::in_app_dir_cache::InAppDirCacheError;
-use commons::rake_detect::RakeDetectError;
+use commons::rake_detect::RakeError;
 use core::str::FromStr;
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
@@ -149,7 +149,7 @@ pub(crate) enum RubyBuildpackError {
     GemListGetError(GemListError),
 
     #[error("Error detecting rake tasks: {0}")]
-    RakeDetectError(RakeDetectError),
+    RakeDetectError(RakeError),
 
     #[error("Error running rake assets precompile: {0}")]
     RakeAssetsPrecompileFailed(commons::env_command::EnvCommandError),

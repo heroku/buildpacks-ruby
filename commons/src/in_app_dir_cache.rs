@@ -10,6 +10,8 @@ use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::path::PathBuf;
 
+use tempfile as _;
+
 /// Store data generated in the `<app_dir>` between builds
 ///
 /// Example:
@@ -282,8 +284,6 @@ mod tests {
 
     pub fn touch_file(path: &PathBuf, f: impl FnOnce(&PathBuf)) {
         if let Some(parent) = path.parent() {
-            println!("path {:?}", path);
-            println!("parent {:?}", parent);
             if !parent.exists() {
                 std::fs::create_dir_all(parent).unwrap();
             }

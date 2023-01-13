@@ -13,8 +13,5 @@ id = "heroku-20"
 
 [[stacks]]
 id = "heroku-22"
-
-[metadata]
-
 [[buildpack.licenses]]
 type = "BSD-3-Clause"

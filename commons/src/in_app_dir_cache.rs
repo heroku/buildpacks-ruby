@@ -1,6 +1,7 @@
 use crate::in_app_dir_cache_layer::InAppDirCacheLayer;
 use byte_unit::Byte;
 use fs_extra::dir::CopyOptions;
+use glob::PatternError;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
 use libcnb::Buildpack;
@@ -28,7 +29,7 @@ use tempfile as _;
 ///
 ///# pub(crate) struct HelloWorldBuildpack;
 ///
-///use commons::in_app_dir_cache::InAppDirCacheWithLayer;
+///use commons::in_app_dir_cache::InAppDirCache;
 ///
 ///# impl Buildpack for HelloWorldBuildpack {
 ///#     type Platform = GenericPlatform;
@@ -40,7 +41,7 @@ use tempfile as _;
 ///#     }
 ///
 ///#     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
-///         let public_assets_cache = InAppDirCacheWithLayer::new_and_load(
+///         let public_assets_cache = InAppDirCache::new_and_load(
 ///             &context,
 ///             &context.app_dir.join("public").join("assets"),
 ///         ).unwrap();
@@ -55,17 +56,17 @@ use tempfile as _;
 /// ```
 ///
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct InAppDirCache {
+pub struct DirCache {
     pub app_path: PathBuf,
     pub cache_path: PathBuf,
 }
 
-pub struct InAppDirCacheWithLayer<B> {
+pub struct InAppDirCache<B> {
     buildpack: PhantomData<B>,
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum InAppDirCacheError {
+pub enum CacheError {
     #[error("Cached path not in application directory: {0}")]
     CachedPathNotInAppPath(String),
 
@@ -79,34 +80,53 @@ pub enum InAppDirCacheError {
     IoError(std::io::Error),
 
     #[error("Cannot convert OsString into UTF-8 string: {0}")]
-    OsStringErr(String),
+    OsStringError(String),
+
+    #[error("An internal error occured while creating a dir glob pattern: {0}")]
+    InternalBadGlobError(PatternError),
+
+    #[error("An internal error occured while constructing the layer: {0}")]
+    InternalLayerError(String),
+
+    #[error("The OS does not support the retreiving `mtime` information from files: {0}")]
+    MtimeUnsupportedOS(std::io::Error),
 }
 
-fn to_layer_name(base: &Path, app_path: &Path) -> Result<LayerName, InAppDirCacheError> {
+fn to_layer_name(base: &Path, app_path: &Path) -> Result<LayerName, CacheError> {
     let name = app_path
         .strip_prefix(base)
         .map_err(|_| {
-            InAppDirCacheError::CachedPathNotInAppPath(format!(
+            CacheError::CachedPathNotInAppPath(format!(
                 "Expected cached app path {} to be in {} but it was not",
                 app_path.display(),
                 base.display(),
             ))
         })?
         .iter()
-        .map(|p| p.to_string_lossy())
+        .map(std::ffi::OsStr::to_string_lossy)
         .collect::<Vec<_>>()
         .join("_");
 
-    format!("cache_{}", name)
+    format!("cache_{name}")
         .parse()
-        .map_err(InAppDirCacheError::InvalidLayerName)
+        .map_err(CacheError::InvalidLayerName)
 }
 
-impl<B: Buildpack> InAppDirCacheWithLayer<B> {
+impl<B: Buildpack> InAppDirCache<B> {
+    /// Creates an ```InAppDirCache``` struct and loads cache contents to app directory
+    ///
+    /// # Errors
+    ///
+    /// - Err if either the ```app_path``` or ```cache_path``` cannot be created due to an error
+    /// from the OS, such as file permissions.
+    /// - Err if the contents of the cache directory cannot be moved to the app directory, perhaps
+    /// due to a permissions problem.
+    /// - Err if the generated layer name is invalid.
+    ///- Err if there's an internal error creating the layer.
     pub fn new_and_load(
         context: &BuildContext<B>,
         app_path: &Path,
-    ) -> Result<InAppDirCache, InAppDirCacheError> {
+    ) -> Result<DirCache, CacheError> {
         let app_path = app_path.to_path_buf();
 
         let cache_path = context
@@ -114,10 +134,10 @@ impl<B: Buildpack> InAppDirCacheWithLayer<B> {
                 to_layer_name(&context.app_dir, &app_path)?,
                 InAppDirCacheLayer::new(app_path.clone()),
             )
-            .expect("Internal error with layer")
+            .map_err(|error| CacheError::InternalLayerError(format!("{error:?}")))?
             .path;
 
-        let out = InAppDirCache {
+        let out = DirCache {
             app_path,
             cache_path,
         };
@@ -128,15 +148,22 @@ impl<B: Buildpack> InAppDirCacheWithLayer<B> {
     }
 }
 
-impl InAppDirCache {
-    fn mkdir_p(&self) -> Result<(), InAppDirCacheError> {
-        std::fs::create_dir_all(&self.app_path).map_err(InAppDirCacheError::IoError)?;
-        std::fs::create_dir_all(&self.cache_path).map_err(InAppDirCacheError::IoError)?;
+impl DirCache {
+    /// # Errors
+    ///
+    /// Fails if either the ```app_path``` or ```cache_path``` cannot be created due to an error
+    /// from the OS, such as file permissions.
+    fn mkdir_p(&self) -> Result<(), CacheError> {
+        std::fs::create_dir_all(&self.app_path).map_err(CacheError::IoError)?;
+        std::fs::create_dir_all(&self.cache_path).map_err(CacheError::IoError)?;
 
         Ok(())
     }
 
-    fn move_cache_to_app(&self) -> Result<&Self, InAppDirCacheError> {
+    /// # Errors
+    ///
+    /// - If the move command fails an `IoExtraError` will be raised by the OS.
+    fn move_cache_to_app(&self) -> Result<&Self, CacheError> {
         fs_extra::dir::move_dir(
             &self.cache_path,
             &self.app_path,
@@ -148,13 +175,15 @@ impl InAppDirCache {
                 ..CopyOptions::default()
             },
         )
-        .map_err(InAppDirCacheError::IoExtraError)?;
+        .map_err(CacheError::IoExtraError)?;
 
         Ok(self)
     }
 
-    pub fn destructive_move_app_path_to_cache(&self) -> Result<&Self, InAppDirCacheError> {
-        println!("---> Storing cache for {}", self.app_path.display());
+    /// # Errors
+    ///
+    /// - If the move command fails an `IoExtraError` will be raised.
+    pub fn destructive_move_app_path_to_cache(&self) -> Result<&Self, CacheError> {
         fs_extra::dir::move_dir(
             &self.app_path,
             &self.cache_path,
@@ -166,13 +195,15 @@ impl InAppDirCache {
                 ..CopyOptions::default()
             },
         )
-        .map_err(InAppDirCacheError::IoExtraError)?;
+        .map_err(CacheError::IoExtraError)?;
 
         Ok(self)
     }
 
-    pub fn copy_app_path_to_cache(&self) -> Result<&Self, InAppDirCacheError> {
-        println!("---> Storing cache for {}", self.app_path.display());
+    /// # Errors
+    ///
+    /// - If the copy command fails an `IoExtraError` will be raised.
+    pub fn copy_app_path_to_cache(&self) -> Result<&Self, CacheError> {
         fs_extra::dir::copy(
             &self.app_path,
             &self.cache_path,
@@ -185,37 +216,44 @@ impl InAppDirCache {
                 ..CopyOptions::default()
             },
         )
-        .map_err(InAppDirCacheError::IoExtraError)?;
+        .map_err(CacheError::IoExtraError)?;
 
         Ok(self)
     }
 
+    /// # Errors
+    ///
+    /// - The provided ``cache_path`` is not valid UTF-8 (`OsStringErr`).
+    /// - Metadata from a file in the ``cache_path`` cannot be retrieved from the OS (`IoError`).
+    /// this is needed for mtime retrieval to calculate which file is least recently used.
+    /// - If an internal glob pattern is incorrect
+    /// - If the OS does not support mtime.
     pub fn least_recently_used_files_above_limit(
         &self,
         max_bytes: Byte,
-    ) -> Result<FilesWithSize, InAppDirCacheError> {
+    ) -> Result<FilesWithSize, CacheError> {
         Self::least_recently_used_files_above_limit_from_path(&self.cache_path, max_bytes)
     }
 
     fn least_recently_used_files_above_limit_from_path(
         cache_path: &Path,
         max_bytes: Byte,
-    ) -> Result<FilesWithSize, InAppDirCacheError> {
+    ) -> Result<FilesWithSize, CacheError> {
         let max_bytes = max_bytes.get_bytes();
         let glob_string = cache_path
             .join("**/*")
             .into_os_string()
             .into_string()
-            .map_err(|e| InAppDirCacheError::OsStringErr(e.to_string_lossy().to_string()))?;
+            .map_err(|e| CacheError::OsStringError(e.to_string_lossy().to_string()))?;
 
         let mut files = glob::glob(&glob_string)
-            .expect("Bad glob pattern")
+            .map_err(CacheError::InternalBadGlobError)?
             .filter_map(Result::ok)
             .filter(|p| p.is_file()) // Means we aren't removing empty directories
             .map(|p| {
                 std::fs::metadata(&p)
                     .map(|m| (m, p))
-                    .map_err(InAppDirCacheError::IoError)
+                    .map_err(CacheError::IoError)
             })
             .collect::<Result<Vec<(Metadata, PathBuf)>, _>>()?;
 
@@ -226,16 +264,16 @@ impl InAppDirCache {
 
         if bytes >= max_bytes {
             let mut current_bytes = bytes;
-            files.sort_by(|(meta_a, _), (meta_b, _)| {
-                let a_modified = meta_a
-                    .modified()
-                    .expect("Operating system must support file mtime");
-                let b_modified = meta_b
-                    .modified()
-                    .expect("Operating system must support file mtime");
-
-                a_modified.cmp(&b_modified)
-            });
+            files
+                .iter()
+                .map(|(metadata, path)| {
+                    metadata
+                        .modified()
+                        .map_err(CacheError::MtimeUnsupportedOS)
+                        .map(|modified| (modified, path))
+                })
+                .collect::<Result<Vec<(_, _)>, CacheError>>()?
+                .sort_by(|(a_mod, _), (b_mod, _)| a_mod.cmp(b_mod));
 
             Ok(FilesWithSize {
                 bytes,
@@ -261,12 +299,18 @@ pub struct FilesWithSize {
 }
 
 impl FilesWithSize {
+    #[must_use]
     pub fn to_byte(&self) -> Byte {
         Byte::from_bytes(self.bytes)
     }
-    pub fn clean(&self) -> Result<(), InAppDirCacheError> {
+
+    /// # Errors
+    ///
+    /// Returns an error if one of the files to clean cannot be removed
+    /// by the operating system.
+    pub fn clean(&self) -> Result<(), CacheError> {
         for file in &self.files {
-            std::fs::remove_file(file).map_err(InAppDirCacheError::IoError)?;
+            std::fs::remove_file(file).map_err(CacheError::IoError)?;
         }
 
         Ok(())
@@ -293,61 +337,6 @@ mod tests {
         std::fs::remove_file(path).unwrap();
     }
 
-    // fn buildpack_toml<'a>() -> &'a str {
-    //     include_str!("../../buildpacks/ruby/buildpack.toml")
-    // }
-
-    // #[test]
-    // fn test_makes_layer_correctly() {
-    //     let tmp_context = crate::test_helper::TempContext::new(buildpack_toml());
-
-    //     let app_path = tmp_context.build.app_dir.join("hahaha");
-
-    //     assert!(!app_path.exists());
-    //     let cache = InAppDirCacheWithLayername::new_and_load(
-    //         &tmp_context.build,
-    //         layer_name!("lol"),
-    //         &app_path,
-    //     );
-
-    //     assert!(cache.app_path.exists()); // Creates app path
-    //     assert_eq!(cache.app_path, app_path);
-    //     assert_eq!(cache.cache_path, tmp_context.build.layers_dir.join("lol"));
-    // }
-
-    // #[test]
-    // fn test_makes_app_dir_if_it_doesnt_already_exist() {
-    //     let tmp_context = crate::test_helper::TempContext::new(buildpack_toml());
-    //     let cache = InAppDirCacheWithLayername::new_and_load(
-    //         &tmp_context.build,
-    //         layer_name!("lol"),
-    //         &tmp_context
-    //             .build
-    //             .app_dir
-    //             .join("make")
-    //             .join("path")
-    //             .join("here"),
-    //     );
-
-    //     assert!(cache.cache_path.exists());
-    //     assert!(cache.app_path.exists());
-    // }
-
-    // #[test]
-    // fn test_populates_app_dir_automatically() {
-    //     let tmp_context = crate::test_helper::TempContext::new(buildpack_toml());
-
-    //     let lol_layer = tmp_context.build.layers_dir.clone();
-    //     let app_path = tmp_context.build.app_dir.join("muh_path");
-
-    //     std::fs::write(&lol_layer.join("lol.txt"), "lol").unwrap();
-
-    //     assert!(!app_path.exists());
-
-    //     InAppDirCacheWithLayername::new_and_load(&tmp_context.build, layer_name!("lol"), &app_path);
-
-    //     assert!(app_path.exists());
-    // }
     #[test]
     fn test_to_layer_name() {
         let dir = PathBuf::from_str("muh_base").unwrap();
@@ -360,7 +349,7 @@ mod tests {
         let tmpdir = tempfile::tempdir().unwrap();
         let cache_path = tmpdir.path().join("cache");
         let app_path = tmpdir.path().join("app");
-        let cache = InAppDirCache {
+        let cache = DirCache {
             app_path: app_path.clone(),
             cache_path: cache_path.clone(),
         };
@@ -385,7 +374,7 @@ mod tests {
         let tmpdir = tempfile::tempdir().unwrap();
         let cache_path = tmpdir.path().join("cache");
         let app_path = tmpdir.path().join("app");
-        let cache = InAppDirCache {
+        let cache = DirCache {
             app_path: app_path.clone(),
             cache_path: cache_path.clone(),
         };
@@ -413,7 +402,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
 
         assert_eq!(
-            InAppDirCache::least_recently_used_files_above_limit_from_path(
+            DirCache::least_recently_used_files_above_limit_from_path(
                 &dir,
                 Byte::from_bytes(n_mib_bytes!(0)),
             )
@@ -424,14 +413,14 @@ mod tests {
         );
 
         touch_file(&dir.join("a"), |file| {
-            let overage = InAppDirCache::least_recently_used_files_above_limit_from_path(
+            let overage = DirCache::least_recently_used_files_above_limit_from_path(
                 &dir,
                 Byte::from_bytes(n_mib_bytes!(0)),
             )
             .unwrap();
             assert_eq!(overage.files, vec![file.clone()]);
 
-            let overage = InAppDirCache::least_recently_used_files_above_limit_from_path(
+            let overage = DirCache::least_recently_used_files_above_limit_from_path(
                 &dir,
                 Byte::from_bytes(n_mib_bytes!(10)),
             )
@@ -450,7 +439,7 @@ mod tests {
                 filetime::set_file_mtime(a, filetime::FileTime::from_unix_time(0, 0)).unwrap();
                 filetime::set_file_mtime(b, filetime::FileTime::from_unix_time(1, 0)).unwrap();
 
-                let overage = InAppDirCache::least_recently_used_files_above_limit_from_path(
+                let overage = DirCache::least_recently_used_files_above_limit_from_path(
                     &dir,
                     Byte::from_bytes(n_mib_bytes!(0)),
                 )
@@ -465,7 +454,7 @@ mod tests {
         let tmpdir = tempfile::tempdir().unwrap();
         let dir = tmpdir.path().join("");
         std::fs::create_dir_all(dir.join("preservation_society")).unwrap();
-        let overage = InAppDirCache::least_recently_used_files_above_limit_from_path(
+        let overage = DirCache::least_recently_used_files_above_limit_from_path(
             &dir,
             Byte::from_bytes(n_mib_bytes!(0)),
         )

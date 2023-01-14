@@ -5,11 +5,11 @@ use glob::PatternError;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
 use libcnb::Buildpack;
-use std::fs::Metadata;
 use std::marker::PhantomData;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::path::PathBuf;
+use std::time::SystemTime;
 
 use tempfile as _;
 
@@ -250,40 +250,24 @@ impl DirCache {
             .map_err(CacheError::InternalBadGlobError)?
             .filter_map(Result::ok)
             .filter(|p| p.is_file()) // Means we aren't removing empty directories
-            .map(|p| {
-                std::fs::metadata(&p)
-                    .map(|m| (m, p))
-                    .map_err(CacheError::IoError)
-            })
-            .collect::<Result<Vec<(Metadata, PathBuf)>, _>>()?;
+            .map(MiniPathModSize::new)
+            .collect::<Result<Vec<MiniPathModSize>, _>>()?;
 
-        let bytes = files
-            .iter()
-            .map(|(metadata, _)| u128::from(metadata.size()))
-            .sum::<u128>();
+        let bytes = files.iter().map(|p| u128::from(p.size)).sum::<u128>();
 
         if bytes >= max_bytes {
             let mut current_bytes = bytes;
-            files
-                .iter()
-                .map(|(metadata, path)| {
-                    metadata
-                        .modified()
-                        .map_err(CacheError::MtimeUnsupportedOS)
-                        .map(|modified| (modified, path))
-                })
-                .collect::<Result<Vec<(_, _)>, CacheError>>()?
-                .sort_by(|(a_mod, _), (b_mod, _)| a_mod.cmp(b_mod));
+            files.sort_by(|a, b| a.modified.cmp(&b.modified));
 
             Ok(FilesWithSize {
                 bytes,
                 files: files
                     .iter()
-                    .take_while(|(metadata, _)| {
-                        current_bytes -= u128::from(metadata.size());
+                    .take_while(|m| {
+                        current_bytes -= u128::from(m.size);
                         current_bytes >= max_bytes
                     })
-                    .map(|(_, path)| path.clone())
+                    .map(|p| p.path.clone())
                     .collect::<Vec<PathBuf>>(),
             })
         } else {
@@ -296,6 +280,29 @@ impl DirCache {
 pub struct FilesWithSize {
     pub bytes: u128,
     pub files: Vec<PathBuf>,
+}
+
+#[derive(Debug)]
+struct MiniPathModSize {
+    path: PathBuf,
+    modified: SystemTime,
+    size: u64,
+}
+
+impl MiniPathModSize {
+    fn new(path: PathBuf) -> Result<Self, CacheError> {
+        let metadata = path.metadata().map_err(CacheError::IoError)?;
+        let modified = metadata
+            .modified()
+            .map_err(CacheError::MtimeUnsupportedOS)?;
+        let size = metadata.size();
+
+        Ok(Self {
+            path,
+            modified,
+            size,
+        })
+    }
 }
 
 impl FilesWithSize {

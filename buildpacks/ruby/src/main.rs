@@ -7,7 +7,7 @@ use commons::env_command::EnvCommandError;
 use commons::gem_list::GemList;
 use commons::gem_list::GemListError;
 use commons::gemfile_lock::{GemfileLock, GemfileLockError};
-use commons::in_app_dir_cache::InAppDirCacheError;
+use commons::in_app_dir_cache::CacheError;
 use commons::rake_detect::RakeError;
 use core::str::FromStr;
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
@@ -161,7 +161,7 @@ pub(crate) enum RubyBuildpackError {
     GemfileLockParsingError(GemfileLockError),
 
     #[error("Error caching application path: {0}")]
-    InAppDirCacheError(InAppDirCacheError),
+    InAppDirCacheError(CacheError),
 }
 impl From<RubyBuildpackError> for libcnb::Error<RubyBuildpackError> {
     fn from(error: RubyBuildpackError) -> Self {

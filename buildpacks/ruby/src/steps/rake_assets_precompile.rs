@@ -3,7 +3,7 @@ use crate::RubyBuildpackError;
 use byte_unit::{Byte, ByteUnit};
 use commons::env_command::EnvCommand;
 use commons::gem_list::GemList;
-use commons::in_app_dir_cache::{InAppDirCache, InAppDirCacheWithLayer};
+use commons::in_app_dir_cache::{DirCache, InAppDirCache};
 use commons::rake_detect::RakeDetect;
 use libcnb::build::BuildContext;
 use libcnb::Env;
@@ -64,16 +64,22 @@ pub(crate) fn rake_assets_precompile(
                     env,
                 );
 
-                let public_assets_cache = InAppDirCacheWithLayer::new_and_load(
+                let public_assets_cache = InAppDirCache::new_and_load(
                     context,
                     &context.app_dir.join("public").join("assets"),
                 )
                 .map_err(RubyBuildpackError::InAppDirCacheError)?;
-                let fragments_cache = InAppDirCacheWithLayer::new_and_load(
+                let fragments_cache = InAppDirCache::new_and_load(
                     context,
                     &context.app_dir.join("tmp").join("cache").join("assets"),
                 )
                 .map_err(RubyBuildpackError::InAppDirCacheError)?;
+
+                println!(
+                    "---> Loading cache for {} & {}",
+                    public_assets_cache.app_path.display(),
+                    fragments_cache.app_path.display()
+                );
 
                 println!("    Rake task `rake assets:precompile` found, running");
                 assets_precompile
@@ -87,6 +93,11 @@ pub(crate) fn rake_assets_precompile(
                         .stream()
                         .map_err(RubyBuildpackError::RakeAssetsCleanFailed)?;
 
+                    println!(
+                        "---> Storing cache for {} & {}",
+                        public_assets_cache.app_path.display(),
+                        fragments_cache.app_path.display()
+                    );
                     public_assets_cache
                         .copy_app_path_to_cache()
                         .map_err(RubyBuildpackError::InAppDirCacheError)?;
@@ -174,10 +185,7 @@ fn has_asset_manifest(app_dir: &Path) -> AssetManifestList {
     AssetManifestList(manifests)
 }
 
-fn clean_stale_files_in_cache(
-    cache: &InAppDirCache,
-    max_bytes: Byte,
-) -> Result<(), RubyBuildpackError> {
+fn clean_stale_files_in_cache(cache: &DirCache, max_bytes: Byte) -> Result<(), RubyBuildpackError> {
     let overage = cache
         .least_recently_used_files_above_limit(max_bytes)
         .map_err(RubyBuildpackError::InAppDirCacheError)?;

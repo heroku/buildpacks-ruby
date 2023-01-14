@@ -233,7 +233,7 @@ impl EnvCommand {
             .or_else(|error| {
                 Ok(EnvCommandResult {
                     stdout: String::new(),
-                    stderr: format!("{}", error),
+                    stderr: format!("{error}"),
                     status: ExitStatus::from_raw(error.raw_os_error().unwrap_or(-1)),
                 })
             })

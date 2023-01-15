@@ -1,4 +1,4 @@
-use crate::env_command::EnvCommand;
+use crate::env_command::{EnvCommand, OutputEx};
 use core::str::FromStr;
 use regex::Regex;
 use std::ffi::OsString;
@@ -51,7 +51,7 @@ impl RakeDetect {
             .map_err(RakeError::DashpCommandError)?;
 
         if outcome.status.success() {
-            RakeDetect::from_str(&outcome.stdout)
+            RakeDetect::from_str(&outcome.stdout_lossy())
         } else {
             Ok(RakeDetect::default())
         }

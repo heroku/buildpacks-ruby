@@ -1,4 +1,4 @@
-use crate::env_command::EnvCommand;
+use crate::env_command::{EnvCommand, OutputEx};
 use crate::gem_version::GemVersion;
 use core::str::FromStr;
 use regex::Regex;
@@ -74,7 +74,7 @@ impl GemList {
             .call()
             .map_err(ListError::BundleListShellCommandError)?;
 
-        GemList::from_str(&output.stdout)
+        GemList::from_str(&output.stdout_lossy())
     }
 
     #[must_use]

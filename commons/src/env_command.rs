@@ -1,16 +1,15 @@
+use libherokubuildpack::command::CommandExt;
 use regex::Regex;
 use std::borrow::Borrow;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::io::BufRead;
-use std::io::BufReader;
 use std::os::unix::prelude::ExitStatusExt;
-use std::process::Stdio;
+use std::process::Output;
 use std::process::{Command, ExitStatus};
-use std::thread;
 
 /// # Run a command, with an env!
 ///
@@ -24,14 +23,14 @@ use std::thread;
 /// Example:
 ///
 /// ```rust,no_run
-/// use commons::env_command::EnvCommand;
+/// use commons::env_command::{EnvCommand, OutputEx};
 /// use libcnb::Env;
 ///
 /// let env = Env::new();
 /// let mut command = EnvCommand::new("echo", &["hello world"], &env);
 /// let outcome = command.call().unwrap();
 ///
-/// assert_eq!(outcome.stdout.trim(), "hello world".to_string());
+/// assert_eq!(outcome.stdout_lossy().trim(), "hello world".to_string());
 /// ```
 ///
 /// Can run command and capture the output with `call()` or can stream
@@ -80,15 +79,25 @@ pub struct EnvCommand {
     args: Vec<OsString>,
     env: HashMap<OsString, OsString>,
     show_env_keys: Vec<OsString>,
-    on_non_zero_exit:
-        Box<dyn Fn(NonZeroExitStatusError) -> Result<Outcome, NonZeroExitStatusError>>,
+    on_non_zero_exit: Box<dyn Fn(NonZeroExitStatusError) -> Result<Output, NonZeroExitStatusError>>,
 }
 
-#[derive(Debug, Clone)]
-pub struct Outcome {
-    pub stdout: String,
-    pub stderr: String,
-    pub status: ExitStatus,
+/// Convienece traite to extend ```Output```
+///
+/// Gives ```Output``` functions for returning stdout and stderr as lossy strings.
+pub trait OutputEx {
+    fn stdout_lossy(&self) -> Cow<'_, str>;
+    fn stderr_lossy(&self) -> Cow<'_, str>;
+}
+
+impl OutputEx for Output {
+    fn stdout_lossy(&self) -> Cow<'_, str> {
+        String::from_utf8_lossy(&self.stdout)
+    }
+
+    fn stderr_lossy(&self) -> Cow<'_, str> {
+        String::from_utf8_lossy(&self.stderr)
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -100,7 +109,7 @@ pub enum CommandError {
 #[derive(Debug)]
 pub struct NonZeroExitStatusError {
     pub command: String,
-    pub result: Outcome,
+    pub result: Output,
     already_streamed: bool,
 }
 
@@ -113,7 +122,8 @@ impl Display for NonZeroExitStatusError {
         if !self.already_streamed {
             output.push_str(&format!(
                 "stdout: {}\nstderr{}\n",
-                self.result.stdout, self.result.stderr
+                self.result.stdout_lossy(),
+                self.result.stderr_lossy()
             ));
         };
         write!(f, "{output}")
@@ -209,37 +219,26 @@ impl EnvCommand {
     /// Runs the command silently and capture STDOUT & STDERR
     ///
     /// ```rust,no_run
-    /// use commons::env_command::EnvCommand;
+    /// use commons::env_command::{EnvCommand, OutputEx};
     /// use libcnb::Env;
     ///
     /// let env = Env::new();
     /// let mut command = EnvCommand::new("echo", &["hello world"], &env);
     /// let outcome = command.call().unwrap();
     ///
-    /// assert_eq!(outcome.stdout.trim(), "hello world".to_string());
+    /// assert_eq!(outcome.stdout_lossy().trim(), "hello world".to_string());
     /// ```
     ///
     /// # Errors
     ///
     /// - If the exit status of running the command is non-zero
-    pub fn call(&self) -> Result<Outcome, CommandError> {
+    pub fn call(&self) -> Result<Output, CommandError> {
         self.command()
             .output()
-            .map(|output| Outcome {
-                stdout: std::str::from_utf8(&output.stdout)
-                    .unwrap()
-                    // .expect("Internal encoding error")
-                    .to_string(),
-                stderr: std::str::from_utf8(&output.stderr)
-                    .unwrap()
-                    // .expect("Internal encoding error")
-                    .to_string(),
-                status: output.status,
-            })
             .or_else(|error| {
-                Ok(Outcome {
-                    stdout: String::new(),
-                    stderr: format!("{error}"),
+                Ok(Output {
+                    stdout: String::new().into_bytes(),
+                    stderr: format!("{error}").into_bytes(),
                     status: ExitStatus::from_raw(error.raw_os_error().unwrap_or(-1)),
                 })
             })
@@ -259,29 +258,26 @@ impl EnvCommand {
     /// Runs the command and streams contents to STDOUT/STDERR
     ///
     /// ```rust,no_run
-    /// use commons::env_command::EnvCommand;
+    /// use commons::env_command::{EnvCommand, OutputEx};
     /// use libcnb::Env;
     ///
     /// let env = Env::new();
     /// let mut command = EnvCommand::new("echo", &["hello world"], &env);
     /// let outcome = command.stream().unwrap();
     ///
-    /// assert_eq!(outcome.stdout.trim(), "hello world".to_string());
+    /// assert_eq!(outcome.stdout_lossy().trim(), "hello world".to_string());
     /// ```
     ///
     /// # Errors
     ///
     /// - Err when the status code is non-zero
-    pub fn stream(&self) -> Result<Outcome, CommandError> {
+    pub fn stream(&self) -> Result<Output, CommandError> {
         self.command()
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map(|mut child| EnvCommand::stream_child(&mut child))
+            .output_and_write_streams(std::io::stdout(), std::io::stderr())
             .or_else(|error| {
-                Ok(Outcome {
-                    stdout: String::new(),
-                    stderr: format!("{error}"),
+                Ok(Output {
+                    stdout: String::new().into_bytes(),
+                    stderr: format!("{error}").into_bytes(),
                     status: ExitStatus::from_raw(error.raw_os_error().unwrap_or(-1)),
                 })
             })
@@ -302,7 +298,7 @@ impl EnvCommand {
     /// use this method to implement custom behavior.
     ///
     /// ```rust,no_run
-    /// use commons::env_command::EnvCommand;
+    /// use commons::env_command::{EnvCommand, OutputEx};
     /// use libcnb::Env;
     ///
     /// let env = Env::new();
@@ -312,60 +308,14 @@ impl EnvCommand {
     ///                   .unwrap();
     ///
     /// assert!(!outcome.status.success());
-    /// assert!(outcome.stderr.contains("command not found: iDoNotExist"))
+    /// assert!(outcome.stderr_lossy().contains("command not found: iDoNotExist"))
     /// ```
     pub fn on_non_zero_exit(
         &mut self,
-        fun: impl Fn(NonZeroExitStatusError) -> Result<Outcome, NonZeroExitStatusError> + 'static,
+        fun: impl Fn(NonZeroExitStatusError) -> Result<Output, NonZeroExitStatusError> + 'static,
     ) -> &mut Self {
         self.on_non_zero_exit = Box::new(fun);
         self
-    }
-
-    /// Internal helper for streaming a child process to stdout/stderr
-    /// while also collecting the results of the process.
-    fn stream_child(child: &mut std::process::Child) -> Outcome {
-        let child_stdout = child.stdout.take().unwrap();
-        // .expect("Internal error, could not take stdout");
-        let child_stderr = child.stderr.take().unwrap();
-        // .expect("Internal error, could not take stderr");
-
-        let (stdout_tx, stdout_rx) = std::sync::mpsc::channel();
-        let (stderr_tx, stderr_rx) = std::sync::mpsc::channel();
-
-        let stdout_thread = thread::spawn(move || {
-            let stdout_lines = BufReader::new(child_stdout).lines();
-            for line in stdout_lines {
-                let line = line.unwrap();
-                println!("{line}");
-                stdout_tx.send(line).unwrap();
-            }
-        });
-
-        let stderr_thread = thread::spawn(move || {
-            let stderr_lines = BufReader::new(child_stderr).lines();
-            for line in stderr_lines {
-                let line = line.unwrap();
-                eprintln!("{line}");
-                stderr_tx.send(line).unwrap();
-            }
-        });
-
-        let status = child.wait().unwrap();
-
-        // .expect("Internal error, failed to wait on child");
-
-        stdout_thread.join().unwrap();
-        stderr_thread.join().unwrap();
-
-        let stdout = stdout_rx.into_iter().collect::<String>();
-        let stderr = stderr_rx.into_iter().collect::<String>();
-
-        Outcome {
-            stdout,
-            stderr,
-            status,
-        }
     }
 
     /// The user can specify an custom function to be called when
@@ -375,7 +325,7 @@ impl EnvCommand {
     fn handle_non_zero_exit_error(
         &self,
         error: NonZeroExitStatusError,
-    ) -> Result<Outcome, CommandError> {
+    ) -> Result<Output, CommandError> {
         (self.on_non_zero_exit)(error).map_err(CommandError::UnexpectedExitStatusError)
     }
 
@@ -456,7 +406,7 @@ mod tests {
         let command = EnvCommand::new("echo", &["hello world"], &Env::new());
         let outcome = command.call().unwrap();
 
-        assert_eq!(outcome.stdout.trim(), "hello world".to_string());
+        assert_eq!(outcome.stdout_lossy().trim(), "hello world".to_string());
     }
 
     #[test]
@@ -478,7 +428,7 @@ mod tests {
         let command = EnvCommand::new("echo", &["hello world"], &Env::new());
         let outcome = command.stream().unwrap();
 
-        assert_eq!(outcome.stdout.trim(), "hello world".to_string());
+        assert_eq!(outcome.stdout_lossy().trim(), "hello world".to_string());
     }
 
     #[test]

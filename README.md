@@ -137,7 +137,7 @@ This buildpack does not port all behaviors of the [original buildpack for Ruby ]
 - Caching of `public/assets` is gated on the presence of `rake assets:clean`. Previously this behavior was gated on the existence of a certain version of the Rails framework.
 - Caching of `tmp/cache/assets` (fragments) is gated on the presence of `rake assets:clean`. Previously this behavior was gated on the existence of a certain version of the Rails framework.
 
-## Develoment
+## Development
 
 ### Setup the project
 

@@ -243,15 +243,17 @@ impl EnvCommand {
                 })
             })
             .and_then(|result| {
-                if result.status.success() {
-                    Ok(result)
-                } else {
-                    self.handle_non_zero_exit_error(NonZeroExitStatusError {
-                        command: self.to_string(),
-                        result,
-                        already_streamed: false,
+                result
+                    .status
+                    .success()
+                    .then(|| Ok(result.clone()))
+                    .unwrap_or_else(|| {
+                        self.handle_non_zero_exit_error(NonZeroExitStatusError {
+                            command: self.to_string(),
+                            result,
+                            already_streamed: false,
+                        })
                     })
-                }
             })
     }
 
@@ -282,15 +284,17 @@ impl EnvCommand {
                 })
             })
             .and_then(|result| {
-                if result.status.success() {
-                    Ok(result)
-                } else {
-                    self.handle_non_zero_exit_error(NonZeroExitStatusError {
-                        command: self.to_string(),
-                        result,
-                        already_streamed: true,
+                result
+                    .status
+                    .success()
+                    .then(|| Ok(result.clone()))
+                    .unwrap_or_else(|| {
+                        self.handle_non_zero_exit_error(NonZeroExitStatusError {
+                            command: self.to_string(),
+                            result,
+                            already_streamed: false,
+                        })
                     })
-                }
             })
     }
 

@@ -3,10 +3,9 @@
 #![allow(clippy::module_name_repetitions)]
 use crate::layers::{RubyInstallError, RubyInstallLayer};
 
-use commons::env_command::EnvCommandError;
+use commons::env_command::CommandError;
 use commons::gem_list::GemList;
-use commons::gem_list::GemListError;
-use commons::gemfile_lock::{GemfileLock, GemfileLockError};
+use commons::gemfile_lock::GemfileLock;
 use commons::in_app_dir_cache::CacheError;
 use commons::rake_detect::RakeError;
 use core::str::FromStr;
@@ -140,25 +139,25 @@ pub(crate) enum RubyBuildpackError {
     RubyInstallError(RubyInstallError),
 
     #[error("Bundle install command errored: {0}")]
-    BundleInstallCommandError(EnvCommandError),
+    BundleInstallCommandError(CommandError),
 
     #[error("Could not install bundler: {0}")]
-    GemInstallBundlerCommandError(EnvCommandError),
+    GemInstallBundlerCommandError(CommandError),
 
     #[error("Error building list of gems for application: {0}")]
-    GemListGetError(GemListError),
+    GemListGetError(commons::gem_list::ListError),
 
     #[error("Error detecting rake tasks: {0}")]
     RakeDetectError(RakeError),
 
     #[error("Error running rake assets precompile: {0}")]
-    RakeAssetsPrecompileFailed(commons::env_command::EnvCommandError),
+    RakeAssetsPrecompileFailed(CommandError),
 
     #[error("Error cleaning asset cache: {0}")]
-    RakeAssetsCleanFailed(commons::env_command::EnvCommandError),
+    RakeAssetsCleanFailed(CommandError),
 
     #[error("Error evaluating Gemfile.lock: {0}")]
-    GemfileLockParsingError(GemfileLockError),
+    GemfileLockParsingError(commons::gemfile_lock::LockError),
 
     #[error("Error caching application path: {0}")]
     InAppDirCacheError(CacheError),

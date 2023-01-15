@@ -46,6 +46,7 @@ pub struct GemfileLock {
 }
 
 impl GemfileLock {
+    #[must_use]
     pub fn resolve_ruby(&self, default: &str) -> ResolvedRubyVersion {
         match &self.ruby_version {
             RubyVersion::Explicit(version) => ResolvedRubyVersion {
@@ -57,6 +58,7 @@ impl GemfileLock {
         }
     }
 
+    #[must_use]
     pub fn resolve_bundler(&self, default: &str) -> ResolvedBundlerVersion {
         match &self.bundler_version {
             BundlerVersion::Explicit(version) => ResolvedBundlerVersion {
@@ -104,21 +106,21 @@ pub enum BundlerVersion {
 }
 
 #[derive(thiserror::Error, Debug, PartialEq)]
-pub enum GemfileLockError {
+pub enum LockError {
     #[error("Regex error: {0}")]
     RegexError(#[from] regex::Error),
 }
 
 impl FromStr for GemfileLock {
-    type Err = GemfileLockError;
+    type Err = LockError;
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
-        let bundled_with_re = Regex::new("BUNDLED WITH\\s   (\\d+\\.\\d+\\.\\d+)")
-            .map_err(GemfileLockError::RegexError)?;
+        let bundled_with_re =
+            Regex::new("BUNDLED WITH\\s   (\\d+\\.\\d+\\.\\d+)").map_err(LockError::RegexError)?;
         let main_ruby_version_re = Regex::new("RUBY VERSION\\s   ruby (\\d+\\.\\d+\\.\\d+)")
-            .map_err(GemfileLockError::RegexError)?;
+            .map_err(LockError::RegexError)?;
         let jruby_version_re =
-            Regex::new("\\(jruby ((\\d+|\\.)+)\\)").map_err(GemfileLockError::RegexError)?;
+            Regex::new("\\(jruby ((\\d+|\\.)+)\\)").map_err(LockError::RegexError)?;
 
         let bundler_version = match bundled_with_re.captures(string).and_then(|c| c.get(1)) {
             Some(result) => BundlerVersion::Explicit(result.as_str().to_string()),

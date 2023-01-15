@@ -1,4 +1,3 @@
-use fancy_regex::Regex;
 use std::cmp;
 use std::cmp::Ordering;
 use std::fmt;
@@ -49,19 +48,19 @@ impl FromStr for GemVersion {
                 segments: vec![VersionSegment::U32(0)],
             })
         } else {
-            let validation_regex = Regex::new(
+            let validation_regex = fancy_regex::Regex::new(
                 "\\A\\s*([0-9]+(?>\\.[0-9a-zA-Z]+)*(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?)?\\s*\\z",
             )
-            .expect("Internal Error: Invalid Regular Expression!");
+            .expect("Internal error: Bad Regex");
 
-            let segment_regex =
-                Regex::new("[0-9]+|[a-z]+").expect("Internal Error: Invalid Regular Expression!");
+            let segment_regex = regex::Regex::new("[0-9]+|[a-z]+")
+                .expect("Internal Error: Invalid Regular Expression!"); // Checked via clippy lint https://rust-lang.github.io/rust-clippy/master/index.html#invalid_regex
 
             if validation_regex.is_match(version_string).unwrap_or(false) {
                 let (segments_l, segments_r) = segment_regex
                     .find_iter(version_string)
                     .map(|regex_match| {
-                        let match_string = String::from(regex_match.unwrap().as_str());
+                        let match_string = String::from(regex_match.as_str());
 
                         match_string.parse::<u32>().ok().map_or_else(
                             || VersionSegment::String(match_string),
@@ -224,6 +223,7 @@ mod test {
         );
     }
 
+    // Test helper method
     fn v(s: &str) -> GemVersion {
         s.parse().unwrap()
     }

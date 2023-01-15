@@ -71,7 +71,7 @@ impl GemList {
         env: T,
     ) -> Result<Self, ListError> {
         let output = EnvCommand::new("bundle", &["list"], env)
-            .call()
+            .output()
             .map_err(ListError::BundleListShellCommandError)?;
 
         GemList::from_str(&output.stdout_lossy())

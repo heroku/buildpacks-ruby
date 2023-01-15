@@ -7,7 +7,7 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-regex = ">= 1.6.0"
+regex = ">= 1.7.1"
 thiserror = ">= 1.0.36"
 fancy-regex = ">= 0.10.0"
 fs_extra = ">= 1.2.0"

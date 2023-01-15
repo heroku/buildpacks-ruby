@@ -17,9 +17,9 @@ use std::thread;
 /// Reduce the interface of running commands, and introduce defaults (like auto
 /// `Err` on non-zero status code).
 ///
-/// By default will return `env_command::EnvCommandError::UnexpectedExitStatusError(NonZeroExitStatusError)`
+/// By default will return `env_command::CommandError::UnexpectedExitStatusError(NonZeroExitStatusError)`
 /// when the command exits with a non-zero exit code. The struct `NonZeroExitStatusError` includes
-/// the field `result` which is a `EnvCommandResult` that contains status, stdout, and stderr.
+/// the field `result` which is a `Outcome` that contains status, stdout, and stderr.
 ///
 /// Example:
 ///
@@ -81,18 +81,18 @@ pub struct EnvCommand {
     env: HashMap<OsString, OsString>,
     show_env_keys: Vec<OsString>,
     on_non_zero_exit:
-        Box<dyn Fn(NonZeroExitStatusError) -> Result<EnvCommandResult, NonZeroExitStatusError>>,
+        Box<dyn Fn(NonZeroExitStatusError) -> Result<Outcome, NonZeroExitStatusError>>,
 }
 
 #[derive(Debug, Clone)]
-pub struct EnvCommandResult {
+pub struct Outcome {
     pub stdout: String,
     pub stderr: String,
     pub status: ExitStatus,
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum EnvCommandError {
+pub enum CommandError {
     #[error("{0}")]
     UnexpectedExitStatusError(NonZeroExitStatusError),
 }
@@ -100,7 +100,7 @@ pub enum EnvCommandError {
 #[derive(Debug)]
 pub struct NonZeroExitStatusError {
     pub command: String,
-    pub result: EnvCommandResult,
+    pub result: Outcome,
     already_streamed: bool,
 }
 
@@ -116,7 +116,7 @@ impl Display for NonZeroExitStatusError {
                 self.result.stdout, self.result.stderr
             ));
         };
-        write!(f, "{}", output)
+        write!(f, "{output}")
     }
 }
 
@@ -218,20 +218,26 @@ impl EnvCommand {
     ///
     /// assert_eq!(outcome.stdout.trim(), "hello world".to_string());
     /// ```
-    pub fn call(&self) -> Result<EnvCommandResult, EnvCommandError> {
+    ///
+    /// # Errors
+    ///
+    /// - If the exit status of running the command is non-zero
+    pub fn call(&self) -> Result<Outcome, CommandError> {
         self.command()
             .output()
-            .map(|output| EnvCommandResult {
+            .map(|output| Outcome {
                 stdout: std::str::from_utf8(&output.stdout)
-                    .expect("Internal encoding error")
+                    .unwrap()
+                    // .expect("Internal encoding error")
                     .to_string(),
                 stderr: std::str::from_utf8(&output.stderr)
-                    .expect("Internal encoding error")
+                    .unwrap()
+                    // .expect("Internal encoding error")
                     .to_string(),
                 status: output.status,
             })
             .or_else(|error| {
-                Ok(EnvCommandResult {
+                Ok(Outcome {
                     stdout: String::new(),
                     stderr: format!("{error}"),
                     status: ExitStatus::from_raw(error.raw_os_error().unwrap_or(-1)),
@@ -262,16 +268,20 @@ impl EnvCommand {
     ///
     /// assert_eq!(outcome.stdout.trim(), "hello world".to_string());
     /// ```
-    pub fn stream(&self) -> Result<EnvCommandResult, EnvCommandError> {
+    ///
+    /// # Errors
+    ///
+    /// - Err when the status code is non-zero
+    pub fn stream(&self) -> Result<Outcome, CommandError> {
         self.command()
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
             .map(|mut child| EnvCommand::stream_child(&mut child))
             .or_else(|error| {
-                Ok(EnvCommandResult {
+                Ok(Outcome {
                     stdout: String::new(),
-                    stderr: format!("{}", error),
+                    stderr: format!("{error}"),
                     status: ExitStatus::from_raw(error.raw_os_error().unwrap_or(-1)),
                 })
             })
@@ -306,8 +316,7 @@ impl EnvCommand {
     /// ```
     pub fn on_non_zero_exit(
         &mut self,
-        fun: impl Fn(NonZeroExitStatusError) -> Result<EnvCommandResult, NonZeroExitStatusError>
-            + 'static,
+        fun: impl Fn(NonZeroExitStatusError) -> Result<Outcome, NonZeroExitStatusError> + 'static,
     ) -> &mut Self {
         self.on_non_zero_exit = Box::new(fun);
         self
@@ -315,15 +324,11 @@ impl EnvCommand {
 
     /// Internal helper for streaming a child process to stdout/stderr
     /// while also collecting the results of the process.
-    fn stream_child(child: &mut std::process::Child) -> EnvCommandResult {
-        let child_stdout = child
-            .stdout
-            .take()
-            .expect("Internal error, could not take stdout");
-        let child_stderr = child
-            .stderr
-            .take()
-            .expect("Internal error, could not take stderr");
+    fn stream_child(child: &mut std::process::Child) -> Outcome {
+        let child_stdout = child.stdout.take().unwrap();
+        // .expect("Internal error, could not take stdout");
+        let child_stderr = child.stderr.take().unwrap();
+        // .expect("Internal error, could not take stderr");
 
         let (stdout_tx, stdout_rx) = std::sync::mpsc::channel();
         let (stderr_tx, stderr_rx) = std::sync::mpsc::channel();
@@ -332,7 +337,7 @@ impl EnvCommand {
             let stdout_lines = BufReader::new(child_stdout).lines();
             for line in stdout_lines {
                 let line = line.unwrap();
-                println!("{}", line);
+                println!("{line}");
                 stdout_tx.send(line).unwrap();
             }
         });
@@ -341,14 +346,14 @@ impl EnvCommand {
             let stderr_lines = BufReader::new(child_stderr).lines();
             for line in stderr_lines {
                 let line = line.unwrap();
-                eprintln!("{}", line);
+                eprintln!("{line}");
                 stderr_tx.send(line).unwrap();
             }
         });
 
-        let status = child
-            .wait()
-            .expect("Internal error, failed to wait on child");
+        let status = child.wait().unwrap();
+
+        // .expect("Internal error, failed to wait on child");
 
         stdout_thread.join().unwrap();
         stderr_thread.join().unwrap();
@@ -356,7 +361,7 @@ impl EnvCommand {
         let stdout = stdout_rx.into_iter().collect::<String>();
         let stderr = stderr_rx.into_iter().collect::<String>();
 
-        EnvCommandResult {
+        Outcome {
             stdout,
             stderr,
             status,
@@ -370,8 +375,8 @@ impl EnvCommand {
     fn handle_non_zero_exit_error(
         &self,
         error: NonZeroExitStatusError,
-    ) -> Result<EnvCommandResult, EnvCommandError> {
-        (self.on_non_zero_exit)(error).map_err(EnvCommandError::UnexpectedExitStatusError)
+    ) -> Result<Outcome, CommandError> {
+        (self.on_non_zero_exit)(error).map_err(CommandError::UnexpectedExitStatusError)
     }
 
     pub fn to_string<T: Borrow<HashMap<OsString, OsString>>>(
@@ -379,7 +384,8 @@ impl EnvCommand {
         show_env_keys: impl Iterator<Item = impl Into<OsString>>,
         env: T,
     ) -> String {
-        let escape_pattern = Regex::new(r"([^A-Za-z0-9_\-.,:/@\n])").unwrap(); // https://github.com/jimmycuadra/rust-shellwords/blob/d23b853a850ceec358a4137d5e520b067ddb7abc/src/lib.rs#L23
+        let escape_pattern = Regex::new(r"([^A-Za-z0-9_\-.,:/@\n])") // https://github.com/jimmycuadra/rust-shellwords/blob/d23b853a850ceec358a4137d5e520b067ddb7abc/src/lib.rs#L23
+            .expect("Internal error: Bad Regex"); // Checked via clippy lint https://rust-lang.github.io/rust-clippy/master/index.html#invalid_regex
         let env = env.borrow();
 
         // Env keys
@@ -401,9 +407,9 @@ impl EnvCommand {
                     .map(std::ffi::OsStr::to_string_lossy)
                     .map(|arg| {
                         if escape_pattern.is_match(&arg) {
-                            format!("{:?}", arg)
+                            format!("{arg:?}")
                         } else {
-                            format!("{}", arg)
+                            format!("{arg}")
                         }
                     }),
             )

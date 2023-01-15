@@ -1,4 +1,4 @@
-use crate::env_command::{EnvCommand, EnvCommandError};
+use crate::env_command::EnvCommand;
 use crate::gem_version::GemVersion;
 use core::str::FromStr;
 use regex::Regex;
@@ -14,12 +14,12 @@ pub struct GemList {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum GemListError {
+pub enum ListError {
     #[error("Regex error: {0}")]
     RegexError(#[from] regex::Error),
 
     #[error("Error determining dependencies: {0}")]
-    BundleListShellCommandError(EnvCommandError),
+    BundleListShellCommandError(crate::env_command::CommandError),
 }
 
 /// Converts the output of `$ gem list` into a data structure that can be inspected and compared
@@ -58,37 +58,43 @@ pub enum GemListError {
 ///         );
 /// ```
 impl GemList {
-    // Calls `bundle list` and returns a `GemList` struct
+    /// Calls `bundle list` and returns a `GemList` struct
+    ///
+    /// # Errors
+    ///
+    /// Errors if the command `bundle list` is unsuccessful.
     pub fn from_bundle_list<
         T: IntoIterator<Item = (K, V)>,
         K: Into<OsString>,
         V: Into<OsString>,
     >(
         env: T,
-    ) -> Result<Self, GemListError> {
+    ) -> Result<Self, ListError> {
         let output = EnvCommand::new("bundle", &["list"], env)
             .call()
-            .map_err(GemListError::BundleListShellCommandError)?;
+            .map_err(ListError::BundleListShellCommandError)?;
 
         GemList::from_str(&output.stdout)
     }
 
+    #[must_use]
     pub fn has(&self, str: &str) -> bool {
         self.gems.get(&str.trim().to_lowercase()).is_some()
     }
 
+    #[must_use]
     pub fn version_for(&self, str: &str) -> Option<&GemVersion> {
         self.gems.get(&str.trim().to_lowercase())
     }
 }
 
 impl FromStr for GemList {
-    type Err = GemListError;
+    type Err = ListError;
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         // https://regex101.com/r/EIJe5G/1
         let gem_entry_re =
-            Regex::new("  \\* (\\S+) \\(([a-zA-Z0-9\\.]+)\\)").map_err(GemListError::RegexError)?;
+            Regex::new("  \\* (\\S+) \\(([a-zA-Z0-9\\.]+)\\)").map_err(ListError::RegexError)?;
 
         let gems = gem_entry_re
             .captures_iter(string)

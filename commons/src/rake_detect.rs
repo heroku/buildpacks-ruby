@@ -1,4 +1,4 @@
-use crate::env_command::{EnvCommand, EnvCommandError};
+use crate::env_command::EnvCommand;
 use core::str::FromStr;
 use regex::Regex;
 use std::ffi::OsString;
@@ -23,7 +23,7 @@ pub enum RakeError {
     RegexError(#[from] regex::Error),
 
     #[error("Error detecting rake tasks: {0}")]
-    DashpCommandError(EnvCommandError),
+    DashpCommandError(crate::env_command::CommandError),
 }
 
 impl RakeDetect {

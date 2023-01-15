@@ -36,7 +36,7 @@ impl fmt::Display for GemVersion {
             })
             .collect::<Vec<String>>()
             .join(".");
-        write!(f, "{}", version_string)
+        write!(f, "{version_string}")
     }
 }
 

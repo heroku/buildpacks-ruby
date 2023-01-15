@@ -18,7 +18,7 @@ use std::process::{Command, ExitStatus};
 ///
 /// By default will return `env_command::CommandError::UnexpectedExitStatusError(NonZeroExitStatusError)`
 /// when the command exits with a non-zero exit code. The struct `NonZeroExitStatusError` includes
-/// the field `result` which is a `Outcome` that contains status, stdout, and stderr.
+/// the field `result` which is a `Output` that contains status, stdout, and stderr.
 ///
 /// Example:
 ///
@@ -28,12 +28,12 @@ use std::process::{Command, ExitStatus};
 ///
 /// let env = Env::new();
 /// let mut command = EnvCommand::new("echo", &["hello world"], &env);
-/// let outcome = command.call().unwrap();
+/// let outcome = command.output().unwrap();
 ///
 /// assert_eq!(outcome.stdout_lossy().trim(), "hello world".to_string());
 /// ```
 ///
-/// Can run command and capture the output with `call()` or can stream
+/// Can run command and capture the output with `output()` or can stream
 /// the command output to stdout/stderr with `stream()`.
 ///
 /// ## Customized behavior on non-zero exit
@@ -224,7 +224,7 @@ impl EnvCommand {
     ///
     /// let env = Env::new();
     /// let mut command = EnvCommand::new("echo", &["hello world"], &env);
-    /// let outcome = command.call().unwrap();
+    /// let outcome = command.output().unwrap();
     ///
     /// assert_eq!(outcome.stdout_lossy().trim(), "hello world".to_string());
     /// ```
@@ -232,7 +232,7 @@ impl EnvCommand {
     /// # Errors
     ///
     /// - If the exit status of running the command is non-zero
-    pub fn call(&self) -> Result<Output, CommandError> {
+    pub fn output(&self) -> Result<Output, CommandError> {
         self.command()
             .output()
             .or_else(|error| {
@@ -304,7 +304,7 @@ impl EnvCommand {
     /// let env = Env::new();
     /// let mut outcome = EnvCommand::new("iDoNotExist", &["hello world"], &env)
     ///                   .on_non_zero_exit(|error| Ok(error.result) )
-    ///                   .call()
+    ///                   .output()
     ///                   .unwrap();
     ///
     /// assert!(!outcome.status.success());
@@ -404,7 +404,7 @@ mod tests {
     fn runs_command_and_captures_stdout() {
         // Platform dependent
         let command = EnvCommand::new("echo", &["hello world"], &Env::new());
-        let outcome = command.call().unwrap();
+        let outcome = command.output().unwrap();
 
         assert_eq!(outcome.stdout_lossy().trim(), "hello world".to_string());
     }
@@ -413,13 +413,13 @@ mod tests {
     fn runs_non_zero_exit_error() {
         // Platform dependent
         let mut command = EnvCommand::new("exit", &["123"], &Env::new());
-        let outcome = command.call();
+        let outcome = command.output();
 
         assert!(outcome.is_err());
 
         // Ignore the error
         command.on_non_zero_exit(|err| Ok(err.result));
-        command.call().unwrap();
+        command.output().unwrap();
     }
 
     #[test]

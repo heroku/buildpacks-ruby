@@ -47,7 +47,7 @@ impl RakeDetect {
                     Ok(error.result)
                 }
             })
-            .call()
+            .output()
             .map_err(RakeError::DashpCommandError)?;
 
         if outcome.status.success() {

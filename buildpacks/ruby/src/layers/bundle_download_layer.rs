@@ -61,7 +61,7 @@ impl Layer for BundleDownloadLayer {
             ],
             &self.env,
         )
-        .call()
+        .output()
         .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
 
         LayerResultBuilder::new(BundleDownloadLayerMetadata {

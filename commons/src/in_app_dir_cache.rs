@@ -1,5 +1,7 @@
 use crate::in_app_dir_cache_layer::InAppDirCacheLayer;
+use byte_unit::AdjustedByte;
 use byte_unit::Byte;
+use byte_unit::ByteUnit;
 use fs_extra::dir::CopyOptions;
 use glob::PatternError;
 use libcnb::build::BuildContext;
@@ -115,6 +117,8 @@ fn to_layer_name(base: &Path, app_path: &Path) -> Result<LayerName, CacheError> 
 impl<B: Buildpack> InAppDirCache<B> {
     /// Creates an ```InAppDirCache``` struct and loads cache contents to app directory
     ///
+    /// If the cache directory has anything in it, it will be moved to the application path.
+    ///
     /// # Errors
     ///
     /// - Err if either the ```app_path``` or ```cache_path``` cannot be created due to an error
@@ -122,7 +126,7 @@ impl<B: Buildpack> InAppDirCache<B> {
     /// - Err if the contents of the cache directory cannot be moved to the app directory, perhaps
     /// due to a permissions problem.
     /// - Err if the generated layer name is invalid.
-    ///- Err if there's an internal error creating the layer.
+    /// - Err if there's an internal error creating the layer.
     pub fn new_and_load(
         context: &BuildContext<B>,
         app_path: &Path,
@@ -149,6 +153,10 @@ impl<B: Buildpack> InAppDirCache<B> {
 }
 
 impl DirCache {
+    /// Ensure both cache and application directories exist
+    ///
+    /// If the directories do not exist they will be created.
+    ///
     /// # Errors
     ///
     /// Fails if either the ```app_path``` or ```cache_path``` cannot be created due to an error
@@ -160,6 +168,15 @@ impl DirCache {
         Ok(())
     }
 
+    /// Move cache contents into application directory
+    ///
+    /// Contents of the cache directory will be destructively moved into
+    /// the application directory. After this operation the cache directory
+    /// will be empty.
+    ///
+    /// Duplicate files will be ignored as the application directory is
+    /// considered cannonical.
+    ///
     /// # Errors
     ///
     /// - If the move command fails an `IoExtraError` will be raised by the OS.
@@ -180,6 +197,13 @@ impl DirCache {
         Ok(self)
     }
 
+    /// Move contents of application path into the cache
+    ///
+    /// This action is destructive, after execution the application path
+    /// will be empty. Files from the application path are considered
+    /// cannonical and will overwrite files with the same name in the
+    /// cache.
+    ///
     /// # Errors
     ///
     /// - If the move command fails an `IoExtraError` will be raised.
@@ -188,10 +212,9 @@ impl DirCache {
             &self.app_path,
             &self.cache_path,
             &CopyOptions {
-                overwrite: false,
-                skip_exist: true,
-                copy_inside: true,
-                content_only: true,
+                overwrite: true,
+                copy_inside: true,  // Recursive
+                content_only: true, // Don't copy top level directory name
                 ..CopyOptions::default()
             },
         )
@@ -200,6 +223,13 @@ impl DirCache {
         Ok(self)
     }
 
+    /// Copy contents of application path into the cache
+    ///
+    /// This action preserves the contents in the application path.
+    /// Files from the application path are considered
+    /// cannonical and will overwrite files with the same name in the
+    /// cache.
+    ///
     /// # Errors
     ///
     /// - If the copy command fails an `IoExtraError` will be raised.
@@ -208,11 +238,9 @@ impl DirCache {
             &self.app_path,
             &self.cache_path,
             &CopyOptions {
-                overwrite: false,
-                skip_exist: true,
-                copy_inside: true,
-
-                content_only: true,
+                overwrite: true,
+                copy_inside: true,  // Recursive
+                content_only: true, // Don't copy top level directory name
                 ..CopyOptions::default()
             },
         )
@@ -221,38 +249,56 @@ impl DirCache {
         Ok(self)
     }
 
+    /// Remove Least Recently Used (LRU) files in cache above a byte limit
+    ///
+    /// The cache directory may grow unbounded. This function will limit
+    /// the size of the directory to the given input. When the directory
+    /// grows larger than the limit, then files will be deleted to
+    /// bring the directory size under the given limit.
+    ///
     /// # Errors
     ///
     /// - The provided ``cache_path`` is not valid UTF-8 (`OsStringErr`).
     /// - Metadata from a file in the ``cache_path`` cannot be retrieved from the OS (`IoError`).
     /// this is needed for mtime retrieval to calculate which file is least recently used.
+    /// - If there's an OS error while deleting a file.
     /// - If an internal glob pattern is incorrect
-    /// - If the OS does not support mtime.
-    pub fn least_recently_used_files_above_limit(
-        &self,
-        max_bytes: Byte,
-    ) -> Result<FilesWithSize, CacheError> {
-        Self::least_recently_used_files_above_limit_from_path(&self.cache_path, max_bytes)
+    /// - If the OS does not support mtime operation on files.
+    pub fn lru_clean(&self, limit: Byte) -> Result<Option<FilesWithSize>, CacheError> {
+        let cache = Self::lru_files_above_limit(&self.cache_path, limit)?;
+        if cache.files.is_empty() {
+            Ok(None)
+        } else {
+            for file in &cache.files {
+                std::fs::remove_file(file).map_err(CacheError::IoError)?;
+            }
+            Ok(Some(cache))
+        }
     }
 
-    fn least_recently_used_files_above_limit_from_path(
-        cache_path: &Path,
-        max_bytes: Byte,
-    ) -> Result<FilesWithSize, CacheError> {
-        let max_bytes = max_bytes.get_bytes();
+    fn files(cache_path: &Path) -> Result<Vec<MiniPathModSize>, CacheError> {
         let glob_string = cache_path
             .join("**/*")
             .into_os_string()
             .into_string()
             .map_err(|e| CacheError::OsStringError(e.to_string_lossy().to_string()))?;
 
-        let mut files = glob::glob(&glob_string)
+        let files = glob::glob(&glob_string)
             .map_err(CacheError::InternalBadGlobError)?
             .filter_map(Result::ok)
             .filter(|p| p.is_file()) // Means we aren't removing empty directories
             .map(MiniPathModSize::new)
             .collect::<Result<Vec<MiniPathModSize>, _>>()?;
 
+        Ok(files)
+    }
+
+    fn lru_files_above_limit(
+        cache_path: &Path,
+        max_bytes: Byte,
+    ) -> Result<FilesWithSize, CacheError> {
+        let max_bytes = max_bytes.get_bytes();
+        let mut files = Self::files(cache_path)?;
         let bytes = files.iter().map(|p| u128::from(p.size)).sum::<u128>();
 
         if bytes >= max_bytes {
@@ -311,16 +357,9 @@ impl FilesWithSize {
         Byte::from_bytes(self.bytes)
     }
 
-    /// # Errors
-    ///
-    /// Returns an error if one of the files to clean cannot be removed
-    /// by the operating system.
-    pub fn clean(&self) -> Result<(), CacheError> {
-        for file in &self.files {
-            std::fs::remove_file(file).map_err(CacheError::IoError)?;
-        }
-
-        Ok(())
+    #[must_use]
+    pub fn get_adjusted_unit(&self, unit: ByteUnit) -> AdjustedByte {
+        self.to_byte().get_adjusted_unit(unit)
     }
 }
 
@@ -409,29 +448,20 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
 
         assert_eq!(
-            DirCache::least_recently_used_files_above_limit_from_path(
-                &dir,
-                Byte::from_bytes(n_mib_bytes!(0)),
-            )
-            .unwrap()
-            .files
-            .len(),
+            DirCache::lru_files_above_limit(&dir, Byte::from_bytes(n_mib_bytes!(0)),)
+                .unwrap()
+                .files
+                .len(),
             0
         );
 
         touch_file(&dir.join("a"), |file| {
-            let overage = DirCache::least_recently_used_files_above_limit_from_path(
-                &dir,
-                Byte::from_bytes(n_mib_bytes!(0)),
-            )
-            .unwrap();
+            let overage =
+                DirCache::lru_files_above_limit(&dir, Byte::from_bytes(n_mib_bytes!(0))).unwrap();
             assert_eq!(overage.files, vec![file.clone()]);
 
-            let overage = DirCache::least_recently_used_files_above_limit_from_path(
-                &dir,
-                Byte::from_bytes(n_mib_bytes!(10)),
-            )
-            .unwrap();
+            let overage =
+                DirCache::lru_files_above_limit(&dir, Byte::from_bytes(n_mib_bytes!(10))).unwrap();
             assert_eq!(overage.files.len(), 0);
         });
     }
@@ -446,11 +476,9 @@ mod tests {
                 filetime::set_file_mtime(a, filetime::FileTime::from_unix_time(0, 0)).unwrap();
                 filetime::set_file_mtime(b, filetime::FileTime::from_unix_time(1, 0)).unwrap();
 
-                let overage = DirCache::least_recently_used_files_above_limit_from_path(
-                    &dir,
-                    Byte::from_bytes(n_mib_bytes!(0)),
-                )
-                .unwrap();
+                let overage =
+                    DirCache::lru_files_above_limit(&dir, Byte::from_bytes(n_mib_bytes!(0)))
+                        .unwrap();
                 assert_eq!(overage.files, vec![a.clone(), b.clone()]);
             });
         });
@@ -461,11 +489,8 @@ mod tests {
         let tmpdir = tempfile::tempdir().unwrap();
         let dir = tmpdir.path().join("");
         std::fs::create_dir_all(dir.join("preservation_society")).unwrap();
-        let overage = DirCache::least_recently_used_files_above_limit_from_path(
-            &dir,
-            Byte::from_bytes(n_mib_bytes!(0)),
-        )
-        .unwrap();
+        let overage =
+            DirCache::lru_files_above_limit(&dir, Byte::from_bytes(n_mib_bytes!(0))).unwrap();
         assert_eq!(overage.files, Vec::<PathBuf>::new());
     }
 }

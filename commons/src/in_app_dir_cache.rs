@@ -2,6 +2,7 @@ use crate::in_app_dir_cache_layer::InAppDirCacheLayer;
 use byte_unit::AdjustedByte;
 use byte_unit::Byte;
 use byte_unit::ByteUnit;
+use fs_err as fs;
 use fs_extra::dir::CopyOptions;
 use glob::PatternError;
 use libcnb::build::BuildContext;
@@ -162,8 +163,8 @@ impl DirCache {
     /// Fails if either the ```app_path``` or ```cache_path``` cannot be created due to an error
     /// from the OS, such as file permissions.
     fn mkdir_p(&self) -> Result<(), CacheError> {
-        std::fs::create_dir_all(&self.app_path).map_err(CacheError::IoError)?;
-        std::fs::create_dir_all(&self.cache_path).map_err(CacheError::IoError)?;
+        fs::create_dir_all(&self.app_path).map_err(CacheError::IoError)?;
+        fs::create_dir_all(&self.cache_path).map_err(CacheError::IoError)?;
 
         Ok(())
     }
@@ -270,7 +271,7 @@ impl DirCache {
             Ok(None)
         } else {
             for file in &cache.files {
-                std::fs::remove_file(file).map_err(CacheError::IoError)?;
+                fs::remove_file(file).map_err(CacheError::IoError)?;
             }
             Ok(Some(cache))
         }
@@ -375,12 +376,12 @@ mod tests {
     pub fn touch_file(path: &PathBuf, f: impl FnOnce(&PathBuf)) {
         if let Some(parent) = path.parent() {
             if !parent.exists() {
-                std::fs::create_dir_all(parent).unwrap();
+                fs::create_dir_all(parent).unwrap();
             }
         }
-        std::fs::write(path, "").unwrap();
+        fs::write(path, "").unwrap();
         f(path);
-        std::fs::remove_file(path).unwrap();
+        fs::remove_file(path).unwrap();
     }
 
     #[test]
@@ -405,7 +406,7 @@ mod tests {
         cache.move_cache_to_app().unwrap();
         assert!(app_path.read_dir().unwrap().next().is_none()); // Assert dir not changed
 
-        std::fs::write(app_path.join("lol.txt"), "hahaha").unwrap();
+        fs::write(app_path.join("lol.txt"), "hahaha").unwrap();
 
         // Test copy logic from app to cache
         assert!(!cache.cache_path.join("lol.txt").exists());
@@ -430,7 +431,7 @@ mod tests {
         cache.move_cache_to_app().unwrap();
         assert!(app_path.read_dir().unwrap().next().is_none()); // Assert dir not changed
 
-        std::fs::write(app_path.join("lol.txt"), "hahaha").unwrap();
+        fs::write(app_path.join("lol.txt"), "hahaha").unwrap();
 
         // Test copy logic from app to cache
         assert!(!cache.cache_path.join("lol.txt").exists());
@@ -445,7 +446,7 @@ mod tests {
         let tmpdir = tempfile::tempdir().unwrap();
         let dir = tmpdir.path().join("dir");
 
-        std::fs::create_dir_all(&dir).unwrap();
+        fs::create_dir_all(&dir).unwrap();
 
         assert_eq!(
             DirCache::lru_files_above_limit(&dir, Byte::from_bytes(n_mib_bytes!(0)),)
@@ -488,7 +489,7 @@ mod tests {
     fn test_lru_does_not_grab_directories() {
         let tmpdir = tempfile::tempdir().unwrap();
         let dir = tmpdir.path().join("");
-        std::fs::create_dir_all(dir.join("preservation_society")).unwrap();
+        fs::create_dir_all(dir.join("preservation_society")).unwrap();
         let overage =
             DirCache::lru_files_above_limit(&dir, Byte::from_bytes(n_mib_bytes!(0))).unwrap();
         assert_eq!(overage.files, Vec::<PathBuf>::new());

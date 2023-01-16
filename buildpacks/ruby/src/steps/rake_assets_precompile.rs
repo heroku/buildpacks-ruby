@@ -186,25 +186,20 @@ fn has_asset_manifest(app_dir: &Path) -> AssetManifestList {
 }
 
 fn clean_stale_files_in_cache(cache: &DirCache, max_bytes: Byte) -> Result<(), RubyBuildpackError> {
-    let overage = cache
-        .least_recently_used_files_above_limit(max_bytes)
-        .map_err(RubyBuildpackError::InAppDirCacheError)?;
-
-    if overage.bytes > 0 {
-        println!(
-            "Cache for {} exceeded {} limit by {}, clearing {} files",
-            cache.app_path.display(),
-            max_bytes.get_adjusted_unit(ByteUnit::MiB),
-            overage.to_byte().get_adjusted_unit(ByteUnit::MiB),
-            overage.files.len()
-        );
-
-        overage
-            .clean()
-            .map_err(RubyBuildpackError::InAppDirCacheError)?;
-    }
-
-    Ok(())
+    cache
+        .lru_clean(max_bytes)
+        .map_err(RubyBuildpackError::InAppDirCacheError)?
+        .map(|removed| {
+            println!(
+                "Cache for {} exceeded {} limit by {}, clearing {} files",
+                cache.app_path.display(),
+                max_bytes.get_adjusted_unit(ByteUnit::MiB),
+                removed.get_adjusted_unit(ByteUnit::MiB),
+                removed.files.len()
+            );
+            Ok(())
+        })
+        .unwrap_or(Ok(()))
 }
 
 #[cfg(test)]

@@ -60,6 +60,7 @@ use tempfile as _;
 ///
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DirCache {
+    pub state: State,
     pub app_path: PathBuf,
     pub cache_path: PathBuf,
 }
@@ -115,6 +116,13 @@ fn to_layer_name(base: &Path, app_path: &Path) -> Result<LayerName, CacheError> 
         .map_err(CacheError::InvalidLayerName)
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum State {
+    NewEmpty,
+    ExistsWithContents,
+    ExistsEmpty,
+}
+
 impl<B: Buildpack> InAppDirCache<B> {
     /// Creates an ```InAppDirCache``` struct and loads cache contents to app directory
     ///
@@ -134,18 +142,28 @@ impl<B: Buildpack> InAppDirCache<B> {
     ) -> Result<DirCache, CacheError> {
         let app_path = app_path.to_path_buf();
 
-        let cache_path = context
-            .handle_layer(
-                to_layer_name(&context.app_dir, &app_path)?,
-                InAppDirCacheLayer::new(app_path.clone()),
-            )
-            .map_err(|error| CacheError::InternalLayerError(format!("{error:?}")))?
-            .path;
+        let layer_name = to_layer_name(&context.app_dir, &app_path)?;
+        let layer_dir = context.layers_dir.join(layer_name.as_str());
 
+        let state = if !layer_dir.exists() {
+            State::NewEmpty
+        } else if empty_dir(&layer_dir) {
+            State::ExistsEmpty
+        } else {
+            State::ExistsWithContents
+        };
+
+        let layer = context
+            .handle_layer(layer_name, InAppDirCacheLayer::new(app_path.clone()))
+            .map_err(|error| CacheError::InternalLayerError(format!("{error:?}")))?;
+
+        let cache_path = layer.path;
         let out = DirCache {
+            state,
             app_path,
             cache_path,
         };
+
         out.mkdir_p()?;
         out.move_cache_to_app()?;
 
@@ -153,7 +171,24 @@ impl<B: Buildpack> InAppDirCache<B> {
     }
 }
 
+fn empty_dir(path: &Path) -> bool {
+    if let Ok(read_dir) = std::fs::read_dir(path) {
+        let dir_has_files = read_dir
+            .filter_map(std::result::Result::ok)
+            .any(|entry| entry.path().exists());
+
+        !dir_has_files
+    } else {
+        true
+    }
+}
+
 impl DirCache {
+    #[must_use]
+    pub fn is_app_dir_empty(&self) -> bool {
+        empty_dir(&self.app_path)
+    }
+
     /// Ensure both cache and application directories exist
     ///
     /// If the directories do not exist they will be created.
@@ -266,14 +301,16 @@ impl DirCache {
     /// - If an internal glob pattern is incorrect
     /// - If the OS does not support mtime operation on files.
     pub fn lru_clean(&self, limit: Byte) -> Result<Option<FilesWithSize>, CacheError> {
-        let cache = Self::lru_files_above_limit(&self.cache_path, limit)?;
-        if cache.files.is_empty() {
+        let overage = Self::lru_files_above_limit(&self.cache_path, limit)?;
+
+        if overage.files.is_empty() {
             Ok(None)
         } else {
-            for file in &cache.files {
+            for file in &overage.files {
                 fs::remove_file(file).map_err(CacheError::IoError)?;
             }
-            Ok(Some(cache))
+
+            Ok(Some(overage))
         }
     }
 
@@ -397,6 +434,7 @@ mod tests {
         let cache_path = tmpdir.path().join("cache");
         let app_path = tmpdir.path().join("app");
         let cache = DirCache {
+            state: State::NewEmpty,
             app_path: app_path.clone(),
             cache_path: cache_path.clone(),
         };
@@ -422,6 +460,7 @@ mod tests {
         let cache_path = tmpdir.path().join("cache");
         let app_path = tmpdir.path().join("app");
         let cache = DirCache {
+            state: State::NewEmpty,
             app_path: app_path.clone(),
             cache_path: cache_path.clone(),
         };

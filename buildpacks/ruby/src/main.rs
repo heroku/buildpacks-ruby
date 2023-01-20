@@ -18,6 +18,7 @@ use libcnb::generic::{GenericMetadata, GenericPlatform};
 use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
+use libherokubuildpack::log as user;
 use regex::Regex;
 
 mod layers;
@@ -60,7 +61,9 @@ impl Buildpack for RubyBuildpack {
     }
 
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
-        println!("---> Ruby Buildpack");
+        user::log_header("Heroku Ruby buildpack");
+        user::log_info("Running Heroku Ruby buildpack");
+
         // ## Set default environment
         let (mut env, store) =
             crate::steps::default_env(&context, &context.platform.env().clone())?;
@@ -74,6 +77,7 @@ impl Buildpack for RubyBuildpack {
         let ruby_version = gemfile_lock.resolve_ruby("3.1.2");
 
         // ## Install executable ruby version
+        user::log_header("Installing Ruby");
         let ruby_layer = context //
             .handle_layer(
                 layer_name!("ruby"),
@@ -92,24 +96,36 @@ impl Buildpack for RubyBuildpack {
             &env,
         )?;
 
-        println!("---> Detecting gems");
+        user::log_header("Detecting gems");
+        user::log_info("Detecting gems via `bundle list`");
         let gem_list =
             GemList::from_bundle_list(&env).map_err(RubyBuildpackError::GemListGetError)?;
+        user::log_info("Done");
 
         // ## Assets install
         crate::steps::rake_assets_precompile(&gem_list, &context, &env)?;
 
+        user::log_header("Setting default process(es)");
         let default_process = if gem_list.has("railties") {
+            user::log_info("Rails app detected");
+            user::log_info("Setting default web process");
+
             ProcessBuilder::new(process_type!("web"), "bin/rails")
                 .args(["server", "--port", "$PORT", "--environment", "$RAILS_ENV"])
                 .default(true)
                 .build()
         } else {
+            user::log_info("Rack app detected");
+            user::log_info("Setting default web process");
+
             ProcessBuilder::new(process_type!("web"), "bundle")
                 .args(["exec", "rackup", "--port", "$PORT", "--host", "0.0.0.0"])
                 .default(true)
                 .build()
         };
+
+        user::log_header("Heroku Ruby buildpack finished");
+        user::log_info("Finished buildpack");
 
         BuildResultBuilder::new()
             .launch(LaunchBuilder::new().process(default_process).build())
@@ -152,9 +168,6 @@ pub(crate) enum RubyBuildpackError {
 
     #[error("Error running rake assets precompile: {0}")]
     RakeAssetsPrecompileFailed(CommandError),
-
-    #[error("Error cleaning asset cache: {0}")]
-    RakeAssetsCleanFailed(CommandError),
 
     #[error("Error evaluating Gemfile.lock: {0}")]
     GemfileLockParsingError(commons::gemfile_lock::LockError),

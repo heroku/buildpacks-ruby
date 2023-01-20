@@ -16,10 +16,10 @@ fn test_default_app() {
         BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby")
         .buildpacks(vec![BuildpackReference::Crate]),
         |context| {
-            assert_contains!(context.pack_stdout, "---> Download and extracting Ruby");
+            assert_contains!(context.pack_stdout, "[Installing Ruby]");
             assert_contains!(
                 context.pack_stdout,
-                r#"Running: $ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#);
+                r#"$ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#);
 
             assert_contains!(context.pack_stdout, "Installing webrick");
 
@@ -83,12 +83,12 @@ DEPENDENCIES
             BuildpackReference::Crate,
         ]),
         |context| {
-            assert_contains!(context.pack_stdout, "---> Download and extracting Ruby");
+            assert_contains!(context.pack_stdout, "[Installing Ruby]");
             assert_contains!(
                 context.pack_stdout,
-                r#"Running: $ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#);
+                r#"$ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#);
 
-            assert_contains!(context.pack_stdout, "Download and extracting Ruby 2.6.8-jruby-9.3.6.0");
+            assert_contains!(context.pack_stdout, "Installing ruby 2.6.8-jruby-9.3.6.0");
 
             });
 }
@@ -104,10 +104,10 @@ fn test_ruby_app_with_yarn_app() {
             BuildpackReference::Crate,
         ]),
         |context| {
-            assert_contains!(context.pack_stdout, "---> Download and extracting Ruby");
+            assert_contains!(context.pack_stdout, "[Installing Ruby]");
             assert_contains!(
                 context.pack_stdout,
-                r#"Running: $ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#);
+                r#"$ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#);
 
             }
         );

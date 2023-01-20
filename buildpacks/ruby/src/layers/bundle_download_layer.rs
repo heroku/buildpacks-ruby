@@ -7,6 +7,7 @@ use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Env;
+use libherokubuildpack::log as user;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -42,7 +43,7 @@ impl Layer for BundleDownloadLayer {
         _context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        println!("---> Installing bundler {}", self.version);
+        user::log_info(format!("Installing bundler {}", self.version));
 
         EnvCommand::new(
             "gem",
@@ -63,6 +64,8 @@ impl Layer for BundleDownloadLayer {
         )
         .output()
         .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
+
+        user::log_info("Done");
 
         LayerResultBuilder::new(BundleDownloadLayerMetadata {
             version: self.version.to_string(),
@@ -92,16 +95,45 @@ impl Layer for BundleDownloadLayer {
         _context: &BuildContext<Self::Buildpack>,
         layer: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
-        let old_version = &layer.content_metadata.metadata.version;
-        if &self.version.to_string() == old_version {
-            println!("---> Bundler {} already installed", self.version);
-            Ok(ExistingLayerStrategy::Keep)
+        let contents = CacheContents {
+            current_version: &self.version.to_string(),
+            old_version: &layer.content_metadata.metadata.version,
+        };
+        match contents.state() {
+            State::NothingChanged => {
+                user::log_info(format!("Using bundler {} from cache", self.version));
+
+                Ok(ExistingLayerStrategy::Keep)
+            }
+            State::BundlerVersionChanged => {
+                user::log_info(format!(
+                    "Bundler version changed from {} to {}",
+                    contents.old_version, contents.current_version
+                ));
+                user::log_info("Clearing bundler from cache");
+
+                Ok(ExistingLayerStrategy::Recreate)
+            }
+        }
+    }
+}
+
+enum State {
+    NothingChanged,
+    BundlerVersionChanged,
+}
+
+struct CacheContents<'a, 'b> {
+    current_version: &'a str,
+    old_version: &'b str,
+}
+
+impl CacheContents<'_, '_> {
+    fn state(&self) -> State {
+        if self.current_version == self.old_version {
+            State::NothingChanged
         } else {
-            println!(
-                "---> Detected bundler version change, discarding old bundler version: {} ",
-                old_version
-            );
-            Ok(ExistingLayerStrategy::Recreate)
+            State::BundlerVersionChanged
         }
     }
 }

@@ -61,8 +61,6 @@ where
         _context: &BuildContext<Self::Buildpack>,
         _layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, B::Error> {
-        println!("---> Creating cache for {}", self.app_dir_path.display());
-
         LayerResultBuilder::new(InAppDirCacheLayerMetadata {
             app_dir_path: self.app_dir_path.clone(),
         })
@@ -75,8 +73,6 @@ where
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, B::Error> {
         if self.app_dir_path == layer_data.content_metadata.metadata.app_dir_path {
-            println!("---> Loading cache for {}", self.app_dir_path.display());
-
             Ok(ExistingLayerStrategy::Keep)
         } else {
             Ok(ExistingLayerStrategy::Recreate)

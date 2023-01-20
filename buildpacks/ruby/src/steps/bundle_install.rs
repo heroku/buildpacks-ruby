@@ -4,6 +4,7 @@ use commons::env_command::EnvCommand;
 use commons::gemfile_lock::{ResolvedBundlerVersion, ResolvedRubyVersion};
 use libcnb::Env;
 use libcnb::{build::BuildContext, data::layer_name, layer_env::Scope};
+use libherokubuildpack::log as user;
 
 /// Primary interface for `bundle install`
 pub(crate) fn bundle_install(
@@ -13,6 +14,7 @@ pub(crate) fn bundle_install(
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
 ) -> libcnb::Result<Env, RubyBuildpackError> {
+    user::log_header("Installing Bundler");
     let mut env = env.clone();
     // ## Setup bundler
     //
@@ -44,8 +46,8 @@ pub(crate) fn bundle_install(
     )?;
     env = download_bundler_layer.env.apply(Scope::Build, &env);
 
+    user::log_header("Installing dependencies");
     // ## Run `$ bundle install`
-    println!("---> Installing gems");
     let command = EnvCommand::new_show_keys(
         "bundle",
         &["install"],
@@ -60,11 +62,13 @@ pub(crate) fn bundle_install(
         ],
     );
 
-    println!("Running: $ {command}");
+    user::log_info(format!("$ {command}"));
 
     command
         .stream()
         .map_err(RubyBuildpackError::BundleInstallCommandError)?;
+
+    user::log_info("Done");
 
     Ok(env)
 }

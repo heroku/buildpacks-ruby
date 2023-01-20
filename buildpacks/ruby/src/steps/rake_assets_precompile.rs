@@ -3,10 +3,14 @@ use crate::RubyBuildpackError;
 use byte_unit::{Byte, ByteUnit};
 use commons::env_command::EnvCommand;
 use commons::gem_list::GemList;
+use commons::in_app_dir_cache::CacheError;
+use commons::in_app_dir_cache::FilesWithSize;
+use commons::in_app_dir_cache::State;
 use commons::in_app_dir_cache::{DirCache, InAppDirCache};
 use commons::rake_detect::RakeDetect;
 use libcnb::build::BuildContext;
 use libcnb::Env;
+use libherokubuildpack::log as user;
 use std::path::Path;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -32,100 +36,220 @@ pub(crate) fn rake_assets_precompile(
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
 ) -> Result<(), RubyBuildpackError> {
+    user::log_header("Rake task detection");
     match detect_rake_can_run(
         &dir_has_rakefile(&context.app_dir),
         &gem_list_has_rake(gem_list),
         &has_asset_manifest(&context.app_dir),
     ) {
         CanRunRake::NoRakeGem => {
-            println!("---> Skipping rake task detection, add `gem 'rake'` to your Gemfile");
+            user::log_info("Cannot run rake tasks, no rake gem in Gemfile");
+            user::log_info("Add `gem 'rake'` to your Gemfile to enable");
         }
         CanRunRake::MissingRakefile => {
-            println!("    Rake task `rake assets:precompile` not found, skipping");
+            user::log_info("Cannot run rake tasks, no Rakefile");
+            user::log_info("Add a `Rakefile` to your project to enable");
         }
         CanRunRake::AssetManifestSkip(paths) => {
-            println!(
-                    "    Manifest file(s) found {}. Skipping `rake assets:precompile`",
-                    paths
-                        .iter()
-                        .map(|path| path.clone().into_os_string().into_string().expect("Non-utf8 encoded filename in public/assets that matches manifest file glob"))
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                );
+            let files = paths
+                .iter()
+                .map(|path| path.clone().to_string_lossy().to_string())
+                .collect::<Vec<String>>()
+                .join(", ");
+
+            user::log_info("Skipping rake tasks. Manifest file(s) found");
+            user::log_info(format!("To enable, delete files: {files}"));
         }
         CanRunRake::Ok => {
-            println!("---> Detecting rake tasks");
+            user::log_info("Rakefile found");
+            user::log_info("Rake gem in Gemfile found");
+
+            user::log_info("Detecting rake tasks via `rake -P`");
             let rake_detect = RakeDetect::from_rake_command(env, true)
                 .map_err(RubyBuildpackError::RakeDetectError)?;
-            if rake_detect.has_task("assets:precompile") {
-                let assets_precompile = EnvCommand::new(
-                    "bundle",
-                    &["exec", "rake", "assets:precompile", "--trace"],
-                    env,
-                );
+            user::log_info("Done");
 
-                let public_assets_cache = InAppDirCache::new_and_load(
-                    context,
-                    &context.app_dir.join("public").join("assets"),
-                )
-                .map_err(RubyBuildpackError::InAppDirCacheError)?;
-                let fragments_cache = InAppDirCache::new_and_load(
-                    context,
-                    &context.app_dir.join("tmp").join("cache").join("assets"),
-                )
-                .map_err(RubyBuildpackError::InAppDirCacheError)?;
-
-                println!(
-                    "---> Loading cache for {} & {}",
-                    public_assets_cache.app_path.display(),
-                    fragments_cache.app_path.display()
-                );
-
-                println!("    Rake task `rake assets:precompile` found, running");
-                assets_precompile
-                    .stream()
-                    .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
-
-                if rake_detect.has_task("assets:clean") {
-                    println!("    Rake task `rake assets:clean` found, running");
-
-                    EnvCommand::new("bundle", &["exec", "rake", "assets:clean", "--trace"], env)
-                        .stream()
-                        .map_err(RubyBuildpackError::RakeAssetsCleanFailed)?;
-
-                    println!(
-                        "---> Storing cache for {} & {}",
-                        public_assets_cache.app_path.display(),
-                        fragments_cache.app_path.display()
-                    );
-                    public_assets_cache
-                        .copy_app_path_to_cache()
-                        .map_err(RubyBuildpackError::InAppDirCacheError)?;
-
-                    fragments_cache
-                        .destructive_move_app_path_to_cache()
-                        .map_err(RubyBuildpackError::InAppDirCacheError)?;
-
-                    clean_stale_files_in_cache(
-                        &fragments_cache,
-                        Byte::from_bytes(byte_unit::n_mib_bytes!(100)),
-                    )?;
-                } else {
-                    println!("    Rake task `rake assets:clean` not found, skipping");
-                    println!(
-                        "    Not saving cache of  {}",
-                        public_assets_cache.app_path.display()
-                    );
-                    println!(
-                        "    Not saving cache of  {}",
-                        fragments_cache.app_path.display()
-                    );
-                }
-            }
+            run_rake_tasks(context, env, &rake_detect)?;
         }
     }
 
     Ok(())
+}
+
+enum AssetCases {
+    None,
+    PrecompileOnly,
+    PrecompileAndClean,
+}
+
+fn asset_cases(rake: &RakeDetect) -> AssetCases {
+    if !rake.has_task("assets:precompile") {
+        AssetCases::None
+    } else if rake.has_task("assets:clean") {
+        AssetCases::PrecompileAndClean
+    } else {
+        AssetCases::PrecompileOnly
+    }
+}
+
+fn run_rake_tasks(
+    context: &BuildContext<RubyBuildpack>,
+    env: &Env,
+    rake_detect: &RakeDetect,
+) -> Result<(), RubyBuildpackError> {
+    user::log_header("Rake asset installation");
+
+    let cases = asset_cases(rake_detect);
+    match cases {
+        AssetCases::None => {
+            user::log_info("Skipping 'rake assets:precompile', task not found");
+            user::log_info("Help: Ensure `bundle exec rake -P` includes this task");
+        }
+        AssetCases::PrecompileOnly => {
+            user::log_info("Running 'rake assets:precompile', task found");
+            user::log_info("Skipping 'rake assets:clean', task not found");
+            user::log_info("Help: Ensure `bundle exec rake -P` includes this task");
+
+            let command = EnvCommand::new(
+                "bundle",
+                &["exec", "rake", "assets:precompile", "--trace"],
+                env,
+            );
+            user::log_info("$ {command}");
+
+            command
+                .stream()
+                .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
+        }
+        AssetCases::PrecompileAndClean => {
+            user::log_info("Running 'rake assets:precompile', task found");
+            user::log_info("Running 'rake assets:clean', task found");
+
+            let cache = AssetCache::new_and_load(context)
+                .map_err(RubyBuildpackError::InAppDirCacheError)?;
+
+            let command = EnvCommand::new(
+                "bundle",
+                &[
+                    "exec",
+                    "rake",
+                    "assets:precompile",
+                    "assets:clean",
+                    "--trace",
+                ],
+                env,
+            );
+
+            user::log_info("$ {command}");
+
+            command
+                .stream()
+                .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
+
+            cache
+                .store()
+                .map_err(RubyBuildpackError::InAppDirCacheError)?;
+
+            user::log_info("Done");
+        }
+    }
+
+    Ok(())
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct AssetCache {
+    caches: Vec<(DirCache, CacheConfig)>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum KeepAppPath {
+    Runtime,
+    BuildOnly,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct CacheConfig {
+    path: PathBuf,
+    limit: Byte,
+    on_store: KeepAppPath,
+}
+
+/// Used for loading/unloading asset cache and communicating what's happening to the user
+impl AssetCache {
+    fn new_and_load(context: &BuildContext<RubyBuildpack>) -> Result<Self, CacheError> {
+        let caches = [
+            CacheConfig {
+                path: context.app_dir.join("public").join("assets"),
+                limit: Byte::from_bytes(byte_unit::n_mib_bytes!(100)),
+                on_store: KeepAppPath::Runtime,
+            },
+            CacheConfig {
+                path: context.app_dir.join("tmp").join("cache").join("assets"),
+                limit: Byte::from_bytes(byte_unit::n_mib_bytes!(100)),
+                on_store: KeepAppPath::BuildOnly,
+            },
+        ]
+        .into_iter()
+        .map(|config| {
+            InAppDirCache::new_and_load(context, &config.path).map(|cache| {
+                Self::log_load(&cache);
+
+                (cache, config)
+            })
+        })
+        .collect::<Result<Vec<(DirCache, CacheConfig)>, _>>()?;
+
+        Ok(Self { caches })
+    }
+
+    fn log_load(cache: &DirCache) {
+        let path = cache.app_path.display();
+
+        match cache.state {
+            State::NewEmpty => user::log_info(format!("Creating cache for {path}")),
+            State::ExistsEmpty => user::log_info(format!("Loading (empty) cache for {path}")),
+            State::ExistsWithContents => user::log_info(format!("Loading cache for {path}")),
+        }
+    }
+
+    fn log_store(cache: &DirCache) {
+        let path = cache.app_path.display();
+        if cache.is_app_dir_empty() {
+            user::log_info(format!("Storing cache for (empty) {path}"));
+        } else {
+            user::log_info(format!("Storing cache for {path}"));
+        }
+    }
+
+    fn log_sweep(cache: &DirCache, config: &CacheConfig, removed: &FilesWithSize) {
+        let path = cache.app_path.display();
+        let limit = config.limit.get_adjusted_unit(ByteUnit::MiB);
+        let removed_len = removed.files.len();
+        let removed_size = removed.get_adjusted_unit(ByteUnit::MiB);
+
+        user::log_info(format!("Cache exceeded {limit} limit by {removed_size}"));
+        user::log_info(format!(
+            "Removing {removed_len} files from the cache for {path}",
+        ));
+    }
+
+    fn store(&self) -> Result<(), CacheError> {
+        for (cache, config) in &self.caches {
+            Self::log_store(cache);
+
+            match config.on_store {
+                KeepAppPath::Runtime => cache.copy_app_path_to_cache()?,
+                KeepAppPath::BuildOnly => cache.destructive_move_app_path_to_cache()?,
+            };
+
+            if let Some(removed) = cache.lru_clean(config.limit)? {
+                Self::log_sweep(cache, config, &removed);
+            }
+        }
+
+        Ok(())
+    }
 }
 
 // Convert nested logic into a flat enum of possible states
@@ -183,23 +307,6 @@ fn has_asset_manifest(app_dir: &Path) -> AssetManifestList {
         .collect::<Vec<PathBuf>>();
 
     AssetManifestList(manifests)
-}
-
-fn clean_stale_files_in_cache(cache: &DirCache, max_bytes: Byte) -> Result<(), RubyBuildpackError> {
-    cache
-        .lru_clean(max_bytes)
-        .map_err(RubyBuildpackError::InAppDirCacheError)?
-        .map(|removed| {
-            println!(
-                "Cache for {} exceeded {} limit by {}, clearing {} files",
-                cache.app_path.display(),
-                max_bytes.get_adjusted_unit(ByteUnit::MiB),
-                removed.get_adjusted_unit(ByteUnit::MiB),
-                removed.files.len()
-            );
-            Ok(())
-        })
-        .unwrap_or(Ok(()))
 }
 
 #[cfg(test)]

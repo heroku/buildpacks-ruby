@@ -5,6 +5,7 @@ use libcnb::build::BuildContext;
 use libcnb::data::buildpack::StackId;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
+use libherokubuildpack::log as user;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
@@ -54,7 +55,7 @@ impl Layer for RubyInstallLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        println!("---> Download and extracting Ruby {}", &self.version);
+        user::log_info(format!("Installing ruby {}", &self.version));
 
         let tmp_ruby_tgz = NamedTempFile::new()
             .map_err(RubyInstallError::CouldNotCreateDestinationFile)
@@ -68,6 +69,8 @@ impl Layer for RubyInstallLayer {
 
         untar(tmp_ruby_tgz.path(), layer_path).map_err(RubyBuildpackError::RubyInstallError)?;
 
+        user::log_info("Done");
+
         LayerResultBuilder::new(RubyInstallLayerMetadata {
             version: self.version.to_string(),
             stack: context.stack_id.clone(),
@@ -80,23 +83,62 @@ impl Layer for RubyInstallLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
-        if context.stack_id == layer_data.content_metadata.metadata.stack {
-            if self.version.to_string() == layer_data.content_metadata.metadata.version {
-                println!(
-                    "---> Using previously installed Ruby version {}",
-                    self.version
-                );
+        let contents = CacheContents {
+            old_stack: &layer_data.content_metadata.metadata.stack,
+            old_version: &layer_data.content_metadata.metadata.version,
+            current_stack: &context.stack_id,
+            current_version: &self.version.to_string(),
+        };
+
+        match contents.state() {
+            Changed::Nothing => {
+                user::log_info(format!("Using Ruby {} from cache", self.version));
+
                 Ok(ExistingLayerStrategy::Keep)
-            } else {
-                println!(
-                    "---> Changing Ruby version from {} to {}",
-                    layer_data.content_metadata.metadata.version, self.version
-                );
+            }
+            Changed::Stack => {
+                user::log_info(format!(
+                    "Stack changed from {} to {}",
+                    contents.old_stack, contents.current_stack
+                ));
+                user::log_info("Clearing ruby from cache");
+
                 Ok(ExistingLayerStrategy::Recreate)
             }
+            Changed::RubyVersion => {
+                user::log_info(format!(
+                    "Ruby version changed from {} to {}",
+                    contents.old_version, contents.current_version
+                ));
+                user::log_info("Clearing ruby from cache");
+
+                Ok(ExistingLayerStrategy::Recreate)
+            }
+        }
+    }
+}
+
+enum Changed {
+    Nothing,
+    Stack,
+    RubyVersion,
+}
+
+struct CacheContents<'a, 'b, 'c, 'd> {
+    old_stack: &'a StackId,
+    old_version: &'b str,
+    current_stack: &'c StackId,
+    current_version: &'d str,
+}
+
+impl CacheContents<'_, '_, '_, '_> {
+    fn state(&self) -> Changed {
+        if self.current_stack != self.old_stack {
+            Changed::Stack
+        } else if self.current_version != self.old_version {
+            Changed::RubyVersion
         } else {
-            println!("---> Stack has changed, reinstalling Ruby");
-            Ok(ExistingLayerStrategy::Recreate)
+            Changed::Nothing
         }
     }
 }

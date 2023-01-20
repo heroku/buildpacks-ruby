@@ -5,6 +5,7 @@ use libcnb::data::buildpack::StackId;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
+use libherokubuildpack::log as user;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -47,6 +48,8 @@ impl Layer for BundlePathLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
+        user::log_info("Creating gems cache");
+
         LayerResultBuilder::new(BundlePathLayerMetadata {
             ruby_version: self.ruby_version.clone(),
             stack: context.stack_id.clone(),
@@ -81,17 +84,54 @@ impl Layer for BundlePathLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
-        if context.stack_id == layer_data.content_metadata.metadata.stack {
-            if self.ruby_version == layer_data.content_metadata.metadata.ruby_version {
-                println!("---> Loading previously installed gems from cache");
-                Ok(ExistingLayerStrategy::Keep)
-            } else {
-                println!("---> Ruby version changed, clearing gems");
+        let contents = CacheContents {
+            old_stack: &layer_data.content_metadata.metadata.stack,
+            old_version: &layer_data.content_metadata.metadata.ruby_version,
+            current_stack: &context.stack_id,
+            current_version: self.ruby_version.as_str(),
+        };
+
+        match contents.state() {
+            Changed::Stack => {
+                user::log_info("Clearing gems cache, stack has changed");
+
                 Ok(ExistingLayerStrategy::Recreate)
             }
+            Changed::RubyVersion => {
+                user::log_info("Clearing gems cache, ruby version changed");
+
+                Ok(ExistingLayerStrategy::Recreate)
+            }
+            Changed::Nothing => {
+                user::log_info("Using gems cache");
+
+                Ok(ExistingLayerStrategy::Keep)
+            }
+        }
+    }
+}
+
+enum Changed {
+    Stack,
+    Nothing,
+    RubyVersion,
+}
+
+struct CacheContents<'a, 'b, 'c, 'd> {
+    old_stack: &'a StackId,
+    old_version: &'b str,
+    current_stack: &'c StackId,
+    current_version: &'d str,
+}
+
+impl CacheContents<'_, '_, '_, '_> {
+    fn state(&self) -> Changed {
+        if self.current_stack != self.old_stack {
+            Changed::Stack
+        } else if self.current_version != self.old_version {
+            Changed::RubyVersion
         } else {
-            println!("---> Stack has changed, clearing installed gems");
-            Ok(ExistingLayerStrategy::Recreate)
+            Changed::Nothing
         }
     }
 }

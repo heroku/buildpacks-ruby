@@ -16,7 +16,6 @@ fn test_default_app() {
         BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby")
         .buildpacks(vec![BuildpackReference::Crate]),
         |context| {
-            println!("{}", context.pack_stdout);
             assert_contains!(context.pack_stdout, "---> Download and extracting Ruby");
             assert_contains!(
                 context.pack_stdout,
@@ -26,7 +25,6 @@ fn test_default_app() {
 
             let config = context.config.clone();
             context.rebuild(config, |rebuild_context| {
-                println!("{}", rebuild_context.pack_stdout);
                 assert_contains!(rebuild_context.pack_stdout, "Using webrick");
 
                 rebuild_context.start_container(
@@ -85,7 +83,6 @@ DEPENDENCIES
             BuildpackReference::Crate,
         ]),
         |context| {
-            println!("{}", context.pack_stdout);
             assert_contains!(context.pack_stdout, "---> Download and extracting Ruby");
             assert_contains!(
                 context.pack_stdout,
@@ -107,7 +104,6 @@ fn test_ruby_app_with_yarn_app() {
             BuildpackReference::Crate,
         ]),
         |context| {
-            println!("{}", context.pack_stdout);
             assert_contains!(context.pack_stdout, "---> Download and extracting Ruby");
             assert_contains!(
                 context.pack_stdout,

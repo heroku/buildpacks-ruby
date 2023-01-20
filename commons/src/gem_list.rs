@@ -122,7 +122,6 @@ impl FromStr for GemList {
 }
 
 #[cfg(test)]
-
 mod tests {
     use super::*;
 

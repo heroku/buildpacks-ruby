@@ -1,17 +1,18 @@
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
-use byte_unit::{Byte, ByteUnit};
+use byte_unit::Byte;
+use commons::app_cache_collection::AppCacheCollection;
+use commons::app_cache_collection::CacheConfig;
+use commons::app_cache_collection::KeepAppPath;
 use commons::env_command::EnvCommand;
 use commons::gem_list::GemList;
-use commons::in_app_dir_cache::CacheError;
-use commons::in_app_dir_cache::FilesWithSize;
-use commons::in_app_dir_cache::State;
-use commons::in_app_dir_cache::{DirCache, InAppDirCache};
 use commons::rake_detect::RakeDetect;
+use glob::glob;
 use libcnb::build::BuildContext;
 use libcnb::Env;
 use libherokubuildpack::log as user;
 use std::path::Path;
+use std::path::PathBuf;
 
 #[derive(Debug, Eq, PartialEq)]
 enum CanRunRake {
@@ -125,8 +126,22 @@ fn run_rake_tasks(
             user::log_info("Running 'rake assets:precompile', task found");
             user::log_info("Running 'rake assets:clean', task found");
 
-            let cache = AssetCache::new_and_load(context)
-                .map_err(RubyBuildpackError::InAppDirCacheError)?;
+            let cache = AppCacheCollection::new_and_load(
+                context,
+                [
+                    CacheConfig {
+                        path: context.app_dir.join("public").join("assets"),
+                        limit: Byte::from_bytes(byte_unit::n_mib_bytes!(100)),
+                        on_store: KeepAppPath::Runtime,
+                    },
+                    CacheConfig {
+                        path: context.app_dir.join("tmp").join("cache").join("assets"),
+                        limit: Byte::from_bytes(byte_unit::n_mib_bytes!(100)),
+                        on_store: KeepAppPath::BuildOnly,
+                    },
+                ],
+            )
+            .map_err(RubyBuildpackError::InAppDirCacheError)?;
 
             let command = EnvCommand::new(
                 "bundle",
@@ -155,101 +170,6 @@ fn run_rake_tasks(
     }
 
     Ok(())
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct AssetCache {
-    caches: Vec<(DirCache, CacheConfig)>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-enum KeepAppPath {
-    Runtime,
-    BuildOnly,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct CacheConfig {
-    path: PathBuf,
-    limit: Byte,
-    on_store: KeepAppPath,
-}
-
-/// Used for loading/unloading asset cache and communicating what's happening to the user
-impl AssetCache {
-    fn new_and_load(context: &BuildContext<RubyBuildpack>) -> Result<Self, CacheError> {
-        let caches = [
-            CacheConfig {
-                path: context.app_dir.join("public").join("assets"),
-                limit: Byte::from_bytes(byte_unit::n_mib_bytes!(100)),
-                on_store: KeepAppPath::Runtime,
-            },
-            CacheConfig {
-                path: context.app_dir.join("tmp").join("cache").join("assets"),
-                limit: Byte::from_bytes(byte_unit::n_mib_bytes!(100)),
-                on_store: KeepAppPath::BuildOnly,
-            },
-        ]
-        .into_iter()
-        .map(|config| {
-            InAppDirCache::new_and_load(context, &config.path).map(|cache| {
-                Self::log_load(&cache);
-
-                (cache, config)
-            })
-        })
-        .collect::<Result<Vec<(DirCache, CacheConfig)>, _>>()?;
-
-        Ok(Self { caches })
-    }
-
-    fn log_load(cache: &DirCache) {
-        let path = cache.app_path.display();
-
-        match cache.state {
-            State::NewEmpty => user::log_info(format!("Creating cache for {path}")),
-            State::ExistsEmpty => user::log_info(format!("Loading (empty) cache for {path}")),
-            State::ExistsWithContents => user::log_info(format!("Loading cache for {path}")),
-        }
-    }
-
-    fn log_store(cache: &DirCache) {
-        let path = cache.app_path.display();
-        if cache.is_app_dir_empty() {
-            user::log_info(format!("Storing cache for (empty) {path}"));
-        } else {
-            user::log_info(format!("Storing cache for {path}"));
-        }
-    }
-
-    fn log_sweep(cache: &DirCache, config: &CacheConfig, removed: &FilesWithSize) {
-        let path = cache.app_path.display();
-        let limit = config.limit.get_adjusted_unit(ByteUnit::MiB);
-        let removed_len = removed.files.len();
-        let removed_size = removed.get_adjusted_unit(ByteUnit::MiB);
-
-        user::log_info(format!("Cache exceeded {limit} limit by {removed_size}"));
-        user::log_info(format!(
-            "Removing {removed_len} files from the cache for {path}",
-        ));
-    }
-
-    fn store(&self) -> Result<(), CacheError> {
-        for (cache, config) in &self.caches {
-            Self::log_store(cache);
-
-            match config.on_store {
-                KeepAppPath::Runtime => cache.copy_app_path_to_cache()?,
-                KeepAppPath::BuildOnly => cache.destructive_move_app_path_to_cache()?,
-            };
-
-            if let Some(removed) = cache.lru_clean(config.limit)? {
-                Self::log_sweep(cache, config, &removed);
-            }
-        }
-
-        Ok(())
-    }
 }
 
 // Convert nested logic into a flat enum of possible states
@@ -286,8 +206,6 @@ fn dir_has_rakefile(path: &Path) -> HasRakefile {
 fn gem_list_has_rake(gem_list: &GemList) -> HasGem {
     HasGem(gem_list.has("rake"))
 }
-use glob::glob;
-use std::path::PathBuf;
 
 // Checks in public/assets if an existing manifest file exists
 fn has_asset_manifest(app_dir: &Path) -> AssetManifestList {

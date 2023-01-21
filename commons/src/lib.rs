@@ -1,6 +1,7 @@
 #![warn(unused_crate_dependencies)]
 #![warn(clippy::pedantic)]
 
+pub mod app_cache_collection;
 pub mod env_command;
 pub mod gem_list;
 pub mod gem_version;

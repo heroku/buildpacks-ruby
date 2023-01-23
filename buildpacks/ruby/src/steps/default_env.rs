@@ -1,7 +1,4 @@
-use crate::{
-    layers::{EnvDefaultsLayer, EnvSecretKeyBaseLayer},
-    RubyBuildpack, RubyBuildpackError,
-};
+use crate::{layers::EnvDefaultsLayer, RubyBuildpack, RubyBuildpackError};
 use libcnb::{
     build::BuildContext,
     data::{layer_name, store::Store},
@@ -24,7 +21,22 @@ pub(crate) fn default_env(
         env.insert(k, v);
     }
 
-    let mut store = context.store.clone().unwrap_or_default();
+    let (default_secret_key_base, store) = fetch_secret_key_base_from_store(&context.store);
+
+    let env_defaults_layer = context //
+        .handle_layer(
+            layer_name!("env_defaults"),
+            EnvDefaultsLayer {
+                default_secret_key_base,
+            },
+        )?;
+    env = env_defaults_layer.env.apply(Scope::Build, &env);
+
+    Ok((env, store))
+}
+
+fn fetch_secret_key_base_from_store(store: &Option<Store>) -> (String, Store) {
+    let mut store = store.clone().unwrap_or_default();
     let default_secret_key_base = store
         .metadata
         .entry("SECRET_KEY_BASE")
@@ -38,19 +50,5 @@ pub(crate) fn default_env(
         })
         .to_string();
 
-    // Setup default environment variables
-    let secret_key_base_layer = context //
-        .handle_layer(
-            layer_name!("secret_key_base"),
-            EnvSecretKeyBaseLayer {
-                default_value: default_secret_key_base,
-            },
-        )?;
-    env = secret_key_base_layer.env.apply(Scope::Build, &env);
-
-    let env_defaults_layer = context //
-        .handle_layer(layer_name!("env_defaults"), EnvDefaultsLayer)?;
-    env = env_defaults_layer.env.apply(Scope::Build, &env);
-
-    Ok((env, store))
+    (default_secret_key_base, store)
 }

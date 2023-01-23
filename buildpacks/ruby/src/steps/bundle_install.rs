@@ -1,57 +1,14 @@
-use crate::layers::{BundleDownloadLayer, BundleEnvLayer, BundlePathLayer};
-use crate::{RubyBuildpack, RubyBuildpackError};
+use crate::RubyBuildpackError;
 use commons::env_command::EnvCommand;
-use commons::gemfile_lock::{ResolvedBundlerVersion, ResolvedRubyVersion};
 use libcnb::Env;
-use libcnb::{build::BuildContext, data::layer_name, layer_env::Scope};
 use libherokubuildpack::log as user;
 
-/// Primary interface for `bundle install`
-pub(crate) fn bundle_install(
-    ruby_version: ResolvedRubyVersion,
-    bundler_version: ResolvedBundlerVersion,
-    without_default: String,
-    context: &BuildContext<RubyBuildpack>,
-    env: &Env,
-) -> libcnb::Result<Env, RubyBuildpackError> {
-    user::log_header("Installing Bundler");
-    let mut env = env.clone();
-    // ## Setup bundler
-    //
-    // Gems will be installed here, sets BUNDLE_PATH env var
-    let create_bundle_path_layer = context.handle_layer(
-        layer_name!("gems"),
-        BundlePathLayer {
-            ruby_version: ruby_version.version,
-        },
-    )?;
-    env = create_bundle_path_layer.env.apply(Scope::Build, &env);
-
-    // Configures other `BUNDLE_*` settings not based on a layer path.
-    let configure_env_layer = context.handle_layer(
-        layer_name!("bundle_configure_env"),
-        BundleEnvLayer { without_default },
-    )?;
-    env = configure_env_layer.env.apply(Scope::Build, &env);
-
-    // ## Download bundler
-    //
-    // Download the specified bundler version
-    let download_bundler_layer = context.handle_layer(
-        layer_name!("bundler"),
-        BundleDownloadLayer {
-            version: bundler_version,
-            env: env.clone(),
-        },
-    )?;
-    env = download_bundler_layer.env.apply(Scope::Build, &env);
-
-    user::log_header("Installing dependencies");
+pub(crate) fn bundle_install(env: &Env) -> libcnb::Result<Env, RubyBuildpackError> {
     // ## Run `$ bundle install`
     let command = EnvCommand::new_show_keys(
         "bundle",
         &["install"],
-        &env,
+        env,
         [
             "BUNDLE_BIN",
             "BUNDLE_CLEAN",
@@ -68,7 +25,5 @@ pub(crate) fn bundle_install(
         .stream()
         .map_err(RubyBuildpackError::BundleInstallCommandError)?;
 
-    user::log_info("Done");
-
-    Ok(env)
+    Ok(env.clone())
 }

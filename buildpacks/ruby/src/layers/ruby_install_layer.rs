@@ -69,8 +69,6 @@ impl Layer for RubyInstallLayer {
 
         untar(tmp_ruby_tgz.path(), layer_path).map_err(RubyBuildpackError::RubyInstallError)?;
 
-        user::log_info("Done");
-
         LayerResultBuilder::new(RubyInstallLayerMetadata {
             version: self.version.to_string(),
             stack: context.stack_id.clone(),

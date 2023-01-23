@@ -8,7 +8,9 @@ use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-pub(crate) struct EnvDefaultsLayer;
+pub(crate) struct EnvDefaultsLayer {
+    pub(crate) default_secret_key_base: String,
+}
 
 ///
 /// # Set application environment variables
@@ -41,7 +43,13 @@ impl Layer for EnvDefaultsLayer {
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
         LayerResultBuilder::new(GenericMetadata::default())
             .env(
-                LayerEnv::new() //
+                LayerEnv::new()
+                    .chainable_insert(
+                        Scope::All,
+                        ModificationBehavior::Default,
+                        "SECRET_KEY_BASE",
+                        self.default_secret_key_base.clone(),
+                    )
                     .chainable_insert(
                         Scope::All,
                         ModificationBehavior::Default,

@@ -11,8 +11,8 @@ use commons::rake_detect::RakeError;
 use core::str::FromStr;
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
-use libcnb::data::launch::{LaunchBuilder, ProcessBuilder};
-use libcnb::data::{layer_name, process_type};
+use libcnb::data::launch::LaunchBuilder;
+use libcnb::data::layer_name;
 use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
 use libcnb::generic::{GenericMetadata, GenericPlatform};
 use libcnb::layer_env::Scope;
@@ -61,23 +61,31 @@ impl Buildpack for RubyBuildpack {
     }
 
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
-        user::log_header("Heroku Ruby buildpack");
+        let section = header("Heroku Ruby buildpack");
         user::log_info("Running Heroku Ruby buildpack");
+        section.done_quiet();
 
+        let section = header("Setting environment");
+        user::log_info("Setting default environment values");
         // ## Set default environment
         let (mut env, store) =
             crate::steps::default_env(&context, &context.platform.env().clone())?;
+        section.done();
 
         // Gather static information about project
+        let section = header("Detecting versions");
         let lockfile_contents = std::fs::read_to_string(context.app_dir.join("Gemfile.lock"))
             .map_err(RubyBuildpackError::CannotReadFile)?;
         let gemfile_lock = GemfileLock::from_str(&lockfile_contents)
             .map_err(RubyBuildpackError::GemfileLockParsingError)?;
         let bundler_version = gemfile_lock.resolve_bundler("2.3.7");
         let ruby_version = gemfile_lock.resolve_ruby("3.1.2");
+        user::log_info(format!("Detected ruby: {ruby_version}"));
+        user::log_info(format!("Detected bundler: {bundler_version}"));
+        section.done();
 
         // ## Install executable ruby version
-        user::log_header("Installing Ruby");
+        let section = header("Installing Ruby");
         let ruby_layer = context //
             .handle_layer(
                 layer_name!("ruby"),
@@ -86,51 +94,58 @@ impl Buildpack for RubyBuildpack {
                 },
             )?;
         env = ruby_layer.env.apply(Scope::Build, &env);
+        section.done();
 
-        // ## Bundle install
-        env = crate::steps::bundle_install(
+        // ## Setup bundler
+        let section = header("Installing Bundler");
+        env = crate::steps::setup_bundler(
             ruby_version,
             bundler_version,
             String::from("development:test"),
             &context,
             &env,
         )?;
+        section.done();
 
-        user::log_header("Detecting gems");
+        // ## Bundle install
+        let section = header("Installing dependencies");
+        env = crate::steps::bundle_install(&env)?;
+        section.done();
+
+        // ## Detect gems
+        let section = header("Detecting gems");
         user::log_info("Detecting gems via `bundle list`");
         let gem_list =
             GemList::from_bundle_list(&env).map_err(RubyBuildpackError::GemListGetError)?;
-        user::log_info("Done");
+        section.done();
 
         // ## Assets install
-        crate::steps::rake_assets_precompile(&gem_list, &context, &env)?;
+        let section = header("Rake task detection");
+        let rake_detect = crate::steps::detect_rake_tasks(&gem_list, &context, &env)?;
+        section.done();
 
-        user::log_header("Setting default process(es)");
-        let default_process = if gem_list.has("railties") {
-            user::log_info("Rails app detected");
-            user::log_info("Setting default web process");
+        if let Some(rake_detect) = rake_detect {
+            let section = header("Rake asset installation");
+            crate::steps::rake_assets_install(&context, &env, &rake_detect)?;
+            section.done();
+        }
 
-            ProcessBuilder::new(process_type!("web"), "bin/rails")
-                .args(["server", "--port", "$PORT", "--environment", "$RAILS_ENV"])
-                .default(true)
+        let section = header("Setting default process(es)");
+        let default_process = steps::get_default_process(&context, &gem_list);
+        section.done();
+
+        let section = header("Heroku Ruby buildpack");
+        user::log_info("Finalizing build");
+        section.done_quiet();
+
+        if let Some(default_process) = default_process {
+            BuildResultBuilder::new()
+                .launch(LaunchBuilder::new().process(default_process).build())
+                .store(store)
                 .build()
         } else {
-            user::log_info("Rack app detected");
-            user::log_info("Setting default web process");
-
-            ProcessBuilder::new(process_type!("web"), "bundle")
-                .args(["exec", "rackup", "--port", "$PORT", "--host", "0.0.0.0"])
-                .default(true)
-                .build()
-        };
-
-        user::log_header("Heroku Ruby buildpack finished");
-        user::log_info("Finished buildpack");
-
-        BuildResultBuilder::new()
-            .launch(LaunchBuilder::new().process(default_process).build())
-            .store(store)
-            .build()
+            BuildResultBuilder::new().store(store).build()
+        }
     }
 }
 
@@ -198,4 +213,25 @@ RUBY VERSION
 "#;
         assert!(needs_java(gemfile_lock));
     }
+}
+
+#[derive(Debug)]
+struct LogSection;
+
+impl LogSection {
+    #[allow(clippy::unused_self)]
+    fn done(&self) {
+        user::log_info("Done");
+    }
+
+    #[allow(clippy::unused_self)]
+    fn done_quiet(&self) {}
+}
+
+/// Prints out a header and ensures a done section is printed
+#[must_use]
+fn header(message: &str) -> LogSection {
+    user::log_header(message);
+
+    LogSection
 }

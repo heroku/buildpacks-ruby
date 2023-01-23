@@ -14,10 +14,10 @@ pub(crate) fn detect_rake_tasks(
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
 ) -> Result<Option<RakeDetect>, RubyBuildpackError> {
-    match detect_rake_can_run(
-        find_rakefile(&context.app_dir),
-        &rake_gem(gem_list),
-        asset_manifest(&context.app_dir),
+    match detect_rake_status(
+        &context.app_dir,
+        gem_list,
+        [".sprockets-manifest-*.json", "manifest-*.json"],
     ) {
         RakeStatus::MissingRakeGem => {
             user::log_info("Cannot run rake tasks, no rake gem in Gemfile");
@@ -65,15 +65,21 @@ pub(crate) enum RakeStatus {
     MissingRakefile,
     SkipManifestFound(Vec<PathBuf>),
 }
+fn detect_rake_status(
+    app_path: &Path,
+    gem_list: &GemList,
+    globs: impl IntoIterator<Item = impl AsRef<str>>,
+) -> RakeStatus {
+    let rakefile = find_rakefile(app_path);
+    let rake_gem = rake_gem(gem_list);
+    let manifest = asset_manifest_from_glob(app_path, globs);
+    rake_status(&rake_gem, rakefile, manifest)
+}
 
 // Convert nested logic into a flat enum of possible states
 // that represent whether or not `rake assets:precompile` can
 // be run.
-fn detect_rake_can_run(
-    rakefile: Rakefile,
-    rake_gem: &RakeGem,
-    manifest: AssetManifest,
-) -> RakeStatus {
+fn rake_status(rake_gem: &RakeGem, rakefile: Rakefile, manifest: AssetManifest) -> RakeStatus {
     match (rake_gem, rakefile, manifest) {
         (RakeGem::Found, Rakefile::Found(p), AssetManifest::Missing) => RakeStatus::Ready(p),
         (RakeGem::Missing, _, _) => RakeStatus::MissingRakeGem,
@@ -118,15 +124,17 @@ fn rake_gem(gem_list: &GemList) -> RakeGem {
     }
 }
 
-// Checks in public/assets if an existing manifest file exists
-fn asset_manifest(app_dir: &Path) -> AssetManifest {
-    let manifests = [".sprockets-manifest-*.json", "manifest-*.json"]
-        .iter()
+fn asset_manifest_from_glob(
+    app_dir: &Path,
+    globs: impl IntoIterator<Item = impl AsRef<str>>,
+) -> AssetManifest {
+    let manifests = globs
+        .into_iter()
         .map(|glob_pattern| {
             app_dir
                 .join("public")
                 .join("assets")
-                .join(glob_pattern)
+                .join(glob_pattern.as_ref())
                 .into_os_string()
                 .into_string()
                 .expect("Internal error: Non-unicode bytes in hardcoded internal str")
@@ -147,46 +155,53 @@ mod tests {
     use super::*;
     use crate::test_helper::touch_file;
 
+    // Checks in public/assets if an existing manifest file exists
+    fn asset_manifest(app_dir: &Path) -> AssetManifest {
+        let globs = [".sprockets-manifest-*.json", "manifest-*.json"];
+
+        asset_manifest_from_glob(app_dir, globs)
+    }
+
     #[test]
     fn test_detect_rake_can_run() {
         assert_eq!(
-            detect_rake_can_run(Rakefile::Missing, &RakeGem::Found, AssetManifest::Missing),
-            RakeStatus::MissingRakeGem
-        );
-        assert_eq!(
-            detect_rake_can_run(Rakefile::Missing, &RakeGem::Missing, AssetManifest::Missing),
+            rake_status(&RakeGem::Found, Rakefile::Missing, AssetManifest::Missing),
             RakeStatus::MissingRakefile
         );
         assert_eq!(
-            detect_rake_can_run(
-                Rakefile::Found(PathBuf::new()),
+            rake_status(&RakeGem::Missing, Rakefile::Missing, AssetManifest::Missing),
+            RakeStatus::MissingRakeGem
+        );
+        assert_eq!(
+            rake_status(
                 &RakeGem::Found,
+                Rakefile::Found(PathBuf::new()),
+                AssetManifest::Missing
+            ),
+            RakeStatus::Ready(PathBuf::new())
+        );
+        assert_eq!(
+            rake_status(
+                &RakeGem::Missing,
+                Rakefile::Found(PathBuf::new()),
                 AssetManifest::Missing
             ),
             RakeStatus::MissingRakeGem
         );
         assert_eq!(
-            detect_rake_can_run(
-                Rakefile::Found(PathBuf::new()),
+            rake_status(
                 &RakeGem::Missing,
+                Rakefile::Found(PathBuf::new()),
                 AssetManifest::Missing
             ),
-            RakeStatus::Ready(PathBuf::new())
-        );
-        assert_eq!(
-            detect_rake_can_run(
-                Rakefile::Found(PathBuf::new()),
-                &RakeGem::Missing,
-                AssetManifest::Missing
-            ),
-            RakeStatus::Ready(PathBuf::new())
+            RakeStatus::MissingRakeGem
         );
 
         let path = PathBuf::new();
         assert_eq!(
-            detect_rake_can_run(
+            rake_status(
+                &RakeGem::Found,
                 Rakefile::Found(PathBuf::new()),
-                &RakeGem::Missing,
                 AssetManifest::Found(vec![path.clone()])
             ),
             RakeStatus::SkipManifestFound(vec![path])
@@ -196,18 +211,20 @@ mod tests {
     #[test]
     fn test_has_rakefile() {
         let tmpdir = tempfile::tempdir().unwrap();
+        let dir = tmpdir.path();
 
         for name in &["rakefile", "Rakefile", "rakefile.rb;", "Rakefile.rb"] {
-            let file = tmpdir.path().join(name);
+            let file = dir.join(name);
             std::fs::write(&file, "").unwrap();
-            assert_eq!(
-                Rakefile::Found(tmpdir.path().to_path_buf()),
-                find_rakefile(tmpdir.path())
-            );
+            let found = match find_rakefile(dir) {
+                Rakefile::Found(_) => true,
+                _ => false,
+            };
+            assert!(found);
             std::fs::remove_file(&file).unwrap();
         }
 
-        assert_eq!(Rakefile::Missing, find_rakefile(tmpdir.path()));
+        assert_eq!(Rakefile::Missing, find_rakefile(dir));
     }
 
     #[test]
@@ -229,5 +246,15 @@ mod tests {
                 AssetManifest::Found(vec![path.clone()])
             );
         });
+    }
+
+    #[test]
+    fn asset_manifest_empty_glob() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let empty: [String; 0] = [];
+        assert_eq!(
+            asset_manifest_from_glob(tmpdir.path(), empty),
+            AssetManifest::Missing
+        );
     }
 }

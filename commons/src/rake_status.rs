@@ -2,7 +2,7 @@ use crate::gem_list::GemList;
 use std::path::{Path, PathBuf};
 
 /// Determine if an application is ready to run a rake task or not
-pub fn detect_rake_status(
+pub fn check_rake_ready(
     app_path: &Path,
     gem_list: &GemList,
     globs: impl IntoIterator<Item = impl AsRef<str>>,
@@ -10,6 +10,7 @@ pub fn detect_rake_status(
     let rakefile = find_rakefile(app_path);
     let rake_gem = rake_gem(gem_list);
     let manifest = asset_manifest_from_glob(app_path, globs);
+
     rake_status(&rake_gem, rakefile, manifest)
 }
 

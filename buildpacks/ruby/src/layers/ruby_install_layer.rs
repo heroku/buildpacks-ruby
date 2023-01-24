@@ -7,7 +7,6 @@ use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use libherokubuildpack::log as user;
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::io;
 use std::path::Path;
 use tar::Archive;
@@ -183,7 +182,7 @@ pub(crate) fn download(
         .map_err(|err| RubyInstallError::RequestError(Box::new(err)))?
         .into_reader();
 
-    let mut destination_file = fs::File::create(destination.as_ref())
+    let mut destination_file = fs_err::File::create(destination.as_ref())
         .map_err(RubyInstallError::CouldNotCreateDestinationFile)?;
 
     io::copy(&mut response_reader, &mut destination_file)
@@ -196,7 +195,7 @@ pub(crate) fn untar(
     path: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<(), RubyInstallError> {
-    let file = fs::File::open(path.as_ref()).map_err(RubyInstallError::CouldNotOpenFile)?;
+    let file = fs_err::File::open(path.as_ref()).map_err(RubyInstallError::CouldNotOpenFile)?;
 
     Archive::new(GzDecoder::new(file))
         .unpack(destination.as_ref())

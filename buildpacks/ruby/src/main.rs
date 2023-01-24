@@ -24,6 +24,7 @@ use std::fmt::Display;
 
 mod layers;
 mod steps;
+mod user_errors;
 
 #[cfg(test)]
 use libcnb_test as _;
@@ -38,7 +39,7 @@ impl Buildpack for RubyBuildpack {
     fn detect(&self, context: DetectContext<Self>) -> libcnb::Result<DetectResult, Self::Error> {
         let mut plan_builder = BuildPlanBuilder::new().provides("ruby");
 
-        if context.app_dir.join("Gemfile.lock").exists() {
+        if let Ok(lockfile) = fs_err::read_to_string(context.app_dir.join("Gemfile.lock")) {
             plan_builder = plan_builder.requires("ruby");
 
             if context.app_dir.join("package.json").exists() {
@@ -49,9 +50,11 @@ impl Buildpack for RubyBuildpack {
                 plan_builder = plan_builder.requires("yarn");
             }
 
-            if app_needs_java(&context)? {
+            if needs_java(&lockfile) {
                 plan_builder = plan_builder.requires("jdk");
             }
+        } else if context.app_dir.join("Gemfile").exists() {
+            plan_builder = plan_builder.requires("ruby");
         }
 
         DetectResultBuilder::pass()
@@ -74,11 +77,10 @@ impl Buildpack for RubyBuildpack {
         // Gather static information about project
         let section = header("Detecting versions");
         let lockfile_contents = fs_err::read_to_string(context.app_dir.join("Gemfile.lock"))
-            .map_err(RubyBuildpackError::CannotReadFile)?;
-        let gemfile_lock = GemfileLock::from_str(&lockfile_contents)
-            .map_err(RubyBuildpackError::GemfileLockParsingError)?;
-        let bundler_version = gemfile_lock.resolve_bundler("2.3.7");
-        let ruby_version = gemfile_lock.resolve_ruby("3.1.2");
+            .map_err(RubyBuildpackError::MissingGemfileLock)?;
+        let gemfile_lock = GemfileLock::from_str(&lockfile_contents).expect("Infallible");
+        let bundler_version = gemfile_lock.resolve_bundler("2.4.5");
+        let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
         user::log_info(format!("Detected ruby: {ruby_version}"));
         user::log_info(format!("Detected bundler: {bundler_version}"));
         section.done();
@@ -142,13 +144,10 @@ impl Buildpack for RubyBuildpack {
             BuildResultBuilder::new().store(store).build()
         }
     }
-}
 
-fn app_needs_java(context: &DetectContext<RubyBuildpack>) -> Result<bool, RubyBuildpackError> {
-    let gemfile_lock = fs_err::read_to_string(context.app_dir.join("Gemfile.lock"))
-        .map_err(RubyBuildpackError::CannotReadFile)?;
-
-    Ok(needs_java(&gemfile_lock))
+    fn on_error(&self, err: libcnb::Error<Self::Error>) {
+        user_errors::on_error(err);
+    }
 }
 
 fn needs_java(gemfile_lock: &str) -> bool {
@@ -158,15 +157,14 @@ fn needs_java(gemfile_lock: &str) -> bool {
 
 #[derive(Debug)]
 pub(crate) enum RubyBuildpackError {
-    CannotReadFile(std::io::Error),
-    RubyInstallError(RubyInstallError),
-    BundleInstallCommandError(CommandError),
-    GemInstallBundlerCommandError(CommandError),
-    GemListGetError(commons::gem_list::ListError),
     RakeDetectError(RakeError),
-    RakeAssetsPrecompileFailed(CommandError),
-    GemfileLockParsingError(commons::gemfile_lock::LockError),
+    GemListGetError(commons::gem_list::ListError),
+    RubyInstallError(RubyInstallError),
+    MissingGemfileLock(std::io::Error),
     InAppDirCacheError(CacheError),
+    BundleInstallCommandError(CommandError),
+    RakeAssetsPrecompileFailed(CommandError),
+    GemInstallBundlerCommandError(CommandError),
 }
 
 impl From<RubyBuildpackError> for libcnb::Error<RubyBuildpackError> {
@@ -197,7 +195,7 @@ impl LogSectionWithTime {
 
 /// Prints out a header and ensures a done section is printed
 ///
-/// Returns a LogSectionWithTime that must be used. That
+/// Returns a `LogSectionWithTime` that must be used. That
 /// will print out the elapsed time.
 #[must_use]
 fn header(message: &str) -> LogSectionWithTime {
@@ -214,8 +212,8 @@ struct DisplayDuration<'a> {
 }
 
 impl DisplayDuration<'_> {
-    fn new<'a>(duration: &'a std::time::Duration) -> DisplayDuration<'a> {
-        DisplayDuration { duration: duration }
+    fn new(duration: &std::time::Duration) -> DisplayDuration {
+        DisplayDuration { duration }
     }
 
     fn milliseconds(&self) -> u32 {

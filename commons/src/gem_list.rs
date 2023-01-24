@@ -15,10 +15,7 @@ pub struct GemList {
 
 #[derive(thiserror::Error, Debug)]
 pub enum ListError {
-    #[error("Regex error: {0}")]
-    RegexError(#[from] regex::Error),
-
-    #[error("Error determining dependencies: {0}")]
+    #[error("Error determining dependencies: \n{0}")]
     BundleListShellCommandError(crate::env_command::CommandError),
 }
 
@@ -93,8 +90,8 @@ impl FromStr for GemList {
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         // https://regex101.com/r/EIJe5G/1
-        let gem_entry_re =
-            Regex::new("  \\* (\\S+) \\(([a-zA-Z0-9\\.]+)\\)").map_err(ListError::RegexError)?;
+        let gem_entry_re = Regex::new("  \\* (\\S+) \\(([a-zA-Z0-9\\.]+)\\)")
+            .expect("Internal error: invalid regex");
 
         let gems = gem_entry_re
             .captures_iter(string)

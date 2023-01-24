@@ -2,7 +2,6 @@ use crate::in_app_dir_cache_layer::InAppDirCacheLayer;
 use byte_unit::AdjustedByte;
 use byte_unit::Byte;
 use byte_unit::ByteUnit;
-use fs_err as fs;
 use fs_extra::dir::CopyOptions;
 use glob::PatternError;
 use libcnb::build::BuildContext;
@@ -77,14 +76,31 @@ pub enum CacheError {
     #[error("Invalid layer name: {0}")]
     InvalidLayerName(libcnb::data::layer::LayerNameError),
 
-    #[error("IO error: {0}")]
-    IoExtraError(fs_extra::error::Error),
+    #[error(
+        "Could not copy cached files into application.\nFrom: {cache} to {app}\nError: {error}"
+    )]
+    CopyCacheToAppError {
+        app: PathBuf,
+        cache: PathBuf,
+        error: fs_extra::error::Error,
+    },
+
+    #[error("Could not copy files from the application to cache.\nFrom: {app} To: {cache}\nError: {error}")]
+    CopyAppToCacheError {
+        app: PathBuf,
+        cache: PathBuf,
+        error: fs_extra::error::Error,
+    },
+
+    #[error("Could not move files out of the application to the cache.\nFrom: {app} To: {cache}\nError: {error}")]
+    DestructiveMoveAppToCacheError {
+        app: PathBuf,
+        cache: PathBuf,
+        error: fs_extra::error::Error,
+    },
 
     #[error("IO error: {0}")]
     IoError(std::io::Error),
-
-    #[error("Cannot convert OsString into UTF-8 string: {0}")]
-    OsStringError(String),
 
     #[error("An internal error occured while creating a dir glob pattern: {0}")]
     InternalBadGlobError(PatternError),
@@ -198,8 +214,8 @@ impl DirCache {
     /// Fails if either the ```app_path``` or ```cache_path``` cannot be created due to an error
     /// from the OS, such as file permissions.
     fn mkdir_p(&self) -> Result<(), CacheError> {
-        fs::create_dir_all(&self.app_path).map_err(CacheError::IoError)?;
-        fs::create_dir_all(&self.cache_path).map_err(CacheError::IoError)?;
+        fs_err::create_dir_all(&self.app_path).map_err(CacheError::IoError)?;
+        fs_err::create_dir_all(&self.cache_path).map_err(CacheError::IoError)?;
 
         Ok(())
     }
@@ -228,7 +244,11 @@ impl DirCache {
                 ..CopyOptions::default()
             },
         )
-        .map_err(CacheError::IoExtraError)?;
+        .map_err(|error| CacheError::CopyCacheToAppError {
+            app: self.app_path.clone(),
+            cache: self.cache_path.clone(),
+            error,
+        })?;
 
         Ok(self)
     }
@@ -254,7 +274,11 @@ impl DirCache {
                 ..CopyOptions::default()
             },
         )
-        .map_err(CacheError::IoExtraError)?;
+        .map_err(|error| CacheError::DestructiveMoveAppToCacheError {
+            app: self.app_path.clone(),
+            cache: self.cache_path.clone(),
+            error,
+        })?;
 
         Ok(self)
     }
@@ -280,7 +304,11 @@ impl DirCache {
                 ..CopyOptions::default()
             },
         )
-        .map_err(CacheError::IoExtraError)?;
+        .map_err(|error| CacheError::CopyAppToCacheError {
+            app: self.app_path.clone(),
+            cache: self.cache_path.clone(),
+            error,
+        })?;
 
         Ok(self)
     }
@@ -307,7 +335,7 @@ impl DirCache {
             Ok(None)
         } else {
             for file in &overage.files {
-                fs::remove_file(file).map_err(CacheError::IoError)?;
+                fs_err::remove_file(file).map_err(CacheError::IoError)?;
             }
 
             Ok(Some(overage))
@@ -315,20 +343,13 @@ impl DirCache {
     }
 
     fn files(cache_path: &Path) -> Result<Vec<MiniPathModSize>, CacheError> {
-        let glob_string = cache_path
-            .join("**/*")
-            .into_os_string()
-            .into_string()
-            .map_err(|e| CacheError::OsStringError(e.to_string_lossy().to_string()))?;
-
-        let files = glob::glob(&glob_string)
-            .map_err(CacheError::InternalBadGlobError)?
+        walkdir::WalkDir::new(cache_path)
+            .follow_links(true)
+            .into_iter()
             .filter_map(Result::ok)
-            .filter(|p| p.is_file()) // Means we aren't removing empty directories
+            .filter_map(|p| p.path().is_file().then_some(p.path().to_path_buf()))
             .map(MiniPathModSize::new)
-            .collect::<Result<Vec<MiniPathModSize>, _>>()?;
-
-        Ok(files)
+            .collect::<Result<Vec<MiniPathModSize>, CacheError>>()
     }
 
     fn lru_files_above_limit(
@@ -413,12 +434,12 @@ mod tests {
     pub fn touch_file(path: &PathBuf, f: impl FnOnce(&PathBuf)) {
         if let Some(parent) = path.parent() {
             if !parent.exists() {
-                fs::create_dir_all(parent).unwrap();
+                fs_err::create_dir_all(parent).unwrap();
             }
         }
-        fs::write(path, "").unwrap();
+        fs_err::write(path, "").unwrap();
         f(path);
-        fs::remove_file(path).unwrap();
+        fs_err::remove_file(path).unwrap();
     }
 
     #[test]
@@ -444,7 +465,7 @@ mod tests {
         cache.move_cache_to_app().unwrap();
         assert!(app_path.read_dir().unwrap().next().is_none()); // Assert dir not changed
 
-        fs::write(app_path.join("lol.txt"), "hahaha").unwrap();
+        fs_err::write(app_path.join("lol.txt"), "hahaha").unwrap();
 
         // Test copy logic from app to cache
         assert!(!cache.cache_path.join("lol.txt").exists());
@@ -470,7 +491,7 @@ mod tests {
         cache.move_cache_to_app().unwrap();
         assert!(app_path.read_dir().unwrap().next().is_none()); // Assert dir not changed
 
-        fs::write(app_path.join("lol.txt"), "hahaha").unwrap();
+        fs_err::write(app_path.join("lol.txt"), "hahaha").unwrap();
 
         // Test copy logic from app to cache
         assert!(!cache.cache_path.join("lol.txt").exists());
@@ -485,7 +506,7 @@ mod tests {
         let tmpdir = tempfile::tempdir().unwrap();
         let dir = tmpdir.path().join("dir");
 
-        fs::create_dir_all(&dir).unwrap();
+        fs_err::create_dir_all(&dir).unwrap();
 
         assert_eq!(
             DirCache::lru_files_above_limit(&dir, Byte::from_bytes(n_mib_bytes!(0)),)
@@ -528,7 +549,7 @@ mod tests {
     fn test_lru_does_not_grab_directories() {
         let tmpdir = tempfile::tempdir().unwrap();
         let dir = tmpdir.path().join("");
-        fs::create_dir_all(dir.join("preservation_society")).unwrap();
+        fs_err::create_dir_all(dir.join("preservation_society")).unwrap();
         let overage =
             DirCache::lru_files_above_limit(&dir, Byte::from_bytes(n_mib_bytes!(0))).unwrap();
         assert_eq!(overage.files, Vec::<PathBuf>::new());

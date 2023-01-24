@@ -171,10 +171,7 @@ mod tests {
         for name in &["rakefile", "Rakefile", "rakefile.rb;", "Rakefile.rb"] {
             let file = dir.join(name);
             fs_err::write(&file, "").unwrap();
-            let found = match find_rakefile(dir) {
-                Rakefile::Found(_) => true,
-                _ => false,
-            };
+            let found = matches!(find_rakefile(dir), Rakefile::Found(_));
             assert!(found);
             fs_err::remove_file(&file).unwrap();
         }

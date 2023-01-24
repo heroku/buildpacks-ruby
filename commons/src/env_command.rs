@@ -49,7 +49,6 @@ use std::process::{Command, ExitStatus};
 /// use commons::env_command::EnvCommand;
 /// use libcnb::Env;
 ///
-///
 /// let mut command = EnvCommand::new("echo", &["hello world"], &Env::new());
 /// assert_eq!(command.to_string(), "echo \"hello world\"")
 /// ```
@@ -82,7 +81,7 @@ pub struct EnvCommand {
     on_non_zero_exit: Box<dyn Fn(NonZeroExitStatusError) -> Result<Output, NonZeroExitStatusError>>,
 }
 
-/// Convienece traite to extend ```Output```
+/// Convenience trait to extend ```Output```
 ///
 /// Gives ```Output``` functions for returning stdout and stderr as lossy strings.
 pub trait OutputEx {
@@ -108,23 +107,27 @@ pub enum CommandError {
 
 #[derive(Debug)]
 pub struct NonZeroExitStatusError {
+    pub output: Output,
     pub command: String,
-    pub result: Output,
-    already_streamed: bool,
+    did_stream: bool,
 }
 
 impl Display for NonZeroExitStatusError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut output = format!(
-            "Command '{}' exited with non-zero status code '{}'\n",
-            self.command, self.result.status
-        );
-        if !self.already_streamed {
-            output.push_str(&format!(
-                "stdout: {}\nstderr{}\n",
-                self.result.stdout_lossy(),
-                self.result.stderr_lossy()
-            ));
+        let command = &self.command;
+        let status = self.output.status;
+        let stdout = self.output.stdout_lossy();
+        let stderr = self.output.stderr_lossy();
+
+        let mut output = format!("command: '{command}'\n");
+        output.push_str(&format!("status: {status}\n"));
+
+        if self.did_stream {
+            output.push_str("stdout: contents streamed above.\n");
+            output.push_str("stderr: contents streamed above.\n");
+        } else {
+            output.push_str(&format!("stdout:\n{stdout}\n"));
+            output.push_str(&format!("stderr:\n{stderr}\n"));
         };
         write!(f, "{output}")
     }
@@ -250,8 +253,8 @@ impl EnvCommand {
                     .unwrap_or_else(|| {
                         self.handle_non_zero_exit_error(NonZeroExitStatusError {
                             command: self.to_string(),
-                            result,
-                            already_streamed: false,
+                            output: result,
+                            did_stream: false,
                         })
                     })
             })
@@ -291,8 +294,8 @@ impl EnvCommand {
                     .unwrap_or_else(|| {
                         self.handle_non_zero_exit_error(NonZeroExitStatusError {
                             command: self.to_string(),
-                            result,
-                            already_streamed: false,
+                            output: result,
+                            did_stream: false,
                         })
                     })
             })
@@ -307,7 +310,7 @@ impl EnvCommand {
     ///
     /// let env = Env::new();
     /// let mut outcome = EnvCommand::new("iDoNotExist", &["hello world"], &env)
-    ///                   .on_non_zero_exit(|error| Ok(error.result) )
+    ///                   .on_non_zero_exit(|error| Ok(error.output) )
     ///                   .output()
     ///                   .unwrap();
     ///
@@ -422,7 +425,7 @@ mod tests {
         assert!(outcome.is_err());
 
         // Ignore the error
-        command.on_non_zero_exit(|err| Ok(err.result));
+        command.on_non_zero_exit(|err| Ok(err.output));
         command.output().unwrap();
     }
 

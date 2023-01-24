@@ -44,7 +44,7 @@ impl RakeDetect {
                 if error_on_failure {
                     Err(error)
                 } else {
-                    Ok(error.result)
+                    Ok(error.output)
                 }
             })
             .output()

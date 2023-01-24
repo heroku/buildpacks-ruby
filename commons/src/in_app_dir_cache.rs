@@ -172,7 +172,7 @@ impl<B: Buildpack> InAppDirCache<B> {
 }
 
 fn empty_dir(path: &Path) -> bool {
-    if let Ok(read_dir) = std::fs::read_dir(path) {
+    if let Ok(read_dir) = fs_err::read_dir(path) {
         let dir_has_files = read_dir
             .filter_map(std::result::Result::ok)
             .any(|entry| entry.path().exists());

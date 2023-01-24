@@ -73,7 +73,7 @@ impl Buildpack for RubyBuildpack {
 
         // Gather static information about project
         let section = header("Detecting versions");
-        let lockfile_contents = std::fs::read_to_string(context.app_dir.join("Gemfile.lock"))
+        let lockfile_contents = fs_err::read_to_string(context.app_dir.join("Gemfile.lock"))
             .map_err(RubyBuildpackError::CannotReadFile)?;
         let gemfile_lock = GemfileLock::from_str(&lockfile_contents)
             .map_err(RubyBuildpackError::GemfileLockParsingError)?;
@@ -145,7 +145,7 @@ impl Buildpack for RubyBuildpack {
 }
 
 fn app_needs_java(context: &DetectContext<RubyBuildpack>) -> Result<bool, RubyBuildpackError> {
-    let gemfile_lock = std::fs::read_to_string(context.app_dir.join("Gemfile.lock"))
+    let gemfile_lock = fs_err::read_to_string(context.app_dir.join("Gemfile.lock"))
         .map_err(RubyBuildpackError::CannotReadFile)?;
 
     Ok(needs_java(&gemfile_lock))
@@ -156,38 +156,22 @@ fn needs_java(gemfile_lock: &str) -> bool {
     java_regex.is_match(gemfile_lock)
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(Debug)]
 pub(crate) enum RubyBuildpackError {
-    #[error("Cannot read_file: {0}")]
     CannotReadFile(std::io::Error),
-
-    #[error("Cannot install ruby: {0}")]
     RubyInstallError(RubyInstallError),
-
-    #[error("Bundle install command errored: {0}")]
     BundleInstallCommandError(CommandError),
-
-    #[error("Could not install bundler: {0}")]
     GemInstallBundlerCommandError(CommandError),
-
-    #[error("Error building list of gems for application: {0}")]
     GemListGetError(commons::gem_list::ListError),
-
-    #[error("Error detecting rake tasks: {0}")]
     RakeDetectError(RakeError),
-
-    #[error("Error running rake assets precompile: {0}")]
     RakeAssetsPrecompileFailed(CommandError),
-
-    #[error("Error evaluating Gemfile.lock: {0}")]
     GemfileLockParsingError(commons::gemfile_lock::LockError),
-
-    #[error("Error caching application path: {0}")]
     InAppDirCacheError(CacheError),
 }
+
 impl From<RubyBuildpackError> for libcnb::Error<RubyBuildpackError> {
     fn from(error: RubyBuildpackError) -> Self {
-        Self::BuildpackError(error)
+        libcnb::Error::BuildpackError(error)
     }
 }
 

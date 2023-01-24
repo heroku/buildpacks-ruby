@@ -51,7 +51,7 @@ fn test_default_app() {
 #[ignore = "integration test"]
 fn test_jruby_app() {
     let app_dir = tempfile::tempdir().unwrap();
-    std::fs::write(
+    fs_err::write(
         app_dir.path().join("Gemfile"),
         r#"
         source "https://rubygems.org"
@@ -61,7 +61,7 @@ fn test_jruby_app() {
     )
     .unwrap();
 
-    std::fs::write(
+    fs_err::write(
         app_dir.path().join("Gemfile.lock"),
         r#"
 GEM

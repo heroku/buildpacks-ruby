@@ -1,14 +1,7 @@
 use crate::gem_list::GemList;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Eq, PartialEq)]
-pub enum RakeStatus {
-    Ready(PathBuf),
-    MissingRakeGem,
-    MissingRakefile,
-    SkipManifestFound(Vec<PathBuf>),
-}
-
+/// Determine if an application is ready to run a rake task or not
 pub fn detect_rake_status(
     app_path: &Path,
     gem_list: &GemList,
@@ -18,6 +11,14 @@ pub fn detect_rake_status(
     let rake_gem = rake_gem(gem_list);
     let manifest = asset_manifest_from_glob(app_path, globs);
     rake_status(&rake_gem, rakefile, manifest)
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum RakeStatus {
+    Ready(PathBuf),
+    MissingRakeGem,
+    MissingRakefile,
+    SkipManifestFound(Vec<PathBuf>),
 }
 
 // Convert nested logic into a flat enum of possible states
@@ -100,12 +101,12 @@ mod tests {
     fn touch_file(path: &PathBuf, f: impl FnOnce(&PathBuf)) {
         if let Some(parent) = path.parent() {
             if !parent.exists() {
-                std::fs::create_dir_all(parent).unwrap();
+                fs_err::create_dir_all(parent).unwrap();
             }
         }
-        std::fs::write(path, "").unwrap();
+        fs_err::write(path, "").unwrap();
         f(path);
-        std::fs::remove_file(path).unwrap();
+        fs_err::remove_file(path).unwrap();
     }
 
     // Checks in public/assets if an existing manifest file exists
@@ -168,13 +169,13 @@ mod tests {
 
         for name in &["rakefile", "Rakefile", "rakefile.rb;", "Rakefile.rb"] {
             let file = dir.join(name);
-            std::fs::write(&file, "").unwrap();
+            fs_err::write(&file, "").unwrap();
             let found = match find_rakefile(dir) {
                 Rakefile::Found(_) => true,
                 _ => false,
             };
             assert!(found);
-            std::fs::remove_file(&file).unwrap();
+            fs_err::remove_file(&file).unwrap();
         }
 
         assert_eq!(Rakefile::Missing, find_rakefile(dir));

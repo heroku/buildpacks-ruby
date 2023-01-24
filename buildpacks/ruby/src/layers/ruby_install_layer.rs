@@ -80,32 +80,33 @@ impl Layer for RubyInstallLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
+        let old_stack = &layer_data.content_metadata.metadata.stack;
+        let old_version = &layer_data.content_metadata.metadata.version;
+        let current_stack = &context.stack_id;
+        let current_version = &self.version.to_string();
+
         let contents = CacheContents {
-            old_stack: &layer_data.content_metadata.metadata.stack,
-            old_version: &layer_data.content_metadata.metadata.version,
-            current_stack: &context.stack_id,
-            current_version: &self.version.to_string(),
+            old_stack,
+            old_version,
+            current_stack,
+            current_version,
         };
 
         match contents.state() {
             Changed::Nothing => {
-                user::log_info(format!("Using Ruby {} from cache", self.version));
+                user::log_info(format!("Using Ruby {current_version} from cache"));
 
                 Ok(ExistingLayerStrategy::Keep)
             }
             Changed::Stack => {
-                user::log_info(format!(
-                    "Stack changed from {} to {}",
-                    contents.old_stack, contents.current_stack
-                ));
+                user::log_info(format!("Stack changed from {old_stack} to {current_stack}",));
                 user::log_info("Clearing ruby from cache");
 
                 Ok(ExistingLayerStrategy::Recreate)
             }
             Changed::RubyVersion => {
                 user::log_info(format!(
-                    "Ruby version changed from {} to {}",
-                    contents.old_version, contents.current_version
+                    "Ruby version changed from {old_version} to {current_version}",
                 ));
                 user::log_info("Clearing ruby from cache");
 
@@ -212,6 +213,7 @@ pub(crate) enum RubyInstallError {
 
     #[error("Could not open file: {0}")]
     CouldNotOpenFile(std::io::Error),
+
     #[error("Could not untar: {0}")]
     CouldNotUnpack(std::io::Error),
 

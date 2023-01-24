@@ -20,6 +20,7 @@ use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 use libherokubuildpack::log as user;
 use regex::Regex;
+use std::fmt::Display;
 
 mod layers;
 mod steps;
@@ -192,9 +193,96 @@ impl From<RubyBuildpackError> for libcnb::Error<RubyBuildpackError> {
 
 buildpack_main!(RubyBuildpack);
 
+/// Use for logging a duration
+#[derive(Debug)]
+struct LogSectionWithTime {
+    start: std::time::Instant,
+}
+
+impl LogSectionWithTime {
+    fn done(&self) {
+        let diff = &self.start.elapsed();
+        let duration = DisplayDuration::new(diff);
+
+        user::log_info(format!("Done ({duration})"));
+    }
+
+    #[allow(clippy::unused_self)]
+    fn done_quiet(&self) {}
+}
+
+/// Prints out a header and ensures a done section is printed
+///
+/// Returns a LogSectionWithTime that must be used. That
+/// will print out the elapsed time.
+#[must_use]
+fn header(message: &str) -> LogSectionWithTime {
+    user::log_header(message);
+
+    let start = std::time::Instant::now();
+
+    LogSectionWithTime { start }
+}
+
+#[derive(Debug)]
+struct DisplayDuration<'a> {
+    duration: &'a std::time::Duration,
+}
+
+impl DisplayDuration<'_> {
+    fn new<'a>(duration: &'a std::time::Duration) -> DisplayDuration<'a> {
+        DisplayDuration { duration: duration }
+    }
+
+    fn milliseconds(&self) -> u32 {
+        self.duration.subsec_millis()
+    }
+
+    fn seconds(&self) -> u64 {
+        self.duration.as_secs() % 60
+    }
+
+    fn minutes(&self) -> u64 {
+        (self.duration.as_secs() / 60) % 60
+    }
+
+    fn hours(&self) -> u64 {
+        (self.duration.as_secs() / 3600) % 60
+    }
+}
+
+impl Display for DisplayDuration<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let hours = self.hours();
+        let minutes = self.minutes();
+        let seconds = self.seconds();
+        let miliseconds = self.milliseconds();
+
+        if self.hours() > 0 {
+            f.write_fmt(format_args!("{hours}h {minutes}m {seconds}s"))
+        } else if self.minutes() > 0 {
+            f.write_fmt(format_args!("{minutes}m {seconds}s"))
+        } else {
+            f.write_fmt(format_args!("{seconds}.{miliseconds:0>3}s"))
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_display_duration() {
+        let diff = std::time::Duration::from_millis(1024);
+        assert_eq!("1.024s", format!("{}", DisplayDuration::new(&diff)));
+
+        let diff = std::time::Duration::from_millis(60 * 1024);
+        assert_eq!("1m 1s", format!("{}", DisplayDuration::new(&diff)));
+
+        let diff = std::time::Duration::from_millis(3600 * 1024);
+        assert_eq!("1h 1m 26s", format!("{}", DisplayDuration::new(&diff)));
+    }
 
     #[test]
     fn test_needs_java() {
@@ -207,25 +295,4 @@ RUBY VERSION
 "#;
         assert!(needs_java(gemfile_lock));
     }
-}
-
-#[derive(Debug)]
-struct LogSection;
-
-impl LogSection {
-    #[allow(clippy::unused_self)]
-    fn done(&self) {
-        user::log_info("Done");
-    }
-
-    #[allow(clippy::unused_self)]
-    fn done_quiet(&self) {}
-}
-
-/// Prints out a header and ensures a done section is printed
-#[must_use]
-fn header(message: &str) -> LogSection {
-    user::log_header(message);
-
-    LogSection
 }

@@ -6,7 +6,7 @@ use std::ffi::OsString;
 /// Run `rake -P` and parse output to show what rake tasks an application has
 ///
 /// ```rust,no_run
-/// use commons::rake_detect::RakeDetect;
+/// use commons::rake_task_detect::RakeDetect;
 /// use libcnb::Env;
 ///
 /// let rake_detect = RakeDetect::from_rake_command(&Env::new(), false).unwrap();
@@ -73,6 +73,7 @@ impl FromStr for RakeDetect {
         })
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

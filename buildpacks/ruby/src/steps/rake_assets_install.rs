@@ -6,7 +6,7 @@ use commons::app_cache_collection::CacheConfig;
 use commons::app_cache_collection::KeepAppPath;
 use commons::env_command::CommandError;
 use commons::env_command::EnvCommand;
-use commons::rake_detect::RakeDetect;
+use commons::rake_task_detect::RakeDetect;
 use libcnb::build::BuildContext;
 use libcnb::Env;
 use libherokubuildpack::log as user;

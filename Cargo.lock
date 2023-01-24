@@ -463,7 +463,6 @@ dependencies = [
  "byte-unit",
  "commons",
  "flate2",
- "glob",
  "libcnb",
  "libcnb-test",
  "libherokubuildpack",

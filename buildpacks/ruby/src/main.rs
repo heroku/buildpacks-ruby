@@ -117,6 +117,10 @@ impl Buildpack for RubyBuildpack {
             GemList::from_bundle_list(&env).map_err(RubyBuildpackError::GemListGetError)?;
         section.done();
 
+        let section = header("Setting default process(es)");
+        let default_process = steps::get_default_process(&context, &gem_list);
+        section.done();
+
         // ## Assets install
         let section = header("Rake task detection");
         let rake_detect = crate::steps::detect_rake_tasks(&gem_list, &context, &env)?;
@@ -127,14 +131,6 @@ impl Buildpack for RubyBuildpack {
             crate::steps::rake_assets_install(&context, &env, &rake_detect)?;
             section.done();
         }
-
-        let section = header("Setting default process(es)");
-        let default_process = steps::get_default_process(&context, &gem_list);
-        section.done();
-
-        let section = header("Heroku Ruby buildpack");
-        user::log_info("Finalizing build");
-        section.done_quiet();
 
         if let Some(default_process) = default_process {
             BuildResultBuilder::new()

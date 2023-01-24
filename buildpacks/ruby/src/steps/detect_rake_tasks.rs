@@ -1,7 +1,7 @@
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use commons::gem_list::GemList;
-use commons::rake_status::{detect_rake_status, RakeStatus};
+use commons::rake_status::{check_rake_ready, RakeStatus};
 use commons::rake_task_detect::RakeDetect;
 use libcnb::build::BuildContext;
 use libcnb::Env;
@@ -12,7 +12,7 @@ pub(crate) fn detect_rake_tasks(
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
 ) -> Result<Option<RakeDetect>, RubyBuildpackError> {
-    match detect_rake_status(
+    match check_rake_ready(
         &context.app_dir,
         gem_list,
         [".sprockets-manifest-*.json", "manifest-*.json"],

@@ -105,22 +105,16 @@ pub enum BundlerVersion {
     Default,
 }
 
-#[derive(thiserror::Error, Debug, PartialEq)]
-pub enum LockError {
-    #[error("Regex error: {0}")]
-    RegexError(#[from] regex::Error),
-}
-
 impl FromStr for GemfileLock {
-    type Err = LockError;
+    type Err = std::convert::Infallible;
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
-        let bundled_with_re =
-            Regex::new("BUNDLED WITH\\s   (\\d+\\.\\d+\\.\\d+)").map_err(LockError::RegexError)?;
+        let bundled_with_re = Regex::new("BUNDLED WITH\\s   (\\d+\\.\\d+\\.\\d+)")
+            .expect("Internal error: Bad regex"); // Checked via clippy
         let main_ruby_version_re = Regex::new("RUBY VERSION\\s   ruby (\\d+\\.\\d+\\.\\d+)")
-            .map_err(LockError::RegexError)?;
+            .expect("Internal error: Bad regex"); // Checked via clippy
         let jruby_version_re =
-            Regex::new("\\(jruby ((\\d+|\\.)+)\\)").map_err(LockError::RegexError)?;
+            Regex::new("\\(jruby ((\\d+|\\.)+)\\)").expect("Internal error: Bad regex"); // Checked via clippy
 
         let bundler_version = match bundled_with_re.captures(string).and_then(|c| c.get(1)) {
             Some(result) => BundlerVersion::Explicit(result.as_str().to_string()),

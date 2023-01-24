@@ -33,8 +33,8 @@ pub(crate) struct RubyInstallLayer {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct RubyInstallLayerMetadata {
-    pub version: String,
     pub stack: StackId,
+    pub version: String,
 }
 
 impl Layer for RubyInstallLayer {
@@ -60,7 +60,7 @@ impl Layer for RubyInstallLayer {
             .map_err(RubyInstallError::CouldNotCreateDestinationFile)
             .map_err(RubyBuildpackError::RubyInstallError)?;
 
-        let url = RubyInstallLayer::download_url(&context.stack_id, &self.version)
+        let url = download_url(&context.stack_id, &self.version)
             .map_err(RubyBuildpackError::RubyInstallError)?;
 
         download(url.as_ref(), tmp_ruby_tgz.path())
@@ -69,8 +69,8 @@ impl Layer for RubyInstallLayer {
         untar(tmp_ruby_tgz.path(), layer_path).map_err(RubyBuildpackError::RubyInstallError)?;
 
         LayerResultBuilder::new(RubyInstallLayerMetadata {
-            version: self.version.to_string(),
             stack: context.stack_id.clone(),
+            version: self.version.to_string(),
         })
         .build()
     }
@@ -141,21 +141,16 @@ impl CacheContents<'_, '_, '_, '_> {
     }
 }
 
-impl RubyInstallLayer {
-    fn download_url(
-        stack: &StackId,
-        version: impl std::fmt::Display,
-    ) -> Result<Url, RubyInstallError> {
-        let filename = format!("ruby-{version}.tgz");
-        let base = "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com";
-        let mut url = Url::parse(base).map_err(RubyInstallError::UrlParseError)?;
+fn download_url(stack: &StackId, version: impl std::fmt::Display) -> Result<Url, RubyInstallError> {
+    let filename = format!("ruby-{version}.tgz");
+    let base = "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com";
+    let mut url = Url::parse(base).map_err(RubyInstallError::UrlParseError)?;
 
-        url.path_segments_mut()
-            .map_err(|_| RubyInstallError::InvalidBaseUrl(String::from(base)))?
-            .push(stack)
-            .push(&filename);
-        Ok(url)
-    }
+    url.path_segments_mut()
+        .map_err(|_| RubyInstallError::InvalidBaseUrl(String::from(base)))?
+        .push(stack)
+        .push(&filename);
+    Ok(url)
 }
 
 #[cfg(test)]
@@ -166,7 +161,7 @@ mod tests {
 
     #[test]
     fn test_ruby_url() {
-        let out = RubyInstallLayer::download_url(&stack_id!("heroku-20"), "2.7.4").unwrap();
+        let out = download_url(&stack_id!("heroku-20"), "2.7.4").unwrap();
         assert_eq!(
             out.as_ref(),
             "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com/heroku-20/ruby-2.7.4.tgz",

@@ -93,20 +93,21 @@ impl Layer for BundleDownloadLayer {
         _context: &BuildContext<Self::Buildpack>,
         layer: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
+        let current_version = &self.version.to_string();
+        let old_version = &layer.content_metadata.metadata.version;
         let contents = CacheContents {
-            current_version: &self.version.to_string(),
-            old_version: &layer.content_metadata.metadata.version,
+            old_version,
+            current_version,
         };
         match contents.state() {
             State::NothingChanged => {
-                user::log_info(format!("Using bundler {} from cache", self.version));
+                user::log_info(format!("Using bundler {current_version} from cache"));
 
                 Ok(ExistingLayerStrategy::Keep)
             }
             State::BundlerVersionChanged => {
                 user::log_info(format!(
-                    "Bundler version changed from {} to {}",
-                    contents.old_version, contents.current_version
+                    "Bundler version changed from {old_version} to {current_version}"
                 ));
                 user::log_info("Clearing bundler from cache");
 
@@ -122,8 +123,8 @@ enum State {
 }
 
 struct CacheContents<'a, 'b> {
-    current_version: &'a str,
     old_version: &'b str,
+    current_version: &'a str,
 }
 
 impl CacheContents<'_, '_> {

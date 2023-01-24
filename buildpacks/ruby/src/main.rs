@@ -7,7 +7,7 @@ use commons::env_command::CommandError;
 use commons::gem_list::GemList;
 use commons::gemfile_lock::GemfileLock;
 use commons::in_app_dir_cache::CacheError;
-use commons::rake_detect::RakeError;
+use commons::rake_task_detect::RakeError;
 use core::str::FromStr;
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
@@ -26,8 +26,6 @@ mod steps;
 
 #[cfg(test)]
 use libcnb_test as _;
-#[cfg(test)]
-mod test_helper;
 
 pub(crate) struct RubyBuildpack;
 

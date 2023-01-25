@@ -1,4 +1,5 @@
-use crate::{layers::EnvDefaultsLayer, RubyBuildpack, RubyBuildpackError};
+use crate::{RubyBuildpack, RubyBuildpackError};
+use commons::layer::DefaultEnvLayer;
 use libcnb::{
     build::BuildContext,
     data::{layer_name, store::Store},
@@ -26,9 +27,19 @@ pub(crate) fn default_env(
     let env_defaults_layer = context //
         .handle_layer(
             layer_name!("env_defaults"),
-            EnvDefaultsLayer {
-                default_secret_key_base,
-            },
+            DefaultEnvLayer::new(
+                [
+                    ("SECRET_KEY_BASE", default_secret_key_base.as_str()),
+                    ("JRUBY_OPTS", "-Xcompile.invokedynamic=false"),
+                    ("RACK_ENV", "production"),
+                    ("RAILS_ENV", "production"),
+                    ("RAILS_SERVE_STATIC_FILES", "enabled"),
+                    ("RAILS_LOG_TO_STDOUT", "enabled"),
+                    ("MALLOC_ARENA_MAX", "2"),
+                    ("DISABLE_SPRING", "1"),
+                ]
+                .into_iter(),
+            ),
         )?;
     env = env_defaults_layer.env.apply(Scope::Build, &env);
 

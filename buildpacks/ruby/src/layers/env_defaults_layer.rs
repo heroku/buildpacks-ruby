@@ -5,7 +5,6 @@ use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::generic::GenericMetadata;
 use libcnb::layer::{Layer, LayerResult, LayerResultBuilder};
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
-use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 pub(crate) struct EnvDefaultsLayer {
@@ -19,11 +18,6 @@ pub(crate) struct EnvDefaultsLayer {
 ///
 /// This must be done prior to running `bundle install` as some apps use dynamic code inside of their Gemfile and will
 /// expect certain env vars to already be set.
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub(crate) struct EnvDefaultsLayerMetadata {
-    default_value: String,
-}
-
 impl Layer for EnvDefaultsLayer {
     type Buildpack = RubyBuildpack;
     type Metadata = GenericMetadata;

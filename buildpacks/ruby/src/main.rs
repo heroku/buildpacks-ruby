@@ -2,11 +2,10 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 use crate::layers::{RubyInstallError, RubyInstallLayer};
-
+use commons::cache::CacheError;
 use commons::env_command::CommandError;
 use commons::gem_list::GemList;
 use commons::gemfile_lock::GemfileLock;
-use commons::in_app_dir_cache::CacheError;
 use commons::rake_task_detect::RakeError;
 use core::str::FromStr;
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};

@@ -461,7 +461,6 @@ dependencies = [
 name = "heroku-ruby-buildpack"
 version = "0.0.0"
 dependencies = [
- "byte-unit",
  "commons",
  "flate2",
  "fs-err",

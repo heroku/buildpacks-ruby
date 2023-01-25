@@ -44,8 +44,8 @@ pub(crate) fn detect_rake_tasks(
         }
         RakeStatus::Ready(path) => {
             let path = path.display();
-            user::log_info(format!("Rakefile found {path}"));
             user::log_info("Rake gem found");
+            user::log_info(format!("Rakefile found at {path}"));
 
             user::log_info("Detecting rake tasks via `rake -P`");
             let rake_detect = RakeDetect::from_rake_command(env, true)

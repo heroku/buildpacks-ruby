@@ -6,5 +6,6 @@ pub mod env_command;
 pub mod gem_list;
 pub mod gem_version;
 pub mod gemfile_lock;
+pub mod layer;
 pub mod rake_status;
 pub mod rake_task_detect;

@@ -19,7 +19,7 @@ pub(crate) fn bundle_install(env: &Env) -> libcnb::Result<Env, RubyBuildpackErro
         ],
     );
 
-    user::log_info(format!("$ {command}"));
+    user::log_info(format!("\nRunning command:\n$ {command}"));
 
     command
         .stream()

@@ -65,7 +65,7 @@ fn run_rake_assets_precompile(env: &Env) -> Result<(), CommandError> {
         &["exec", "rake", "assets:precompile", "--trace"],
         env,
     );
-    user::log_info(format!("$ {command}"));
+    user::log_info(format!("\nRunning command:\n$  {command}"));
 
     command.stream()?;
 
@@ -85,7 +85,7 @@ fn run_rake_assets_precompile_with_clean(env: &Env) -> Result<(), CommandError> 
         env,
     );
 
-    user::log_info(format!("$ {command}"));
+    user::log_info(format!("\nRunning command:\n$ {command}"));
 
     command.stream()?;
 

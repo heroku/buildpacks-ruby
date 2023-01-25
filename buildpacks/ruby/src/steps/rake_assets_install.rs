@@ -1,11 +1,7 @@
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
-use byte_unit::Byte;
-use commons::app_cache_collection::AppCacheCollection;
-use commons::app_cache_collection::CacheConfig;
-use commons::app_cache_collection::KeepAppPath;
-use commons::env_command::CommandError;
-use commons::env_command::EnvCommand;
+use commons::cache::{mib, AppCacheCollection, CacheConfig, KeepPath};
+use commons::env_command::{CommandError, EnvCommand};
 use commons::rake_task_detect::RakeDetect;
 use libcnb::build::BuildContext;
 use libcnb::Env;
@@ -37,13 +33,13 @@ pub(crate) fn rake_assets_install(
             let cache_config = [
                 CacheConfig {
                     path: context.app_dir.join("public").join("assets"),
-                    limit: Byte::from_bytes(byte_unit::n_mib_bytes!(100)),
-                    keep_app_path: KeepAppPath::Runtime,
+                    limit: mib(100),
+                    keep_path: KeepPath::Runtime,
                 },
                 CacheConfig {
                     path: context.app_dir.join("tmp").join("cache").join("assets"),
-                    limit: Byte::from_bytes(byte_unit::n_mib_bytes!(100)),
-                    keep_app_path: KeepAppPath::BuildOnly,
+                    limit: mib(100),
+                    keep_path: KeepPath::BuildOnly,
                 },
             ];
 
@@ -55,7 +51,7 @@ pub(crate) fn rake_assets_install(
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
 
             cache
-                .store()
+                .save_and_clean()
                 .map_err(RubyBuildpackError::InAppDirCacheError)?;
         }
     }

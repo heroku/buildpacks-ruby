@@ -1,13 +1,5 @@
-use crate::in_app_dir_cache::{CacheError, DirCache, FilesWithSize, InAppDirCache, State};
-use byte_unit::{Byte, ByteUnit};
+use crate::cache::{AppCache, CacheConfig, CacheError, CacheState, FilesWithSize, PathState};
 use libcnb::{build::BuildContext, Buildpack};
-use std::path::PathBuf;
-
-#[derive(Debug)]
-pub struct AppCacheCollection {
-    caches: Vec<(DirCache, CacheConfig)>,
-    log_func: LogFunc,
-}
 
 /// App Cache Collection
 ///
@@ -30,8 +22,7 @@ pub struct AppCacheCollection {
 ///
 ///# pub(crate) struct HelloWorldBuildpack;
 ///
-/// use commons::app_cache_collection::{AppCacheCollection, CacheConfig, KeepAppPath};
-/// use byte_unit::Byte;
+/// use commons::cache::{AppCacheCollection, CacheConfig, KeepPath, mib};
 ///
 ///# impl Buildpack for HelloWorldBuildpack {
 ///#     type Platform = GenericPlatform;
@@ -48,13 +39,13 @@ pub struct AppCacheCollection {
 ///             [
 ///                 CacheConfig {
 ///                     path: context.app_dir.join("public").join("assets"),
-///                     limit: Byte::from_bytes(byte_unit::n_mib_bytes!(100)),
-///                     keep_app_path: KeepAppPath::Runtime,
+///                     limit: mib(100),
+///                     keep_path: KeepPath::Runtime,
 ///                 },
 ///                 CacheConfig {
 ///                     path: context.app_dir.join("tmp").join("cache").join("assets"),
-///                     limit: Byte::from_bytes(byte_unit::n_mib_bytes!(100)),
-///                     keep_app_path: KeepAppPath::BuildOnly,
+///                     limit: mib(100),
+///                     keep_path: KeepPath::BuildOnly,
 ///                 },
 ///             ],
 ///             |log| println!("{log}"),
@@ -62,14 +53,22 @@ pub struct AppCacheCollection {
 ///
 ///         // Do something worth caching here
 ///
-///         cache.store().unwrap();
+///         cache.save_and_clean().unwrap();
 ///
 ///#        todo!()
 ///#     }
 ///# }
 ///
 /// ```
+#[derive(Debug)]
+pub struct AppCacheCollection {
+    collection: Vec<AppCache>,
+    log_func: LogFunc,
+}
+
 impl AppCacheCollection {
+    /// Store multiple application paths in the cache
+    ///
     /// # Errors
     ///
     /// - Error if the cache layer cannot be created
@@ -80,19 +79,21 @@ impl AppCacheCollection {
         config: impl IntoIterator<Item = CacheConfig>,
         logger: impl Fn(&str) + 'static,
     ) -> Result<Self, CacheError> {
+        let log_func = LogFunc(Box::new(logger));
         let caches = config
             .into_iter()
             .map(|config| {
-                InAppDirCache::new_and_load(context, &config.path).map(|cache| (cache, config))
+                AppCache::new_and_load(context, config).map(|store| {
+                    log_load(&log_func, &store);
+                    store
+                })
             })
-            .collect::<Result<Vec<(DirCache, CacheConfig)>, _>>()?;
+            .collect::<Result<Vec<AppCache>, CacheError>>()?;
 
-        let log_func = LogFunc(Box::new(logger));
-        let out = Self { caches, log_func };
-        for (cache, _) in &out.caches {
-            out.log_load(cache);
-        }
-        Ok(out)
+        Ok(Self {
+            collection: caches,
+            log_func,
+        })
     }
 
     /// # Errors
@@ -101,50 +102,32 @@ impl AppCacheCollection {
     /// due to file permissions or another process deleting the target directory.
     /// Returns an error if cleaning the cache directory cannot
     /// be completed. For example due to file permissions.
-    pub fn store(&self) -> Result<(), CacheError> {
-        for (cache, config) in &self.caches {
-            self.log_store(cache);
+    pub fn save_and_clean(&self) -> Result<(), CacheError> {
+        for store in &self.collection {
+            self.log_save(store);
 
-            match config.keep_app_path {
-                KeepAppPath::Runtime => cache.copy_app_path_to_cache()?,
-                KeepAppPath::BuildOnly => cache.destructive_move_app_path_to_cache()?,
-            };
-
-            if let Some(removed) = cache.lru_clean(config.limit)? {
-                self.log_clean(cache, config, &removed);
+            if let Some(removed) = store.save_and_clean()? {
+                self.log_clean(store, &removed);
             }
         }
 
         Ok(())
     }
 
-    fn log_load(&self, cache: &DirCache) {
-        let path = cache.app_path.display();
+    fn log_save(&self, store: &AppCache) {
+        let path = store.path().display();
 
-        match cache.state {
-            State::NewEmpty => self.log_func.log(&format!("Creating cache for {path}")),
-            State::ExistsEmpty => self
-                .log_func
-                .log(&format!("Loading (empty) cache for {path}")),
-            State::ExistsWithContents => self.log_func.log(&format!("Loading cache for {path}")),
-        }
+        self.log_func.log(&match store.path_state() {
+            PathState::Empty => format!("Storing cache for (empty) {path}"),
+            PathState::HasFiles => format!("Storing cache for {path}"),
+        });
     }
 
-    fn log_store(&self, cache: &DirCache) {
-        let path = cache.app_path.display();
-        if cache.is_app_dir_empty() {
-            self.log_func
-                .log(&format!("Storing cache for (empty) {path}"));
-        } else {
-            self.log_func.log(&format!("Storing cache for {path}"));
-        }
-    }
-
-    fn log_clean(&self, cache: &DirCache, config: &CacheConfig, removed: &FilesWithSize) {
-        let path = cache.app_path.display();
-        let limit = config.limit.get_adjusted_unit(ByteUnit::MiB);
+    fn log_clean(&self, store: &AppCache, removed: &FilesWithSize) {
+        let path = store.path().display();
+        let limit = store.limit();
         let removed_len = removed.files.len();
-        let removed_size = removed.get_adjusted_unit(ByteUnit::MiB);
+        let removed_size = removed.adjusted_bytes();
 
         self.log_func.log(&format!(
             "Detected cache size exceeded (over {limit} limit by {removed_size}) for {path}"
@@ -155,28 +138,14 @@ impl AppCacheCollection {
     }
 }
 
-/// Indicates whether we want the cache to be available at runtime or not.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum KeepAppPath {
-    /// Keep the application directory where it is, copy files to the cache
-    Runtime,
+fn log_load(log_func: &LogFunc, store: &AppCache) {
+    let path = store.path().display();
 
-    /// Remove the application directory from disk, move it to the cache
-    BuildOnly,
-}
-
-/// Configure behavior of a cached path
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CacheConfig {
-    /// Path to the directory you want to cache
-    pub path: PathBuf,
-
-    /// Prevent cache size from growing unbounded. Files over the limit
-    /// will be removed in order of least recently modified
-    pub limit: Byte,
-
-    /// Specify what happens to the application path while it's being stored
-    pub keep_app_path: KeepAppPath,
+    log_func.log(&match store.cache_state() {
+        CacheState::NewEmpty => format!("Creating cache for {path}"),
+        CacheState::ExistsEmpty => format!("Loading (empty) cache for {path}"),
+        CacheState::ExistsWithContents => format!("Loading cache for {path}"),
+    });
 }
 
 /// Small wrapper for storing a logging function

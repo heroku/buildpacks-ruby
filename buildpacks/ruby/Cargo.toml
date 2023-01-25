@@ -8,7 +8,6 @@ rust-version = "1.66"
 
 [dependencies]
 commons = {path = "../../commons" }
-byte-unit = "4.0.14"
 libcnb = "0.11.4"
 flate2 = "1"
 ureq = "2.5.0"

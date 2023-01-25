@@ -62,6 +62,7 @@ impl Buildpack for RubyBuildpack {
     }
 
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
+        let total = std::time::Instant::now();
         let section = header("Heroku Ruby buildpack");
         user::log_info("Running Heroku Ruby buildpack");
         section.done_quiet();
@@ -133,6 +134,13 @@ impl Buildpack for RubyBuildpack {
             crate::steps::rake_assets_install(&context, &env, &rake_detect)?;
             section.done();
         }
+
+        let duration = total.elapsed();
+        user::log_header("Heroku Ruby buildpack finished");
+        user::log_info(format!(
+            "Finished ({} total elapsed time)\n",
+            DisplayDuration::new(&duration)
+        ));
 
         if let Some(default_process) = default_process {
             BuildResultBuilder::new()

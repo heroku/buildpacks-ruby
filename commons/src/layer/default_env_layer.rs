@@ -1,11 +1,8 @@
-use libcnb::build::BuildContext;
-use libcnb::data::layer_content_metadata::LayerTypes;
-use libcnb::generic::GenericMetadata;
-use libcnb::layer::{Layer, LayerResult, LayerResultBuilder};
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use std::ffi::OsString;
 use std::marker::PhantomData;
-use std::path::Path;
+
+use super::ConfigureEnvLayer;
 
 /// Set default environment variables
 ///
@@ -65,57 +62,26 @@ use std::path::Path;
 ///# }
 ///
 /// ```
-pub struct DefaultEnvLayer<E, B> {
-    data: E,
-    _buildpack: std::marker::PhantomData<B>,
-}
+pub struct DefaultEnvLayer;
 
-impl<E, K, V, B> DefaultEnvLayer<E, B>
-where
-    E: IntoIterator<Item = (K, V)> + Clone,
-    K: Into<OsString>,
-    V: Into<OsString>,
-    B: libcnb::Buildpack,
-{
-    pub fn new(env: E) -> Self {
-        DefaultEnvLayer {
-            data: env,
-            _buildpack: PhantomData,
-        }
-    }
-}
-
-impl<E, K, V, B> Layer for DefaultEnvLayer<E, B>
-where
-    E: IntoIterator<Item = (K, V)> + Clone,
-    K: Into<OsString>,
-    V: Into<OsString>,
-    B: libcnb::Buildpack,
-{
-    type Buildpack = B;
-    type Metadata = GenericMetadata;
-
-    fn types(&self) -> LayerTypes {
-        LayerTypes {
-            build: true,
-            launch: true,
-            cache: false,
-        }
-    }
-
-    fn create(
-        &self,
-        _context: &BuildContext<Self::Buildpack>,
-        _layer_path: &Path,
-    ) -> Result<LayerResult<Self::Metadata>, B::Error> {
+impl DefaultEnvLayer {
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new<E, K, V, B>(env: E) -> ConfigureEnvLayer<B>
+    where
+        E: IntoIterator<Item = (K, V)> + Clone,
+        K: Into<OsString>,
+        V: Into<OsString>,
+        B: libcnb::Buildpack,
+    {
         let mut layer_env = LayerEnv::new();
-        for (key, value) in self.data.clone() {
+        for (key, value) in env {
             layer_env =
                 layer_env.chainable_insert(Scope::All, ModificationBehavior::Default, key, value);
         }
 
-        LayerResultBuilder::new(GenericMetadata::default())
-            .env(layer_env)
-            .build()
+        ConfigureEnvLayer {
+            data: layer_env,
+            _buildpack: PhantomData,
+        }
     }
 }

@@ -11,8 +11,6 @@ use std::path::Path;
 
 /// # Set up path for `bundle install` dependencies
 ///
-/// Must run before `execute_bundle_install_layer` to create directory for dependencies.
-///
 /// ## Layer dir: Create directory for dependencies
 ///
 /// Dependencies installed via `bundle install` will be stored in this layer's directory.
@@ -20,20 +18,20 @@ use std::path::Path;
 ///
 /// Other environment variables for bundler are configured by another layer that is decoupled
 /// from dependency storage on disk to minimize the risk of having to clear dependencies
-/// to update an environment variable. [`BundleInstallConfigureEnvLayer`]
-pub(crate) struct BundlePathLayer {
+/// to update an environment variable.
+pub(crate) struct GemsPathLayer {
     pub ruby_version: String,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub(crate) struct BundlePathLayerMetadata {
-    ruby_version: String,
+pub(crate) struct GemsPathLayerMetadata {
     stack: StackId,
+    ruby_version: String,
 }
 
-impl Layer for BundlePathLayer {
+impl Layer for GemsPathLayer {
     type Buildpack = RubyBuildpack;
-    type Metadata = BundlePathLayerMetadata;
+    type Metadata = GemsPathLayerMetadata;
 
     fn types(&self) -> LayerTypes {
         LayerTypes {
@@ -50,7 +48,7 @@ impl Layer for BundlePathLayer {
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
         user::log_info("Creating gems cache");
 
-        LayerResultBuilder::new(BundlePathLayerMetadata {
+        LayerResultBuilder::new(GemsPathLayerMetadata {
             ruby_version: self.ruby_version.clone(),
             stack: context.stack_id.clone(),
         })

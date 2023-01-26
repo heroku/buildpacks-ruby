@@ -1,4 +1,4 @@
-use crate::layers::{BundleDownloadLayer, BundlePathLayer};
+use crate::layers::{BundleDownloadLayer, GemsPathLayer};
 use crate::{RubyBuildpack, RubyBuildpackError};
 use commons::gemfile_lock::{ResolvedBundlerVersion, ResolvedRubyVersion};
 use commons::layer::ConfigureEnvLayer;
@@ -19,7 +19,7 @@ pub(crate) fn setup_bundler(
     // Gems will be installed here, sets BUNDLE_PATH env var
     let create_bundle_path_layer = context.handle_layer(
         layer_name!("gems"),
-        BundlePathLayer {
+        GemsPathLayer {
             ruby_version: ruby_version.version,
         },
     )?;

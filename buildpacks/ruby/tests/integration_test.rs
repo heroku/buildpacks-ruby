@@ -26,7 +26,7 @@ fn test_default_app() {
 
             let config = context.config.clone();
             context.rebuild(config, |rebuild_context| {
-                assert_contains!(rebuild_context.pack_stdout, "Skipping 'bundle install', no changes detected in:");
+                assert_contains!(rebuild_context.pack_stdout, "Skipping 'bundle install', no digest changes detected in:");
 
                 rebuild_context.start_container(
                     ContainerConfig::new()

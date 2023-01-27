@@ -21,6 +21,8 @@ pub(crate) struct BundleInstallLayerMetadata {
     stack: StackId,
     without: BundleWithout,
     ruby_version: ResolvedRubyVersion,
+    force_bundle_install_key: String,
+    force_cache_clear_bundle_install_key: String,
     // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
     digest: BundleDigest,
 }
@@ -33,6 +35,21 @@ pub(crate) struct BundleInstallLayer {
 }
 
 impl BundleInstallLayer {
+    /// This value is saved in the cache, if you need to force a re-run of `bundle install`
+    /// (without busting/deleting the gem cache), update this value
+    #[allow(clippy::unused_self)]
+    fn force_bundle_install_key(&self) -> String {
+        String::from("v1")
+    }
+
+    /// This value is saved in the cache, if you ned to force a re-build and also
+    /// bust the cache, update this value. To rebuild without busting the cache, update the
+    /// `update_cache_key`
+    #[allow(clippy::unused_self)]
+    fn force_cache_clear_bundle_install_key(&self) -> String {
+        String::from("v1")
+    }
+
     /// Entrypoint for both update and create
     ///
     /// The `bundle install` command is run on every deploy except where `BundleDigest` determines we can
@@ -54,6 +71,8 @@ impl BundleInstallLayer {
         LayerResultBuilder::new(BundleInstallLayerMetadata {
             stack: context.stack_id.clone(),
             digest,
+            force_bundle_install_key: self.force_cache_clear_bundle_install_key(),
+            force_cache_clear_bundle_install_key: self.force_cache_clear_bundle_install_key(),
             without: self.without.clone(),
             ruby_version: self.ruby_version.clone(),
         })
@@ -108,44 +127,51 @@ impl Layer for BundleInstallLayer {
             Changed::Nothing(names) => {
                 user::log_info("Found gems cache");
                 user::log_info(format!(
-                    "Skipping 'bundle install', no changes detected in: {}",
+                    "Skipping 'bundle install', no digest changes detected in: {}",
                     names.join(", ")
                 ));
 
                 Ok(ExistingLayerStrategy::Keep)
             }
-            Changed::ForceUpdateSkipDigest(value) => {
+            Changed::ForceInstallWithCache(message) => {
                 user::log_info("Found gems cache");
-                user::log_info(format!(
-                    "Running 'bundle install', detected HEROKU_SKIP_BUNDLE_DIGEST={value}"
-                ));
+                user::log_info(format!("Running 'bundle install', {message}"));
 
                 Ok(ExistingLayerStrategy::Update)
             }
             Changed::Digest(diff) => {
                 user::log_info("Found gems cache");
                 user::log_info(format!(
-                    "Running 'bundle install', changes detected: {}",
+                    "Running 'bundle install', digest changes detected: {}",
                     diff.join(", ")
                 ));
 
                 Ok(ExistingLayerStrategy::Update)
             }
             Changed::Without(old, current) => {
-                user::log_info(format!("BUNDLE_WITHOUT changed from {old} to {current}"));
-                user::log_info("Running 'bundle install'");
+                user::log_info("Found gems cache");
+                user::log_info(format!(
+                    "Running 'bundle install', BUNDLE_WITHOUT changed from {old} to {current}"
+                ));
 
                 Ok(ExistingLayerStrategy::Update)
             }
+            Changed::ForceCacheClear(message) => {
+                user::log_info(format!("Clearing gems from cache, {message}"));
+
+                Ok(ExistingLayerStrategy::Recreate)
+            }
             Changed::Stack(old, current) => {
-                user::log_info(format!("Stack changed from {old} to {current}"));
-                user::log_info("Clearing gems from cache");
+                user::log_info(format!(
+                    "Clearing gems from cache, Stack changed from {old} to {current}"
+                ));
 
                 Ok(ExistingLayerStrategy::Recreate)
             }
             Changed::RubyVersion(old, current) => {
-                user::log_info(format!("Ruby version changed from {old} to {current}"));
-                user::log_info("Clearing gems from cache");
+                user::log_info(format!(
+                    "Clearing gems from cache, ruby version changed from {old} to {current}"
+                ));
 
                 Ok(ExistingLayerStrategy::Recreate)
             }
@@ -161,13 +187,14 @@ enum Changed {
     Digest(Vec<String>),
     Stack(StackId, StackId),
     RubyVersion(ResolvedRubyVersion, ResolvedRubyVersion),
-    ForceUpdateSkipDigest(String),
+    ForceInstallWithCache(String),
+    ForceCacheClear(String),
 }
 
 struct CacheContents {
     old: BundleInstallLayerMetadata,
     current: BundleInstallLayerMetadata,
-    skip_digest: Option<OsString>,
+    skip_digest_env_var: Option<OsString>,
 }
 
 impl CacheContents {
@@ -182,13 +209,15 @@ impl CacheContents {
             stack: context.stack_id.clone(),
             without: layer.without.clone(),
             ruby_version: layer.ruby_version.clone(),
+            force_bundle_install_key: layer.force_bundle_install_key(),
+            force_cache_clear_bundle_install_key: layer.force_cache_clear_bundle_install_key(),
         };
 
         let skip_digest = context.platform.env().get("HEROKU_SKIP_BUNDLE_DIGEST");
         Ok(CacheContents {
             old: layer_data.content_metadata.metadata.clone(),
             current,
-            skip_digest,
+            skip_digest_env_var: skip_digest,
         })
     }
 
@@ -202,8 +231,21 @@ impl CacheContents {
             )
         } else if self.old.without != self.current.without {
             Changed::Without(self.old.without.0.clone(), self.current.without.0.clone())
-        } else if let Some(value) = &self.skip_digest {
-            Changed::ForceUpdateSkipDigest(value.to_string_lossy().to_string())
+        } else if self.old.force_cache_clear_bundle_install_key
+            != self.current.force_cache_clear_bundle_install_key
+        {
+            Changed::ForceCacheClear(String::from(
+                "buildpack author triggered due to internal change",
+            ))
+        } else if self.old.force_bundle_install_key != self.current.force_bundle_install_key {
+            Changed::ForceInstallWithCache(String::from(
+                "buildpack author triggered due to internal change",
+            ))
+        } else if let Some(value) = &self.skip_digest_env_var {
+            Changed::ForceInstallWithCache(format!(
+                "found HEROKU_SKIP_BUNDLE_DIGEST={}",
+                value.to_string_lossy()
+            ))
         } else if let Some(diff) = self.current.digest.diff(&self.old.digest) {
             Changed::Digest(diff)
         } else {
@@ -220,6 +262,7 @@ fn bundle_install(
     without_default: &BundleWithout,
     env: &Env,
 ) -> Result<LayerEnv, CommandError> {
+    // CAREFUL: See environment variable warning below vvvvvvvvvv
     let layer_env = LayerEnv::new()
         .chainable_insert(
             Scope::All,
@@ -264,6 +307,11 @@ fn bundle_install(
             "BUNDLE_DEPLOYMENT", // Requires the `Gemfile.lock` to be in sync with the current `Gemfile`.
             "1",
         );
+    // CAREFUL: Changes to these ^^^^^^^ environment variables
+    // are not guaranteed to apply for `ExistingStrategy::Keep` cases.
+    //
+    // Rev the `force_bundle_install` cache key to ensure consistent
+    // state (when appropriate).
     let env = layer_env.apply(Scope::Build, env);
 
     // ## Run `$ bundle install`

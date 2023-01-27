@@ -50,7 +50,13 @@ Once an application has passed the detect phase, the build phase will execute to
   - Given a `Gemfile.lock` with an explicit Bundler version we will install that bundler version.
   - Given a `Gemfile.lock` without an explicit Bundler version we will install a default Ruby version.
 - Ruby Dependencies
-  - We will install gem dependencies using `bundle install`
+  - We MAY install gem dependencies using `bundle install`
+    - We will always run `bundle install` for the first build
+    - We will sometimes run this command again if we detect one of the following has changed:
+      - Gemfile
+      - Gemfile.lock
+      - User configurable environment variables
+    - [TODO] To ensure that `bundle install` is run on every build set `HEROKU_SKIP_BUNDLE_DIGEST=1`
   - We will run `bundle clean` after a successful `bundle install` via setting `BUNDLE_CLEAN=1` environment variable.
   - We will cache the contents of your gem dependencies.
       - We will invalidate the dependency cache if your stack changes.
@@ -58,7 +64,6 @@ Once an application has passed the detect phase, the build phase will execute to
       - We may invalidate the dependency cache if there was a bug in a prior buildpack version that needs to be fixed.
 - Gem specific behavior - We will parse your `Gemfile.lock` to determine what dependencies your app need for use in specializing your install behavior (i.e. Rails 5 versus Rails 4). The inclusion of these gems may trigger different behavior:
   - `railties`
-  - [TODO] List is incomplete
 - Applications without `rake` in the `Gemfile.lock` or a `Rakefile` variant MAY skip rake task detection.
 - Rake execution - We will determine what rake tasks are runnable via the output of `rake -P` against your application.
   - We WILL abort the build if the `rake -p` task fails.

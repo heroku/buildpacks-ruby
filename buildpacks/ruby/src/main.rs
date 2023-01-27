@@ -99,18 +99,17 @@ impl Buildpack for RubyBuildpack {
 
         // ## Setup bundler
         let section = header("Installing Bundler");
-        env = crate::steps::setup_bundler(
-            ruby_version,
-            bundler_version,
-            "development:test",
-            &context,
-            &env,
-        )?;
+        env = crate::steps::bundler_download(bundler_version, &context, &env)?;
         section.done();
 
         // ## Bundle install
         let section = header("Installing dependencies");
-        env = crate::steps::bundle_install(&env)?;
+        env = crate::steps::bundle_install(
+            &context,
+            BundleWithout(String::from("development:test")),
+            ruby_version,
+            &env,
+        )?;
         section.done();
 
         // ## Detect gems
@@ -169,6 +168,7 @@ pub(crate) enum RubyBuildpackError {
     RubyInstallError(RubyInstallError),
     MissingGemfileLock(std::io::Error),
     InAppDirCacheError(CacheError),
+    BundleInstallDigestError(std::io::Error),
     BundleInstallCommandError(CommandError),
     RakeAssetsPrecompileFailed(CommandError),
     GemInstallBundlerCommandError(CommandError),
@@ -254,6 +254,15 @@ impl Display for DisplayDuration<'_> {
         } else {
             f.write_fmt(format_args!("{seconds}.{miliseconds:0>3}s"))
         }
+    }
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BundleWithout(String);
+
+impl BundleWithout {
+    fn as_str(&self) -> &str {
+        &self.0
     }
 }
 

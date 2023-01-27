@@ -21,6 +21,7 @@ tempfile = "3.3.0"
 libherokubuildpack = "0.11.4"
 fs-err = "2.9.0"
 indoc = "1.0.8"
+sha2 = "0.10.6"
 
 [dev-dependencies]
 libcnb-test = "0.11.4"

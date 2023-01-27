@@ -1,9 +1,3 @@
-.rspec_status
-repos/*
 .DS_Store
-
-*.gem
-*.gemspec
-vendor/
 target/
 tmp/

@@ -1,29 +1,23 @@
-use crate::RubyBuildpackError;
-use commons::env_command::EnvCommand;
-use libcnb::Env;
-use libherokubuildpack::log as user;
+use crate::{layers::BundleInstallLayer, BundleWithout, RubyBuildpack, RubyBuildpackError};
+use commons::gemfile_lock::ResolvedRubyVersion;
+use libcnb::{build::BuildContext, data::layer_name, layer_env::Scope, Env};
 
-pub(crate) fn bundle_install(env: &Env) -> libcnb::Result<Env, RubyBuildpackError> {
-    // ## Run `$ bundle install`
-    let command = EnvCommand::new_show_keys(
-        "bundle",
-        &["install"],
-        env,
-        [
-            "BUNDLE_BIN",
-            "BUNDLE_CLEAN",
-            "BUNDLE_DEPLOYMENT",
-            "BUNDLE_GEMFILE",
-            "BUNDLE_PATH",
-            "BUNDLE_WITHOUT",
-        ],
-    );
+pub(crate) fn bundle_install(
+    context: &BuildContext<RubyBuildpack>,
+    without: BundleWithout,
+    ruby_version: ResolvedRubyVersion,
+    env: &Env,
+) -> libcnb::Result<Env, RubyBuildpackError> {
+    // Gems will be installed here, sets BUNDLE_PATH env var
+    let bundle_install_layer = context.handle_layer(
+        layer_name!("gems"),
+        BundleInstallLayer {
+            env: env.clone(),
+            without,
+            ruby_version,
+        },
+    )?;
+    let env = bundle_install_layer.env.apply(Scope::Build, env);
 
-    user::log_info(format!("\nRunning command:\n$ {command}"));
-
-    command
-        .stream()
-        .map_err(RubyBuildpackError::BundleInstallCommandError)?;
-
-    Ok(env.clone())
+    Ok(env)
 }

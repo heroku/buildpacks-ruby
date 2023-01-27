@@ -23,8 +23,8 @@ pub(crate) struct BundleDownloadLayerMetadata {
 /// Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
 /// `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
 pub(crate) struct BundleDownloadLayer {
-    pub version: ResolvedBundlerVersion,
     pub env: Env,
+    pub version: ResolvedBundlerVersion,
 }
 
 impl Layer for BundleDownloadLayer {

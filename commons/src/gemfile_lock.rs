@@ -1,5 +1,6 @@
 use core::str::FromStr;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
 /// # Parse and store contents of Gemfile.lock
@@ -49,47 +50,35 @@ impl GemfileLock {
     #[must_use]
     pub fn resolve_ruby(&self, default: &str) -> ResolvedRubyVersion {
         match &self.ruby_version {
-            RubyVersion::Explicit(version) => ResolvedRubyVersion {
-                version: version.to_string(),
-            },
-            RubyVersion::Default => ResolvedRubyVersion {
-                version: default.to_string(),
-            },
+            RubyVersion::Explicit(version) => ResolvedRubyVersion(version.to_string()),
+            RubyVersion::Default => ResolvedRubyVersion(default.to_string()),
         }
     }
 
     #[must_use]
     pub fn resolve_bundler(&self, default: &str) -> ResolvedBundlerVersion {
         match &self.bundler_version {
-            BundlerVersion::Explicit(version) => ResolvedBundlerVersion {
-                version: version.to_string(),
-            },
-            BundlerVersion::Default => ResolvedBundlerVersion {
-                version: default.to_string(),
-            },
+            BundlerVersion::Explicit(version) => ResolvedBundlerVersion(version.to_string()),
+            BundlerVersion::Default => ResolvedBundlerVersion(default.to_string()),
         }
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct ResolvedRubyVersion {
-    pub version: String,
-}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct ResolvedRubyVersion(pub String);
 
 impl Display for ResolvedRubyVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.version)
+        f.write_str(&self.0)
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct ResolvedBundlerVersion {
-    pub version: String,
-}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct ResolvedBundlerVersion(pub String);
 
 impl Display for ResolvedBundlerVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.version)
+        f.write_str(&self.0)
     }
 }
 

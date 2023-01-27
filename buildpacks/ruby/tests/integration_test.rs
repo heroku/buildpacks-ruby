@@ -21,11 +21,12 @@ fn test_default_app() {
                 context.pack_stdout,
                 r#"$ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#);
 
+            println!("{}", context.pack_stdout); // Needed to get full failure as `rebuild` truncates stdout
             assert_contains!(context.pack_stdout, "Installing webrick");
 
             let config = context.config.clone();
             context.rebuild(config, |rebuild_context| {
-                assert_contains!(rebuild_context.pack_stdout, "Using webrick");
+                assert_contains!(rebuild_context.pack_stdout, "Skipping 'bundle install', no changes detected in:");
 
                 rebuild_context.start_container(
                     ContainerConfig::new()

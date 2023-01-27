@@ -84,6 +84,19 @@ fn log_our_error(error: RubyBuildpackError) {
             {error}
             "},
         ),
+        RubyBuildpackError::BundleInstallDigestError(error) => user::log_error(
+            "Could not generate digest",
+            format! {"
+            To provide the fastest possible install experience the Ruby buildpack
+            converts Gemfile and Gemfile.lock into a cryptographic digest to be
+            used in cache invalidation.
+
+            While performing this process there was an unexpected internal error.
+
+            Details:
+            {error}
+            "},
+        ),
         RubyBuildpackError::BundleInstallCommandError(error) => user::log_error(
             "Error installing bundler",
             format! {"

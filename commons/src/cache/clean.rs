@@ -126,6 +126,24 @@ impl MiniPathModSize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    pub fn test_grabs_files() {
+        // FWIW This action must be done on two lines as the tmpdir gets cleaned
+        // as soon as the variable goes out of scope and a path
+        // reference does not retain it's caller
+        let tmpdir = tempfile::tempdir().unwrap();
+        let dir = tmpdir.path();
+
+        let out = files(dir).unwrap();
+        assert!(out.is_empty());
+
+        std::fs::write(dir.join("lol"), "hahah").unwrap();
+        let out = files(dir).unwrap();
+
+        assert_eq!(out.len(), 1);
+    }
+
     use byte_unit::n_mib_bytes;
 
     pub fn touch_file(path: &PathBuf, f: impl FnOnce(&PathBuf)) {

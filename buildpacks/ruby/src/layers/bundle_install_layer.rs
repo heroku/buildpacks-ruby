@@ -17,6 +17,20 @@ use std::{ffi::OsString, path::Path};
 
 const HEROKU_SKIP_BUNDLE_DIGEST: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
 
+/// Mostly runs 'bundle install'
+///
+/// Creates the cache where gems live. We want 'bundle install'
+/// to execute on every build (as opposed to only when the cache is empty)
+///
+/// To help achieve this the logic inside of `BundleInstallLayer::update` and
+/// `BundleInstallLayer::create` are the same.
+#[derive(Debug)]
+pub(crate) struct BundleInstallLayer {
+    pub env: Env,
+    pub without: BundleWithout,
+    pub ruby_version: ResolvedRubyVersion,
+}
+
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct BundleInstallLayerMetadata {
     stack: StackId,
@@ -26,13 +40,6 @@ pub(crate) struct BundleInstallLayerMetadata {
     force_cache_clear_bundle_install_key: String,
     // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
     digest: BundleDigest,
-}
-
-#[derive(Debug)]
-pub(crate) struct BundleInstallLayer {
-    pub env: Env,
-    pub without: BundleWithout,
-    pub ruby_version: ResolvedRubyVersion,
 }
 
 impl BundleInstallLayer {
@@ -106,6 +113,7 @@ impl Layer for BundleInstallLayer {
         }
     }
 
+    /// Runs with gems cache from last execution
     fn update(
         &self,
         context: &BuildContext<Self::Buildpack>,
@@ -114,6 +122,7 @@ impl Layer for BundleInstallLayer {
         self.update_and_create(context, &layer_data.path)
     }
 
+    /// Runs when with empty cache
     fn create(
         &self,
         context: &BuildContext<Self::Buildpack>,
@@ -122,8 +131,10 @@ impl Layer for BundleInstallLayer {
         self.update_and_create(context, layer_path)
     }
 
-    /// We want `bundle install` to have the opportunity to run on every deployment even
-    /// if the cache is good. Therefore we should never return
+    /// When there is a cache determines if we will run:
+    /// - update (keep cache and bundle install)
+    /// - recreate (destroy cache and bundle instal)
+    /// - keep (Keep existing cache do not run any commands or modify env values)
     fn existing_layer_strategy(
         &self,
         context: &BuildContext<Self::Buildpack>,
@@ -272,7 +283,12 @@ fn cache_state(old: BundleInstallLayerMetadata, now: BundleInstallLayerMetadata)
     }
 }
 
-/// Executes the `bundle install` command and streams the results to stdout/stderr
+/// Sets the needed environment variables to configure bundler and uses them
+/// to execute the `bundle install` command. The results are streamed to stdout/stderr.
+///
+/// # Errors
+///
+/// When the 'bundle install' command fails this function returns an error.
 fn bundle_install(
     layer_path: &Path,
     app_dir: &Path,
@@ -382,17 +398,30 @@ impl BundleDigest {
         })
     }
 
+    /// Lists the differencs between two digest as a series of
+    /// tuples. As (name, now == old). This is later (ab)used
+    /// in order to output the names of all values checked.
+    ///
+    /// Since we use destructuring to ensure all values are removed
+    /// we can ensure that all names are represented
     fn diff_tuples(&self, old: &BundleDigest) -> [(String, bool); 3] {
+        let BundleDigest {
+            env,
+            gemfile,
+            lockfile,
+        } = self; // Ensure all fields are used or we get a clippy warning
+
         [
-            (String::from("Gemfile"), self.gemfile != old.gemfile),
-            (String::from("Gemfile.lock"), self.lockfile != old.lockfile),
+            (String::from("Gemfile"), gemfile != &old.gemfile),
+            (String::from("Gemfile.lock"), lockfile != &old.lockfile),
             (
                 String::from("user configured Environment variables"),
-                self.env != old.env,
+                env != &old.env,
             ),
         ]
     }
 
+    /// Lists out all checked value names.
     fn checked_names(&self) -> Vec<String> {
         let old = BundleDigest::default();
         self.diff_tuples(&old)
@@ -401,6 +430,9 @@ impl BundleDigest {
             .collect::<Vec<String>>()
     }
 
+    /// Returns Some() if differences are detected, otherwise None
+    /// the contents of the string vector represent the names that
+    /// are different between the two digests
     fn diff(&self, old: &BundleDigest) -> Option<Vec<String>> {
         let diff = self
             .diff_tuples(old)

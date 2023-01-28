@@ -3,13 +3,12 @@ use commons::{
     env_command::{CommandError, EnvCommand},
     gemfile_lock::ResolvedRubyVersion,
 };
-use libcnb::Platform;
 use libcnb::{
     build::BuildContext,
     data::{buildpack::StackId, layer_content_metadata::LayerTypes},
-    layer::{ExistingLayerStrategy, Layer, LayerData, LayerResultBuilder},
+    layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder},
     layer_env::{LayerEnv, ModificationBehavior, Scope},
-    Env,
+    Env, Platform,
 };
 use libherokubuildpack::log as user;
 use serde::{Deserialize, Serialize};
@@ -50,6 +49,28 @@ impl BundleInstallLayer {
         String::from("v1")
     }
 
+    fn build_metadata(
+        &self,
+        digest: BundleDigest,
+        context: &BuildContext<RubyBuildpack>,
+        _layer_path: &Path,
+    ) -> BundleInstallLayerMetadata {
+        let stack = context.stack_id.clone();
+        let force_bundle_install_key = self.force_bundle_install_key();
+        let force_cache_clear_bundle_install_key = self.force_cache_clear_bundle_install_key();
+        let without = self.without.clone();
+        let ruby_version = self.ruby_version.clone();
+
+        BundleInstallLayerMetadata {
+            stack,
+            without,
+            ruby_version,
+            force_bundle_install_key,
+            force_cache_clear_bundle_install_key,
+            digest,
+        }
+    }
+
     /// Entrypoint for both update and create
     ///
     /// The `bundle install` command is run on every deploy except where `BundleDigest` determines we can
@@ -59,25 +80,15 @@ impl BundleInstallLayer {
         &self,
         context: &BuildContext<RubyBuildpack>,
         layer_path: &Path,
-    ) -> Result<
-        libcnb::layer::LayerResult<BundleInstallLayerMetadata>,
-        <RubyBuildpack as libcnb::Buildpack>::Error,
-    > {
+    ) -> Result<LayerResult<BundleInstallLayerMetadata>, RubyBuildpackError> {
         let digest = BundleDigest::new(&context.app_dir, context.platform.env())
             .map_err(RubyBuildpackError::BundleInstallDigestError)?;
         let layer_env = bundle_install(layer_path, &context.app_dir, &self.without, &self.env)
             .map_err(RubyBuildpackError::BundleInstallCommandError)?;
 
-        LayerResultBuilder::new(BundleInstallLayerMetadata {
-            stack: context.stack_id.clone(),
-            digest,
-            force_bundle_install_key: self.force_cache_clear_bundle_install_key(),
-            force_cache_clear_bundle_install_key: self.force_cache_clear_bundle_install_key(),
-            without: self.without.clone(),
-            ruby_version: self.ruby_version.clone(),
-        })
-        .env(layer_env)
-        .build()
+        LayerResultBuilder::new(self.build_metadata(digest, context, layer_path))
+            .env(layer_env)
+            .build()
     }
 }
 
@@ -85,7 +96,7 @@ impl Layer for BundleInstallLayer {
     type Buildpack = RubyBuildpack;
     type Metadata = BundleInstallLayerMetadata;
 
-    fn types(&self) -> libcnb::data::layer_content_metadata::LayerTypes {
+    fn types(&self) -> LayerTypes {
         LayerTypes {
             build: true,
             launch: true,
@@ -95,23 +106,17 @@ impl Layer for BundleInstallLayer {
 
     fn update(
         &self,
-        context: &libcnb::build::BuildContext<Self::Buildpack>,
-        layer_data: &libcnb::layer::LayerData<Self::Metadata>,
-    ) -> Result<
-        libcnb::layer::LayerResult<Self::Metadata>,
-        <Self::Buildpack as libcnb::Buildpack>::Error,
-    > {
+        context: &BuildContext<Self::Buildpack>,
+        layer_data: &LayerData<Self::Metadata>,
+    ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
         self.update_and_create(context, &layer_data.path)
     }
 
     fn create(
         &self,
-        context: &libcnb::build::BuildContext<Self::Buildpack>,
+        context: &BuildContext<Self::Buildpack>,
         layer_path: &std::path::Path,
-    ) -> Result<
-        libcnb::layer::LayerResult<Self::Metadata>,
-        <Self::Buildpack as libcnb::Buildpack>::Error,
-    > {
+    ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
         self.update_and_create(context, layer_path)
     }
 
@@ -119,13 +124,17 @@ impl Layer for BundleInstallLayer {
     /// if the cache is good. Therefore we should never return
     fn existing_layer_strategy(
         &self,
-        context: &libcnb::build::BuildContext<Self::Buildpack>,
-        layer_data: &libcnb::layer::LayerData<Self::Metadata>,
-    ) -> Result<libcnb::layer::ExistingLayerStrategy, <Self::Buildpack as libcnb::Buildpack>::Error>
-    {
-        match CacheContents::new(self, context, layer_data)?.state() {
+        context: &BuildContext<Self::Buildpack>,
+        layer_data: &LayerData<Self::Metadata>,
+    ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
+        let digest = BundleDigest::new(&context.app_dir, context.platform.env())
+            .map_err(RubyBuildpackError::BundleInstallDigestError)?;
+        let old = &layer_data.content_metadata.metadata;
+        let now = self.build_metadata(digest, context, &layer_data.path);
+
+        user::log_info("Found gems cache");
+        match cache_state(old.clone(), now) {
             Changed::Nothing(names) => {
-                user::log_info("Found gems cache");
                 user::log_info(format!(
                     "Skipping 'bundle install', no digest changes detected in: {}",
                     names.join(", ")
@@ -134,24 +143,21 @@ impl Layer for BundleInstallLayer {
                 Ok(ExistingLayerStrategy::Keep)
             }
             Changed::ForceInstallWithCache(message) => {
-                user::log_info("Found gems cache");
-                user::log_info(format!("Running 'bundle install', {message}"));
+                user::log_info(format!("Running 'bundle install' with cache, {message}"));
 
                 Ok(ExistingLayerStrategy::Update)
             }
             Changed::Digest(diff) => {
-                user::log_info("Found gems cache");
                 user::log_info(format!(
-                    "Running 'bundle install', digest changes detected: {}",
+                    "Running 'bundle install' with cache, digest changes detected: {}",
                     diff.join(", ")
                 ));
 
                 Ok(ExistingLayerStrategy::Update)
             }
             Changed::Without(old, current) => {
-                user::log_info("Found gems cache");
                 user::log_info(format!(
-                    "Running 'bundle install', BUNDLE_WITHOUT changed from {old} to {current}"
+                    "Running 'bundle install', with cache BUNDLE_WITHOUT changed from {old} to {current}"
                 ));
 
                 Ok(ExistingLayerStrategy::Update)
@@ -163,14 +169,14 @@ impl Layer for BundleInstallLayer {
             }
             Changed::Stack(old, current) => {
                 user::log_info(format!(
-                    "Clearing gems from cache, Stack changed from {old} to {current}"
+                    "Clearing gems cache, Stack changed from {old} to {current}"
                 ));
 
                 Ok(ExistingLayerStrategy::Recreate)
             }
             Changed::RubyVersion(old, current) => {
                 user::log_info(format!(
-                    "Clearing gems from cache, ruby version changed from {old} to {current}"
+                    "Clearing gems cache, ruby version changed from {old} to {current}"
                 ));
 
                 Ok(ExistingLayerStrategy::Recreate)
@@ -191,67 +197,42 @@ enum Changed {
     ForceCacheClear(String),
 }
 
-struct CacheContents {
-    old: BundleInstallLayerMetadata,
-    current: BundleInstallLayerMetadata,
-    skip_digest_env_var: Option<OsString>,
-}
+//
+fn cache_state(old: BundleInstallLayerMetadata, now: BundleInstallLayerMetadata) -> Changed {
+    let BundleInstallLayerMetadata {
+        stack,
+        without,
+        ruby_version,
+        force_bundle_install_key,
+        force_cache_clear_bundle_install_key,
+        digest,
+    } = now; // ensure all values are used or we get a clippy warning
+    let heroku_skip_digest = std::env::var_os("HEROKU_SKIP_BUNDLE_DIGEST");
 
-impl CacheContents {
-    fn new(
-        layer: &BundleInstallLayer,
-        context: &BuildContext<RubyBuildpack>,
-        layer_data: &LayerData<BundleInstallLayerMetadata>,
-    ) -> Result<Self, RubyBuildpackError> {
-        let current = BundleInstallLayerMetadata {
-            digest: BundleDigest::new(&context.app_dir, context.platform.env())
-                .map_err(RubyBuildpackError::BundleInstallDigestError)?,
-            stack: context.stack_id.clone(),
-            without: layer.without.clone(),
-            ruby_version: layer.ruby_version.clone(),
-            force_bundle_install_key: layer.force_bundle_install_key(),
-            force_cache_clear_bundle_install_key: layer.force_cache_clear_bundle_install_key(),
-        };
-
-        let skip_digest = context.platform.env().get("HEROKU_SKIP_BUNDLE_DIGEST");
-        Ok(CacheContents {
-            old: layer_data.content_metadata.metadata.clone(),
-            current,
-            skip_digest_env_var: skip_digest,
-        })
-    }
-
-    fn state(&self) -> Changed {
-        if self.current.stack != self.old.stack {
-            Changed::Stack(self.old.stack.clone(), self.current.stack.clone())
-        } else if self.current.ruby_version != self.old.ruby_version {
-            Changed::RubyVersion(
-                self.old.ruby_version.clone(),
-                self.current.ruby_version.clone(),
-            )
-        } else if self.old.without != self.current.without {
-            Changed::Without(self.old.without.0.clone(), self.current.without.0.clone())
-        } else if self.old.force_cache_clear_bundle_install_key
-            != self.current.force_cache_clear_bundle_install_key
-        {
-            Changed::ForceCacheClear(String::from(
-                "buildpack author triggered due to internal change",
-            ))
-        } else if self.old.force_bundle_install_key != self.current.force_bundle_install_key {
-            Changed::ForceInstallWithCache(String::from(
-                "buildpack author triggered due to internal change",
-            ))
-        } else if let Some(value) = &self.skip_digest_env_var {
-            Changed::ForceInstallWithCache(format!(
-                "found HEROKU_SKIP_BUNDLE_DIGEST={}",
-                value.to_string_lossy()
-            ))
-        } else if let Some(diff) = self.current.digest.diff(&self.old.digest) {
-            Changed::Digest(diff)
-        } else {
-            let checked = self.current.digest.checked_names();
-            Changed::Nothing(checked)
-        }
+    if old.stack != stack {
+        Changed::Stack(old.stack, stack)
+    } else if old.ruby_version != ruby_version {
+        Changed::RubyVersion(old.ruby_version, ruby_version)
+    } else if old.without != without {
+        Changed::Without(old.without.0, without.0)
+    } else if old.force_cache_clear_bundle_install_key != force_cache_clear_bundle_install_key {
+        Changed::ForceCacheClear(String::from(
+            "buildpack author triggered due to internal change",
+        ))
+    } else if old.force_bundle_install_key != force_bundle_install_key {
+        Changed::ForceInstallWithCache(String::from(
+            "buildpack author triggered due to internal change",
+        ))
+    } else if let Some(value) = heroku_skip_digest {
+        Changed::ForceInstallWithCache(format!(
+            "found HEROKU_SKIP_BUNDLE_DIGEST={}",
+            value.to_string_lossy()
+        ))
+    } else if let Some(diff) = digest.diff(&old.digest) {
+        Changed::Digest(diff)
+    } else {
+        let checked = digest.checked_names();
+        Changed::Nothing(checked)
     }
 }
 

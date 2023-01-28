@@ -312,7 +312,7 @@ fn bundle_install(
         .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
         .chainable_insert(
             Scope::All,
-            ModificationBehavior::Append,
+            ModificationBehavior::Prepend,
             "GEM_PATH", // Tells Ruby where gems are located. Should match `BUNDLE_PATH`.
             layer_path,
         )

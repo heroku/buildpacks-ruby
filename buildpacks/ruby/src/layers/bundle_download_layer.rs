@@ -13,7 +13,7 @@ use std::path::Path;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct BundleDownloadLayerMetadata {
-    version: String,
+    version: ResolvedBundlerVersion,
 }
 
 /// # Install the bundler gem
@@ -66,7 +66,7 @@ impl Layer for BundleDownloadLayer {
         .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
 
         LayerResultBuilder::new(BundleDownloadLayerMetadata {
-            version: self.version.to_string(),
+            version: self.version.clone(),
         })
         .env(
             LayerEnv::new()
@@ -91,24 +91,20 @@ impl Layer for BundleDownloadLayer {
     fn existing_layer_strategy(
         &self,
         _context: &BuildContext<Self::Buildpack>,
-        layer: &LayerData<Self::Metadata>,
+        layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
-        let current_version = &self.version.to_string();
-        let old_version = &layer.content_metadata.metadata.version;
-        let contents = CacheContents {
-            old_version,
-            current_version,
+        let old = &layer_data.content_metadata.metadata;
+        let now = BundleDownloadLayerMetadata {
+            version: self.version.clone(),
         };
-        match contents.state() {
-            State::NothingChanged => {
-                user::log_info(format!("Using bundler {current_version} from cache"));
+        match cache_state(old.clone(), now) {
+            State::NothingChanged(version) => {
+                user::log_info(format!("Using bundler {version} from cache"));
 
                 Ok(ExistingLayerStrategy::Keep)
             }
-            State::BundlerVersionChanged => {
-                user::log_info(format!(
-                    "Bundler version changed from {old_version} to {current_version}"
-                ));
+            State::BundlerVersionChanged(old, now) => {
+                user::log_info(format!("Bundler version changed from {old} to {now}"));
                 user::log_info("Clearing bundler from cache");
 
                 Ok(ExistingLayerStrategy::Recreate)
@@ -117,22 +113,18 @@ impl Layer for BundleDownloadLayer {
     }
 }
 
+// [derive(Debug)]
 enum State {
-    NothingChanged,
-    BundlerVersionChanged,
+    NothingChanged(ResolvedBundlerVersion),
+    BundlerVersionChanged(ResolvedBundlerVersion, ResolvedBundlerVersion),
 }
 
-struct CacheContents<'a, 'b> {
-    old_version: &'b str,
-    current_version: &'a str,
-}
+fn cache_state(old: BundleDownloadLayerMetadata, now: BundleDownloadLayerMetadata) -> State {
+    let BundleDownloadLayerMetadata { version } = now; // Ensure all properties are checked
 
-impl CacheContents<'_, '_> {
-    fn state(&self) -> State {
-        if self.current_version == self.old_version {
-            State::NothingChanged
-        } else {
-            State::BundlerVersionChanged
-        }
+    if old.version == version {
+        State::NothingChanged(version)
+    } else {
+        State::BundlerVersionChanged(old.version, version)
     }
 }

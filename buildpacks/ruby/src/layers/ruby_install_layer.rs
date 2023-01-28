@@ -34,7 +34,7 @@ pub(crate) struct RubyInstallLayer {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct RubyInstallLayerMetadata {
     pub stack: StackId,
-    pub version: String,
+    pub version: ResolvedRubyVersion,
 }
 
 impl Layer for RubyInstallLayer {
@@ -70,7 +70,7 @@ impl Layer for RubyInstallLayer {
 
         LayerResultBuilder::new(RubyInstallLayerMetadata {
             stack: context.stack_id.clone(),
-            version: self.version.to_string(),
+            version: self.version.clone(),
         })
         .build()
     }
@@ -80,34 +80,26 @@ impl Layer for RubyInstallLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
-        let old_stack = &layer_data.content_metadata.metadata.stack;
-        let old_version = &layer_data.content_metadata.metadata.version;
-        let current_stack = &context.stack_id;
-        let current_version = &self.version.to_string();
-
-        let contents = CacheContents {
-            old_stack,
-            old_version,
-            current_stack,
-            current_version,
+        let old = &layer_data.content_metadata.metadata;
+        let now = RubyInstallLayerMetadata {
+            stack: context.stack_id.clone(),
+            version: self.version.clone(),
         };
 
-        match contents.state() {
-            Changed::Nothing => {
-                user::log_info(format!("Using Ruby {current_version} from cache"));
+        match cache_state(old.clone(), now) {
+            Changed::Nothing(version) => {
+                user::log_info(format!("Using Ruby {version} from cache"));
 
                 Ok(ExistingLayerStrategy::Keep)
             }
-            Changed::Stack => {
-                user::log_info(format!("Stack changed from {old_stack} to {current_stack}",));
+            Changed::Stack(old, now) => {
+                user::log_info(format!("Stack changed from {old} to {now}",));
                 user::log_info("Clearing ruby from cache");
 
                 Ok(ExistingLayerStrategy::Recreate)
             }
-            Changed::RubyVersion => {
-                user::log_info(format!(
-                    "Ruby version changed from {old_version} to {current_version}",
-                ));
+            Changed::RubyVersion(old, now) => {
+                user::log_info(format!("Ruby version changed from {old} to {now}",));
                 user::log_info("Clearing ruby from cache");
 
                 Ok(ExistingLayerStrategy::Recreate)
@@ -116,29 +108,23 @@ impl Layer for RubyInstallLayer {
     }
 }
 
+fn cache_state(old: RubyInstallLayerMetadata, now: RubyInstallLayerMetadata) -> Changed {
+    let RubyInstallLayerMetadata { stack, version } = now;
+
+    if old.stack != stack {
+        Changed::Stack(old.stack, stack)
+    } else if old.version != version {
+        Changed::RubyVersion(old.version, version)
+    } else {
+        Changed::Nothing(version)
+    }
+}
+
+#[derive(Debug)]
 enum Changed {
-    Nothing,
-    Stack,
-    RubyVersion,
-}
-
-struct CacheContents<'a, 'b, 'c, 'd> {
-    old_stack: &'a StackId,
-    old_version: &'b str,
-    current_stack: &'c StackId,
-    current_version: &'d str,
-}
-
-impl CacheContents<'_, '_, '_, '_> {
-    fn state(&self) -> Changed {
-        if self.current_stack != self.old_stack {
-            Changed::Stack
-        } else if self.current_version != self.old_version {
-            Changed::RubyVersion
-        } else {
-            Changed::Nothing
-        }
-    }
+    Nothing(ResolvedRubyVersion),
+    Stack(StackId, StackId),
+    RubyVersion(ResolvedRubyVersion, ResolvedRubyVersion),
 }
 
 fn download_url(stack: &StackId, version: impl std::fmt::Display) -> Result<Url, RubyInstallError> {

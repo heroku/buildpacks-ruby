@@ -139,10 +139,12 @@ impl Layer for BundleInstallLayer {
                     "Skipping 'bundle install', no digest changes detected in: {}",
                     names.join(", ")
                 ));
+                user::log_info("Help: To skip digest change detection and force running");
+                user::log_info("      'bundle install' set HEROKU_SKIP_BUNDLE_DIGEST=1");
 
                 Ok(ExistingLayerStrategy::Keep)
             }
-            Changed::ForceInstallWithCache(message) => {
+            Changed::UserForceInstallWithCache(message) => {
                 user::log_info(format!("Running 'bundle install' with cache, {message}"));
 
                 Ok(ExistingLayerStrategy::Update)
@@ -162,8 +164,17 @@ impl Layer for BundleInstallLayer {
 
                 Ok(ExistingLayerStrategy::Update)
             }
-            Changed::ForceCacheClear(message) => {
-                user::log_info(format!("Clearing gems from cache, {message}"));
+            Changed::BuildpackForceInstallWithCache => {
+                user::log_info(
+                    "Running 'bundle install' with cache, due to buildpack author triggered change",
+                );
+
+                Ok(ExistingLayerStrategy::Update)
+            }
+            Changed::BuildpackForceCacheClear => {
+                user::log_info(
+                    "Clearing gems from cache, due to buildpack author triggered change",
+                );
 
                 Ok(ExistingLayerStrategy::Recreate)
             }
@@ -188,16 +199,43 @@ impl Layer for BundleInstallLayer {
 /// The possible states of the cache values, used for determining `ExistingLayerStrategy`
 #[derive(Debug)]
 enum Changed {
-    Without(String, String),
-    Nothing(Vec<String>), // Holds the values checked i.e. Gemfile, etc.
+    /// BUNDLE_WITHOUT changed
+    Without(String, String), // (old, now)
+
+    /// Nothing changed, vector contains values that were checked i.e. Gemfile, Gemfile.lock, etc.
+    Nothing(Vec<String>),
+
+    /// The `BundleDigest` changed. Lists the value that differed between old and now
     Digest(Vec<String>),
-    Stack(StackId, StackId),
-    RubyVersion(ResolvedRubyVersion, ResolvedRubyVersion),
-    ForceInstallWithCache(String),
-    ForceCacheClear(String),
+
+    /// The stack changed i.e. from heroku_20 to heroku_22
+    /// When that happens we must invalidate native dependency gems
+    /// because they're compiled against system dependencies
+    /// i.e. https://devcenter.heroku.com/articles/stack-packages
+    /// TODO: Only clear native dependencies instead of the whole cache
+    Stack(StackId, StackId), // (old, now)
+
+    /// Ruby version changed i.e. 3.0.2 to 3.1.2
+    /// When that happens we must invalidate native dependency gems
+    /// because they're linked to a specific compiled version of Ruby.
+    /// TODO: Only clear native dependencies instead of the whole cache
+    RubyVersion(ResolvedRubyVersion, ResolvedRubyVersion), // (old, now)
+
+    /// A user has set the env var `HEROKU_SKIP_BUNDLE_DIGEST`
+    /// to indicate they want to bypass the digest
+    UserForceInstallWithCache(String), // message
+
+    /// A buildpack developer changed the static cache key in code to force
+    /// a `bundle install` with the existing cache intact
+    BuildpackForceInstallWithCache,
+
+    /// A buildpack developer changed the static cache key in code to force
+    /// a `bundle install` after the cache has been cleared.
+    BuildpackForceCacheClear,
 }
 
-//
+// Compare the old metadata to current metadata to determine the state of the
+// cache. Based on that state, we can log and determine `ExistingLayerStrategy`
 fn cache_state(old: BundleInstallLayerMetadata, now: BundleInstallLayerMetadata) -> Changed {
     let BundleInstallLayerMetadata {
         stack,
@@ -216,15 +254,11 @@ fn cache_state(old: BundleInstallLayerMetadata, now: BundleInstallLayerMetadata)
     } else if old.without != without {
         Changed::Without(old.without.0, without.0)
     } else if old.force_cache_clear_bundle_install_key != force_cache_clear_bundle_install_key {
-        Changed::ForceCacheClear(String::from(
-            "buildpack author triggered due to internal change",
-        ))
+        Changed::BuildpackForceCacheClear
     } else if old.force_bundle_install_key != force_bundle_install_key {
-        Changed::ForceInstallWithCache(String::from(
-            "buildpack author triggered due to internal change",
-        ))
+        Changed::BuildpackForceInstallWithCache
     } else if let Some(value) = heroku_skip_digest {
-        Changed::ForceInstallWithCache(format!(
+        Changed::UserForceInstallWithCache(format!(
             "found HEROKU_SKIP_BUNDLE_DIGEST={}",
             value.to_string_lossy()
         ))

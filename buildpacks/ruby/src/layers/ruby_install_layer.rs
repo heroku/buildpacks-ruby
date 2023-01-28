@@ -139,22 +139,6 @@ fn download_url(stack: &StackId, version: impl std::fmt::Display) -> Result<Url,
     Ok(url)
 }
 
-#[cfg(test)]
-mod tests {
-    use libcnb::data::stack_id;
-
-    use super::*;
-
-    #[test]
-    fn test_ruby_url() {
-        let out = download_url(&stack_id!("heroku-20"), "2.7.4").unwrap();
-        assert_eq!(
-            out.as_ref(),
-            "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com/heroku-20/ruby-2.7.4.tgz",
-        );
-    }
-}
-
 pub(crate) fn download(
     uri: impl AsRef<str>,
     destination: impl AsRef<Path>,
@@ -207,4 +191,37 @@ pub(crate) enum RubyInstallError {
 
     #[error("Could not write file: {0}")]
     CouldNotWriteDestinationFile(std::io::Error),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use libcnb::data::stack_id;
+
+    /// If this test fails due to a change you'll need to implement
+    /// `migrate_incompatible_metadata` for the Layer trait
+    #[test]
+    fn metadata_guard() {
+        let metadata = RubyInstallLayerMetadata {
+            stack: stack_id!("heroku-22"),
+            version: ResolvedRubyVersion(String::from("3.1.3")),
+        };
+
+        let actual = toml::to_string(&metadata).unwrap();
+        let expected = r#"
+stack = "heroku-22"
+version = "3.1.3"
+"#
+        .trim();
+        assert_eq!(expected, actual.trim());
+    }
+
+    #[test]
+    fn test_ruby_url() {
+        let out = download_url(&stack_id!("heroku-20"), "2.7.4").unwrap();
+        assert_eq!(
+            out.as_ref(),
+            "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com/heroku-20/ruby-2.7.4.tgz",
+        );
+    }
 }

@@ -485,6 +485,37 @@ fn env_hash(env: &Env) -> String {
 #[cfg(test)]
 mod test {
     use super::*;
+    use libcnb::data::stack_id;
+
+    /// If this test fails due to a change you'll need to implement
+    /// `migrate_incompatible_metadata` for the Layer trait
+    #[test]
+    fn metadata_guard() {
+        let metadata = BundleInstallLayerMetadata {
+            stack: stack_id!("heroku-22"),
+            force_bundle_install_key: String::from("v1"),
+            force_cache_clear_bundle_install_key: String::from("v1"),
+            ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
+            without: BundleWithout(String::from("development:test")),
+            digest: BundleDigest::default(),
+        };
+
+        let actual = toml::to_string(&metadata).unwrap();
+        let expected = r#"
+stack = "heroku-22"
+without = "development:test"
+ruby_version = "3.1.3"
+force_bundle_install_key = "v1"
+force_cache_clear_bundle_install_key = "v1"
+
+[digest]
+env = ""
+gemfile = ""
+lockfile = ""
+"#
+        .trim();
+        assert_eq!(expected, actual.trim());
+    }
 
     #[test]
     fn test_diff_from_dir_env() {

@@ -128,3 +128,24 @@ fn cache_state(old: BundleDownloadLayerMetadata, now: BundleDownloadLayerMetadat
         State::BundlerVersionChanged(old.version, version)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    /// If this test fails due to a change you'll need to implement
+    /// `migrate_incompatible_metadata` for the Layer trait
+    #[test]
+    fn metadata_guard() {
+        let metadata = BundleDownloadLayerMetadata {
+            version: ResolvedBundlerVersion(String::from("2.3.6")),
+        };
+
+        let actual = toml::to_string(&metadata).unwrap();
+        let expected = r#"
+version = "2.3.6"
+"#
+        .trim();
+        assert_eq!(expected, actual.trim());
+    }
+}

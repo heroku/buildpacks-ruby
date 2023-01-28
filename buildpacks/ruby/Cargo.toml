@@ -25,3 +25,4 @@ sha2 = "0.10.6"
 
 [dev-dependencies]
 libcnb-test = "0.11.4"
+toml = "0.7.0"

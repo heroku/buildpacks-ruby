@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::{ffi::OsString, path::Path};
 
+const HEROKU_SKIP_BUNDLE_DIGEST: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
+
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct BundleInstallLayerMetadata {
     stack: StackId,
@@ -140,7 +142,7 @@ impl Layer for BundleInstallLayer {
                     names.join(", ")
                 ));
                 user::log_info("Help: To skip digest change detection and force running");
-                user::log_info("      'bundle install' set HEROKU_SKIP_BUNDLE_DIGEST=1");
+                user::log_info("      'bundle install' set {HEROKU_SKIP_BUNDLE_DIGEST}=1");
 
                 Ok(ExistingLayerStrategy::Keep)
             }
@@ -245,7 +247,7 @@ fn cache_state(old: BundleInstallLayerMetadata, now: BundleInstallLayerMetadata)
         force_cache_clear_bundle_install_key,
         digest,
     } = now; // ensure all values are used or we get a clippy warning
-    let heroku_skip_digest = std::env::var_os("HEROKU_SKIP_BUNDLE_DIGEST");
+    let heroku_skip_digest = std::env::var_os(HEROKU_SKIP_BUNDLE_DIGEST);
 
     if old.stack != stack {
         Changed::Stack(old.stack, stack)
@@ -259,7 +261,7 @@ fn cache_state(old: BundleInstallLayerMetadata, now: BundleInstallLayerMetadata)
         Changed::BuildpackForceInstallWithCache
     } else if let Some(value) = heroku_skip_digest {
         Changed::UserForceInstallWithCache(format!(
-            "found HEROKU_SKIP_BUNDLE_DIGEST={}",
+            "found {HEROKU_SKIP_BUNDLE_DIGEST}={}",
             value.to_string_lossy()
         ))
     } else if let Some(diff) = digest.diff(&old.digest) {

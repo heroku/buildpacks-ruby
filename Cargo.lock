@@ -183,8 +183,10 @@ dependencies = [
  "libherokubuildpack",
  "regex",
  "serde",
+ "sha2",
  "tempfile",
  "thiserror",
+ "toml 0.7.0",
  "walkdir",
 ]
 
@@ -471,7 +473,6 @@ dependencies = [
  "rand",
  "regex",
  "serde",
- "sha2",
  "tar",
  "tempfile",
  "thiserror",

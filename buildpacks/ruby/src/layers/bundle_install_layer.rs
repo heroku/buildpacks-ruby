@@ -2,18 +2,18 @@ use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use commons::{
     env_command::{CommandError, EnvCommand},
     gemfile_lock::ResolvedRubyVersion,
+    metadata_digest::MetadataDigest,
 };
 use libcnb::{
     build::BuildContext,
     data::{buildpack::StackId, layer_content_metadata::LayerTypes},
     layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder},
     layer_env::{LayerEnv, ModificationBehavior, Scope},
-    Env, Platform,
+    Env,
 };
 use libherokubuildpack::log as user;
 use serde::{Deserialize, Serialize};
-use sha2::Digest;
-use std::{ffi::OsString, path::Path};
+use std::path::Path;
 
 const HEROKU_SKIP_BUNDLE_DIGEST: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
 const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
@@ -32,66 +32,41 @@ pub(crate) struct BundleInstallLayer {
     pub ruby_version: ResolvedRubyVersion,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
 pub(crate) struct BundleInstallLayerMetadata {
     stack: StackId,
     ruby_version: ResolvedRubyVersion,
     force_bundle_install_key: String,
-    // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
-    digest: BundleDigest,
+
+    /// A struct that holds the cryptographic hash of components that can
+    /// affect the result of `bundle install`. When these values do not
+    /// change between deployments we can skip re-running `bundle install` since
+    /// the outcome should not change.
+    ///
+    /// While a fully resolved `bundle install` is relatively fast, it's not
+    /// instantaneous. This check can save ~1 second on overall build time.
+    ///
+    /// This value is cached with metadata, so changing the struct
+    /// may cause metadata to be invalidated (and the cache cleared).
+    ///
+    digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
 
 impl BundleInstallLayer {
-    /// Run every time with different diff states
-    fn run_on_diff(
-        &self,
-        state: DiffState,
-        _layer_path: &Path,
-        layer_env: LayerEnv,
-        metadata: BundleInstallLayerMetadata,
-    ) -> Result<LayerResult<BundleInstallLayerMetadata>, RubyBuildpackError> {
-        let env = layer_env.apply(Scope::Build, &self.env);
-        match state {
-            DiffState::None => {
-                user::log_info("Running 'bundle install'");
-
-                bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
-            }
-            DiffState::Forced(message) => {
-                user::log_info(format!("Running 'bundle install', {message}"));
-
-                bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
-            }
-            DiffState::Different(values) => {
-                let changes = values.join(", ");
-                user::log_info(format!(
-                    "Running 'bundle install', found changes since last deploy: {changes}"
-                ));
-
-                bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
-            }
-            DiffState::Same(names) => {
-                let checked = names.join(", ");
-                user::log_info(format!(
-                    "Skipping 'bundle install', no changes found in {checked}"
-                ));
-                user::log_info("Help: To skip digest change detection and force running");
-                user::log_info(format!(
-                    "      'bundle install' set {HEROKU_SKIP_BUNDLE_DIGEST}=1"
-                ));
-            }
-        };
-
-        LayerResultBuilder::new(metadata).env(layer_env).build()
-    }
-
     fn build_metadata(
         &self,
         context: &BuildContext<RubyBuildpack>,
         _layer_path: &Path,
     ) -> Result<BundleInstallLayerMetadata, RubyBuildpackError> {
-        let digest = BundleDigest::new(&context.app_dir, context.platform.env())
-            .map_err(RubyBuildpackError::BundleInstallDigestError)?;
+        let digest = MetadataDigest::new_env_files(
+            &context.platform,
+            &[
+                &context.app_dir.join("Gemfile"),
+                &context.app_dir.join("Gemfile.lock"),
+            ],
+        )
+        .map_err(RubyBuildpackError::BundleInstallDigestError)?;
+
         let stack = context.stack_id.clone();
         let ruby_version = self.ruby_version.clone();
         let force_bundle_install_key = String::from(FORCE_BUNDLE_INSTALL_CACHE_KEY);
@@ -113,24 +88,6 @@ impl BundleInstallLayer {
         let out = layer_env(layer_path, &context.app_dir, &self.without);
 
         Ok(out)
-    }
-
-    /// Returns Some(String) if a `bundle install` has been forced
-    /// where String contains the message for why.
-    fn force_digest(
-        old: &BundleInstallLayerMetadata,
-        now: &BundleInstallLayerMetadata,
-    ) -> Option<String> {
-        let forced_env = std::env::var_os(HEROKU_SKIP_BUNDLE_DIGEST);
-
-        if now.force_bundle_install_key != old.force_bundle_install_key {
-            Some(String::from("buildpack author triggered internal change"))
-        } else if let Some(value) = forced_env {
-            let value = value.to_string_lossy();
-            Some(format!("found {HEROKU_SKIP_BUNDLE_DIGEST}={value}"))
-        } else {
-            None
-        }
     }
 
     #[allow(clippy::unnecessary_wraps)]
@@ -169,6 +126,38 @@ enum CacheStrategy {
     KeepAndRun,
 }
 
+#[derive(Debug)]
+enum UpdateState {
+    /// Holds message indicating the reason why we want to run 'bundle install'
+    Run(String),
+
+    /// Do not run 'bundle install'
+    Skip,
+}
+
+/// Determines if 'bundle install' should execute on a given call to `BundleInstallLatyer::update`
+///
+///
+fn update_state(old: &BundleInstallLayerMetadata, now: &BundleInstallLayerMetadata) -> UpdateState {
+    let forced_env = std::env::var_os(HEROKU_SKIP_BUNDLE_DIGEST);
+    let old_key = &old.force_bundle_install_key;
+    let now_key = &now.force_bundle_install_key;
+
+    if old_key != now_key {
+        UpdateState::Run(format!(
+            "buildpack author triggered internal change {old_key} to {now_key}"
+        ))
+    } else if let Some(value) = forced_env {
+        let value = value.to_string_lossy();
+
+        UpdateState::Run(format!("found {HEROKU_SKIP_BUNDLE_DIGEST}={value}"))
+    } else if let Some(changed) = now.digest.changed(&old.digest) {
+        UpdateState::Run(format!("{changed}"))
+    } else {
+        UpdateState::Skip
+    }
+}
+
 impl Layer for BundleInstallLayer {
     type Buildpack = RubyBuildpack;
     type Metadata = BundleInstallLayerMetadata;
@@ -180,21 +169,35 @@ impl Layer for BundleInstallLayer {
             cache: true,
         }
     }
-
     /// Runs with gems cache from last execution
     fn update(
         &self,
         context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let old = &layer_data.content_metadata.metadata;
-        let layer_path = &layer_data.path;
+        let metadata = self.build_metadata(context, &layer_data.path)?;
+        let layer_env = self.build_layer_env(context, &layer_data.path)?;
+        let env = layer_env.apply(Scope::Build, &self.env);
 
-        let metadata = self.build_metadata(context, layer_path)?;
-        let layer_env = self.build_layer_env(context, layer_path)?;
+        match update_state(&layer_data.content_metadata.metadata, &metadata) {
+            UpdateState::Run(reason) => {
+                user::log_info(format!("Running 'bundle install', {reason}"));
 
-        let diff = digest_state(Self::force_digest, Some(old), &metadata);
-        self.run_on_diff(diff, layer_path, layer_env, metadata)
+                bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
+            }
+            UpdateState::Skip => {
+                let checked = &metadata.digest;
+                user::log_info(format!(
+                    "Skipping 'bundle install', no changes found in {checked}"
+                ));
+                user::log_info("Help: To skip digest change detection and force running");
+                user::log_info(format!(
+                    "      'bundle install' set {HEROKU_SKIP_BUNDLE_DIGEST}=1"
+                ));
+            }
+        }
+
+        LayerResultBuilder::new(metadata).env(layer_env).build()
     }
 
     /// Runs when with empty cache
@@ -205,8 +208,12 @@ impl Layer for BundleInstallLayer {
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
         let metadata = self.build_metadata(context, layer_path)?;
         let layer_env = self.build_layer_env(context, layer_path)?;
-        let diff = digest_state(Self::force_digest, None, &metadata);
-        self.run_on_diff(diff, layer_path, layer_env, metadata)
+        let env = layer_env.apply(Scope::Build, &self.env);
+
+        user::log_info("Running 'bundle install'");
+        bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
+
+        LayerResultBuilder::new(metadata).env(layer_env).build()
     }
 
     /// When there is a cache determines if we will run:
@@ -352,16 +359,6 @@ fn bundle_install(env: &Env) -> Result<(), CommandError> {
     Ok(())
 }
 
-/// A struct that holds the cryptographic hash of components that can
-/// affect the result of `bundle install`. When these values do not
-/// change between deployments we can skip re-running `bundle install` since
-/// the outcome should not change.
-///
-/// While a fully resolved `bundle install` is relatively fast, it's not
-/// instantaneous. This check can save ~1 second on overall build time.
-///
-/// This value is cached with metadata, so changing the struct
-/// may cause metadata to be invalidated (and the cache cleared).
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, Default)]
 pub(crate) struct BundleDigest {
     env: String,
@@ -369,149 +366,34 @@ pub(crate) struct BundleDigest {
     lockfile: String,
 }
 
-#[derive(Debug)]
-enum DiffState {
-    /// Old digest did not exist, either this is the first time
-    /// the layer is being run, or the cache was cleared and it
-    /// is re-running.
-    None,
-
-    /// New and old digest are the same, vec contains names checked
-    Same(Vec<String>),
-
-    /// Difference check was skipped. String contains message for why
-    Forced(String),
-
-    /// New and old digest are different, vec contains names that don't match
-    Different(Vec<String>),
-}
-
-/// Returns state of digest between runs of the buildpack
-fn digest_state<F>(
-    forced_fn: F,
-    option_old: Option<&BundleInstallLayerMetadata>,
-    now: &BundleInstallLayerMetadata,
-) -> DiffState
-where
-    F: Fn(&BundleInstallLayerMetadata, &BundleInstallLayerMetadata) -> Option<String>,
-{
-    if let Some(old) = option_old {
-        if let Some(message) = forced_fn(old, now) {
-            DiffState::Forced(message)
-        } else if let Some(diff) = now.digest.diff(&old.digest) {
-            DiffState::Different(diff)
-        } else {
-            let names = now.digest.checked_names();
-            DiffState::Same(names)
-        }
-    } else {
-        DiffState::None
-    }
-}
-
-impl BundleDigest {
-    fn new(app_path: &Path, env: &Env) -> Result<BundleDigest, std::io::Error> {
-        let gemfile = fs_err::read_to_string(app_path.join("Gemfile"))?;
-        let lockfile = fs_err::read_to_string(app_path.join("Gemfile.lock"))?;
-
-        Ok(BundleDigest {
-            env: env_hash(env),
-            gemfile: hash_from_string(&gemfile),
-            lockfile: hash_from_string(&lockfile),
-        })
-    }
-
-    /// Lists the differencs between two digest as a series of
-    /// tuples. As (name, now == old). This is later (ab)used
-    /// in order to output the names of all values checked.
-    ///
-    /// Since we use destructuring to ensure all values are removed
-    /// we can ensure that all names are represented
-    fn diff_tuples(&self, old: &BundleDigest) -> [(String, bool); 3] {
-        let BundleDigest {
-            env,
-            gemfile,
-            lockfile,
-        } = self; // Ensure all fields are used or we get a clippy warning
-
-        [
-            (String::from("Gemfile"), gemfile != &old.gemfile),
-            (String::from("Gemfile.lock"), lockfile != &old.lockfile),
-            (
-                String::from("user configured Environment variables"),
-                env != &old.env,
-            ),
-        ]
-    }
-
-    /// Lists out all checked value names.
-    fn checked_names(&self) -> Vec<String> {
-        let old = BundleDigest::default();
-        self.diff_tuples(&old)
-            .iter()
-            .map(|(name, _)| name.clone())
-            .collect::<Vec<String>>()
-    }
-
-    /// Returns Some() if differences are detected, otherwise None
-    /// the contents of the string vector represent the names that
-    /// are different between the two digests
-    fn diff(&self, old: &BundleDigest) -> Option<Vec<String>> {
-        let diff = self
-            .diff_tuples(old)
-            .iter()
-            .filter_map(|(name, diff)| diff.then_some(name.clone()))
-            .collect::<Vec<String>>();
-
-        if diff.is_empty() {
-            None
-        } else {
-            Some(diff)
-        }
-    }
-}
-
-/// Hashing helper function, give it a str and it gives you the SHA256 hash back
-/// out as a string
-fn hash_from_string(str: &str) -> String {
-    let mut hasher = sha2::Sha256::new();
-    hasher.update(str);
-    format!("{:x}", hasher.finalize())
-}
-
-fn env_to_string(env: &Env) -> String {
-    let mut env = env
-        .into_iter()
-        .map(|(a, b)| (a.clone(), b.clone()))
-        .collect::<Vec<(OsString, OsString)>>();
-
-    env.sort_by(|(a, _), (b, _)| a.cmp(b));
-
-    env.iter()
-        .map(|(key, value)| {
-            let mut out = OsString::new();
-            out.push(key);
-            out.push(OsString::from("="));
-            out.push(value);
-            out.to_string_lossy() // UTF-8 values see no degradation, otherwise we should be comparing equivalent strings.
-                .to_string()
-        })
-        .collect::<Vec<String>>()
-        .join("\n")
-}
-
-/// Hashing helper function, give it an Env and it gives you the SHA256 hash back
-/// out as a string.
-fn env_hash(env: &Env) -> String {
-    let env_string = env_to_string(env);
-    hash_from_string(&env_string)
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
     use libcnb::data::stack_id;
     use std::path::PathBuf;
+
+    #[cfg(test)]
+    #[derive(Default, Clone)]
+    struct FakeContext {
+        app_path: PathBuf,
+        platform: FakePlatform,
+    }
+
+    #[cfg(test)]
+    #[derive(Default, Clone)]
+    struct FakePlatform {
+        env: libcnb::Env,
+    }
+
+    impl libcnb::Platform for FakePlatform {
+        fn env(&self) -> &Env {
+            &self.env
+        }
+
+        fn from_path(_platform_dir: impl AsRef<Path>) -> std::io::Result<Self> {
+            unimplemented!()
+        }
+    }
 
     /// If this test fails due to user change you may need
     /// to rev a cache key to force 'bundle install'
@@ -527,7 +409,7 @@ mod test {
 
         let env = layer_env.apply(Scope::All, &Env::new());
 
-        let actual = env_to_string(&env);
+        let actual = commons::display::env_to_sorted_string(&env);
         let expected = r#"
 BUNDLE_BIN=layer_path/bin
 BUNDLE_CLEAN=1
@@ -544,62 +426,51 @@ GEM_PATH=layer_path
     /// `migrate_incompatible_metadata` for the Layer trait
     #[test]
     fn metadata_guard() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let app_path = tmpdir.path().to_path_buf();
+        let gemfile = app_path.join("Gemfile");
+
+        let mut env = Env::new();
+        env.insert("SECRET_KEY_BASE", "abcdgoldfish");
+
+        let context = FakeContext {
+            platform: FakePlatform { env },
+            app_path,
+        };
+        std::fs::write(&gemfile, "iamagemfile").unwrap();
+
         let metadata = BundleInstallLayerMetadata {
             stack: stack_id!("heroku-22"),
             ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
             force_bundle_install_key: String::from("v1"),
-            digest: BundleDigest::default(),
+            digest: MetadataDigest::new_env_files(
+                &context.platform,
+                &[&context.app_path.join("Gemfile")],
+            )
+            .unwrap(),
         };
 
         let actual = toml::to_string(&metadata).unwrap();
-        let expected = r#"
+        let gemfile_path = gemfile.display();
+        let toml_string = format!(
+            r#"
 stack = "heroku-22"
 ruby_version = "3.1.3"
 force_bundle_install_key = "v1"
 
 [digest]
-env = ""
-gemfile = ""
-lockfile = ""
+platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3"
+
+[digest.files]
+"{gemfile_path}" = "32b27d2934db61b105fea7c2cb6159092fed6e121f8c72a948f341ab5afaa1ab"
 "#
-        .trim();
-        assert_eq!(expected, actual.trim());
-    }
+        )
+        .trim()
+        .to_string();
+        assert_eq!(toml_string, actual.trim());
 
-    #[test]
-    fn test_diff_from_dir_env() {
-        let tmpdir = tempfile::tempdir().unwrap();
-        let dir = tmpdir.path();
-        let env = Env::new();
+        let deserialized: BundleInstallLayerMetadata = toml::from_str(&toml_string).unwrap();
 
-        fs_err::write(dir.join("Gemfile"), "lol").unwrap();
-        fs_err::write(dir.join("Gemfile.lock"), "lol").unwrap();
-
-        let current = BundleDigest::new(dir, &env).unwrap();
-
-        let old = BundleDigest::default();
-        assert!(current.diff(&old).is_some());
-        assert!(current.diff(&current).is_none());
-    }
-
-    #[test]
-    fn test_diff_env() {
-        let current = BundleDigest {
-            env: String::from("lol"),
-            ..BundleDigest::default()
-        };
-
-        let old = BundleDigest::default();
-        assert_eq!(
-            current.diff(&old),
-            Some(vec![String::from("user configured Environment variables")])
-        );
-    }
-
-    #[test]
-    fn test_bundle_digest_the_same() {
-        let current = BundleDigest::default();
-        let old = BundleDigest::default();
-        assert_eq!(current.diff(&old), None);
+        assert_eq!(metadata, deserialized);
     }
 }

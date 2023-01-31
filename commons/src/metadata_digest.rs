@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 
 use crate::display::SentenceList;
 
+const PLATFORM_ENV_VAR: &str = "user configured environment variables";
+
 /// Store digest data in a Layer's metadata and compare them later
 ///
 /// Store this struct as a field in the last value of your Layer's metadata.
@@ -226,7 +228,7 @@ impl MetadataDigest {
             }
         }
         if self.platform_env.is_some() {
-            let string = String::from("user configured Environment variables");
+            let string = String::from(PLATFORM_ENV_VAR);
             parts.push(string);
         }
 
@@ -268,7 +270,7 @@ impl Display for Changed {
             platform_env,
         } = self;
 
-        let platform_env_string = String::from("user configured Environment variables");
+        let platform_env_string = String::from(PLATFORM_ENV_VAR);
         match files {
             Some(PathChange::MismatchedFiles { other, current }) => {
                 let other = other

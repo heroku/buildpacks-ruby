@@ -96,10 +96,9 @@ impl BundleInstallLayer {
         old: BundleInstallLayerMetadata,
         now: BundleInstallLayerMetadata,
     ) -> Result<CacheStrategy, RubyBuildpackError> {
-        user::log_info("Found gems cache");
         match cache_state(old, now) {
             Changed::Nothing => {
-                user::log_info("Found gems cache");
+                user::log_info("Using gems cache from last deploy");
 
                 Ok(CacheStrategy::KeepAndRun)
             }

@@ -78,7 +78,7 @@ jobs:
 
       - id: add-registry-entry
         name: "Request Buildpack Registry Entry"
-        uses: docker://ghcr.io/buildpacks/actions/registry/request-add-entry:4.0.0
+        uses: docker://ghcr.io/buildpacks/actions/registry/request-add-entry:5.0.1
         with:
           token: ${{ secrets.CNB_REGISTRY_RELEASE_BOT_GITHUB_TOKEN }}
           id: ${{ env.buildpack_id }}

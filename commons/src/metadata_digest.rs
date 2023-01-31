@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 
+use crate::display::SentenceList;
+
 /// Store digest data in a Layer's metadata and compare them later
 ///
 /// Store this struct as a field in the last value of your Layer's metadata.
@@ -211,16 +213,16 @@ impl MetadataDigest {
             PlatformEnvDifference::Changed
         }
     }
-}
 
-/// For showing the end user what difference is being checked against
-/// i.e. Gemfile, Gemfile.lock, and user Configured Environment variables
-impl Display for MetadataDigest {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    // Returns a vec of all things checked in user readable strings
+    #[must_use]
+    pub fn checked_list(&self) -> Vec<String> {
         let mut parts = Vec::new();
+
         if let Some(files) = &self.files {
             for file in &files.sorted_files() {
-                parts.push(format!("{}", file.display()));
+                let file = file.display();
+                parts.push(format!("{file}"));
             }
         }
         if self.platform_env.is_some() {
@@ -228,8 +230,7 @@ impl Display for MetadataDigest {
             parts.push(string);
         }
 
-        let out = crate::display::list_to_sentence(&parts);
-        f.write_str(&out)
+        parts
     }
 }
 
@@ -280,10 +281,8 @@ impl Display for Changed {
                     .map(|f| format!("'{}'", f.display()))
                     .collect::<Vec<String>>();
 
-                let other_string =
-                    crate::display::list_to_sentence_or_else(&other, || String::from("<empty>"));
-                let current_string =
-                    crate::display::list_to_sentence_or_else(&current, || String::from("<empty>"));
+                let other_string = SentenceList::new(&other);
+                let current_string = SentenceList::new(&current);
 
                 if *platform_env {
                     f.write_fmt(format_args!(

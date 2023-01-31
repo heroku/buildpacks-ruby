@@ -1,5 +1,102 @@
 use libcnb::Env;
-use std::ffi::OsString;
+use std::{ffi::OsString, fmt::Display};
+
+/// Takes a list and turns it into a sentence structure
+///
+/// ```rust
+/// use commons::display::SentenceList;
+///
+/// let actual =  SentenceList {
+///     list: &["raindrops", "roses", "whiskers", "kittens"],
+///     ..SentenceList::default()
+/// }.to_string();
+/// let expected = String::from("raindrops, roses, whiskers, and kittens");
+/// assert_eq!(expected, actual);
+/// ```
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct SentenceList<'a, L: AsRef<str>> {
+    pub list: &'a [L],
+    pub on_empty: String,
+    pub join_with: String,
+}
+
+impl<'a, L: AsRef<str>> SentenceList<'a, L> {
+    pub fn new(list: &'a [L]) -> Self {
+        Self {
+            list,
+            ..SentenceList::default()
+        }
+    }
+
+    #[must_use]
+    pub fn on_empty(mut self, string: String) -> Self {
+        self.on_empty = string;
+        self
+    }
+
+    #[must_use]
+    pub fn join_with(mut self, string: String) -> Self {
+        self.join_with = string;
+        self
+    }
+
+    #[must_use]
+    pub fn empty_str(mut self, str: &str) -> Self {
+        self.on_empty = String::from(str);
+        self
+    }
+
+    #[must_use]
+    pub fn join_str(mut self, str: &str) -> Self {
+        self.join_with = String::from(str);
+        self
+    }
+}
+
+impl<'a, L: AsRef<str>> Default for SentenceList<'a, L> {
+    fn default() -> Self {
+        Self {
+            list: Default::default(),
+            on_empty: String::from("empty"),
+            join_with: String::from("and"),
+        }
+    }
+}
+
+impl<'a, L: AsRef<str>> Display for SentenceList<'a, L> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let SentenceList {
+            list,
+            on_empty,
+            join_with: join_word,
+        } = self;
+
+        let total = list.len();
+
+        if total == 0 {
+            f.write_str(on_empty)?;
+        } else {
+            let mut count = 0;
+            for item in self.list {
+                count += 1;
+                let item = item.as_ref();
+                match sentence_list_item(total, count) {
+                    List::First => f.write_str(item)?,
+                    List::Item => {
+                        f.write_fmt(format_args!(", {item}"))?;
+                    }
+                    List::LastItemAnd => {
+                        f.write_fmt(format_args!(" {join_word} {item}"))?;
+                    }
+                    List::LastItemAndComma => {
+                        f.write_fmt(format_args!(", {join_word} {item}"))?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
 
 /// Transforms an env into a human readable string
 ///
@@ -26,29 +123,6 @@ pub fn env_to_sorted_string(env: &Env) -> String {
         .join("\n")
 }
 
-/// When input is empty call function, otherwise return `list_to_sentence`
-///
-/// ```rust
-/// use commons::display::list_to_sentence_or_else;
-///
-/// let mut input = vec![String::from("hello"), String::from("there")];
-/// let actual = list_to_sentence_or_else(&input, || String::from("<empty>"));
-///
-/// assert_eq!(String::from("hello and there"), actual);
-///
-/// input.retain(|_| false);
-/// let actual = list_to_sentence_or_else(&input, || String::from("<empty>"));
-///
-/// assert_eq!(String::from("<empty>"), actual);
-/// ```
-pub fn list_to_sentence_or_else(list: &[impl AsRef<str>], f: impl Fn() -> String) -> String {
-    if list.is_empty() {
-        f()
-    } else {
-        list_to_sentence(list)
-    }
-}
-
 /// Takes a list and turns it into a sentence structure
 ///
 /// ```rust
@@ -58,46 +132,32 @@ pub fn list_to_sentence_or_else(list: &[impl AsRef<str>], f: impl Fn() -> String
 /// let expected = String::from("raindrops, roses, whiskers, and kittens");
 /// assert_eq!(expected, actual);
 /// ```
+///
+/// When an empty list is used it will emit: "empty" by default. To configure
+/// use the `SentenceList` struct directly
 #[must_use]
 pub fn list_to_sentence(list: &[impl AsRef<str>]) -> String {
-    let total = list.len();
-    let mut count = 0;
-    let mut string = String::new();
-    for out in list {
-        count += 1;
-        let out = out.as_ref();
-        match sentence_list_item(total, count) {
-            SentenceList::First => string.push_str(out),
-            SentenceList::Item => {
-                string.push_str(&format!(", {out}"));
-            }
-
-            SentenceList::LastItemAnd => {
-                string.push_str(&format!(" and {out}"));
-            }
-
-            SentenceList::LastItemAndComma => {
-                string.push_str(&format!(", and {out}"));
-            }
-        }
+    SentenceList {
+        list,
+        ..SentenceList::default()
     }
-    string
+    .to_string()
 }
 
 #[derive(Debug)]
-enum SentenceList {
+enum List {
     First,
     Item,
     LastItemAnd,
     LastItemAndComma,
 }
 
-fn sentence_list_item(total: usize, count: usize) -> SentenceList {
+fn sentence_list_item(total: usize, count: usize) -> List {
     match (count == 1, count == total, count == 2) {
-        (true, _, _) => SentenceList::First,
-        (_, false, _) => SentenceList::Item,
-        (_, true, true) => SentenceList::LastItemAnd,
-        (_, true, false) => SentenceList::LastItemAndComma,
+        (true, _, _) => List::First,
+        (_, false, _) => List::Item,
+        (_, true, true) => List::LastItemAnd,
+        (_, true, false) => List::LastItemAndComma,
     }
 }
 
@@ -108,7 +168,7 @@ mod test {
     #[test]
     fn test_sentence_list() {
         let actual = list_to_sentence(&Vec::<String>::new());
-        let expected = String::new();
+        let expected = String::from("empty");
         assert_eq!(expected, actual);
 
         let actual = list_to_sentence(&["me"]);

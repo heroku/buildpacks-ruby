@@ -66,6 +66,14 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
+      - id: guard-double-publish
+        name: "Check version is unique on Docker Hub"
+        run: |
+          if docker manifest inspect "${{ env.buildpack_repo }}:${{ env.buildpack_version }}" > /dev/null; then
+            echo "Duplicate version found on dockerhub ${{ env.buildpack_repo }}:${{ env.buildpack_version }}"
+            exit 1
+          fi
+
       - id: publish-image
         name: "Publish buildpack to image registry"
         run: pack buildpack package --path "${{ env.buildpack_path }}" --publish "${{ env.buildpack_repo }}:${{ env.buildpack_version }}"

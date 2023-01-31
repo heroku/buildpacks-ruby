@@ -1,5 +1,6 @@
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use commons::{
+    display::SentenceList,
     env_command::{CommandError, EnvCommand},
     gemfile_lock::ResolvedRubyVersion,
     metadata_digest::MetadataDigest,
@@ -132,7 +133,7 @@ enum UpdateState {
     Run(String),
 
     /// Do not run 'bundle install'
-    Skip,
+    Skip(Vec<String>),
 }
 
 /// Determines if 'bundle install' should execute on a given call to `BundleInstallLatyer::update`
@@ -154,7 +155,8 @@ fn update_state(old: &BundleInstallLayerMetadata, now: &BundleInstallLayerMetada
     } else if let Some(changed) = now.digest.changed(&old.digest) {
         UpdateState::Run(format!("{changed}"))
     } else {
-        UpdateState::Skip
+        let checked = now.digest.checked_list();
+        UpdateState::Skip(checked)
     }
 }
 
@@ -185,8 +187,8 @@ impl Layer for BundleInstallLayer {
 
                 bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
             }
-            UpdateState::Skip => {
-                let checked = &metadata.digest;
+            UpdateState::Skip(checked) => {
+                let checked = SentenceList::new(&checked).join_str("or");
                 user::log_info(format!(
                     "Skipping 'bundle install', no changes found in {checked}"
                 ));

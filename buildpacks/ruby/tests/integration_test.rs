@@ -26,7 +26,7 @@ fn test_default_app() {
 
             let config = context.config.clone();
             context.rebuild(config, |rebuild_context| {
-                assert_contains!(rebuild_context.pack_stdout, "Skipping 'bundle install', no changes found in");
+                assert_contains!(rebuild_context.pack_stdout, "Skipping 'bundle install', no changes found in /workspace/Gemfile, /workspace/Gemfile.lock, or user configured environment variables");
 
                 rebuild_context.start_container(
                     ContainerConfig::new()

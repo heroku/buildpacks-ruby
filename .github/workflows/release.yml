@@ -6,7 +6,6 @@ on:
 permissions:
   contents: write
 
-
 jobs:
   release:
     name: Release heroku/ruby

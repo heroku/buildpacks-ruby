@@ -4,22 +4,20 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-regex = "1"
-thiserror = "1"
+byte-unit = "4"
 fancy-regex = "0.10"
 fs_extra = "1"
-byte-unit = "4"
-libcnb = "0.11"
-glob = "0.3"
-tempfile = "3"
-serde = "1"
-libherokubuildpack = "0.11"
 fs-err = "2"
-walkdir = "2"
+glob = "0.3"
+libcnb = "0.11"
+libherokubuildpack = "0.11"
+regex = "1"
+serde = "1"
 sha2 = "0.10"
+tempfile = "3"
+thiserror = "1"
+walkdir = "2"
 
 [dev-dependencies]
 filetime = "0.2"

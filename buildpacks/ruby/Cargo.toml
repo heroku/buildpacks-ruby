@@ -10,7 +10,7 @@ rust-version = "1.66"
 commons = { path = "../../commons" }
 flate2 = "1"
 fs-err = "2"
-indoc = "1"
+indoc = "2"
 libcnb = "0.11"
 libherokubuildpack = "0.11"
 rand = "0.8"

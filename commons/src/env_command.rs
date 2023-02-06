@@ -119,17 +119,18 @@ impl Display for NonZeroExitStatusError {
         let stdout = self.output.stdout_lossy();
         let stderr = self.output.stderr_lossy();
 
-        let mut output = format!("command: '{command}'\n");
-        output.push_str(&format!("status: {status}\n"));
+        writeln!(f, "command: {command:?}")?;
+        writeln!(f, "status: {status}")?;
 
         if self.did_stream {
-            output.push_str("stdout: contents streamed above.\n");
-            output.push_str("stderr: contents streamed above.\n");
+            f.write_str("stdout: contents streamed above.\n")?;
+            f.write_str("stderr: contents streamed above.\n")?;
         } else {
-            output.push_str(&format!("stdout:\n{stdout}\n"));
-            output.push_str(&format!("stderr:\n{stderr}\n"));
+            writeln!(f, "stdout:\n{stdout}")?;
+            writeln!(f, "stderr:\n{stderr}")?;
         };
-        write!(f, "{output}")
+
+        Ok(())
     }
 }
 

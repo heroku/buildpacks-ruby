@@ -36,7 +36,6 @@ impl std::error::Error for IoErrorAnnotation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    /// use std::process::Command;
 
     #[test]
     fn test() {

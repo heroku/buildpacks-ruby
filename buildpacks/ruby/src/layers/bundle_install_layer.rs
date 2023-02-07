@@ -339,7 +339,9 @@ fn layer_env(layer_path: &Path, app_dir: &Path, without_default: &BundleWithout)
 ///
 fn bundle_install(env: &Env) -> Result<(), CmdError> {
     // ## Run `$ bundle install`
-    let mut command = cmd::create("bundle", &["install"], env);
+
+    let bundle = "bundle";
+    let mut command = cmd::create(bundle, &["install"], env);
     let command_string = cmd::display_with_keys(
         &command,
         env,
@@ -357,6 +359,7 @@ fn bundle_install(env: &Env) -> Result<(), CmdError> {
 
     command
         .output_and_write_streams(std::io::stdout(), std::io::stderr())
+        .map_err(|error| cmd::annotate_which_problem(error, bundle.into(), env.get("PATH")))
         .map_err(cmd::os_command_error)
         .and_then(|output| cmd::check_non_zero(output, cmd::OutputState::AlreadyStreamed))
         .map_err(|error| CmdError::new(command_string, error))?;

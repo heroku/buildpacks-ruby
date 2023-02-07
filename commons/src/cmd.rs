@@ -5,6 +5,7 @@ use std::os::unix::process::ExitStatusExt;
 use std::process::Command;
 use std::process::Output;
 use std::{ffi::OsString, process::ExitStatus};
+use which_problem::Which;
 
 /// Display `Command` and deliver consistent errors
 ///
@@ -323,4 +324,33 @@ impl std::fmt::Display for CmdError {
         writeln!(f, "{source}")?;
         Ok(())
     }
+}
+
+/// Adds diagnostic information to an `std::io::Error` using `which_problem`
+#[must_use]
+pub fn annotate_which_problem(
+    source: std::io::Error,
+    program: OsString,
+    path_env: Option<OsString>,
+) -> std::io::Error {
+    let problem = Which {
+        program,
+        path_env,
+        ..Which::default()
+    }
+    .diagnose();
+
+    let annotation = match problem {
+        Ok(details) => format!("\nSystem diagnostic information:\n\n{details}"),
+        Err(error) => format!("\nInternal error while gathering dianostic information:\n\n{error}"),
+    };
+
+    annotate_io_error(source, annotation)
+}
+
+/// Returns an IO error that displays the given annotation starting on
+/// the next line.
+#[must_use]
+fn annotate_io_error(source: std::io::Error, annotation: String) -> std::io::Error {
+    crate::err::IoErrorAnnotation::new(source, annotation).into_io_error()
 }

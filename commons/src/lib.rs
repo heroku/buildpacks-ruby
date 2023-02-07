@@ -12,3 +12,5 @@ pub mod layer;
 pub mod metadata_digest;
 pub mod rake_status;
 pub mod rake_task_detect;
+
+mod err;

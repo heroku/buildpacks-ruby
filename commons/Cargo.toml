@@ -18,6 +18,7 @@ sha2 = "0.10"
 tempfile = "3"
 thiserror = "1"
 walkdir = "2"
+lazy_static = "1.4.0"
 
 [dev-dependencies]
 filetime = "0.2"

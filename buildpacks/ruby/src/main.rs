@@ -3,6 +3,7 @@
 #![allow(clippy::module_name_repetitions)]
 use crate::layers::{RubyInstallError, RubyInstallLayer};
 use commons::cache::CacheError;
+use commons::cmd::CmdError;
 use commons::env_command::CommandError;
 use commons::gem_list::GemList;
 use commons::gemfile_lock::GemfileLock;
@@ -169,7 +170,7 @@ pub(crate) enum RubyBuildpackError {
     MissingGemfileLock(std::io::Error),
     InAppDirCacheError(CacheError),
     BundleInstallDigestError(commons::metadata_digest::DigestError),
-    BundleInstallCommandError(CommandError),
+    BundleInstallCommandError(CmdError),
     RakeAssetsPrecompileFailed(CommandError),
     GemInstallBundlerCommandError(CommandError),
 }

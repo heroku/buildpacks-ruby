@@ -113,7 +113,7 @@ impl Layer for BundleDownloadLayer {
     }
 }
 
-// [derive(Debug)]
+#[derive(Debug)]
 enum State {
     NothingChanged(ResolvedBundlerVersion),
     BundlerVersionChanged(ResolvedBundlerVersion, ResolvedBundlerVersion),

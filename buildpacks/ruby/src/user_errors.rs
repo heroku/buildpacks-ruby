@@ -28,7 +28,7 @@ fn log_our_error(error: RubyBuildpackError) {
     match error {
         RubyBuildpackError::RakeDetectError(error) => user::log_error(
             "Error detecting rake tasks",
-            format! {"
+            formatdoc! {"
             The Ruby buildpack uses rake task information from your application to guide
             build logic. Without this information, the Ruby buildpack cannot continue.
 
@@ -40,7 +40,7 @@ fn log_our_error(error: RubyBuildpackError) {
         ),
         RubyBuildpackError::GemListGetError(error) => user::log_error(
             "Error detecting dependencies",
-            format! {"
+            formatdoc! {"
             The Ruby buildpack uses dependency information from your application to
             guide build logic. Without this information, the Ruby buildpack cannot
             continue.
@@ -52,7 +52,7 @@ fn log_our_error(error: RubyBuildpackError) {
         ),
         RubyBuildpackError::RubyInstallError(error) => user::log_error(
             "Error installing Ruby",
-            format! {"
+            formatdoc! {"
             Could not install the detected Ruby version.
 
             Details:
@@ -62,7 +62,7 @@ fn log_our_error(error: RubyBuildpackError) {
         ),
         RubyBuildpackError::MissingGemfileLock(error) => user::log_error(
             "Error: Gemfile.lock required",
-            format! {"
+            formatdoc! {"
             To deploy a Ruby application, a Gemfile.lock file is required in the
             root of your application, but none was found.
 
@@ -76,7 +76,7 @@ fn log_our_error(error: RubyBuildpackError) {
         ),
         RubyBuildpackError::InAppDirCacheError(error) => user::log_error(
             "Internal cache error",
-            format! {"
+            formatdoc! {"
             An internal error occured while caching files.
 
             Details:
@@ -86,7 +86,7 @@ fn log_our_error(error: RubyBuildpackError) {
         ),
         RubyBuildpackError::BundleInstallDigestError(error) => user::log_error(
             "Could not generate digest",
-            format! {"
+            formatdoc! {"
             To provide the fastest possible install experience the Ruby buildpack
             converts Gemfile and Gemfile.lock into a cryptographic digest to be
             used in cache invalidation.
@@ -99,7 +99,7 @@ fn log_our_error(error: RubyBuildpackError) {
         ),
         RubyBuildpackError::BundleInstallCommandError(error) => user::log_error(
             "Error installing bundler",
-            format! {"
+            formatdoc! {"
             Installation of bundler failed. Bundler is the package managment
             library for Ruby. Bundler is needed to install your application's dependencies
             listed in the Gemfile.
@@ -111,7 +111,7 @@ fn log_our_error(error: RubyBuildpackError) {
         ),
         RubyBuildpackError::RakeAssetsPrecompileFailed(error) => user::log_error(
             "Asset compilation failed",
-            format! {"
+            formatdoc! {"
             An error occured while compiling assets via rake command.
 
             Command failed:
@@ -121,7 +121,7 @@ fn log_our_error(error: RubyBuildpackError) {
         ),
         RubyBuildpackError::GemInstallBundlerCommandError(error) => user::log_error(
             "Installing gems failed",
-            format! {"
+            formatdoc! {"
             Could not install gems to the system via bundler. Gems are dependencies
             your application listed in the Gemfile and resolved in the Gemfile.lock.
 

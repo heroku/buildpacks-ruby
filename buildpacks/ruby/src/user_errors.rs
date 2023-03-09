@@ -26,6 +26,17 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
 
 fn log_our_error(error: RubyBuildpackError) {
     match error {
+        RubyBuildpackError::UseSystemRubyValidateError(error) => user::log_error(
+            "Error validating system ruby",
+            formatdoc! {"
+            The version of ruby on the system could not be validated.
+            The build cannot continue.
+
+            Details:
+
+            {error}
+            "},
+        ),
         RubyBuildpackError::RakeDetectError(error) => user::log_error(
             "Error detecting rake tasks",
             format! {"

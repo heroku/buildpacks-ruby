@@ -46,6 +46,9 @@ Once an application has passed the detect phase, the build phase will execute to
   - Given a `Gemfile.lock` without an explicit Ruby version we will install a default Ruby version.
     - When the default value changes, applications without an explicit Ruby version will receive the updated default Ruby version on their next deployment.
   - We will reinstall Ruby if your stack changes.
+  - We may skip ruby binary instalation if `HEROKU_USE_SYSTEM_RUBY` environment variable is set by a user or another prior buildpack.
+    - We may change `HEROKU_USE_SYSTEM_RUBY` behavior at any time [experimental interface]
+    - We cannot guarantee the rest of the application contract when `HEROKU_USE_SYSTEM_RUBY` is set. That means we may close any issues that cannot be reproduced without `HEROKU_USE_SYSTEM_RUBY` set.
 - Bundler version
   - Given a `Gemfile.lock` with an explicit Bundler version we will install that bundler version.
   - Given a `Gemfile.lock` without an explicit Bundler version we will install a default Ruby version.
@@ -56,7 +59,7 @@ Once an application has passed the detect phase, the build phase will execute to
       - Gemfile
       - Gemfile.lock
       - User configurable environment variables
-    - [TODO] To ensure that `bundle install` is run on every build set `HEROKU_SKIP_BUNDLE_DIGEST=1`
+    - We will always run `bundle install` on every build if `HEROKU_SKIP_BUNDLE_DIGEST=1` is set.
   - We will run `bundle clean` after a successful `bundle install` via setting `BUNDLE_CLEAN=1` environment variable.
   - We will cache the contents of your gem dependencies.
       - We will invalidate the dependency cache if your stack changes.

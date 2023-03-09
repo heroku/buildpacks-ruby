@@ -3,11 +3,12 @@
 #![allow(clippy::module_name_repetitions)]
 use crate::layers::{RubyInstallError, RubyInstallLayer};
 use commons::cache::CacheError;
-use commons::env_command::CommandError;
+use commons::env_command::{CommandError, EnvCommand};
 use commons::gem_list::GemList;
 use commons::gemfile_lock::GemfileLock;
 use commons::rake_task_detect::RakeError;
 use core::str::FromStr;
+use indoc::formatdoc;
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
 use libcnb::data::launch::LaunchBuilder;
@@ -87,15 +88,46 @@ impl Buildpack for RubyBuildpack {
 
         // ## Install executable ruby version
         let section = header("Installing Ruby");
-        let ruby_layer = context //
-            .handle_layer(
-                layer_name!("ruby"),
-                RubyInstallLayer {
-                    version: ruby_version.clone(),
-                },
-            )?;
-        env = ruby_layer.env.apply(Scope::Build, &env);
-        section.done();
+        let use_system_ruby_key = "HEROKU_USE_SYSTEM_RUBY";
+        if let Some(value) = env.get(&use_system_ruby_key) {
+            user::log_warning(
+                "Skipping Ruby installation",
+                formatdoc! {"
+                Skipping Ruby installation because environment variable {use_system_ruby_key}={value:?} is set.
+
+                This setting tells the Ruby buildpack to skip Ruby installation and to use the Ruby version
+                previously installed (either via the host operating system or via a prior buildpack).
+
+                Behavior that occurs in this buildpack after this warning message are not supported.
+                To report a bug or receive support for any behavior beyond this point, you must reproduce
+                the problem without using this env var setting.
+
+                This setting is experimental, it may be removed in the future.
+            "},
+            );
+            user::log_info("Confirming Ruby is installed before continuing:");
+            EnvCommand::new("which", &["ruby"], &env)
+                .stream()
+                .map_err(RubyBuildpackError::UseSystemRubyValidateError)?;
+            user::log_info("Status code is zero, Ruby was found on PATH");
+
+            user::log_info("Determining Ruby version");
+            EnvCommand::new("ruby", &["-v"], &env)
+                .stream()
+                .map_err(RubyBuildpackError::UseSystemRubyValidateError)?;
+
+            user::log_info("Good luck");
+        } else {
+            let ruby_layer = context //
+                .handle_layer(
+                    layer_name!("ruby"),
+                    RubyInstallLayer {
+                        version: ruby_version.clone(),
+                    },
+                )?;
+            env = ruby_layer.env.apply(Scope::Build, &env);
+            section.done();
+        }
 
         // ## Setup bundler
         let section = header("Installing Bundler");
@@ -172,6 +204,7 @@ pub(crate) enum RubyBuildpackError {
     BundleInstallCommandError(CommandError),
     RakeAssetsPrecompileFailed(CommandError),
     GemInstallBundlerCommandError(CommandError),
+    UseSystemRubyValidateError(CommandError),
 }
 
 impl From<RubyBuildpackError> for libcnb::Error<RubyBuildpackError> {

@@ -1,7 +1,7 @@
 use indoc::formatdoc;
 use libherokubuildpack::log as user;
 
-use crate::RubyBuildpackError;
+use crate::{ruby_version::RubyVersionError, RubyBuildpackError};
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
     match cause(err) {
@@ -24,19 +24,42 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
     };
 }
 
+#[allow(clippy::too_many_lines)]
 fn log_our_error(error: RubyBuildpackError) {
     match error {
-        RubyBuildpackError::UseSystemRubyValidateError(error) => user::log_error(
-            "Error validating system ruby",
-            formatdoc! {"
-            The version of ruby on the system could not be validated.
-            The build cannot continue.
+        RubyBuildpackError::RubyVersionError(error) => match error {
+            RubyVersionError::JRubyMissingRubyVersion(engine_version) => user::log_error(
+                "JRuby specified without a Ruby version",
+                formatdoc! {"
+                We found JRuby version {engine_version} specified
+                in your Gemfile.lock, but no associated Ruby version.
 
-            Details:
+                Each JRuby version implements one or more specifications
+                of Ruby. The buildpack cannot continue.
 
-            {error}
+                Ensure that the `Gemfile.lock` in the root of your project
+                is valid.
+
+                Help: Verify you can run `bundle install` against your application
+                before trying again.
+                "},
+            ),
+            RubyVersionError::SystemRubyDetectionFailed(details) => user::log_error(
+                "Error validating system ruby",
+                formatdoc! {"
+                Before continuing the buildpack needs to ensure there is a version
+                of ruby on the system. The buildpack checked for a ruby version by
+                running a command on the system.
+
+                The check command failed and the buildpack cannot continue:
+
+                {details}
+
+                Help: Verify that a ruby version is being correctly installed
+                on the PATH  before trying again.
             "},
-        ),
+            ),
+        },
         RubyBuildpackError::RakeDetectError(error) => user::log_error(
             "Error detecting rake tasks",
             format! {"

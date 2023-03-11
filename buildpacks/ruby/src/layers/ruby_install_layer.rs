@@ -1,5 +1,5 @@
+use crate::ruby_version::RubyVersion;
 use crate::{RubyBuildpack, RubyBuildpackError};
-use commons::gemfile_lock::ResolvedRubyVersion;
 use flate2::read::GzDecoder;
 use libcnb::build::BuildContext;
 use libcnb::data::buildpack::StackId;
@@ -28,13 +28,13 @@ use url::Url;
 ///
 #[derive(PartialEq, Eq)]
 pub(crate) struct RubyInstallLayer {
-    pub version: ResolvedRubyVersion,
+    pub version: RubyVersion,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct RubyInstallLayerMetadata {
     pub stack: StackId,
-    pub version: ResolvedRubyVersion,
+    pub version: RubyVersion,
 }
 
 impl Layer for RubyInstallLayer {
@@ -122,9 +122,9 @@ fn cache_state(old: RubyInstallLayerMetadata, now: RubyInstallLayerMetadata) -> 
 
 #[derive(Debug)]
 enum Changed {
-    Nothing(ResolvedRubyVersion),
+    Nothing(RubyVersion),
     Stack(StackId, StackId),
-    RubyVersion(ResolvedRubyVersion, ResolvedRubyVersion),
+    RubyVersion(RubyVersion, RubyVersion),
 }
 
 fn download_url(stack: &StackId, version: impl std::fmt::Display) -> Result<Url, RubyInstallError> {
@@ -204,7 +204,7 @@ mod tests {
     fn metadata_guard() {
         let metadata = RubyInstallLayerMetadata {
             stack: stack_id!("heroku-22"),
-            version: ResolvedRubyVersion(String::from("3.1.3")),
+            version: RubyVersion(String::from("3.1.3")),
         };
 
         let actual = toml::to_string(&metadata).unwrap();

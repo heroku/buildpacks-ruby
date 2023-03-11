@@ -1,28 +1,32 @@
-#![warn(unused_crate_dependencies)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
-use crate::layers::{RubyInstallError, RubyInstallLayer};
+use crate::layers::RubyInstallError;
+use bundler_version::BundleWithout;
 use commons::cache::CacheError;
-use commons::env_command::{CommandError, EnvCommand};
+use commons::display::SentenceList;
+use commons::env_command::CommandError;
 use commons::gem_list::GemList;
-use commons::gemfile_lock::GemfileLock;
 use commons::rake_task_detect::RakeError;
-use core::str::FromStr;
-use indoc::formatdoc;
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
 use libcnb::data::launch::LaunchBuilder;
-use libcnb::data::layer_name;
 use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
 use libcnb::generic::{GenericMetadata, GenericPlatform};
-use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 use libherokubuildpack::log as user;
 use regex::Regex;
+use ruby_version::RubyVersionError;
 use std::fmt::Display;
+use std::time::Instant;
 
+#[macro_use]
+extern crate lazy_static;
+
+mod bundler_version;
+mod gemfile_lock;
 mod layers;
+mod ruby_version;
 mod steps;
 mod user_errors;
 
@@ -30,6 +34,9 @@ mod user_errors;
 use libcnb_test as _;
 
 pub(crate) struct RubyBuildpack;
+
+/// List of known valid stacks that the buildpack supports.
+const KNOWN_SUPPORTED_STACKS: &[&str] = &["heroku-20", "heroku-22"];
 
 impl Buildpack for RubyBuildpack {
     type Platform = GenericPlatform;
@@ -63,115 +70,63 @@ impl Buildpack for RubyBuildpack {
     }
 
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
-        let total = std::time::Instant::now();
-        let section = header("Heroku Ruby buildpack");
-        user::log_info("Running Heroku Ruby buildpack");
-        section.done_quiet();
+        let build_time = header("Heroku Ruby buildpack").timer();
+        user::log_info("Running");
 
-        let section = header("Setting environment");
-        user::log_info("Setting default environment values");
         // ## Set default environment
+        let project_setup = header("Preparing build");
+        let lockfile = fs_err::read_to_string(context.app_dir.join("Gemfile.lock"))
+            .map_err(RubyBuildpackError::MissingGemfileLock)?;
+
+        log_stack_support(&context);
+
+        user::log_info("Setting default environment values");
         let (mut env, store) =
             crate::steps::default_env(&context, &context.platform.env().clone())?;
-        section.done();
 
-        // Gather static information about project
-        let section = header("Detecting versions");
-        let lockfile_contents = fs_err::read_to_string(context.app_dir.join("Gemfile.lock"))
-            .map_err(RubyBuildpackError::MissingGemfileLock)?;
-        let gemfile_lock = GemfileLock::from_str(&lockfile_contents).expect("Infallible");
-        let bundler_version = gemfile_lock.resolve_bundler("2.4.5");
-        let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
-        user::log_info(format!("Detected ruby: {ruby_version}"));
-        user::log_info(format!("Detected bundler: {bundler_version}"));
-        section.done();
+        let ruby = ruby_version::from_lockfile(&lockfile, &env)
+            .map_err(RubyBuildpackError::RubyVersionError)?;
+        let bundler = bundler_version::from_lockfile(&lockfile);
+        project_setup.done();
 
-        // ## Install executable ruby version
-        let section = header("Installing Ruby");
-        let use_system_ruby_key = "HEROKU_USE_SYSTEM_RUBY";
-        if let Some(value) = env.get(&use_system_ruby_key) {
-            user::log_warning(
-                "Skipping Ruby installation",
-                formatdoc! {"
-                Skipping Ruby installation because environment variable {use_system_ruby_key}={value:?} is set.
+        let ruby_install = header("Installing Ruby");
+        env = ruby_version::download(&ruby, &context, &env)?;
+        ruby_install.done();
 
-                This setting tells the Ruby buildpack to skip Ruby installation and to use the Ruby version
-                previously installed (either via the host operating system or via a prior buildpack).
-
-                Behavior that occurs in this buildpack after this warning message are not supported.
-                To report a bug or receive support for any behavior beyond this point, you must reproduce
-                the problem without using this env var setting.
-
-                This setting is experimental, it may be removed in the future.
-            "},
-            );
-            user::log_info("Confirming Ruby is installed before continuing:");
-            EnvCommand::new("which", &["ruby"], &env)
-                .stream()
-                .map_err(RubyBuildpackError::UseSystemRubyValidateError)?;
-            user::log_info("Status code is zero, Ruby was found on PATH");
-
-            user::log_info("Determining Ruby version");
-            EnvCommand::new("ruby", &["-v"], &env)
-                .stream()
-                .map_err(RubyBuildpackError::UseSystemRubyValidateError)?;
-
-            user::log_info("Good luck");
-        } else {
-            let ruby_layer = context //
-                .handle_layer(
-                    layer_name!("ruby"),
-                    RubyInstallLayer {
-                        version: ruby_version.clone(),
-                    },
-                )?;
-            env = ruby_layer.env.apply(Scope::Build, &env);
-            section.done();
-        }
-
-        // ## Setup bundler
-        let section = header("Installing Bundler");
-        env = crate::steps::bundler_download(bundler_version, &context, &env)?;
-        section.done();
-
-        // ## Bundle install
-        let section = header("Installing dependencies");
-        env = crate::steps::bundle_install(
+        let bundle_install = header("Installing dependencies");
+        env = bundler_version::download(bundler, &context, &env)?;
+        env = bundler_version::install_dependencies(
             &context,
             BundleWithout(String::from("development:test")),
-            ruby_version,
+            ruby.cache_key(),
             &env,
         )?;
-        section.done();
+        bundle_install.done();
 
-        // ## Detect gems
         let section = header("Detecting gems");
         user::log_info("Detecting gems via `bundle list`");
         let gem_list =
             GemList::from_bundle_list(&env).map_err(RubyBuildpackError::GemListGetError)?;
         section.done();
 
-        let section = header("Setting default process(es)");
-        let default_process = steps::get_default_process(&context, &gem_list);
-        section.done();
-
-        // ## Assets install
-        let section = header("Rake task detection");
+        let detect_rake_tasks = header("Rake tasks");
         let rake_detect = crate::steps::detect_rake_tasks(&gem_list, &context, &env)?;
-        section.done();
+        detect_rake_tasks.done();
 
         if let Some(rake_detect) = rake_detect {
-            let section = header("Rake asset installation");
+            let assets_precompile = header("Rake asset installation");
             crate::steps::rake_assets_install(&context, &env, &rake_detect)?;
-            section.done();
+            assets_precompile.done();
         }
 
-        let duration = total.elapsed();
-        user::log_header("Heroku Ruby buildpack finished");
-        user::log_info(format!(
-            "Finished ({} total elapsed time)\n",
-            DisplayDuration::new(&duration)
-        ));
+        let find_process_types = header("Setting default process(es)");
+        let default_process = steps::get_default_process(&context, &gem_list);
+        find_process_types.done();
+
+        user::log_header("Heroku Ruby buildpack");
+        let build_time = build_time.elapsed();
+        let build_duration = DisplayDuration::new(&build_time);
+        user::log_info(format!("Finished ({build_duration} total elapsed time)\n"));
 
         if let Some(default_process) = default_process {
             BuildResultBuilder::new()
@@ -204,7 +159,7 @@ pub(crate) enum RubyBuildpackError {
     BundleInstallCommandError(CommandError),
     RakeAssetsPrecompileFailed(CommandError),
     GemInstallBundlerCommandError(CommandError),
-    UseSystemRubyValidateError(CommandError),
+    RubyVersionError(RubyVersionError),
 }
 
 impl From<RubyBuildpackError> for libcnb::Error<RubyBuildpackError> {
@@ -218,19 +173,21 @@ buildpack_main!(RubyBuildpack);
 /// Use for logging a duration
 #[derive(Debug)]
 struct LogSectionWithTime {
-    start: std::time::Instant,
+    start: Instant,
 }
 
 impl LogSectionWithTime {
-    fn done(&self) {
+    fn done(self) {
         let diff = &self.start.elapsed();
         let duration = DisplayDuration::new(diff);
 
         user::log_info(format!("Done ({duration})"));
     }
 
-    #[allow(clippy::unused_self)]
-    fn done_quiet(&self) {}
+    #[must_use]
+    fn timer(self) -> Instant {
+        self.start
+    }
 }
 
 /// Prints out a header and ensures a done section is printed
@@ -241,7 +198,7 @@ impl LogSectionWithTime {
 fn header(message: &str) -> LogSectionWithTime {
     user::log_header(message);
 
-    let start = std::time::Instant::now();
+    let start = Instant::now();
 
     LogSectionWithTime { start }
 }
@@ -290,12 +247,20 @@ impl Display for DisplayDuration<'_> {
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq, Eq)]
-pub(crate) struct BundleWithout(String);
-
-impl BundleWithout {
-    fn as_str(&self) -> &str {
-        &self.0
+fn log_stack_support(context: &BuildContext<RubyBuildpack>) {
+    let stack_string = context.stack_id.to_string();
+    if KNOWN_SUPPORTED_STACKS.contains(&stack_string.as_str()) {
+        user::log_info(format!(
+            "Detected using stack {stack_string}, this is a known supported stack."
+        ));
+    } else {
+        user::log_info(format!(
+            "Detected using stack {stack_string}, support is unknown. Known stacks: {known_stacks}",
+            known_stacks = SentenceList {
+                list: KNOWN_SUPPORTED_STACKS,
+                ..SentenceList::default()
+            }
+        ));
     }
 }
 

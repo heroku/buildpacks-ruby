@@ -9,10 +9,7 @@ description = "Official Heroku buildpack for using Ruby to target Cloud Native B
 keywords = ["ruby", "rails"]
 
 [[stacks]]
-id = "heroku-20"
-
-[[stacks]]
-id = "heroku-22"
+id = "*" # While this MAY work on any stack, only non-EOL heroku stacks are supported.
 
 [[buildpack.licenses]]
 type = "BSD-3-Clause"

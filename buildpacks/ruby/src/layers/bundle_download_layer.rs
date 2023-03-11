@@ -1,7 +1,7 @@
+use crate::bundler_version::BundlerVersion;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use commons::env_command::EnvCommand;
-use commons::gemfile_lock::ResolvedBundlerVersion;
 use libcnb::build::BuildContext;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
@@ -13,7 +13,7 @@ use std::path::Path;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct BundleDownloadLayerMetadata {
-    version: ResolvedBundlerVersion,
+    version: BundlerVersion,
 }
 
 /// # Install the bundler gem
@@ -24,7 +24,7 @@ pub(crate) struct BundleDownloadLayerMetadata {
 /// `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
 pub(crate) struct BundleDownloadLayer {
     pub env: Env,
-    pub version: ResolvedBundlerVersion,
+    pub version: BundlerVersion,
 }
 
 impl Layer for BundleDownloadLayer {
@@ -115,8 +115,8 @@ impl Layer for BundleDownloadLayer {
 
 // [derive(Debug)]
 enum State {
-    NothingChanged(ResolvedBundlerVersion),
-    BundlerVersionChanged(ResolvedBundlerVersion, ResolvedBundlerVersion),
+    NothingChanged(BundlerVersion),
+    BundlerVersionChanged(BundlerVersion, BundlerVersion),
 }
 
 fn cache_state(old: BundleDownloadLayerMetadata, now: BundleDownloadLayerMetadata) -> State {
@@ -138,7 +138,7 @@ mod test {
     #[test]
     fn metadata_guard() {
         let metadata = BundleDownloadLayerMetadata {
-            version: ResolvedBundlerVersion(String::from("2.3.6")),
+            version: BundlerVersion(String::from("2.3.6")),
         };
 
         let actual = toml::to_string(&metadata).unwrap();

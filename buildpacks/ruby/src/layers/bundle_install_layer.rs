@@ -1,8 +1,9 @@
-use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
+use crate::{
+    bundler_version::BundleWithout, ruby_version::RubyCacheKey, RubyBuildpack, RubyBuildpackError,
+};
 use commons::{
     display::SentenceList,
     env_command::{CommandError, EnvCommand},
-    gemfile_lock::ResolvedRubyVersion,
     metadata_digest::MetadataDigest,
 };
 use libcnb::{
@@ -30,13 +31,13 @@ const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
 pub(crate) struct BundleInstallLayer {
     pub env: Env,
     pub without: BundleWithout,
-    pub ruby_version: ResolvedRubyVersion,
+    pub ruby_version: RubyCacheKey,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
 pub(crate) struct BundleInstallLayerMetadata {
     stack: StackId,
-    ruby_version: ResolvedRubyVersion,
+    ruby_version: RubyCacheKey,
     force_bundle_install_key: String,
 
     /// A struct that holds the cryptographic hash of components that can
@@ -255,10 +256,8 @@ enum Changed {
     /// When that happens we must invalidate native dependency gems
     /// because they're linked to a specific compiled version of Ruby.
     /// TODO: Only clear native dependencies instead of the whole cache
-    RubyVersion(ResolvedRubyVersion, ResolvedRubyVersion), // (old, now)
+    RubyVersion(RubyCacheKey, RubyCacheKey), // (old, now)
 }
-
-// Compare the old metadata to current metadata to determine the state of the
 // cache. Based on that state, we can log and determine `ExistingLayerStrategy`
 fn cache_state(old: BundleInstallLayerMetadata, now: BundleInstallLayerMetadata) -> Changed {
     let BundleInstallLayerMetadata {
@@ -442,7 +441,7 @@ GEM_PATH=layer_path
 
         let metadata = BundleInstallLayerMetadata {
             stack: stack_id!("heroku-22"),
-            ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
+            ruby_version: RubyCacheKey(String::from("3.1.3")),
             force_bundle_install_key: String::from("v1"),
             digest: MetadataDigest::new_env_files(
                 &context.platform,

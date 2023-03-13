@@ -180,7 +180,7 @@ dependencies = [
  "sha2",
  "tempfile",
  "thiserror",
- "toml 0.7.1",
+ "toml 0.7.2",
  "walkdir",
 ]
 
@@ -470,7 +470,7 @@ dependencies = [
  "tar",
  "tempfile",
  "thiserror",
- "toml 0.7.1",
+ "toml 0.7.2",
  "ureq",
  "url",
 ]
@@ -624,7 +624,7 @@ dependencies = [
  "libcnb-proc-macros",
  "serde",
  "thiserror",
- "toml 0.7.1",
+ "toml 0.7.2",
 ]
 
 [[package]]
@@ -637,7 +637,7 @@ dependencies = [
  "libcnb-proc-macros",
  "serde",
  "thiserror",
- "toml 0.7.1",
+ "toml 0.7.2",
 ]
 
 [[package]]
@@ -696,7 +696,7 @@ dependencies = [
  "tar",
  "termcolor",
  "thiserror",
- "toml 0.7.1",
+ "toml 0.7.2",
  "ureq",
 ]
 
@@ -734,15 +734,6 @@ dependencies = [
  "log",
  "wasi",
  "windows-sys",
-]
-
-[[package]]
-name = "nom8"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae01545c9c7fc4486ab7debaf2aad7003ac19431791868fb2e8066df97fad2f8"
-dependencies = [
- "memchr",
 ]
 
 [[package]]
@@ -1204,9 +1195,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "772c1426ab886e7362aedf4abc9c0d1348a979517efedfc25862944d10137af0"
+checksum = "f7afcae9e3f0fe2c370fd4657108972cbb2fa9db1b9f84849cefd80741b01cb6"
 dependencies = [
  "serde",
  "serde_spanned",
@@ -1225,15 +1216,15 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.19.1"
+version = "0.19.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90a238ee2e6ede22fb95350acc78e21dc40da00bb66c0334bde83de4ed89424e"
+checksum = "7082a95d48029677a28f181e5f6422d0c8339ad8396a39d3f33d62a90c1f6c30"
 dependencies = [
  "indexmap",
- "nom8",
  "serde",
  "serde_spanned",
  "toml_datetime",
+ "winnow",
 ]
 
 [[package]]
@@ -1548,6 +1539,15 @@ name = "windows_x86_64_msvc"
 version = "0.42.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "447660ad36a13288b1db4d4248e857b510e8c3a225c822ba4fb748c0aafecffd"
+
+[[package]]
+name = "winnow"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee7b2c67f962bf5042bfd8b6a916178df33a26eec343ae064cb8e069f638fa6f"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "xattr"

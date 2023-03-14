@@ -1,6 +1,8 @@
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use commons::{
-    cmd, cmd::CmdError, display::SentenceList, gemfile_lock::ResolvedRubyVersion,
+    cute_cmd::{self, cute_name_with_env, CuteCmd, CuteCmdError},
+    display::SentenceList,
+    gemfile_lock::ResolvedRubyVersion,
     metadata_digest::MetadataDigest,
 };
 use libcnb::{
@@ -10,7 +12,6 @@ use libcnb::{
     layer_env::{LayerEnv, ModificationBehavior, Scope},
     Env,
 };
-use libherokubuildpack::command::CommandExt;
 use libherokubuildpack::log as user;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -337,32 +338,27 @@ fn layer_env(layer_path: &Path, app_dir: &Path, without_default: &BundleWithout)
 ///
 /// When the 'bundle install' command fails this function returns an error.
 ///
-fn bundle_install(env: &Env) -> Result<(), CmdError> {
+fn bundle_install(env: &Env) -> Result<(), CuteCmdError> {
     // ## Run `$ bundle install`
 
-    let bundle = "bundle";
-    let mut command = cmd::create(bundle, &["install"], env);
-    let command_string = cmd::display_with_keys(
-        &command,
-        env,
-        [
-            "BUNDLE_BIN",
-            "BUNDLE_CLEAN",
-            "BUNDLE_DEPLOYMENT",
-            "BUNDLE_GEMFILE",
-            "BUNDLE_PATH",
-            "BUNDLE_WITHOUT",
-        ],
-    );
+    let mut command = cute_cmd::plain("bundle", &["install"], env);
 
-    user::log_info(format!("\nRunning command:\n$ {command_string}"));
-
-    command
-        .output_and_write_streams(std::io::stdout(), std::io::stderr())
-        .map_err(|error| cmd::annotate_which_problem(error, bundle.into(), env.get("PATH")))
-        .map_err(cmd::os_command_error)
-        .and_then(|output| cmd::check_non_zero(output, cmd::OutputState::AlreadyStreamed))
-        .map_err(|error| CmdError::new(command_string, error))?;
+    CuteCmd::new_with(&mut command, |command| {
+        cute_name_with_env(
+            command,
+            [
+                "BUNDLE_BIN",
+                "BUNDLE_CLEAN",
+                "BUNDLE_DEPLOYMENT",
+                "BUNDLE_GEMFILE",
+                "BUNDLE_PATH",
+                "BUNDLE_WITHOUT",
+            ],
+        )
+    })
+    .hello(|name| user::log_info(format!("\nRunning command:\n$ {name}")))
+    .stream()
+    .to_result()?;
 
     Ok(())
 }

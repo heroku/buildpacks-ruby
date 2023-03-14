@@ -2,7 +2,7 @@
 #![warn(clippy::pedantic)]
 
 pub mod cache;
-pub mod cmd;
+pub mod cute_cmd;
 pub mod display;
 pub mod env_command;
 pub mod gem_list;

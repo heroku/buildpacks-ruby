@@ -36,6 +36,7 @@ impl Display for CuteCmd<'_> {
         f.write_str(&self.name)
     }
 }
+
 impl<'a> CuteCmd<'a> {
     #[must_use]
     pub fn new_with(
@@ -338,4 +339,75 @@ pub fn cute_name_with_env(
         .collect::<Vec<(OsString, OsString)>>();
 
     display_with_keys(cmd, env, keys)
+}
+
+// Seemingly un-needed. I'm asserting that Command behaves like I think
+// it will
+#[cfg(test)]
+mod command_tests {
+    use super::*;
+
+    #[test]
+    fn assert_envs_behavior_for_command() {
+        let mut cmd = Command::new("yolo");
+        cmd.envs([("key", "value")]);
+
+        let found = cmd.get_envs().find(|(key, _)| key == &OsStr::new("key"));
+        assert!(found.is_some())
+    }
+
+    #[test]
+    fn assert_env_clear() {
+        // let mut cmd = Command::new("env");
+
+        // println!("{:#?}", cmd);
+        // let out = cmd.output().unwrap();
+        // let before = String::from_utf8_lossy(&out.stdout);
+
+        // cmd.env_clear();
+
+        // println!("{:#?}", cmd.);
+
+        // let out = cmd.output().unwrap();
+        // let after = String::from_utf8_lossy(&out.stdout);
+
+        // assert_eq!(before, after);
+    }
+
+    #[test]
+    fn assert_env_remove_sets_a_get_env_to_none() {
+        std::env::set_var("YOLO", "from_system");
+
+        let mut cmd = Command::new("env");
+
+        cmd.env_remove("YOLO");
+
+        let out = cmd.output().unwrap();
+        let system_out = String::from_utf8_lossy(&out.stdout);
+        println!("{system_out}");
+        assert!(system_out.contains("YOLO=from_system"));
+
+        cmd.env("YOLO", "from_method");
+
+        let out = cmd.output().unwrap();
+        let method_out = String::from_utf8_lossy(&out.stdout);
+        println!("{method_out}");
+        assert!(method_out.contains("YOLO=from_method"));
+
+        let found = cmd.get_envs().find(|(k, _)| k == &OsStr::new("YOLO"));
+        assert_eq!(
+            Some((OsStr::new("YOLO"), Some(OsStr::new("from_method")))),
+            found
+        );
+
+        cmd.env_remove("YOLO");
+
+        let found = cmd.get_envs().find(|(k, _)| k == &OsStr::new("YOLO"));
+        assert_eq!(Some((OsStr::new("YOLO"), None)), found);
+
+        let out = cmd.output().unwrap();
+        let env_remove_out = String::from_utf8_lossy(&out.stdout);
+        println!("{env_remove_out}");
+        assert!(!env_remove_out.contains("YOLO"));
+    }
 }

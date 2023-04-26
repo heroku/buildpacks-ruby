@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Commons: EnvCommand removed, replaced with fun_run (https://github.com/heroku/buildpacks-ruby/pull/139)
+
 ## [2.0.0] 2023/31/01
 
 - Initial version of Ruby buildpack in Rust (https://github.com/heroku/buildpacks-ruby/pull/93)

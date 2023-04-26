@@ -361,7 +361,7 @@ fn bundle_install(env: &Env) -> Result<(), CmdError> {
         .envs(env)
         .name_and_then(display_with_env, |name, cmd| {
             let path_env = env.get("PATH");
-            user::log_info(format!("\nRunning command:\n$ {name}"));
+            user::log_info(format!("Running  $ {name}"));
 
             cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())
                 .map_err(|error| fun_run::annotate_which_problem(error, cmd, path_env))

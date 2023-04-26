@@ -4,6 +4,9 @@ use std::process::Command;
 use std::process::Output;
 use which_problem::Which;
 
+#[cfg(test)]
+use libherokubuildpack as _;
+
 /// The `fun_run` module is designed to make running commands more fun for you
 /// and your users.
 ///

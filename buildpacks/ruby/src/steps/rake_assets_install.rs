@@ -1,11 +1,14 @@
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use commons::cache::{mib, AppCacheCollection, CacheConfig, KeepPath};
-use commons::env_command::{CommandError, EnvCommand};
+use commons::fun_run::CmdError;
+use commons::fun_run::{self, CommandNameAndThen};
 use commons::rake_task_detect::RakeDetect;
 use libcnb::build::BuildContext;
 use libcnb::Env;
+use libherokubuildpack::command::CommandExt;
 use libherokubuildpack::log as user;
+use std::process::Command;
 
 pub(crate) fn rake_assets_install(
     context: &BuildContext<RubyBuildpack>,
@@ -59,35 +62,42 @@ pub(crate) fn rake_assets_install(
     Ok(())
 }
 
-fn run_rake_assets_precompile(env: &Env) -> Result<(), CommandError> {
-    let command = EnvCommand::new(
-        "bundle",
-        &["exec", "rake", "assets:precompile", "--trace"],
-        env,
-    );
-    user::log_info(format!("\nRunning command:\n$  {command}"));
+fn run_rake_assets_precompile(env: &Env) -> Result<(), CmdError> {
+    Command::new("bundle")
+        .args(["exec", "rake", "assets:precompile", "--trace"])
+        .env_clear()
+        .envs(env)
+        .name_and_then(fun_run::display, |name, cmd| {
+            user::log_info(format!("Running  $ {name}"));
 
-    command.stream()?;
+            cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())
+                .map_err(|error| fun_run::annotate_which_problem(error, cmd, env.get("PATH")))
+                .map_err(|error| fun_run::on_system_error(name.clone(), error))
+                .and_then(|output| fun_run::nonzero_streamed(name.clone(), output))
+        })?;
 
     Ok(())
 }
 
-fn run_rake_assets_precompile_with_clean(env: &Env) -> Result<(), CommandError> {
-    let command = EnvCommand::new(
-        "bundle",
-        &[
+fn run_rake_assets_precompile_with_clean(env: &Env) -> Result<(), CmdError> {
+    Command::new("bundle")
+        .args([
             "exec",
             "rake",
             "assets:precompile",
             "assets:clean",
             "--trace",
-        ],
-        env,
-    );
+        ])
+        .env_clear()
+        .envs(env)
+        .name_and_then(fun_run::display, |name, cmd| {
+            user::log_info(format!("Running  $ {name}"));
 
-    user::log_info(format!("\nRunning command:\n$ {command}"));
-
-    command.stream()?;
+            cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())
+                .map_err(|error| fun_run::annotate_which_problem(error, cmd, env.get("PATH")))
+                .map_err(|error| fun_run::on_system_error(name.clone(), error))
+                .and_then(|output| fun_run::nonzero_streamed(name.clone(), output))
+        })?;
 
     Ok(())
 }

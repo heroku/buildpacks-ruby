@@ -3,7 +3,6 @@
 
 pub mod cache;
 pub mod display;
-pub mod env_command;
 pub mod fun_run;
 pub mod gem_list;
 pub mod gem_version;

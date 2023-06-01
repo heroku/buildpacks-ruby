@@ -18,10 +18,10 @@ jobs:
 
       - id: setup-pack
         name: "Setup pack"
-        uses: buildpacks/github-actions/setup-pack@v5.1.0
+        uses: buildpacks/github-actions/setup-pack@v5.2.0
 
       - name: Install yj
-        uses: buildpacks/github-actions/setup-tools@v5.1.0
+        uses: buildpacks/github-actions/setup-tools@v5.2.0
 
       - id: install-musl-tools
         run: sudo apt-get install musl-tools

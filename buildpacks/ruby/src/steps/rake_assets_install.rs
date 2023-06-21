@@ -1,8 +1,7 @@
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use commons::cache::{mib, AppCacheCollection, CacheConfig, KeepPath};
-use commons::fun_run::CmdError;
-use commons::fun_run::{self, CommandNameAndThen};
+use commons::fun_run::{self, CmdError, CmdMapExt};
 use commons::rake_task_detect::RakeDetect;
 use libcnb::build::BuildContext;
 use libcnb::Env;
@@ -67,7 +66,8 @@ fn run_rake_assets_precompile(env: &Env) -> Result<(), CmdError> {
         .args(["exec", "rake", "assets:precompile", "--trace"])
         .env_clear()
         .envs(env)
-        .name_and_then(fun_run::display, |name, cmd| {
+        .cmd_map(|cmd| {
+            let name = fun_run::display(cmd);
             user::log_info(format!("Running  $ {name}"));
 
             cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())
@@ -90,7 +90,8 @@ fn run_rake_assets_precompile_with_clean(env: &Env) -> Result<(), CmdError> {
         ])
         .env_clear()
         .envs(env)
-        .name_and_then(fun_run::display, |name, cmd| {
+        .cmd_map(|cmd| {
+            let name = fun_run::display(cmd);
             user::log_info(format!("Running  $ {name}"));
 
             cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())

@@ -1,6 +1,6 @@
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
-use commons::fun_run::{self, CommandNameAndThen};
+use commons::fun_run::{self, CmdMapExt};
 use commons::gemfile_lock::ResolvedBundlerVersion;
 use libcnb::build::BuildContext;
 use libcnb::data::layer_content_metadata::LayerTypes;
@@ -66,7 +66,9 @@ impl Layer for BundleDownloadLayer {
             ])
             .env_clear()
             .envs(&self.env)
-            .name_and_then(fun_run::display, |name, cmd| {
+            .cmd_map(|cmd| {
+                let name = fun_run::display(cmd);
+
                 user::log_info(format!("Running  $ {name}"));
 
                 cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())

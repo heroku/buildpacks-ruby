@@ -1,4 +1,4 @@
-use crate::fun_run::{self, CommandNameAndThen};
+use crate::fun_run::{self, CmdMapExt};
 use core::str::FromStr;
 use regex::Regex;
 use std::{ffi::OsStr, process::Command};
@@ -38,7 +38,8 @@ impl RakeDetect {
             .args(["exec", "rake", "-P", "--trace"])
             .env_clear()
             .envs(envs)
-            .name_and_then(fun_run::display, |name, cmd| {
+            .cmd_map(|cmd| {
+                let name = fun_run::display(cmd);
                 cmd.output()
                     .map_err(|error| fun_run::on_system_error(name.clone(), error))
                     .and_then(|output| {

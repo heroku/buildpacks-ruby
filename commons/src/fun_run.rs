@@ -31,13 +31,13 @@ use libherokubuildpack as _;
 ///
 /// - Fun(ctional)
 ///
-/// The main interface is the `name_and_then` method provided by the `CommandNameAndThen` extension.
+/// The main interface is the `cmd_map` method, provided by the `CmdMapExt` trait extension.
 /// Use this along with other fun methods to compose the command run of your dreams.
 ///
 /// Example:
 ///
 /// ```no_run
-/// use commons::fun_run::{ self, CommandNameAndThen};
+/// use commons::fun_run::{self, CmdMapExt};
 /// use libherokubuildpack::command::CommandExt;
 /// use std::process::Command;
 /// use libcnb::Env;
@@ -47,7 +47,8 @@ use libherokubuildpack as _;
 /// Command::new("bundle")
 ///     .args(["install"])
 ///     .envs(&env)
-///     .name_and_then(fun_run::display, |name, cmd| {
+///     .cmd_map(|cmd| {
+///         let name = fun_run::display(cmd);
 ///         eprintln!("\nRunning command:\n$ {name}");
 ///
 ///         cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())
@@ -56,35 +57,24 @@ use libherokubuildpack as _;
 ///     }).unwrap();
 /// ```
 
-/// Format a command in a single location use it for display or errors
-pub trait CommandNameAndThen<N, G, O, E>
+/// Allows for a functional-style flow when running a `Command` via
+/// providing `cmd_map`
+pub trait CmdMapExt<O, F>
 where
-    N: Fn(&mut Command) -> String,
-    G: FnOnce(String, &mut Command) -> Result<O, E>,
+    F: Fn(&mut Command) -> O,
 {
-    /// Takes two functions the first produces a name
-    /// and is then passed to the section function along with
-    /// an `&mut Command`
-    ///
-    /// The second function is intended to return
-    /// `Result<Output, std::io::Error>` or `Result<Output, CmdError>`, but can
-    /// return any result.
-    ///
-    /// # Errors
-    ///
-    /// Returns the result of the second function directly.
-    ///
-    fn name_and_then(&mut self, get_name: N, f: G) -> Result<O, E>;
+    fn cmd_map(&mut self, f: F) -> O;
 }
 
-impl<N, G, O, E> CommandNameAndThen<N, G, O, E> for Command
+impl<O, F> CmdMapExt<O, F> for Command
 where
-    N: Fn(&mut Command) -> String,
-    G: FnOnce(String, &mut Command) -> Result<O, E>,
+    F: Fn(&mut Command) -> O,
 {
-    fn name_and_then(&mut self, get_name: N, f: G) -> Result<O, E> {
-        let name = get_name(self);
-        f(name, self)
+    /// Acts like `Iterator.map` on a `Command`
+    ///
+    /// Yields its self and returns whatever output the block returns.
+    fn cmd_map(&mut self, f: F) -> O {
+        f(self)
     }
 }
 

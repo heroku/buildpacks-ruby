@@ -1,7 +1,7 @@
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use commons::{
     display::SentenceList,
-    fun_run::{self, CmdError, CommandNameAndThen},
+    fun_run::{self, CmdError, CmdMapExt},
     gemfile_lock::ResolvedRubyVersion,
     metadata_digest::MetadataDigest,
 };
@@ -359,7 +359,8 @@ fn bundle_install(env: &Env) -> Result<(), CmdError> {
         .env_clear() // Current process env vars already merged into env
         .args(["install"])
         .envs(env)
-        .name_and_then(display_with_env, |name, cmd| {
+        .cmd_map(|cmd| {
+            let name = display_with_env(cmd);
             let path_env = env.get("PATH");
             user::log_info(format!("Running  $ {name}"));
 

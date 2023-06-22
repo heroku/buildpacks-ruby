@@ -1,7 +1,7 @@
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use commons::{
     display::SentenceList,
-    env_command::{CommandError, EnvCommand},
+    fun_run::{self, CmdError, CmdMapExt},
     gemfile_lock::ResolvedRubyVersion,
     metadata_digest::MetadataDigest,
 };
@@ -12,9 +12,9 @@ use libcnb::{
     layer_env::{LayerEnv, ModificationBehavior, Scope},
     Env,
 };
-use libherokubuildpack::log as user;
+use libherokubuildpack::{command::CommandExt, log as user};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::{path::Path, process::Command};
 
 const HEROKU_SKIP_BUNDLE_DIGEST: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
 const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
@@ -337,25 +337,38 @@ fn layer_env(layer_path: &Path, app_dir: &Path, without_default: &BundleWithout)
 /// # Errors
 ///
 /// When the 'bundle install' command fails this function returns an error.
-fn bundle_install(env: &Env) -> Result<(), CommandError> {
+///
+fn bundle_install(env: &Env) -> Result<(), CmdError> {
+    let display_with_env = |cmd: &'_ mut Command| {
+        fun_run::display_with_env_keys(
+            cmd,
+            env,
+            [
+                "BUNDLE_BIN",
+                "BUNDLE_CLEAN",
+                "BUNDLE_DEPLOYMENT",
+                "BUNDLE_GEMFILE",
+                "BUNDLE_PATH",
+                "BUNDLE_WITHOUT",
+            ],
+        )
+    };
+
     // ## Run `$ bundle install`
-    let command = EnvCommand::new_show_keys(
-        "bundle",
-        &["install"],
-        env,
-        [
-            "BUNDLE_BIN",
-            "BUNDLE_CLEAN",
-            "BUNDLE_DEPLOYMENT",
-            "BUNDLE_GEMFILE",
-            "BUNDLE_PATH",
-            "BUNDLE_WITHOUT",
-        ],
-    );
+    Command::new("bundle")
+        .env_clear() // Current process env vars already merged into env
+        .args(["install"])
+        .envs(env)
+        .cmd_map(|cmd| {
+            let name = display_with_env(cmd);
+            let path_env = env.get("PATH");
+            user::log_info(format!("Running  $ {name}"));
 
-    user::log_info(format!("\nRunning command:\n$ {command}"));
-
-    command.stream()?;
+            cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())
+                .map_err(|error| fun_run::annotate_which_problem(error, cmd, path_env))
+                .map_err(|error| fun_run::on_system_error(name.clone(), error))
+                .and_then(|output| fun_run::nonzero_streamed(name.clone(), output))
+        })?;
 
     Ok(())
 }

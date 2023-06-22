@@ -1,9 +1,10 @@
-use crate::env_command::{EnvCommand, OutputEx};
+use crate::fun_run::{self, CmdMapExt};
 use crate::gem_version::GemVersion;
 use core::str::FromStr;
 use regex::Regex;
 use std::collections::HashMap;
-use std::ffi::OsString;
+use std::ffi::OsStr;
+use std::process::Command;
 
 /// ## Gets list of an application's dependencies
 ///
@@ -16,7 +17,7 @@ pub struct GemList {
 #[derive(thiserror::Error, Debug)]
 pub enum ListError {
     #[error("Error determining dependencies: \n{0}")]
-    BundleListShellCommandError(crate::env_command::CommandError),
+    BundleListShellCommandError(fun_run::CmdError),
 }
 
 /// Converts the output of `$ gem list` into a data structure that can be inspected and compared
@@ -60,18 +61,23 @@ impl GemList {
     /// # Errors
     ///
     /// Errors if the command `bundle list` is unsuccessful.
-    pub fn from_bundle_list<
-        T: IntoIterator<Item = (K, V)>,
-        K: Into<OsString>,
-        V: Into<OsString>,
-    >(
-        env: T,
+    pub fn from_bundle_list<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsStr>>(
+        envs: T,
     ) -> Result<Self, ListError> {
-        let output = EnvCommand::new("bundle", &["list"], env)
-            .output()
+        let output = Command::new("bundle")
+            .arg("list")
+            .env_clear()
+            .envs(envs)
+            .cmd_map(|cmd| {
+                let name = fun_run::display(cmd);
+                cmd.output()
+                    .map_err(|error| fun_run::on_system_error(name.clone(), error))
+                    .and_then(|output| fun_run::nonzero_captured(name.clone(), output))
+            })
             .map_err(ListError::BundleListShellCommandError)?;
 
-        GemList::from_str(&output.stdout_lossy())
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        GemList::from_str(&stdout)
     }
 
     #[must_use]

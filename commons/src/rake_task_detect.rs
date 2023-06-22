@@ -1,7 +1,7 @@
-use crate::env_command::{EnvCommand, OutputEx};
+use crate::fun_run::{self, CmdMapExt};
 use core::str::FromStr;
 use regex::Regex;
-use std::ffi::OsString;
+use std::{ffi::OsStr, process::Command};
 
 /// Run `rake -P` and parse output to show what rake tasks an application has
 ///
@@ -23,38 +23,35 @@ pub enum RakeError {
     RegexError(#[from] regex::Error),
 
     #[error("Error detecting rake tasks: {0}")]
-    DashpCommandError(crate::env_command::CommandError),
+    DashpCommandError(fun_run::CmdError),
 }
 
 impl RakeDetect {
     /// # Errors
     ///
     /// Will return `Err` if `bundle exec rake -p` command cannot be invoked by the operating system.
-    pub fn from_rake_command<
-        T: IntoIterator<Item = (K, V)>,
-        K: Into<OsString>,
-        V: Into<OsString>,
-    >(
-        env: T,
+    pub fn from_rake_command<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsStr>>(
+        envs: T,
         error_on_failure: bool,
     ) -> Result<Self, RakeError> {
-        let mut command = EnvCommand::new("bundle", &["exec", "rake", "-P", "--trace"], env);
-        let outcome = command
-            .on_non_zero_exit(move |error| {
-                if error_on_failure {
-                    Err(error)
-                } else {
-                    Ok(error.output)
-                }
+        Command::new("bundle")
+            .args(["exec", "rake", "-P", "--trace"])
+            .env_clear()
+            .envs(envs)
+            .cmd_map(|cmd| {
+                let name = fun_run::display(cmd);
+                cmd.output()
+                    .map_err(|error| fun_run::on_system_error(name.clone(), error))
+                    .and_then(|output| {
+                        if error_on_failure {
+                            fun_run::nonzero_captured(name.clone(), output)
+                        } else {
+                            Ok(output)
+                        }
+                    })
             })
-            .output()
-            .map_err(RakeError::DashpCommandError)?;
-
-        if outcome.status.success() {
-            RakeDetect::from_str(&outcome.stdout_lossy())
-        } else {
-            Ok(RakeDetect::default())
-        }
+            .map_err(RakeError::DashpCommandError)
+            .and_then(|output| RakeDetect::from_str(&String::from_utf8_lossy(&output.stdout)))
     }
 
     #[must_use]

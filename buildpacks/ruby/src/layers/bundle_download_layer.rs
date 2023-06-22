@@ -1,15 +1,17 @@
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
-use commons::env_command::EnvCommand;
+use commons::fun_run::{self, CmdMapExt};
 use commons::gemfile_lock::ResolvedBundlerVersion;
 use libcnb::build::BuildContext;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Env;
+use libherokubuildpack::command::CommandExt;
 use libherokubuildpack::log as user;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use std::process::Command;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct BundleDownloadLayerMetadata {
@@ -45,9 +47,11 @@ impl Layer for BundleDownloadLayer {
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
         user::log_info(format!("Installing bundler {}", self.version));
 
-        EnvCommand::new(
-            "gem",
-            &[
+        let bin_dir = layer_path.join("bin");
+        let gem_path = layer_path;
+
+        Command::new("gem")
+            .args([
                 "install",
                 "bundler",
                 "--force",
@@ -58,12 +62,23 @@ impl Layer for BundleDownloadLayer {
                 "--install-dir", // Directory where bundler's contents will live
                 &layer_path.to_string_lossy(),
                 "--bindir", // Directory where `bundle` executable lives
-                &layer_path.join("bin").to_string_lossy(),
-            ],
-            &self.env,
-        )
-        .output()
-        .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
+                &bin_dir.to_string_lossy(),
+            ])
+            .env_clear()
+            .envs(&self.env)
+            .cmd_map(|cmd| {
+                let name = fun_run::display(cmd);
+
+                user::log_info(format!("Running  $ {name}"));
+
+                cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())
+                    .map_err(|error| {
+                        fun_run::annotate_which_problem(error, cmd, self.env.get("PATH"))
+                    })
+                    .map_err(|error| fun_run::on_system_error(name.clone(), error))
+                    .and_then(|output| fun_run::nonzero_streamed(name.clone(), output))
+            })
+            .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
 
         LayerResultBuilder::new(BundleDownloadLayerMetadata {
             version: self.version.clone(),
@@ -75,14 +90,14 @@ impl Layer for BundleDownloadLayer {
                     Scope::All,
                     ModificationBehavior::Prepend,
                     "PATH", // Ensure this path comes before default bundler that ships with ruby, don't rely on the lifecycle
-                    layer_path.join("bin"),
+                    bin_dir,
                 )
                 .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
                 .chainable_insert(
                     Scope::All,
                     ModificationBehavior::Prepend,
                     "GEM_PATH", // Bundler is a gem too, allow it to be required
-                    layer_path,
+                    gem_path,
                 ),
         )
         .build()

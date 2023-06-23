@@ -8,65 +8,6 @@ const BOLD_PURPLE: &'static str = r#"\e[1;35m"#; // magenta
 const NOCOLOR: &'static str = r#"\033[0m\033[0m"#; //differentiate between color clear and explicit no color
 const NOCOLOR_TMP: &'static str = r#"🙈🙈🙈"#;
 
-// enum OutputSection {
-//     Plain(String),
-//     Header(String),
-//     Value(String),
-//     Details(String),
-//     Plain(String),
-//     List(Vec<OutputSection>),
-//     SentenceList(Vec<OutputSection>)
-// }
-
-// struct BuildOutput {
-//     contents: std::rc::Rc<OutputSection>,
-// };
-
-// fn lol() {
-//     let build_output = BuildOutput { Rc::new(OutputSection::List(Vec::new()))};
-//     let section = build_output.section();
-//     build_output.inline(|section| {
-//         section.text("Node.js version");
-//         section.value("19.7.0");
-//         section.text("from version range");
-//         section.value("*");
-//         section.text("in");
-//         section.text("package.json");
-//     });
-
-//     build_output.inline(
-//         &[
-//             text("Node.js version"),
-//             value("19.7.0"),
-//             text("from version range"),
-//             value("*"),
-//             text("in"),
-//             text("package.json")
-//         ]
-
-//         section.text("Node.js version");
-//         section.value("19.7.0");
-//         section.text("from version range");
-//         section.value("*");
-//         section.text("in");
-//         section.text("package.json");
-//     });
-
-//     section.section("Header here"); // new struct
-//     section.inline()
-
-//     build_output.finished();
-// }
-
-// struct Section {
-//     lol: String,
-
-// }
-
-// struct SubSection {
-//     lol: String,
-// }
-
 pub fn value(contents: impl AsRef<str>) -> String {
     let contents = colorize(BLUE, contents.as_ref());
     format!("`{contents}`")

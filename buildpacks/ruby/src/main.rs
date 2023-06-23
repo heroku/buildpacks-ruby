@@ -17,11 +17,12 @@ use libcnb::generic::{GenericMetadata, GenericPlatform};
 use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
-use libherokubuildpack::log as user;
+use libherokubuildpack::log as classic_log;
 use regex::Regex;
 use std::fmt::Display;
 
 mod layers;
+mod output;
 mod steps;
 mod user_errors;
 
@@ -64,11 +65,11 @@ impl Buildpack for RubyBuildpack {
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         let total = std::time::Instant::now();
         let section = header("Heroku Ruby buildpack");
-        user::log_info("Running Heroku Ruby buildpack");
+        classic_log::log_info("Running Heroku Ruby buildpack");
         section.done_quiet();
 
         let section = header("Setting environment");
-        user::log_info("Setting default environment values");
+        classic_log::log_info("Setting default environment values");
         // ## Set default environment
         let (mut env, store) =
             crate::steps::default_env(&context, &context.platform.env().clone())?;
@@ -81,8 +82,8 @@ impl Buildpack for RubyBuildpack {
         let gemfile_lock = GemfileLock::from_str(&lockfile_contents).expect("Infallible");
         let bundler_version = gemfile_lock.resolve_bundler("2.4.5");
         let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
-        user::log_info(format!("Detected ruby: {ruby_version}"));
-        user::log_info(format!("Detected bundler: {bundler_version}"));
+        classic_log::log_info(format!("Detected ruby: {ruby_version}"));
+        classic_log::log_info(format!("Detected bundler: {bundler_version}"));
         section.done();
 
         // ## Install executable ruby version
@@ -114,7 +115,7 @@ impl Buildpack for RubyBuildpack {
 
         // ## Detect gems
         let section = header("Detecting gems");
-        user::log_info("Detecting gems via `bundle list`");
+        classic_log::log_info("Detecting gems via `bundle list`");
         let gem_list =
             GemList::from_bundle_list(&env).map_err(RubyBuildpackError::GemListGetError)?;
         section.done();
@@ -135,8 +136,8 @@ impl Buildpack for RubyBuildpack {
         }
 
         let duration = total.elapsed();
-        user::log_header("Heroku Ruby buildpack finished");
-        user::log_info(format!(
+        classic_log::log_header("Heroku Ruby buildpack finished");
+        classic_log::log_info(format!(
             "Finished ({} total elapsed time)\n",
             DisplayDuration::new(&duration)
         ));
@@ -193,7 +194,7 @@ impl LogSectionWithTime {
         let diff = &self.start.elapsed();
         let duration = DisplayDuration::new(diff);
 
-        user::log_info(format!("Done ({duration})"));
+        classic_log::log_info(format!("Done ({duration})"));
     }
 
     #[allow(clippy::unused_self)]
@@ -206,7 +207,7 @@ impl LogSectionWithTime {
 /// will print out the elapsed time.
 #[must_use]
 fn header(message: &str) -> LogSectionWithTime {
-    user::log_header(message);
+    classic_log::log_header(message);
 
     let start = std::time::Instant::now();
 

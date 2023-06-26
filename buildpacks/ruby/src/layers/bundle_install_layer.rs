@@ -1,4 +1,10 @@
-use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
+use crate::{
+    build_output::{
+        self,
+        section::{RunCommand, Section},
+    },
+    BundleWithout, RubyBuildpack, RubyBuildpackError,
+};
 use commons::{
     display::SentenceList,
     fun_run::{self, CmdError, CmdMapExt},
@@ -12,7 +18,6 @@ use libcnb::{
     layer_env::{LayerEnv, ModificationBehavior, Scope},
     Env,
 };
-use libherokubuildpack::{command::CommandExt, log as user};
 use serde::{Deserialize, Serialize};
 use std::{path::Path, process::Command};
 
@@ -31,6 +36,7 @@ pub(crate) struct BundleInstallLayer {
     pub env: Env,
     pub without: BundleWithout,
     pub ruby_version: ResolvedRubyVersion,
+    pub build_output: Section,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
@@ -90,40 +96,6 @@ impl BundleInstallLayer {
 
         Ok(out)
     }
-
-    #[allow(clippy::unnecessary_wraps)]
-    fn existing_cache_strategy(
-        old: BundleInstallLayerMetadata,
-        now: BundleInstallLayerMetadata,
-    ) -> Result<CacheStrategy, RubyBuildpackError> {
-        match cache_state(old, now) {
-            Changed::Nothing => {
-                user::log_info("Using gems cache from last deploy");
-
-                Ok(CacheStrategy::KeepAndRun)
-            }
-            Changed::Stack(old, now) => {
-                user::log_info(format!(
-                    "Clearing gems cache, Stack changed from {old} to {now}"
-                ));
-
-                Ok(CacheStrategy::ClearAndRun)
-            }
-            Changed::RubyVersion(old, now) => {
-                user::log_info(format!(
-                    "Clearing gems cache, ruby version changed from {old} to {now}"
-                ));
-
-                Ok(CacheStrategy::ClearAndRun)
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-enum CacheStrategy {
-    ClearAndRun,
-    KeepAndRun,
 }
 
 #[derive(Debug)]
@@ -182,19 +154,20 @@ impl Layer for BundleInstallLayer {
 
         match update_state(&layer_data.content_metadata.metadata, &metadata) {
             UpdateState::Run(reason) => {
-                user::log_info(format!("Running 'bundle install', {reason}"));
+                self.build_output.say(reason);
 
-                bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
+                bundle_install(&env, &self.build_output)
+                    .map_err(RubyBuildpackError::BundleInstallCommandError)?;
             }
             UpdateState::Skip(checked) => {
                 let checked = SentenceList::new(&checked).join_str("or");
-                user::log_info(format!(
-                    "Skipping 'bundle install', no changes found in {checked}"
-                ));
-                user::log_info("Help: To skip digest change detection and force running");
-                user::log_info(format!(
-                    "      'bundle install' set {HEROKU_SKIP_BUNDLE_DIGEST}=1"
-                ));
+                let bundle_install = build_output::fmt::value("bundle install");
+                let details = build_output::fmt::details(format!("no changes found in {checked}"));
+                let env_var = build_output::fmt::value(format!("{HEROKU_SKIP_BUNDLE_DIGEST}=1"));
+
+                self.build_output
+                    .say(format!("Skipping {bundle_install} {details}"));
+                build_output::say(format!("Help: To force run {bundle_install} set {env_var}"))
             }
         }
 
@@ -211,8 +184,8 @@ impl Layer for BundleInstallLayer {
         let layer_env = self.build_layer_env(context, layer_path)?;
         let env = layer_env.apply(Scope::Build, &self.env);
 
-        user::log_info("Running 'bundle install'");
-        bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
+        bundle_install(&env, &self.build_output)
+            .map_err(RubyBuildpackError::BundleInstallCommandError)?;
 
         LayerResultBuilder::new(metadata).env(layer_env).build()
     }
@@ -232,9 +205,27 @@ impl Layer for BundleInstallLayer {
         let old = &layer_data.content_metadata.metadata;
         let now = self.build_metadata(context, &layer_data.path)?;
 
-        match Self::existing_cache_strategy(old.clone(), now)? {
-            CacheStrategy::ClearAndRun => Ok(ExistingLayerStrategy::Recreate),
-            CacheStrategy::KeepAndRun => Ok(ExistingLayerStrategy::Update),
+        let clear_and_run = Ok(ExistingLayerStrategy::Recreate);
+        let keep_and_run = Ok(ExistingLayerStrategy::Update);
+
+        match cache_state(old.clone(), now) {
+            Changed::Nothing => {
+                self.build_output.say("Loading cache");
+
+                keep_and_run
+            }
+            Changed::Stack(_old, _now) => {
+                let details = build_output::fmt::details("stack changed");
+                self.build_output.say(format!("Clearing cache {details}"));
+
+                clear_and_run
+            }
+            Changed::RubyVersion(_old, _now) => {
+                let details = build_output::fmt::details("ruby verison changed");
+                self.build_output.say(format!("Clearing cache {details}"));
+
+                clear_and_run
+            }
         }
     }
 }
@@ -338,7 +329,7 @@ fn layer_env(layer_path: &Path, app_dir: &Path, without_default: &BundleWithout)
 ///
 /// When the 'bundle install' command fails this function returns an error.
 ///
-fn bundle_install(env: &Env) -> Result<(), CmdError> {
+fn bundle_install(env: &Env, section: &Section) -> Result<(), CmdError> {
     let display_with_env = |cmd: &'_ mut Command| {
         fun_run::display_with_env_keys(
             cmd,
@@ -361,13 +352,12 @@ fn bundle_install(env: &Env) -> Result<(), CmdError> {
         .envs(env)
         .cmd_map(|cmd| {
             let name = display_with_env(cmd);
-            let path_env = env.get("PATH");
-            user::log_info(format!("Running  $ {name}"));
+            let path_env = env.get("PATH").cloned();
 
-            cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())
-                .map_err(|error| fun_run::annotate_which_problem(error, cmd, path_env.cloned()))
-                .map_err(|error| fun_run::on_system_error(name.clone(), error))
-                .and_then(|output| fun_run::nonzero_streamed(name.clone(), output))
+            section
+                .run(RunCommand::StreamWithName(cmd, name))
+                .done_timed()
+                .map_err(|error| fun_run::map_which_problem(error, cmd, path_env))
         })?;
 
     Ok(())

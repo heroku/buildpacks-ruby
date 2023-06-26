@@ -1,11 +1,10 @@
-use crate::{RubyBuildpack, RubyBuildpackError};
+use crate::{build_output, RubyBuildpack, RubyBuildpackError};
 use commons::gemfile_lock::ResolvedRubyVersion;
 use flate2::read::GzDecoder;
 use libcnb::build::BuildContext;
 use libcnb::data::buildpack::StackId;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
-use libherokubuildpack::log as user;
 use serde::{Deserialize, Serialize};
 use std::io;
 use std::path::Path;
@@ -29,6 +28,7 @@ use url::Url;
 #[derive(PartialEq, Eq)]
 pub(crate) struct RubyInstallLayer {
     pub version: ResolvedRubyVersion,
+    pub build_output: build_output::section::Section,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -54,7 +54,7 @@ impl Layer for RubyInstallLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        user::log_info(format!("Installing ruby {}", &self.version));
+        let timer = self.build_output.start_timer("Installing");
 
         let tmp_ruby_tgz = NamedTempFile::new()
             .map_err(RubyInstallError::CouldNotCreateDestinationFile)
@@ -67,6 +67,8 @@ impl Layer for RubyInstallLayer {
             .map_err(RubyBuildpackError::RubyInstallError)?;
 
         untar(tmp_ruby_tgz.path(), layer_path).map_err(RubyBuildpackError::RubyInstallError)?;
+
+        timer.done();
 
         LayerResultBuilder::new(RubyInstallLayerMetadata {
             stack: context.stack_id.clone(),
@@ -87,20 +89,20 @@ impl Layer for RubyInstallLayer {
         };
 
         match cache_state(old.clone(), now) {
-            Changed::Nothing(version) => {
-                user::log_info(format!("Using Ruby {version} from cache"));
+            Changed::Nothing(_version) => {
+                self.build_output.say("Using cached version");
 
                 Ok(ExistingLayerStrategy::Keep)
             }
-            Changed::Stack(old, now) => {
-                user::log_info(format!("Stack changed from {old} to {now}",));
-                user::log_info("Clearing ruby from cache");
+            Changed::Stack(_old, _now) => {
+                let details = build_output::fmt::details("stack changed");
+                self.build_output.say(format!("Clearing cache {details}"));
 
                 Ok(ExistingLayerStrategy::Recreate)
             }
-            Changed::RubyVersion(old, now) => {
-                user::log_info(format!("Ruby version changed from {old} to {now}",));
-                user::log_info("Clearing ruby from cache");
+            Changed::RubyVersion(_old, _now) => {
+                let details = build_output::fmt::details("ruby version changed");
+                self.build_output.say(format!("Clearing cache {details}"));
 
                 Ok(ExistingLayerStrategy::Recreate)
             }

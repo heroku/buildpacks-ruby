@@ -2,12 +2,12 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 use crate::layers::{RubyInstallError, RubyInstallLayer};
+use crate::rake_task_detect::RakeError;
 use commons::cache::CacheError;
 use commons::fun_run::CmdError;
-use commons::gem_list::GemList;
 use commons::gemfile_lock::GemfileLock;
-use commons::rake_task_detect::RakeError;
 use core::str::FromStr;
+use layers::{BundleDownloadLayer, BundleInstallLayer};
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
 use libcnb::data::launch::LaunchBuilder;
@@ -17,12 +17,13 @@ use libcnb::generic::{GenericMetadata, GenericPlatform};
 use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
-use libherokubuildpack::log as classic_log;
 use regex::Regex;
-use std::fmt::Display;
 
+mod build_output;
+mod gem_list;
 mod layers;
-mod output;
+mod rake_status;
+mod rake_task_detect;
 mod steps;
 mod user_errors;
 
@@ -63,84 +64,94 @@ impl Buildpack for RubyBuildpack {
     }
 
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
-        let total = std::time::Instant::now();
-        let section = header("Heroku Ruby buildpack");
-        classic_log::log_info("Running Heroku Ruby buildpack");
-        section.done_quiet();
+        let build_duration = build_output::header("Heroku Ruby Buildpack");
 
-        let section = header("Setting environment");
-        classic_log::log_info("Setting default environment values");
         // ## Set default environment
         let (mut env, store) =
             crate::steps::default_env(&context, &context.platform.env().clone())?;
-        section.done();
 
         // Gather static information about project
-        let section = header("Detecting versions");
         let lockfile_contents = fs_err::read_to_string(context.app_dir.join("Gemfile.lock"))
             .map_err(RubyBuildpackError::MissingGemfileLock)?;
         let gemfile_lock = GemfileLock::from_str(&lockfile_contents).expect("Infallible");
         let bundler_version = gemfile_lock.resolve_bundler("2.4.5");
         let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
-        classic_log::log_info(format!("Detected ruby: {ruby_version}"));
-        classic_log::log_info(format!("Detected bundler: {bundler_version}"));
-        section.done();
 
         // ## Install executable ruby version
-        let section = header("Installing Ruby");
-        let ruby_layer = context //
-            .handle_layer(
-                layer_name!("ruby"),
-                RubyInstallLayer {
-                    version: ruby_version.clone(),
-                },
-            )?;
-        env = ruby_layer.env.apply(Scope::Build, &env);
-        section.done();
+
+        env = {
+            let section = build_output::section(format!(
+                "Ruby version {} from {}",
+                build_output::fmt::value(ruby_version.to_string()),
+                build_output::fmt::value(gemfile_lock.ruby_source())
+            ));
+            let ruby_layer = context //
+                .handle_layer(
+                    layer_name!("ruby"),
+                    RubyInstallLayer {
+                        build_output: section,
+                        version: ruby_version.clone(),
+                    },
+                )?;
+            ruby_layer.env.apply(Scope::Build, &env)
+        };
 
         // ## Setup bundler
-        let section = header("Installing Bundler");
-        env = crate::steps::bundler_download(bundler_version, &context, &env)?;
-        section.done();
+        env = {
+            let section = build_output::section(format!(
+                "Bundler version {} from {}",
+                build_output::fmt::value(bundler_version.to_string()),
+                build_output::fmt::value(gemfile_lock.bundler_source())
+            ));
+            let download_bundler_layer = context.handle_layer(
+                layer_name!("bundler"),
+                BundleDownloadLayer {
+                    env: env.clone(),
+                    version: bundler_version,
+                    build_output: section,
+                },
+            )?;
+            download_bundler_layer.env.apply(Scope::Build, &env)
+        };
 
         // ## Bundle install
-        let section = header("Installing dependencies");
-        env = crate::steps::bundle_install(
-            &context,
-            BundleWithout(String::from("development:test")),
-            ruby_version,
-            &env,
-        )?;
-        section.done();
+        env = {
+            let section = build_output::section("Bundle install");
+
+            let bundle_install_layer = context.handle_layer(
+                layer_name!("gems"),
+                BundleInstallLayer {
+                    env: env.clone(),
+                    without: BundleWithout::new("development:test"),
+                    ruby_version,
+                    build_output: section,
+                },
+            )?;
+            bundle_install_layer.env.apply(Scope::Build, &env)
+        };
 
         // ## Detect gems
-        let section = header("Detecting gems");
-        classic_log::log_info("Detecting gems via `bundle list`");
-        let gem_list =
-            GemList::from_bundle_list(&env).map_err(RubyBuildpackError::GemListGetError)?;
-        section.done();
+        let (gem_list, default_process) = {
+            let section = build_output::section("Setting default processes(es)");
+            section.say("Detecting gems");
+            let gem_list = gem_list::GemList::from_bundle_list(&env, &section)
+                .map_err(RubyBuildpackError::GemListGetError)?;
+            let default_process = steps::get_default_process(&section, &context, &gem_list);
 
-        let section = header("Setting default process(es)");
-        let default_process = steps::get_default_process(&context, &gem_list);
-        section.done();
+            (gem_list, default_process)
+        };
 
         // ## Assets install
-        let section = header("Rake task detection");
-        let rake_detect = crate::steps::detect_rake_tasks(&gem_list, &context, &env)?;
-        section.done();
 
-        if let Some(rake_detect) = rake_detect {
-            let section = header("Rake asset installation");
-            crate::steps::rake_assets_install(&context, &env, &rake_detect)?;
-            section.done();
-        }
+        {
+            let section = build_output::section("Rake assets install");
+            let rake_detect = crate::steps::detect_rake_tasks(&section, &gem_list, &context, &env)?;
 
-        let duration = total.elapsed();
-        classic_log::log_header("Heroku Ruby buildpack finished");
-        classic_log::log_info(format!(
-            "Finished ({} total elapsed time)\n",
-            DisplayDuration::new(&duration)
-        ));
+            if let Some(rake_detect) = rake_detect {
+                crate::steps::rake_assets_install(&section, &context, &env, &rake_detect)?;
+            }
+        };
+        build_duration.done_timed();
 
         if let Some(default_process) = default_process {
             BuildResultBuilder::new()
@@ -165,7 +176,7 @@ fn needs_java(gemfile_lock: &str) -> bool {
 #[derive(Debug)]
 pub(crate) enum RubyBuildpackError {
     RakeDetectError(RakeError),
-    GemListGetError(commons::gem_list::ListError),
+    GemListGetError(gem_list::ListError),
     RubyInstallError(RubyInstallError),
     MissingGemfileLock(std::io::Error),
     InAppDirCacheError(CacheError),
@@ -183,85 +194,13 @@ impl From<RubyBuildpackError> for libcnb::Error<RubyBuildpackError> {
 
 buildpack_main!(RubyBuildpack);
 
-/// Use for logging a duration
-#[derive(Debug)]
-struct LogSectionWithTime {
-    start: std::time::Instant,
-}
-
-impl LogSectionWithTime {
-    fn done(&self) {
-        let diff = &self.start.elapsed();
-        let duration = DisplayDuration::new(diff);
-
-        classic_log::log_info(format!("Done ({duration})"));
-    }
-
-    #[allow(clippy::unused_self)]
-    fn done_quiet(&self) {}
-}
-
-/// Prints out a header and ensures a done section is printed
-///
-/// Returns a `LogSectionWithTime` that must be used. That
-/// will print out the elapsed time.
-#[must_use]
-fn header(message: &str) -> LogSectionWithTime {
-    classic_log::log_header(message);
-
-    let start = std::time::Instant::now();
-
-    LogSectionWithTime { start }
-}
-
-#[derive(Debug)]
-struct DisplayDuration<'a> {
-    duration: &'a std::time::Duration,
-}
-
-impl DisplayDuration<'_> {
-    fn new(duration: &std::time::Duration) -> DisplayDuration {
-        DisplayDuration { duration }
-    }
-
-    fn milliseconds(&self) -> u32 {
-        self.duration.subsec_millis()
-    }
-
-    fn seconds(&self) -> u64 {
-        self.duration.as_secs() % 60
-    }
-
-    fn minutes(&self) -> u64 {
-        (self.duration.as_secs() / 60) % 60
-    }
-
-    fn hours(&self) -> u64 {
-        (self.duration.as_secs() / 3600) % 60
-    }
-}
-
-impl Display for DisplayDuration<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let hours = self.hours();
-        let minutes = self.minutes();
-        let seconds = self.seconds();
-        let miliseconds = self.milliseconds();
-
-        if self.hours() > 0 {
-            f.write_fmt(format_args!("{hours}h {minutes}m {seconds}s"))
-        } else if self.minutes() > 0 {
-            f.write_fmt(format_args!("{minutes}m {seconds}s"))
-        } else {
-            f.write_fmt(format_args!("{seconds}.{miliseconds:0>3}s"))
-        }
-    }
-}
-
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq, Eq)]
 pub(crate) struct BundleWithout(String);
 
 impl BundleWithout {
+    fn new(without: impl AsRef<str>) -> Self {
+        Self(String::from(without.as_ref()))
+    }
     fn as_str(&self) -> &str {
         &self.0
     }
@@ -270,18 +209,6 @@ impl BundleWithout {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    #[test]
-    fn test_display_duration() {
-        let diff = std::time::Duration::from_millis(1024);
-        assert_eq!("1.024s", format!("{}", DisplayDuration::new(&diff)));
-
-        let diff = std::time::Duration::from_millis(60 * 1024);
-        assert_eq!("1m 1s", format!("{}", DisplayDuration::new(&diff)));
-
-        let diff = std::time::Duration::from_millis(3600 * 1024);
-        assert_eq!("1h 1m 26s", format!("{}", DisplayDuration::new(&diff)));
-    }
 
     #[test]
     fn test_needs_java() {

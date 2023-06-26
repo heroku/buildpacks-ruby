@@ -1,5 +1,6 @@
-use crate::fun_run::{self, CmdMapExt};
-use crate::gem_version::GemVersion;
+use crate::build_output::section::{RunCommand, Section};
+use commons::fun_run::{self, CmdMapExt};
+use commons::gem_version::GemVersion;
 use core::str::FromStr;
 use regex::Regex;
 use std::collections::HashMap;
@@ -63,17 +64,13 @@ impl GemList {
     /// Errors if the command `bundle list` is unsuccessful.
     pub fn from_bundle_list<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsStr>>(
         envs: T,
+        build_output: &Section,
     ) -> Result<Self, ListError> {
         let output = Command::new("bundle")
             .arg("list")
             .env_clear()
             .envs(envs)
-            .cmd_map(|cmd| {
-                let name = fun_run::display(cmd);
-                cmd.output()
-                    .map_err(|error| fun_run::on_system_error(name.clone(), error))
-                    .and_then(|output| fun_run::nonzero_captured(name.clone(), output))
-            })
+            .cmd_map(|cmd| build_output.run(RunCommand::Quiet(cmd)).done_timed())
             .map_err(ListError::BundleListShellCommandError)?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -81,13 +78,8 @@ impl GemList {
     }
 
     #[must_use]
-    pub fn has(&self, str: &str) -> bool {
+    pub(crate) fn has(&self, str: &str) -> bool {
         self.gems.get(&str.trim().to_lowercase()).is_some()
-    }
-
-    #[must_use]
-    pub fn version_for(&self, str: &str) -> Option<&GemVersion> {
-        self.gems.get(&str.trim().to_lowercase())
     }
 }
 
@@ -154,12 +146,6 @@ Use `bundle info` to print more detailed information about a gem
 
         assert!(gem_list.has("railties"));
         assert!(!gem_list.has("foo"));
-
-        assert_eq!(
-            gem_list.version_for("railties").unwrap(),
-            &GemVersion::from_str("6.1.4.1").unwrap()
-        );
-        assert_eq!(gem_list.version_for("foo"), None);
 
         assert_eq!(gem_list.gems.len(), 14);
     }

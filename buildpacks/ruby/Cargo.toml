@@ -21,6 +21,7 @@ tempfile = "3"
 thiserror = "1"
 ureq = "2"
 url = "2"
+glob = "0.3"
 
 [dev-dependencies]
 libcnb-test = "0.13"

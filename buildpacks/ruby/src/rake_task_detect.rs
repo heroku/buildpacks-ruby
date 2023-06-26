@@ -1,7 +1,9 @@
-use crate::fun_run::{self, CmdMapExt};
+use commons::fun_run::{self, CmdError, CmdMapExt};
 use core::str::FromStr;
 use regex::Regex;
 use std::{ffi::OsStr, process::Command};
+
+use crate::build_output::section::{RunCommand, Section};
 
 /// Run `rake -P` and parse output to show what rake tasks an application has
 ///
@@ -31,6 +33,7 @@ impl RakeDetect {
     ///
     /// Will return `Err` if `bundle exec rake -p` command cannot be invoked by the operating system.
     pub fn from_rake_command<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsStr>>(
+        section: &Section,
         envs: T,
         error_on_failure: bool,
     ) -> Result<Self, RakeError> {
@@ -39,14 +42,18 @@ impl RakeDetect {
             .env_clear()
             .envs(envs)
             .cmd_map(|cmd| {
-                let name = fun_run::display(cmd);
-                cmd.output()
-                    .map_err(|error| fun_run::on_system_error(name.clone(), error))
-                    .and_then(|output| {
+                section
+                    .run(RunCommand::Quiet(cmd))
+                    .done_timed()
+                    .or_else(|error| {
                         if error_on_failure {
-                            fun_run::nonzero_captured(name.clone(), output)
+                            Err(error)
                         } else {
-                            Ok(output)
+                            match error {
+                                CmdError::SystemError(_, _) => Err(error),
+                                CmdError::NonZeroExitNotStreamed(_, output)
+                                | CmdError::NonZeroExitAlreadyStreamed(_, output) => Ok(output),
+                            }
                         }
                     })
             })

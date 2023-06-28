@@ -74,12 +74,13 @@ impl AppCacheCollection {
     /// - Error if the cache layer cannot be created
     /// - Error if loading (copying) files from the cache to the app fails
     /// - Error if app or cache directory cannot be created (for example, due to permissions)
-    pub fn new_and_load<'a, B: Buildpack>(
+    pub fn new_and_load<B: Buildpack>(
         context: &BuildContext<B>,
         config: impl IntoIterator<Item = CacheConfig>,
         logger: impl Fn(&str) + 'static,
     ) -> Result<Self, CacheError> {
         let log_func = LogFunc(Box::new(logger));
+
         let caches = config
             .into_iter()
             .map(|config| {

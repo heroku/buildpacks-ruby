@@ -167,7 +167,8 @@ impl Layer for BundleInstallLayer {
 
                 self.build_output
                     .say(format!("Skipping {bundle_install} {details}"));
-                build_output::say(format!("Help: To force run {bundle_install} set {env_var}"))
+                self.build_output
+                    .help(format!("To force run {bundle_install} set {env_var}"));
             }
         }
 

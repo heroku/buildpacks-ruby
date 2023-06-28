@@ -70,7 +70,7 @@ impl GemList {
             .arg("list")
             .env_clear()
             .envs(envs)
-            .cmd_map(|cmd| build_output.run(RunCommand::Quiet(cmd)).done_timed())
+            .cmd_map(|cmd| build_output.run(RunCommand::Inline(cmd)).done_timed())
             .map_err(ListError::BundleListShellCommandError)?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);

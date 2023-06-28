@@ -1,12 +1,15 @@
 use indoc::formatdoc;
 use libherokubuildpack::log as user;
 
-use crate::RubyBuildpackError;
+use crate::{
+    build_output::{self, fmt::ErrorInfo},
+    RubyBuildpackError,
+};
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
     match cause(err) {
         Cause::OurError(error) => log_our_error(error),
-        Cause::FrameworkError(error) => user::log_error(
+        Cause::FrameworkError(error) => ErrorInfo::header_body_details(
             "heroku/buildpack-ruby internal buildpack error",
             formatdoc! {"
                 An unexpected internal error was reported by the framework used
@@ -15,52 +18,44 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
                 If the issue persists, consider opening an issue on the GitHub
                 repository. If you are unable to deploy to Heroku as a result
                 of this issue, consider opening a ticket for additional support.
-
-                Details:
-
-                {error}
             "},
-        ),
+            error,
+        )
+        .print(),
     };
 }
 
 fn log_our_error(error: RubyBuildpackError) {
     match error {
-        RubyBuildpackError::RakeDetectError(error) => user::log_error(
+        RubyBuildpackError::RakeDetectError(error) => ErrorInfo::header_body_details(
             "Error detecting rake tasks",
             formatdoc! {"
             The Ruby buildpack uses rake task information from your application to guide
             build logic. Without this information, the Ruby buildpack cannot continue.
 
-            Details:
-
-            {error}
-
             "},
-        ),
-        RubyBuildpackError::GemListGetError(error) => user::log_error(
+            error,
+        )
+        .print(),
+        RubyBuildpackError::GemListGetError(error) => ErrorInfo::header_body_details(
             "Error detecting dependencies",
             formatdoc! {"
             The Ruby buildpack uses dependency information from your application to
             guide build logic. Without this information, the Ruby buildpack cannot
             continue.
-
-            Details:
-
-            {error}
             "},
-        ),
-        RubyBuildpackError::RubyInstallError(error) => user::log_error(
+            error,
+        )
+        .print(),
+        RubyBuildpackError::RubyInstallError(error) => ErrorInfo::header_body_details(
             "Error installing Ruby",
             formatdoc! {"
             Could not install the detected Ruby version.
-
-            Details:
-
-            {error}
             "},
-        ),
-        RubyBuildpackError::MissingGemfileLock(error) => user::log_error(
+            error,
+        )
+        .print(),
+        RubyBuildpackError::MissingGemfileLock(error) => ErrorInfo::header_body_details(
             "Error: Gemfile.lock required",
             formatdoc! {"
             To deploy a Ruby application, a Gemfile.lock file is required in the
@@ -68,23 +63,19 @@ fn log_our_error(error: RubyBuildpackError) {
 
             If you have a Gemfile.lock in your application, you may not have it
             tracked in git, or you may be on a different branch.
-
-            Details:
-
-            {error}
             "},
-        ),
-        RubyBuildpackError::InAppDirCacheError(error) => user::log_error(
+            error,
+        )
+        .print(),
+        RubyBuildpackError::InAppDirCacheError(error) => ErrorInfo::header_body_details(
             "Internal cache error",
             formatdoc! {"
             An internal error occured while caching files.
-
-            Details:
-
-            {error}
             "},
-        ),
-        RubyBuildpackError::BundleInstallDigestError(error) => user::log_error(
+            error,
+        )
+        .print(),
+        RubyBuildpackError::BundleInstallDigestError(error) => ErrorInfo::header_body_details(
             "Could not generate digest",
             formatdoc! {"
             To provide the fastest possible install experience the Ruby buildpack
@@ -93,43 +84,37 @@ fn log_our_error(error: RubyBuildpackError) {
 
             While performing this process there was an unexpected internal error.
 
-            Details:
-            {error}
             "},
-        ),
-        RubyBuildpackError::BundleInstallCommandError(error) => user::log_error(
+            error,
+        )
+        .print(),
+        RubyBuildpackError::BundleInstallCommandError(error) => ErrorInfo::header_body_details(
             "Error installing bundler",
             formatdoc! {"
             Installation of bundler failed. Bundler is the package managment
             library for Ruby. Bundler is needed to install your application's dependencies
             listed in the Gemfile.
-
-            Command failed:
-
-            {error}
             "},
-        ),
-        RubyBuildpackError::RakeAssetsPrecompileFailed(error) => user::log_error(
+            error,
+        )
+        .print(),
+        RubyBuildpackError::RakeAssetsPrecompileFailed(error) => ErrorInfo::header_body_details(
             "Asset compilation failed",
             formatdoc! {"
             An error occured while compiling assets via rake command.
-
-            Command failed:
-
-            {error}
             "},
-        ),
-        RubyBuildpackError::GemInstallBundlerCommandError(error) => user::log_error(
+            error,
+        )
+        .print(),
+        RubyBuildpackError::GemInstallBundlerCommandError(error) => ErrorInfo::header_body_details(
             "Installing gems failed",
             formatdoc! {"
             Could not install gems to the system via bundler. Gems are dependencies
             your application listed in the Gemfile and resolved in the Gemfile.lock.
-
-            Command failed:
-
-            {error}
             "},
-        ),
+            error,
+        )
+        .print(),
     }
 }
 

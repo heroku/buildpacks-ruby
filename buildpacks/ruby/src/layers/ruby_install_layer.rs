@@ -54,7 +54,7 @@ impl Layer for RubyInstallLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let timer = self.build_output.start_timer("Installing");
+        let mut timer = self.build_output.say_with_inline_timer("Installing");
 
         let tmp_ruby_tgz = NamedTempFile::new()
             .map_err(RubyInstallError::CouldNotCreateDestinationFile)

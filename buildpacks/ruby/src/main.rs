@@ -18,6 +18,7 @@ use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 use regex::Regex;
+use std::fmt::Display;
 
 mod build_output;
 mod gem_list;

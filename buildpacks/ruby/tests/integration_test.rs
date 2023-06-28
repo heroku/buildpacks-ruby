@@ -16,15 +16,31 @@ fn test_default_app() {
         BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby")
         .buildpacks(vec![BuildpackReference::Crate]),
         |context| {
-            assert_contains!(context.pack_stdout, "[Installing Ruby]");
-            assert_contains!(
-                context.pack_stdout,
-                r#"$ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#);
+            // assert_contains!(context.pack_stdout, "[Installing Ruby]");
+            // assert_contains!(
+            //     context.pack_stdout,
+            //     r#"$ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#);
 
-            println!("{}", context.pack_stdout); // Needed to get full failure as `rebuild` truncates stdout
-            assert_contains!(context.pack_stdout, "Installing webrick");
+            // println!("{}", context.pack_stdout); // Needed to get full failure as `rebuild` truncates stdout
+            // assert_contains!(context.pack_stdout, "Installing webrick");
+
 
             let config = context.config.clone();
+            use std::io::Write;
+            use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+            let mut stdout = StandardStream::stdout(ColorChoice::Always);
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Blue))).unwrap();
+            writeln!(&mut stdout, "bluetext!").unwrap();
+            let start = "\x1b[0;31m";
+            println!("{start}SO\x1b[0m");
+            println!("\x1B[34mSO\x1b[0m");
+
+            libherokubuildpack::log::log_header("YOLO");
+
+
+            println!("{}", context.pack_stdout);
+            panic!("disco");
+
             context.rebuild(config, |rebuild_context| {
                 assert_contains!(rebuild_context.pack_stdout, "Skipping 'bundle install', no changes found in /workspace/Gemfile, /workspace/Gemfile.lock, or user configured environment variables");
 

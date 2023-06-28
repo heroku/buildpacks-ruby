@@ -233,7 +233,7 @@ Make sure it doesn't say `/usr/bin/ruby` or another system ruby location
 As a oneliner:
 
 ```
-$(set -pipefail; cd buildpacks/ruby && cargo libcnb package; cd -) &&
+$(set -pipefail; cd buildpacks/ruby && cargo libcnb package; cd ../..) &&
 docker rmi my-image --force  &&
 pack build my-image --buildpack target/buildpack/debug/heroku_ruby --path buildpacks/ruby/tests/fixtures/default_ruby --verbose &&
 docker run -it --rm --entrypoint='/cnb/lifecycle/launcher' my-image 'which bundle'

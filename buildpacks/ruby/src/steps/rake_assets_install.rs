@@ -23,25 +23,29 @@ pub(crate) fn rake_assets_install(
 
     match cases {
         AssetCases::None => {
-            let details =
-                build_output::fmt::details(format!("task not found via {rake_detect_cmd}"));
-            section.say(format!("Skipping {rake_assets_precompile} {details}"));
+            section.say_with_details(
+                format!("Skipping {rake_assets_precompile}"),
+                format!("task not found via {rake_detect_cmd}"),
+            );
             section.help("Enable compiling assets by ensuring that task is present when running the detect command locally");
         }
         AssetCases::PrecompileOnly => {
-            let details =
-                build_output::fmt::details(format!("clean task not found via {rake_detect_cmd}"));
-            section.say(format!("Compiling assets without cache {details}"));
+            section.say_with_details(
+                "Compiling assets without cache",
+                format!("clean task not found via {rake_detect_cmd}"),
+            );
             section.help(format!("Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
 
             run_rake_assets_precompile(section, env)
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
         }
         AssetCases::PrecompileAndClean => {
-            let details = build_output::fmt::details(format!(
+            section.say_with_details(
+                "Compiling assets with cache",
+                format!(
                 "detected {rake_assets_precompile} and {rake_assets_clean} via {rake_detect_cmd}"
-            ));
-            section.say(format!("Compiling assets with cache {details}"));
+                ),
+            );
 
             let cache_config = [
                 CacheConfig {

@@ -23,8 +23,10 @@ pub(crate) fn detect_rake_tasks(
         [".sprockets-manifest-*.json", "manifest-*.json"],
     ) {
         RakeStatus::MissingRakeGem => {
-            let details = build_output::fmt::details(format!("no {rake} gem in {gemfile}"));
-            section.say(format!("Cannot run rake tasks {details}"));
+            section.say_with_details(
+                "Cannot run rake tasks",
+                format!("no {rake} gem in {gemfile}"),
+            );
 
             let gem = build_output::fmt::value("gem 'rake'");
             section.help(format!("Add {gem} to your {gemfile} to enable"));
@@ -32,8 +34,7 @@ pub(crate) fn detect_rake_tasks(
             Ok(None)
         }
         RakeStatus::MissingRakefile => {
-            let details = build_output::fmt::details("no Rakefile");
-            section.say(format!("Cannot run rake tasks {details}"));
+            section.say_with_details("Cannot run rake tasks", format!("no {rakefile}"));
             section.help(format!("Add {rakefile} to your project to enable"));
 
             Ok(None)
@@ -44,17 +45,20 @@ pub(crate) fn detect_rake_tasks(
                 .map(|path| build_output::fmt::value(path.to_string_lossy()))
                 .collect::<Vec<_>>()
                 .join(", ");
-            let details = build_output::fmt::details(format!("Manifest files found {files}"));
-            section.say(format!("Skipping rake tasks, {details}"));
+            section.say_with_details(
+                "Skipping rake tasks",
+                format!("Manifest files found {files}"),
+            );
             section.help("Delete files to enable running rake tasks");
 
             Ok(None)
         }
         RakeStatus::Ready(path) => {
             let path = build_output::fmt::value(path.to_string_lossy());
-            let details =
-                build_output::fmt::details(format!("{rake} gem found, {rakefile} found at {path}"));
-            section.say(format!("Rake detected {details}"));
+            section.say_with_details(
+                "Rake detected",
+                format!("{rake} gem found, {rakefile} found at {path}"),
+            );
 
             let rake_detect = RakeDetect::from_rake_command(section, env, true)
                 .map_err(RubyBuildpackError::RakeDetectError)?;

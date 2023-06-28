@@ -162,11 +162,12 @@ impl Layer for BundleInstallLayer {
             UpdateState::Skip(checked) => {
                 let checked = SentenceList::new(&checked).join_str("or");
                 let bundle_install = build_output::fmt::value("bundle install");
-                let details = build_output::fmt::details(format!("no changes found in {checked}"));
                 let env_var = build_output::fmt::value(format!("{HEROKU_SKIP_BUNDLE_DIGEST}=1"));
 
-                self.build_output
-                    .say(format!("Skipping {bundle_install} {details}"));
+                self.build_output.say_with_details(
+                    format!("Skipping {bundle_install}"),
+                    format!("no changes found in {checked}"),
+                );
                 self.build_output
                     .help(format!("To force run {bundle_install} set {env_var}"));
             }
@@ -216,14 +217,14 @@ impl Layer for BundleInstallLayer {
                 keep_and_run
             }
             Changed::Stack(_old, _now) => {
-                let details = build_output::fmt::details("stack changed");
-                self.build_output.say(format!("Clearing cache {details}"));
+                self.build_output
+                    .say_with_details("Clearing cache", "stack changed");
 
                 clear_and_run
             }
             Changed::RubyVersion(_old, _now) => {
-                let details = build_output::fmt::details("ruby verison changed");
-                self.build_output.say(format!("Clearing cache {details}"));
+                self.build_output
+                    .say_with_details("Clearing cache", "ruby version changed");
 
                 clear_and_run
             }

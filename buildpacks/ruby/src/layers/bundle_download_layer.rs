@@ -1,4 +1,3 @@
-use crate::build_output;
 use crate::build_output::section::RunCommand;
 use crate::build_output::section::Section;
 use crate::RubyBuildpack;
@@ -114,8 +113,8 @@ impl Layer for BundleDownloadLayer {
                 Ok(ExistingLayerStrategy::Keep)
             }
             State::BundlerVersionChanged(_old, _now) => {
-                let details = build_output::fmt::details("bundler version changed");
-                self.build_output.say(format!("Clearing cache {details}"));
+                self.build_output
+                    .say_with_details("Clearing cache", "bundler version changed");
 
                 Ok(ExistingLayerStrategy::Recreate)
             }

@@ -95,14 +95,14 @@ impl Layer for RubyInstallLayer {
                 Ok(ExistingLayerStrategy::Keep)
             }
             Changed::Stack(_old, _now) => {
-                let details = build_output::fmt::details("stack changed");
-                self.build_output.say(format!("Clearing cache {details}"));
+                self.build_output
+                    .say_with_details("Clearing cache", "stack changed");
 
                 Ok(ExistingLayerStrategy::Recreate)
             }
             Changed::RubyVersion(_old, _now) => {
-                let details = build_output::fmt::details("ruby version changed");
-                self.build_output.say(format!("Clearing cache {details}"));
+                self.build_output
+                    .say_with_details("Clearing cache", "ruby version changed");
 
                 Ok(ExistingLayerStrategy::Recreate)
             }

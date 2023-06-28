@@ -279,6 +279,13 @@ pub mod section {
             println!("{SECTION_PREFIX}{contents}");
         }
 
+        pub fn say_with_details(&self, contents: impl AsRef<str>, details: impl AsRef<str>) {
+            let contents = contents.as_ref();
+            let details = fmt::details(details.as_ref());
+
+            println!("{SECTION_PREFIX}{contents} {details}");
+        }
+
         /// Emit an indented help section with a "! Help:" prefix auto added
         pub fn help(&self, contents: impl AsRef<str>) {
             let contents = fmt::help(contents);

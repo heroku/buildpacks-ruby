@@ -338,7 +338,9 @@ pub mod section {
                 name,
                 output: _,
             } = run_command;
-            raw_inline_print(format!("{SECTION_PREFIX}Running {name} "));
+            let name = fmt::command(name);
+
+            raw_inline_print(format!("{SECTION_PREFIX}Running {name}"));
 
             let mut start = LiveTimingInline::new();
             let output = command.output();
@@ -358,6 +360,7 @@ pub mod section {
                 name,
                 output,
             } = run_command;
+            let name = fmt::command(name);
 
             section.say(format!("Running {name}"));
             println!(); // Weird output from prior stream adds indentation that's unwanted

@@ -32,7 +32,7 @@ pub(crate) fn detect_rake_tasks(
             Ok(None)
         }
         RakeStatus::MissingRakefile => {
-            let details = build_output::fmt::details(format!("no Rakefile"));
+            let details = build_output::fmt::details("no Rakefile");
             section.say(format!("Cannot run rake tasks {details}"));
             section.help(format!("Add {rakefile} to your project to enable"));
 
@@ -56,7 +56,7 @@ pub(crate) fn detect_rake_tasks(
                 build_output::fmt::details(format!("{rake} gem found, {rakefile} found at {path}"));
             section.say(format!("Rake detected {details}"));
 
-            let rake_detect = RakeDetect::from_rake_command(&section, env, true)
+            let rake_detect = RakeDetect::from_rake_command(section, env, true)
                 .map_err(RubyBuildpackError::RakeDetectError)?;
 
             Ok(Some(rake_detect))

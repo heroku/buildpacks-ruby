@@ -34,7 +34,7 @@ pub(crate) fn rake_assets_install(
             section.say(format!("Compiling assets without cache {details}"));
             section.help(format!("Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
 
-            run_rake_assets_precompile(&section, env)
+            run_rake_assets_precompile(section, env)
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
         }
         AssetCases::PrecompileAndClean => {
@@ -62,7 +62,7 @@ pub(crate) fn rake_assets_install(
                     .map_err(RubyBuildpackError::InAppDirCacheError)?
             };
 
-            run_rake_assets_precompile_with_clean(&section, env)
+            run_rake_assets_precompile_with_clean(section, env)
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
 
             cache

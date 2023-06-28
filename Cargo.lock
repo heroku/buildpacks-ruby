@@ -232,6 +232,7 @@ dependencies = [
  "fs-err",
  "fs_extra",
  "glob",
+ "indoc",
  "lazy_static",
  "libcnb",
  "libherokubuildpack",

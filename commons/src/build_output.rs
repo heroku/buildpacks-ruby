@@ -1,4 +1,4 @@
-use commons::fun_run;
+use crate::fun_run::{self, CmdError};
 use libherokubuildpack::command::CommandExt;
 use libherokubuildpack::write::line_mapped;
 use libherokubuildpack::write::mappers::add_prefix;
@@ -9,7 +9,7 @@ use std::{
 };
 
 mod time {
-    use super::*;
+    use std::time::Duration;
 
     // Returns the part of a duration only in miliseconds
     pub(crate) fn milliseconds(duration: &Duration) -> u32 {
@@ -81,6 +81,7 @@ fn raw_inline_print(contents: impl AsRef<str>) {
     std::io::stdout().flush().expect("Stdout is writable");
 }
 
+/// All work is done inside of a section. Advertize a section topic
 pub fn section(topic: impl AsRef<str>) -> section::Section {
     let topic = String::from(topic.as_ref());
     println!("- {topic}");
@@ -88,17 +89,20 @@ pub fn section(topic: impl AsRef<str>) -> section::Section {
     section::Section { topic }
 }
 
+/// Top level buildpack header
+///
+/// Should only use one per buildpack
 #[must_use]
 pub fn header(buildpack: impl AsRef<str>) -> BuildpackDuration {
     let header = fmt::header(buildpack.as_ref());
     println!("{header}");
-    println!("");
+    println!();
 
     let start = Instant::now();
     BuildpackDuration { start }
 }
 
-/// Time the entire buidlpack duration
+/// Time the entire buildpack execution
 pub struct BuildpackDuration {
     start: Instant,
 }
@@ -121,28 +125,30 @@ impl BuildpackDuration {
 }
 
 pub mod section {
+    use super::{
+        add_prefix, fmt, fun_run, line_mapped, raw_inline_print, time, CmdError, Command,
+        CommandExt, Duration, Instant, Output,
+    };
     use std::thread::{self, JoinHandle};
 
-    use commons::fun_run::CmdError;
-
-    use super::*;
-
-    const CMD_INDENT: &'static str = "      ";
-    const SECTION_INDENT: &'static str = "  ";
-    const SECTION_PREFIX: &'static str = "  - ";
+    const CMD_INDENT: &str = "      ";
+    const SECTION_INDENT: &str = "  ";
+    const SECTION_PREFIX: &str = "  - ";
 
     #[derive(Debug, Clone, Eq, PartialEq)]
     pub struct Section {
         pub(crate) topic: String,
     }
 
+    /// Specify how you want a command to be run by `Section::run`
     pub struct RunCommand<'a> {
-        pub command: &'a mut Command,
-        pub name: String,
-        pub output: OutputConfig,
+        command: &'a mut Command,
+        name: String,
+        output: OutputConfig,
     }
 
     impl<'a> RunCommand<'a> {
+        /// Generate a new `RunCommand` with a different name
         #[must_use]
         pub fn with_name(self, name: impl AsRef<str>) -> Self {
             let name = name.as_ref().to_string();
@@ -159,6 +165,7 @@ pub mod section {
             }
         }
 
+        /// Announce and stream the output of a command
         pub fn stream(command: &'a mut Command) -> Self {
             let name = fun_run::display(command);
             Self {
@@ -168,6 +175,7 @@ pub mod section {
             }
         }
 
+        /// Announce and stream the output of a command without timing information at the end
         pub fn stream_without_timing(command: &'a mut Command) -> Self {
             let name = fun_run::display(command);
             Self {
@@ -177,6 +185,7 @@ pub mod section {
             }
         }
 
+        /// Do not announce or stream output of a command
         pub fn quiet(command: &'a mut Command) -> Self {
             let name = fun_run::display(command);
             Self {
@@ -186,6 +195,7 @@ pub mod section {
             }
         }
 
+        /// Announce a command inline. Do not stream it's output. Emit inline progress timer.
         pub fn inline_progress(command: &'a mut Command) -> Self {
             let name = fun_run::display(command);
             Self {
@@ -196,7 +206,7 @@ pub mod section {
         }
     }
 
-    pub enum OutputConfig {
+    enum OutputConfig {
         Stream,
         StreamNoTiming,
         Quiet,
@@ -215,14 +225,21 @@ pub mod section {
         join_dots: Option<JoinHandle<()>>,
     }
 
+    impl Default for LiveTimingInline {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl LiveTimingInline {
+        #[must_use]
         pub fn new() -> Self {
             let (stop_dots, receiver) = std::sync::mpsc::channel();
 
             let join_dots = thread::spawn(move || {
                 raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, " ["));
 
-                while true {
+                loop {
                     let msg = receiver.recv_timeout(Duration::from_secs(1));
                     raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, "-"));
 
@@ -256,17 +273,23 @@ pub mod section {
     }
 
     impl Section {
+        /// Emit contents to the buid output with indentation
         pub fn say(&self, contents: impl AsRef<str>) {
             let contents = contents.as_ref();
             println!("{SECTION_PREFIX}{contents}");
         }
 
+        /// Emit an indented help section with a "! Help:" prefix auto added
         pub fn help(&self, contents: impl AsRef<str>) {
             let contents = fmt::help(contents);
 
             println!("{SECTION_INDENT}{contents}");
         }
 
+        /// Start a time and emit a reson for it
+        ///
+        /// The timer will emit an inline progress meter until `LiveTimingInline::done` is called
+        /// on it.
         #[must_use]
         pub fn say_with_inline_timer(&self, reason: impl AsRef<str>) -> LiveTimingInline {
             let reason = reason.as_ref();
@@ -275,14 +298,19 @@ pub mod section {
             LiveTimingInline::new()
         }
 
-        #[must_use]
+        /// Run a command with the given configuration and name
+        ///
+        /// # Errors
+        ///
+        /// Returns an error if the command status is non-zero or if the
+        /// system cannot run the command.
         pub fn run(&self, run_command: RunCommand) -> Result<Output, CmdError> {
             match run_command.output {
                 OutputConfig::Stream | OutputConfig::StreamNoTiming => {
-                    Self::stream_command(&self, run_command)
+                    Self::stream_command(self, run_command)
                 }
-                OutputConfig::Quiet => Self::silent_command(&self, run_command),
-                OutputConfig::InlineProgress => Self::inline_progress_command(&self, run_command),
+                OutputConfig::Quiet => Self::silent_command(self, run_command),
+                OutputConfig::InlineProgress => Self::inline_progress_command(self, run_command),
             }
         }
 
@@ -291,16 +319,13 @@ pub mod section {
             let RunCommand {
                 command,
                 name,
-                output,
+                output: _,
             } = run_command;
 
-            let start = Instant::now();
-            let result = command
+            command
                 .output()
                 .map_err(|error| fun_run::on_system_error(name.clone(), error))
-                .and_then(|output| fun_run::nonzero_captured(name, output));
-
-            result
+                .and_then(|output| fun_run::nonzero_captured(name, output))
         }
 
         /// Run a command. Output command name, but don't stream the contents
@@ -367,50 +392,55 @@ pub mod fmt {
     use indoc::formatdoc;
     use std::fmt::Display;
 
-    pub(crate) const RED: &'static str = "\x1B[31m";
-    pub(crate) const YELLOW: &'static str = "\x1B[33m";
-    pub(crate) const CYAN: &'static str = "\x1B[36m";
-    pub(crate) const PURPLE: &'static str = "\x1B[35m"; // magenta
+    pub(crate) const RED: &str = "\x1B[31m";
+    pub(crate) const YELLOW: &str = "\x1B[33m";
+    pub(crate) const CYAN: &str = "\x1B[36m";
+    // pub(crate) const PURPLE: &str = "\x1B[35m"; // magenta
 
-    pub(crate) const BOLD_CYAN: &'static str = "\x1B[1;36m";
-    pub(crate) const BOLD_PURPLE: &'static str = "\x1B[1;35m"; // magenta
+    pub(crate) const BOLD_CYAN: &str = "\x1B[1;36m";
+    pub(crate) const BOLD_PURPLE: &str = "\x1B[1;35m"; // magenta
 
-    pub(crate) const DEFAULT_DIM: &'static str = "\x1B[2;1m"; // Default color but softer/less vibrant
-    pub(crate) const RESET: &'static str = "\x1B[0m";
-    pub(crate) const NOCOLOR: &'static str = "\x1B[0m\x1B[0m"; //differentiate between color clear and explicit no color
-    pub(crate) const NOCOLOR_TMP: &'static str = "🙈🙈🙈"; // Used together with NOCOLOR to act as a placeholder
+    pub(crate) const DEFAULT_DIM: &str = "\x1B[2;1m"; // Default color but softer/less vibrant
+    pub(crate) const RESET: &str = "\x1B[0m";
+    pub(crate) const NOCOLOR: &str = "\x1B[0m\x1B[0m"; //differentiate between color clear and explicit no color
+    pub(crate) const NOCOLOR_TMP: &str = "🙈🙈🙈"; // Used together with NOCOLOR to act as a placeholder
 
-    pub(crate) const HEROKU_COLOR: &'static str = BOLD_PURPLE;
-    pub(crate) const VALUE_COLOR: &'static str = YELLOW;
-    pub(crate) const COMMAND_COLOR: &'static str = BOLD_CYAN;
-    pub(crate) const URL_COLOR: &'static str = CYAN;
-    pub(crate) const IMPORTANT_COLOR: &'static str = CYAN;
-    pub(crate) const ERROR_COLOR: &'static str = RED;
-    pub(crate) const WARNING_COLOR: &'static str = YELLOW;
+    pub(crate) const HEROKU_COLOR: &str = BOLD_PURPLE;
+    pub(crate) const VALUE_COLOR: &str = YELLOW;
+    pub(crate) const COMMAND_COLOR: &str = BOLD_CYAN;
+    pub(crate) const URL_COLOR: &str = CYAN;
+    pub(crate) const IMPORTANT_COLOR: &str = CYAN;
+    pub(crate) const ERROR_COLOR: &str = RED;
+    pub(crate) const WARNING_COLOR: &str = YELLOW;
 
+    /// Used to decorate a command being run i.e. `bundle install`
     #[must_use]
     pub fn command(contents: impl AsRef<str>) -> String {
         value(colorize(COMMAND_COLOR, contents.as_ref()))
     }
 
+    /// Used to decorate a derived or user configured value
     #[must_use]
     pub fn value(contents: impl AsRef<str>) -> String {
         let contents = colorize(VALUE_COLOR, contents.as_ref());
         format!("`{contents}`")
     }
 
+    /// Used to decorate additional information
     #[must_use]
     pub fn details(contents: impl AsRef<str>) -> String {
         let contents = contents.as_ref();
         format!("({contents})")
     }
 
+    /// Used to decorate a buildpack
     #[must_use]
     pub(crate) fn header(contents: impl AsRef<str>) -> String {
         let contents = contents.as_ref();
         colorize(HEROKU_COLOR, format!("\n# {contents}"))
     }
 
+    /// Used to standardize error/warning/important information
     pub(crate) fn lookatme(
         color: &str,
         noun: impl AsRef<str>,
@@ -437,6 +467,10 @@ pub mod fmt {
         colorize(IMPORTANT_COLOR, bangify(format!("Help: {contents}")))
     }
 
+    /// Holds the contents of an error
+    ///
+    /// Designed so that additional optional fields may be added later without
+    /// breaking compatability
     #[derive(Debug, Clone, Default)]
     pub struct ErrorInfo {
         header: String,
@@ -460,16 +494,22 @@ pub mod fmt {
         }
 
         pub fn print(&self) {
-            println!("{}", self.to_string());
+            println!("{self}");
         }
     }
 
     impl Display for ErrorInfo {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.write_str(error(&self).as_str())
+            f.write_str(error(self).as_str())
         }
     }
 
+    /// Need feedback on this interface
+    ///
+    /// Should it take fields or a struct
+    /// Struct is more robust to change but extra boilerplate
+    /// If the struct is always needed, this should perhaps be an associated function
+    #[must_use]
     pub fn error(info: &ErrorInfo) -> String {
         let ErrorInfo {
             header,
@@ -486,22 +526,29 @@ pub mod fmt {
         }
     }
 
-    pub fn warning(header: impl AsRef<str>, body: impl AsRef<str>, url: Option<String>) -> String {
+    /// Need feedback on this interface
+    ///
+    /// Should it have a dedicated struct like `ErrorInfo` or be a function?
+    /// Do we want to bundle warnings together and emit them at the end? (I think so, but it's out of current scope)
+    pub fn warning(header: impl AsRef<str>, body: impl AsRef<str>, url: &Option<String>) -> String {
         let header = header.as_ref();
         let body = body.as_ref();
 
-        lookatme(WARNING_COLOR, "WARNING:", header, body, &url)
+        lookatme(WARNING_COLOR, "WARNING:", header, body, url)
     }
 
+    /// Need feedback on this interface
+    ///
+    /// Same questions as `warning`
     pub fn important(
         header: impl AsRef<str>,
         body: impl AsRef<str>,
-        url: Option<String>,
+        url: &Option<String>,
     ) -> String {
         let header = header.as_ref();
         let body = body.as_ref();
 
-        lookatme(IMPORTANT_COLOR, "", header, body, &url)
+        lookatme(IMPORTANT_COLOR, "", header, body, url)
     }
 
     fn help_url(body: impl AsRef<str>, url: &Option<String>) -> String {
@@ -521,9 +568,10 @@ pub mod fmt {
         }
     }
 
+    /// Helper method that adds a bang i.e. `!` before strings
     fn bangify(body: impl AsRef<str>) -> String {
         body.as_ref()
-            .split("\n")
+            .split('\n')
             .map(|section| format!("! {section}"))
             .collect::<Vec<String>>()
             .join("\n")
@@ -531,8 +579,8 @@ pub mod fmt {
 
     /// Colorizes a body while preserving existing color/reset combinations and clearing before newlines
     ///
-    /// Colors with newlines are a problem since the contents stream to git which prepends `remote:` before the libcnb_test
-    /// if we don't clear, then we will colorize output that isn't ours
+    /// Colors with newlines are a problem since the contents stream to git which prepends `remote:` before the `libcnb_test`
+    /// if we don't clear, then we will colorize output that isn't ours.
     ///
     /// Explicitly uncolored output is handled by a hacky process of treating two color clears as a special cases
     pub(crate) fn colorize(color: &str, body: impl AsRef<str>) -> String {
@@ -551,11 +599,6 @@ pub mod fmt {
     #[cfg(test)]
     mod test {
         use super::*;
-
-        #[test]
-        fn lol() {
-            // println!("{}", error("ohno", "nope", None));
-        }
 
         #[test]
         fn handles_explicitly_removed_colors() {
@@ -579,17 +622,16 @@ pub mod fmt {
 
         #[test]
         fn splits_newlines() {
-            //             let out = colorize(RED, "hello\nworld");
-            //             let expected = r#"\e[31mhello\033[0m
-            // \e[31mworld\033[0m"#;
+            let actual = colorize(RED, "hello\nworld");
+            let expected = format!("{RED}hello{RESET}\n{RED}world{RESET}");
 
-            //             assert_eq!(expected, &out);
+            assert_eq!(expected, actual);
         }
 
         #[test]
         fn simple_case() {
-            // let out = colorize(RED, "hello world");
-            // assert_eq!(r#"\e[31mhello world\033[0m"#, &out);
+            let actual = colorize(RED, "hello world");
+            assert_eq!(format!("{RED}hello world{RESET}"), actual);
         }
     }
 }

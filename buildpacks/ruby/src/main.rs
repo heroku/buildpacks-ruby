@@ -3,6 +3,7 @@
 #![allow(clippy::module_name_repetitions)]
 use crate::layers::{RubyInstallError, RubyInstallLayer};
 use crate::rake_task_detect::RakeError;
+use commons::build_output;
 use commons::cache::CacheError;
 use commons::fun_run::CmdError;
 use commons::gemfile_lock::GemfileLock;
@@ -19,7 +20,6 @@ use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 use regex::Regex;
 
-mod build_output;
 mod gem_list;
 mod layers;
 mod rake_status;

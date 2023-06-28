@@ -356,8 +356,7 @@ fn bundle_install(env: &Env, section: &Section) -> Result<(), CmdError> {
             let path_env = env.get("PATH").cloned();
 
             section
-                .run(RunCommand::StreamWithName(cmd, name))
-                .done_timed()
+                .run(RunCommand::stream(cmd).with_name(name))
                 .map_err(|error| fun_run::map_which_problem(error, cmd, path_env))
         })?;
 

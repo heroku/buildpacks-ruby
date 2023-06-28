@@ -18,7 +18,6 @@ use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 use regex::Regex;
-use std::fmt::Display;
 
 mod build_output;
 mod gem_list;
@@ -135,6 +134,7 @@ impl Buildpack for RubyBuildpack {
         let (gem_list, default_process) = {
             let section = build_output::section("Setting default processes(es)");
             section.say("Detecting gems");
+
             let gem_list = gem_list::GemList::from_bundle_list(&env, &section)
                 .map_err(RubyBuildpackError::GemListGetError)?;
             let default_process = steps::get_default_process(&section, &context, &gem_list);

@@ -42,20 +42,17 @@ impl RakeDetect {
             .env_clear()
             .envs(envs)
             .cmd_map(|cmd| {
-                section
-                    .run(RunCommand::Quiet(cmd))
-                    .done_timed()
-                    .or_else(|error| {
-                        if error_on_failure {
-                            Err(error)
-                        } else {
-                            match error {
-                                CmdError::SystemError(_, _) => Err(error),
-                                CmdError::NonZeroExitNotStreamed(_, output)
-                                | CmdError::NonZeroExitAlreadyStreamed(_, output) => Ok(output),
-                            }
+                section.run(RunCommand::quiet(cmd)).or_else(|error| {
+                    if error_on_failure {
+                        Err(error)
+                    } else {
+                        match error {
+                            CmdError::SystemError(_, _) => Err(error),
+                            CmdError::NonZeroExitNotStreamed(_, output)
+                            | CmdError::NonZeroExitAlreadyStreamed(_, output) => Ok(output),
                         }
-                    })
+                    }
+                })
             })
             .map_err(RakeError::DashpCommandError)
             .and_then(|output| RakeDetect::from_str(&String::from_utf8_lossy(&output.stdout)))

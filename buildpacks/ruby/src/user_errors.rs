@@ -1,10 +1,6 @@
 use indoc::formatdoc;
-use libherokubuildpack::log as user;
 
-use crate::{
-    build_output::{self, fmt::ErrorInfo},
-    RubyBuildpackError,
-};
+use crate::{build_output::fmt::ErrorInfo, RubyBuildpackError};
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
     match cause(err) {

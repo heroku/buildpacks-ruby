@@ -584,7 +584,6 @@ dependencies = [
  "serde",
  "tar",
  "tempfile",
- "termcolor",
  "thiserror",
  "toml",
  "ureq",

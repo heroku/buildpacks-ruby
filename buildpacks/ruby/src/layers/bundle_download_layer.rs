@@ -68,8 +68,7 @@ impl Layer for BundleDownloadLayer {
             .envs(&self.env)
             .cmd_map(|cmd| {
                 self.build_output
-                    .run(RunCommand::Quiet(cmd))
-                    .done_timed()
+                    .run(RunCommand::quiet(cmd))
                     .map_err(|error| {
                         fun_run::map_which_problem(error, cmd, self.env.get("PATH").cloned())
                     })

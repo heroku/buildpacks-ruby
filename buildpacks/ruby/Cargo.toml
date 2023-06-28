@@ -22,7 +22,6 @@ thiserror = "1"
 ureq = "2"
 url = "2"
 glob = "0.3"
-termcolor = "*"
 
 [dev-dependencies]
 libcnb-test = "0.13"

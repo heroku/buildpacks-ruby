@@ -82,8 +82,7 @@ fn run_rake_assets_precompile(section: &Section, env: &Env) -> Result<(), CmdErr
         .cmd_map(|cmd| {
             let path_env = env.get("PATH").cloned();
             section
-                .run(RunCommand::Stream(cmd))
-                .done_timed()
+                .run(RunCommand::stream(cmd))
                 .map_err(|error| fun_run::map_which_problem(error, cmd, path_env))
         })?;
 
@@ -104,8 +103,7 @@ fn run_rake_assets_precompile_with_clean(section: &Section, env: &Env) -> Result
         .cmd_map(|cmd| {
             let path_env = env.get("PATH").cloned();
             section
-                .run(RunCommand::Stream(cmd))
-                .done_timed()
+                .run(RunCommand::stream(cmd))
                 .map_err(|error| fun_run::map_which_problem(error, cmd, path_env))
         })?;
 

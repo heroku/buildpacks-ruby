@@ -74,7 +74,8 @@ mod time {
     }
 }
 
-fn print_inline(contents: impl AsRef<str>) {
+// Helper for printing without newlines that auto-flushes stdout
+fn raw_inline_print(contents: impl AsRef<str>) {
     let contents = contents.as_ref();
     print!("{contents}");
     std::io::stdout().flush().expect("Stdout is writable");
@@ -124,51 +125,72 @@ pub mod section {
 
     use commons::fun_run::CmdError;
 
-    use super::{fmt::DEFAULT_DIM, *};
+    use super::*;
 
     const CMD_INDENT: &'static str = "      ";
-    const PREFIX: &'static str = "  - ";
+    const SECTION_INDENT: &'static str = "  ";
+    const SECTION_PREFIX: &'static str = "  - ";
 
     #[derive(Debug, Clone, Eq, PartialEq)]
     pub struct Section {
         pub(crate) topic: String,
     }
 
-    struct RunCommandLol<'a> {
-        cmd: &'a mut Command,
-        name: Option<String>,
-        output: OutputConfig,
+    pub struct RunCommand<'a> {
+        pub command: &'a mut Command,
+        pub name: String,
+        pub output: OutputConfig,
     }
 
-    impl<'a> RunCommandLol<'a> {
-        fn stream(cmd: &'a mut Command) -> Self {
+    impl<'a> RunCommand<'a> {
+        #[must_use]
+        pub fn with_name(self, name: impl AsRef<str>) -> Self {
+            let name = name.as_ref().to_string();
+            let RunCommand {
+                command,
+                name: _,
+                output,
+            } = self;
+
             Self {
-                cmd,
-                name: None,
+                command,
+                name,
+                output,
+            }
+        }
+
+        pub fn stream(command: &'a mut Command) -> Self {
+            let name = fun_run::display(command);
+            Self {
+                command,
+                name,
                 output: OutputConfig::Stream,
             }
         }
 
-        fn stream_without_timing(cmd: &'a mut Command) -> Self {
+        pub fn stream_without_timing(command: &'a mut Command) -> Self {
+            let name = fun_run::display(command);
             Self {
-                cmd,
-                name: None,
+                command,
+                name,
                 output: OutputConfig::StreamNoTiming,
             }
         }
 
-        fn quiet(cmd: &'a mut Command) -> Self {
+        pub fn quiet(command: &'a mut Command) -> Self {
+            let name = fun_run::display(command);
             Self {
-                cmd,
-                name: None,
+                command,
+                name,
                 output: OutputConfig::Quiet,
             }
         }
 
-        fn inline_progress(cmd: &'a mut Command) -> Self {
+        pub fn inline_progress(command: &'a mut Command) -> Self {
+            let name = fun_run::display(command);
             Self {
-                cmd,
-                name: None,
+                command,
+                name,
                 output: OutputConfig::InlineProgress,
             }
         }
@@ -179,62 +201,6 @@ pub mod section {
         StreamNoTiming,
         Quiet,
         InlineProgress,
-    }
-
-    pub enum RunCommand<'a> {
-        Stream(&'a mut Command),
-        Quiet(&'a mut Command),
-        Inline(&'a mut Command),
-        StreamWithName(&'a mut Command, String),
-        QuietWithName(&'a mut Command, String),
-        InlineWithName(&'a mut Command, String),
-    }
-    pub enum CommandDone {
-        Stream {
-            start: Instant,
-            result: Result<Output, CmdError>,
-        },
-        Quiet {
-            start: Instant,
-            result: Result<Output, CmdError>,
-        },
-        Inline {
-            start: LiveTimingInline,
-            result: Result<Output, CmdError>,
-        },
-    }
-
-    impl CommandDone {
-        // Quiet never outputs
-        pub fn done_timed(mut self) -> Result<Output, CmdError> {
-            match self {
-                CommandDone::Stream { start, result } => {
-                    let duration = start.elapsed();
-                    let time = fmt::details(time::human(&duration));
-                    println!(); // Weird output from prior stream adds indentation that's unwanted
-                    println!("{PREFIX}Done {time}");
-                    result
-                }
-                CommandDone::Quiet { start: _, result } => result,
-                CommandDone::Inline { mut start, result } => {
-                    start.done();
-
-                    result
-                }
-            }
-        }
-
-        // Inline always outputs timing info
-        pub fn done(mut self) -> Result<Output, CmdError> {
-            match self {
-                CommandDone::Stream { start: _, result }
-                | CommandDone::Quiet { start: _, result } => result,
-                CommandDone::Inline { mut start, result } => {
-                    start.done();
-                    result
-                }
-            }
-        }
     }
 
     /// Handles outputing inline progress based on timing
@@ -254,14 +220,14 @@ pub mod section {
             let (stop_dots, receiver) = std::sync::mpsc::channel();
 
             let join_dots = thread::spawn(move || {
-                print_inline(fmt::colorize(fmt::DEFAULT_DIM, " ["));
+                raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, " ["));
 
                 while true {
                     let msg = receiver.recv_timeout(Duration::from_secs(1));
-                    print_inline(fmt::colorize(DEFAULT_DIM, "-"));
+                    raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, "-"));
 
                     if msg.is_ok() {
-                        print_inline(fmt::colorize(fmt::DEFAULT_DIM, "] "));
+                        raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, "] "));
                         break;
                     }
                 }
@@ -276,7 +242,7 @@ pub mod section {
 
         fn stop_dots(&mut self) {
             if let Some(handle) = self.join_dots.take() {
-                self.stop_dots.send(1);
+                self.stop_dots.send(1).expect("Thread is not dead");
                 handle.join().expect("Thread is joinable");
             }
         }
@@ -292,57 +258,41 @@ pub mod section {
     impl Section {
         pub fn say(&self, contents: impl AsRef<str>) {
             let contents = contents.as_ref();
-            println!("{PREFIX}{contents}");
+            println!("{SECTION_PREFIX}{contents}");
         }
 
         pub fn help(&self, contents: impl AsRef<str>) {
-            let (leading_indent, _) = PREFIX
-                .split_once("-")
-                .expect("Prefix must have a `-` character");
-
             let contents = fmt::help(contents);
 
-            println!("{leading_indent}{contents}");
+            println!("{SECTION_INDENT}{contents}");
         }
 
         #[must_use]
         pub fn say_with_inline_timer(&self, reason: impl AsRef<str>) -> LiveTimingInline {
             let reason = reason.as_ref();
-            print_inline(format!("{PREFIX}{reason}"));
+            raw_inline_print(format!("{SECTION_PREFIX}{reason}"));
 
             LiveTimingInline::new()
         }
 
         #[must_use]
-        pub fn run(&self, run_command: RunCommand) -> CommandDone {
-            match run_command {
-                RunCommand::Stream(command) => Self::stream_command(self, command, None),
-                RunCommand::Quiet(command) => Self::silent_command(self, command, None),
-                RunCommand::Inline(command) => Self::inline_command(self, command, None),
-
-                RunCommand::StreamWithName(command, name) => {
-                    Self::stream_command(self, command, Some(name))
+        pub fn run(&self, run_command: RunCommand) -> Result<Output, CmdError> {
+            match run_command.output {
+                OutputConfig::Stream | OutputConfig::StreamNoTiming => {
+                    Self::stream_command(&self, run_command)
                 }
-                RunCommand::QuietWithName(command, name) => {
-                    Self::silent_command(self, command, Some(name))
-                }
-                RunCommand::InlineWithName(command, name) => {
-                    Self::inline_command(self, command, Some(name))
-                }
+                OutputConfig::Quiet => Self::silent_command(&self, run_command),
+                OutputConfig::InlineProgress => Self::inline_progress_command(&self, run_command),
             }
         }
 
         /// Run a command and output nothing to the screen
-        fn silent_command(
-            _section: &Section,
-            command: &mut Command,
-            custom_name: Option<String>,
-        ) -> CommandDone {
-            let name = if let Some(custom_name) = custom_name {
-                custom_name
-            } else {
-                fmt::value(fun_run::display(command))
-            };
+        fn silent_command(_section: &Section, run_command: RunCommand) -> Result<Output, CmdError> {
+            let RunCommand {
+                command,
+                name,
+                output,
+            } = run_command;
 
             let start = Instant::now();
             let result = command
@@ -350,50 +300,40 @@ pub mod section {
                 .map_err(|error| fun_run::on_system_error(name.clone(), error))
                 .and_then(|output| fun_run::nonzero_captured(name, output));
 
-            CommandDone::Quiet { start, result }
+            result
         }
 
         /// Run a command. Output command name, but don't stream the contents
-        fn inline_command(
+        fn inline_progress_command(
             _section: &Section,
-            command: &mut Command,
-            custom_name: Option<String>,
-        ) -> CommandDone {
-            let name = if let Some(custom_name) = custom_name {
-                fmt::command(custom_name)
-            } else {
-                fmt::command(fun_run::display(command))
-            };
+            run_command: RunCommand,
+        ) -> Result<Output, CmdError> {
+            let RunCommand {
+                command,
+                name,
+                output: _,
+            } = run_command;
+            raw_inline_print(format!("{SECTION_PREFIX}Running {name} "));
 
-            print_inline(format!("{PREFIX}Running {name} "));
-
-            let start = Instant::now();
+            let mut start = LiveTimingInline::new();
             let output = command.output();
-
             let result = output
                 .map_err(|error| fun_run::on_system_error(name.clone(), error))
                 .and_then(|output| fun_run::nonzero_captured(name, output));
 
-            CommandDone::Inline {
-                start: LiveTimingInline::new(),
-                result,
-            }
+            start.done();
+
+            result
         }
 
         /// Run a command. Output command name, and stream the contents
-        fn stream_command(
-            section: &Section,
-            command: &mut Command,
-            custom_name: Option<String>,
-        ) -> CommandDone {
-            let name = if let Some(custom_name) = custom_name {
-                fmt::command(custom_name)
-            } else {
-                fmt::command(fun_run::display(command))
-            };
+        fn stream_command(section: &Section, run_command: RunCommand) -> Result<Output, CmdError> {
+            let RunCommand {
+                command,
+                name,
+                output,
+            } = run_command;
 
-            // Problem if you forget self:: then it will call super::say which is valid code
-            // but not what we want
             section.say(format!("Running {name}"));
             println!(); // Weird output from prior stream adds indentation that's unwanted
 
@@ -406,7 +346,19 @@ pub mod section {
                 .map_err(|error| fun_run::on_system_error(name.clone(), error))
                 .and_then(|output| fun_run::nonzero_streamed(name, output));
 
-            CommandDone::Stream { start, result }
+            println!(); // Weird output from prior stream adds indentation that's unwanted
+
+            let duration = start.elapsed();
+            let time = fmt::details(time::human(&duration));
+            match output {
+                OutputConfig::Stream => {
+                    section.say(format!("Done {time}"));
+                }
+                OutputConfig::StreamNoTiming => section.say("Done {time}"),
+                OutputConfig::Quiet | OutputConfig::InlineProgress => unreachable!(),
+            }
+
+            result
         }
     }
 }

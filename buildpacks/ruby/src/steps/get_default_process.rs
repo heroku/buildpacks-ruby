@@ -1,11 +1,11 @@
-use std::path::Path;
-
 use commons::gem_list::GemList;
 use libcnb::build::BuildContext;
 use libcnb::data::launch::Process;
 use libcnb::data::launch::ProcessBuilder;
 use libcnb::data::process_type;
 use libherokubuildpack::log as user;
+use std::fmt::Display;
+use std::path::Path;
 
 use crate::RubyBuildpack;
 
@@ -64,17 +64,39 @@ fn detect_web(gem_list: &GemList, app_path: &Path) -> WebProcess {
     }
 }
 
-fn bashify(
-    program: impl Into<String>,
-    args: impl IntoIterator<Item = impl Into<String>>,
-) -> Process {
+#[derive(Debug, Clone, Eq, PartialEq)]
+enum ShellString {
+    Escape(String),
+    QuoteEnvVar(String),
+}
+
+impl ShellString {
+    fn escape(arg: impl Into<String>) -> ShellString {
+        ShellString::Escape(arg.into())
+    }
+
+    fn quote_env_var(arg: impl Into<String>) -> ShellString {
+        ShellString::QuoteEnvVar(arg.into())
+    }
+}
+
+impl Display for ShellString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ShellString::Escape(string) => f.write_str(&shell_words::quote(string)), // single quote only if needed
+            ShellString::QuoteEnvVar(string) => write!(f, "\"{string}\""),
+        }
+    }
+}
+
+fn bashify(program: &ShellString, args: impl IntoIterator<Item = ShellString>) -> Process {
     let args = args
         .into_iter()
-        .map(std::convert::Into::into)
+        .map(|s| s.to_string())
         .collect::<Vec<String>>()
         .join(" ");
+    let command = [String::from("exec"), program.to_string(), args].join(" ");
 
-    let command = [String::from("exec"), program.into(), args].join(" ");
     ProcessBuilder::new(process_type!("web"), ["bash"])
         .args(["-c", &command])
         .default(true)
@@ -83,14 +105,45 @@ fn bashify(
 
 fn default_rack() -> Process {
     bashify(
-        "bundle",
-        ["exec", "rackup", "--port", "$PORT", "--host", "0.0.0.0"],
+        &ShellString::escape("bundle"),
+        [
+            ShellString::escape("exec"),
+            ShellString::escape("rackup"),
+            ShellString::escape("--port"),
+            ShellString::quote_env_var("$PORT"),
+            ShellString::escape("--host"),
+            ShellString::escape("0.0.0.0"),
+        ],
     )
 }
 
 fn default_rails() -> Process {
     bashify(
-        "bin/rails",
-        ["server", "--port", "$PORT", "--environment", "$RAILS_ENV"],
+        &ShellString::escape("bin/rails"),
+        [
+            ShellString::escape("server"),
+            ShellString::escape("--port"),
+            ShellString::quote_env_var("$PORT"),
+            ShellString::escape("--environment"),
+            ShellString::quote_env_var("$RAILS_ENV"),
+        ],
     )
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn shell_quoting() {
+        assert_eq!(
+            String::from("\"$PORT\""),
+            ShellString::quote_env_var("$PORT").to_string()
+        );
+
+        assert_eq!(
+            String::from("'hello there'"),
+            ShellString::escape("hello there").to_string()
+        );
+    }
 }

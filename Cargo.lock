@@ -174,7 +174,7 @@ dependencies = [
  "fs_extra",
  "glob",
  "lazy_static",
- "libcnb 0.11.5",
+ "libcnb",
  "libherokubuildpack",
  "regex",
  "serde",
@@ -518,7 +518,7 @@ dependencies = [
  "flate2",
  "fs-err",
  "indoc",
- "libcnb 0.11.5",
+ "libcnb",
  "libcnb-test",
  "libherokubuildpack",
  "rand",
@@ -707,19 +707,6 @@ checksum = "99227334921fae1a979cf0bfdfcc6b3e5ce376ef57e16fb6fb3ea2ed6095f80c"
 
 [[package]]
 name = "libcnb"
-version = "0.11.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e4fd7573558173267930e31446da65a0275770bde88847cad4b4cf9a6ff8375"
-dependencies = [
- "libcnb-data 0.11.5",
- "libcnb-proc-macros 0.11.5",
- "serde",
- "thiserror",
- "toml 0.7.3",
-]
-
-[[package]]
-name = "libcnb"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39d5e0e5f0ea6fe91d867457289d88c4f56631e37fac072d11676ff970715012"
@@ -754,7 +741,7 @@ dependencies = [
  "libcnb-proc-macros 0.13.0",
  "serde",
  "thiserror",
- "toml 0.7.3",
+ "toml 0.7.4",
  "uriparse",
 ]
 
@@ -820,7 +807,7 @@ checksum = "9580036bf74433923229f3669b3eee4031f771272f6e419754bc49698f320851"
 dependencies = [
  "crossbeam-utils",
  "flate2",
- "libcnb 0.13.0",
+ "libcnb",
  "pathdiff",
  "sha2",
  "tar",

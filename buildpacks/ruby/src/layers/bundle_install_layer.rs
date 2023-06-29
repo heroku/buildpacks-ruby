@@ -365,7 +365,7 @@ fn bundle_install(env: &Env) -> Result<(), CmdError> {
             user::log_info(format!("Running  $ {name}"));
 
             cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())
-                .map_err(|error| fun_run::annotate_which_problem(error, cmd, path_env))
+                .map_err(|error| fun_run::annotate_which_problem(error, cmd, path_env.cloned()))
                 .map_err(|error| fun_run::on_system_error(name.clone(), error))
                 .and_then(|output| fun_run::nonzero_streamed(name.clone(), output))
         })?;

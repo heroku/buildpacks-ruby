@@ -64,16 +64,33 @@ fn detect_web(gem_list: &GemList, app_path: &Path) -> WebProcess {
     }
 }
 
-fn default_rack() -> Process {
-    ProcessBuilder::new(process_type!("web"), "bundle")
-        .args(["exec", "rackup", "--port", "$PORT", "--host", "0.0.0.0"])
+fn bashify(
+    program: impl Into<String>,
+    args: impl IntoIterator<Item = impl Into<String>>,
+) -> Process {
+    let args = args
+        .into_iter()
+        .map(std::convert::Into::into)
+        .collect::<Vec<String>>()
+        .join(" ");
+
+    let command = [String::from("exec"), program.into(), args].join(" ");
+    ProcessBuilder::new(process_type!("web"), ["bash"])
+        .args(["-c", &command])
         .default(true)
         .build()
 }
 
+fn default_rack() -> Process {
+    bashify(
+        "bundle",
+        ["exec", "rackup", "--port", "$PORT", "--host", "0.0.0.0"],
+    )
+}
+
 fn default_rails() -> Process {
-    ProcessBuilder::new(process_type!("web"), "bin/rails")
-        .args(["server", "--port", "$PORT", "--environment", "$RAILS_ENV"])
-        .default(true)
-        .build()
+    bashify(
+        "bin/rails",
+        ["server", "--port", "$PORT", "--environment", "$RAILS_ENV"],
+    )
 }

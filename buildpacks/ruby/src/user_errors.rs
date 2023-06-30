@@ -28,7 +28,6 @@ fn log_our_error(error: RubyBuildpackError) {
             formatdoc! {"
             The Ruby buildpack uses rake task information from your application to guide
             build logic. Without this information, the Ruby buildpack cannot continue.
-
             "},
             error,
         )
@@ -79,7 +78,6 @@ fn log_our_error(error: RubyBuildpackError) {
             used in cache invalidation.
 
             While performing this process there was an unexpected internal error.
-
             "},
             error,
         )

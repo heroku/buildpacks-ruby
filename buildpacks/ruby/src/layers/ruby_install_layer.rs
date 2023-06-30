@@ -28,7 +28,7 @@ use url::Url;
 #[derive(PartialEq, Eq)]
 pub(crate) struct RubyInstallLayer {
     pub version: ResolvedRubyVersion,
-    pub build_output: build_output::section::Section,
+    pub build_output: build_output::Section,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

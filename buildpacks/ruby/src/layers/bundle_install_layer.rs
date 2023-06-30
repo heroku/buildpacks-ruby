@@ -1,8 +1,5 @@
 use crate::{
-    build_output::{
-        self,
-        section::{RunCommand, Section},
-    },
+    build_output::{self, RunCommand, Section},
     BundleWithout, RubyBuildpack, RubyBuildpackError,
 };
 use commons::{

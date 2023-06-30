@@ -1,15 +1,157 @@
 use crate::fun_run::{self, CmdError};
-use libherokubuildpack::command::CommandExt;
-use libherokubuildpack::write::line_mapped;
-use libherokubuildpack::write::mappers::add_prefix;
+use libherokubuildpack::write::{line_mapped, mappers::add_prefix};
 use std::io::Write;
-use std::{
-    process::{Command, Output},
-    time::{Duration, Instant},
-};
+use std::time::Instant;
+use time::BuildpackDuration;
+
+pub use section::{RunCommand, Section};
+
+/// Build with style
+///
+/// ```rust,no_run
+/// use commons::build_output::{self, RunCommand};
+/// use std::process::Command;
+///
+/// // Announce your buildpack and time it
+/// let timer = build_output::buildpack_name("Buildpack name");
+/// // Do stuff here
+/// timer.done();
+///
+/// // Create section with a topic
+/// let section = build_output::section("Ruby version");
+///
+/// // Output stuff in that section
+/// section.say("Installing");
+/// section.say_with_details("Installing", "important stuff");
+///
+/// // Live stream a progress timer in that section
+/// let mut timer = section.say_with_inline_timer("Installing with progress");
+/// // Do stuff here
+/// timer.done();
+///
+/// // Decorate and format your output
+/// let version = build_output::fmt::value("3.1.2");
+/// section.say(format!("Installing {version}"));
+///
+/// // Run a command in that section with a variety of formatting options
+/// // Stream the output to the user:
+/// section
+///     .run(RunCommand::stream(
+///         Command::new("echo").args(&["hello world"]),
+///     ))
+///     .unwrap();
+///
+/// // Run a command after announcing it. Show a progress timer but don't stream the output :
+/// section
+///     .run(RunCommand::inline_progress(
+///         Command::new("echo").args(&["hello world"]),
+///     ))
+///     .unwrap();
+///
+///
+/// // Run a command with no output:
+/// section
+///     .run(RunCommand::quiet(
+///         Command::new("echo").args(&["hello world"]),
+///     ))
+///     .unwrap();
+///
+/// // Control the display of the command being run:
+/// section
+///     .run(RunCommand::stream(
+///         Command::new("bash").args(&["-c", "exec", "echo \"hello world\""]),
+///     ).with_name("echo \"hello world\""))
+///     .unwrap();
+///```
 
 mod time {
+    use super::{fmt, raw_inline_print};
+    use std::thread::{self, JoinHandle};
     use std::time::Duration;
+    use std::time::Instant;
+
+    /// Time the entire buildpack execution
+    pub struct BuildpackDuration {
+        pub(crate) start: Instant,
+    }
+
+    impl BuildpackDuration {
+        /// Emit timing details with done block
+        pub fn done_timed(self) {
+            let time = human(&self.start.elapsed());
+            let details = fmt::details(format!("finished in {time}"));
+            println!("- Done {details}");
+        }
+
+        /// Emit done block without timing details
+        #[allow(clippy::unused_self)]
+        pub fn done(self) {
+            println!("- Done");
+        }
+
+        /// Finish without announcing anything
+        #[allow(clippy::unused_self)]
+        pub fn done_silently(self) {}
+    }
+
+    /// Handles outputing inline progress based on timing
+    ///
+    /// i.e.   `- Installing [------] (5.733s)`
+    ///
+    /// In this example the dashes roughly equate to seconds.
+    /// The moving output in the build indicates we're waiting for something
+    pub struct LiveTimingInline {
+        start: Instant,
+        stop_dots: std::sync::mpsc::Sender<usize>,
+        join_dots: Option<JoinHandle<()>>,
+    }
+
+    impl Default for LiveTimingInline {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl LiveTimingInline {
+        #[must_use]
+        pub fn new() -> Self {
+            let (stop_dots, receiver) = std::sync::mpsc::channel();
+
+            let join_dots = thread::spawn(move || {
+                raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, " ["));
+
+                loop {
+                    let msg = receiver.recv_timeout(Duration::from_secs(1));
+                    raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, "-"));
+
+                    if msg.is_ok() {
+                        raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, "] "));
+                        break;
+                    }
+                }
+            });
+
+            Self {
+                stop_dots,
+                join_dots: Some(join_dots),
+                start: Instant::now(),
+            }
+        }
+
+        fn stop_dots(&mut self) {
+            if let Some(handle) = self.join_dots.take() {
+                self.stop_dots.send(1).expect("Thread is not dead");
+                handle.join().expect("Thread is joinable");
+            }
+        }
+
+        pub fn done(&mut self) {
+            self.stop_dots();
+            let time = fmt::details(human(&self.start.elapsed()));
+
+            println!("{time}");
+        }
+    }
 
     // Returns the part of a duration only in miliseconds
     pub(crate) fn milliseconds(duration: &Duration) -> u32 {
@@ -91,9 +233,9 @@ pub fn section(topic: impl AsRef<str>) -> section::Section {
 
 /// Top level buildpack header
 ///
-/// Should only use one per buildpack
+/// Should only use once per buildpack
 #[must_use]
-pub fn header(buildpack: impl AsRef<str>) -> BuildpackDuration {
+pub fn buildpack_name(buildpack: impl AsRef<str>) -> BuildpackDuration {
     let header = fmt::header(buildpack.as_ref());
     println!("{header}");
     println!();
@@ -102,34 +244,13 @@ pub fn header(buildpack: impl AsRef<str>) -> BuildpackDuration {
     BuildpackDuration { start }
 }
 
-/// Time the entire buildpack execution
-pub struct BuildpackDuration {
-    start: Instant,
-}
-
-impl BuildpackDuration {
-    /// Emit timing details with done block
-    pub fn done_timed(self) {
-        let time = time::human(&self.start.elapsed());
-        let details = fmt::details(format!("finished in {time}"));
-        println!("- Done {details}");
-    }
-
-    /// Emit done block without timing details
-    pub fn done(self) {
-        println!("- Done");
-    }
-
-    /// Finish without announcing anything
-    pub fn done_silently(self) {}
-}
-
-pub mod section {
+mod section {
     use super::{
-        add_prefix, fmt, fun_run, line_mapped, raw_inline_print, time, CmdError, Command,
-        CommandExt, Duration, Instant, Output,
+        add_prefix, fmt, fun_run, line_mapped, raw_inline_print, time, time::LiveTimingInline,
+        CmdError, Instant,
     };
-    use std::thread::{self, JoinHandle};
+    use libherokubuildpack::command::CommandExt;
+    use std::process::{Command, Output};
 
     const CMD_INDENT: &str = "      ";
     const SECTION_INDENT: &str = "  ";
@@ -138,138 +259,6 @@ pub mod section {
     #[derive(Debug, Clone, Eq, PartialEq)]
     pub struct Section {
         pub(crate) topic: String,
-    }
-
-    /// Specify how you want a command to be run by `Section::run`
-    pub struct RunCommand<'a> {
-        command: &'a mut Command,
-        name: String,
-        output: OutputConfig,
-    }
-
-    impl<'a> RunCommand<'a> {
-        /// Generate a new `RunCommand` with a different name
-        #[must_use]
-        pub fn with_name(self, name: impl AsRef<str>) -> Self {
-            let name = name.as_ref().to_string();
-            let RunCommand {
-                command,
-                name: _,
-                output,
-            } = self;
-
-            Self {
-                command,
-                name,
-                output,
-            }
-        }
-
-        /// Announce and stream the output of a command
-        pub fn stream(command: &'a mut Command) -> Self {
-            let name = fun_run::display(command);
-            Self {
-                command,
-                name,
-                output: OutputConfig::Stream,
-            }
-        }
-
-        /// Announce and stream the output of a command without timing information at the end
-        pub fn stream_without_timing(command: &'a mut Command) -> Self {
-            let name = fun_run::display(command);
-            Self {
-                command,
-                name,
-                output: OutputConfig::StreamNoTiming,
-            }
-        }
-
-        /// Do not announce or stream output of a command
-        pub fn quiet(command: &'a mut Command) -> Self {
-            let name = fun_run::display(command);
-            Self {
-                command,
-                name,
-                output: OutputConfig::Quiet,
-            }
-        }
-
-        /// Announce a command inline. Do not stream it's output. Emit inline progress timer.
-        pub fn inline_progress(command: &'a mut Command) -> Self {
-            let name = fun_run::display(command);
-            Self {
-                command,
-                name,
-                output: OutputConfig::InlineProgress,
-            }
-        }
-    }
-
-    enum OutputConfig {
-        Stream,
-        StreamNoTiming,
-        Quiet,
-        InlineProgress,
-    }
-
-    /// Handles outputing inline progress based on timing
-    ///
-    /// i.e.   `- Installing [------] (5.733s)`
-    ///
-    /// In this example the dashes roughly equate to seconds.
-    /// The moving output in the build indicates we're waiting for something
-    pub struct LiveTimingInline {
-        start: Instant,
-        stop_dots: std::sync::mpsc::Sender<usize>,
-        join_dots: Option<JoinHandle<()>>,
-    }
-
-    impl Default for LiveTimingInline {
-        fn default() -> Self {
-            Self::new()
-        }
-    }
-
-    impl LiveTimingInline {
-        #[must_use]
-        pub fn new() -> Self {
-            let (stop_dots, receiver) = std::sync::mpsc::channel();
-
-            let join_dots = thread::spawn(move || {
-                raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, " ["));
-
-                loop {
-                    let msg = receiver.recv_timeout(Duration::from_secs(1));
-                    raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, "-"));
-
-                    if msg.is_ok() {
-                        raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, "] "));
-                        break;
-                    }
-                }
-            });
-
-            Self {
-                stop_dots,
-                join_dots: Some(join_dots),
-                start: Instant::now(),
-            }
-        }
-
-        fn stop_dots(&mut self) {
-            if let Some(handle) = self.join_dots.take() {
-                self.stop_dots.send(1).expect("Thread is not dead");
-                handle.join().expect("Thread is joinable");
-            }
-        }
-
-        pub fn done(&mut self) {
-            self.stop_dots();
-            let time = fmt::details(time::human(&self.start.elapsed()));
-
-            println!("{time}");
-        }
     }
 
     impl Section {
@@ -298,11 +287,11 @@ pub mod section {
         /// The timer will emit an inline progress meter until `LiveTimingInline::done` is called
         /// on it.
         #[must_use]
-        pub fn say_with_inline_timer(&self, reason: impl AsRef<str>) -> LiveTimingInline {
+        pub fn say_with_inline_timer(&self, reason: impl AsRef<str>) -> time::LiveTimingInline {
             let reason = reason.as_ref();
             raw_inline_print(format!("{SECTION_PREFIX}{reason}"));
 
-            LiveTimingInline::new()
+            time::LiveTimingInline::new()
         }
 
         /// Run a command with the given configuration and name
@@ -396,6 +385,79 @@ pub mod section {
             result
         }
     }
+
+    /// Specify how you want a command to be run by `Section::run`
+    pub struct RunCommand<'a> {
+        command: &'a mut Command,
+        name: String,
+        output: OutputConfig,
+    }
+
+    impl<'a> RunCommand<'a> {
+        /// Generate a new `RunCommand` with a different name
+        #[must_use]
+        pub fn with_name(self, name: impl AsRef<str>) -> Self {
+            let name = name.as_ref().to_string();
+            let RunCommand {
+                command,
+                name: _,
+                output,
+            } = self;
+
+            Self {
+                command,
+                name,
+                output,
+            }
+        }
+
+        /// Announce and stream the output of a command
+        pub fn stream(command: &'a mut Command) -> Self {
+            let name = fun_run::display(command);
+            Self {
+                command,
+                name,
+                output: OutputConfig::Stream,
+            }
+        }
+
+        /// Announce and stream the output of a command without timing information at the end
+        pub fn stream_without_timing(command: &'a mut Command) -> Self {
+            let name = fun_run::display(command);
+            Self {
+                command,
+                name,
+                output: OutputConfig::StreamNoTiming,
+            }
+        }
+
+        /// Do not announce or stream output of a command
+        pub fn quiet(command: &'a mut Command) -> Self {
+            let name = fun_run::display(command);
+            Self {
+                command,
+                name,
+                output: OutputConfig::Quiet,
+            }
+        }
+
+        /// Announce a command inline. Do not stream it's output. Emit inline progress timer.
+        pub fn inline_progress(command: &'a mut Command) -> Self {
+            let name = fun_run::display(command);
+            Self {
+                command,
+                name,
+                output: OutputConfig::InlineProgress,
+            }
+        }
+    }
+
+    enum OutputConfig {
+        Stream,
+        StreamNoTiming,
+        Quiet,
+        InlineProgress,
+    }
 }
 
 pub mod fmt {
@@ -451,7 +513,7 @@ pub mod fmt {
     }
 
     /// Used to standardize error/warning/important information
-    pub(crate) fn lookatme(
+    pub(crate) fn look_at_me(
         color: &str,
         noun: impl AsRef<str>,
         header: impl AsRef<str>,
@@ -528,7 +590,7 @@ pub mod fmt {
             debug_details,
         } = info;
 
-        let body = lookatme(ERROR_COLOR, "ERROR:", header, body, url);
+        let body = look_at_me(ERROR_COLOR, "ERROR:", header, body, url);
         if let Some(details) = debug_details {
             format!("{body}\n\nDebug information: {details}")
         } else {
@@ -544,7 +606,7 @@ pub mod fmt {
         let header = header.as_ref();
         let body = body.as_ref();
 
-        lookatme(WARNING_COLOR, "WARNING:", header, body, url)
+        look_at_me(WARNING_COLOR, "WARNING:", header, body, url)
     }
 
     /// Need feedback on this interface
@@ -558,7 +620,7 @@ pub mod fmt {
         let header = header.as_ref();
         let body = body.as_ref();
 
-        lookatme(IMPORTANT_COLOR, "", header, body, url)
+        look_at_me(IMPORTANT_COLOR, "", header, body, url)
     }
 
     fn help_url(body: impl AsRef<str>, url: &Option<String>) -> String {
@@ -592,7 +654,7 @@ pub mod fmt {
     /// Colors with newlines are a problem since the contents stream to git which prepends `remote:` before the `libcnb_test`
     /// if we don't clear, then we will colorize output that isn't ours.
     ///
-    /// Explicitly uncolored output is handled by a hacky process of treating two color clears as a special cases
+    /// Explicitly uncolored output is handled by a hacky process of treating two color clears as a special case
     pub(crate) fn colorize(color: &str, body: impl AsRef<str>) -> String {
         body.as_ref()
             .split('\n')

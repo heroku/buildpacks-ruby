@@ -3,7 +3,7 @@ use core::str::FromStr;
 use regex::Regex;
 use std::{ffi::OsStr, process::Command};
 
-use crate::build_output::section::{RunCommand, Section};
+use crate::build_output::{RunCommand, Section};
 
 /// Run `rake -P` and parse output to show what rake tasks an application has
 ///

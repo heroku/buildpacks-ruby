@@ -1,6 +1,4 @@
-use crate::build_output;
-use crate::build_output::section::RunCommand;
-use crate::build_output::section::Section;
+use crate::build_output::{self, RunCommand, Section};
 use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;

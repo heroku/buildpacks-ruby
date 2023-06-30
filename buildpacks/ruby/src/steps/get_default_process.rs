@@ -1,5 +1,4 @@
-use crate::build_output;
-use crate::build_output::section::Section;
+use crate::build_output::{self, Section};
 use crate::gem_list::GemList;
 use crate::RubyBuildpack;
 use libcnb::build::BuildContext;

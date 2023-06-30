@@ -1,4 +1,4 @@
-use crate::build_output::section::{RunCommand, Section};
+use crate::build_output::{RunCommand, Section};
 use commons::fun_run::{self, CmdMapExt};
 use commons::gem_version::GemVersion;
 use core::str::FromStr;

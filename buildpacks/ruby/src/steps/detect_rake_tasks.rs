@@ -1,9 +1,9 @@
-use crate::build_output::section::Section;
+use crate::build_output::{self, Section};
 use crate::gem_list::GemList;
 use crate::rake_status::{check_rake_ready, RakeStatus};
 use crate::rake_task_detect::RakeDetect;
+use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
-use crate::{build_output, RubyBuildpack};
 use libcnb::build::BuildContext;
 use libcnb::Env;
 
@@ -45,6 +45,7 @@ pub(crate) fn detect_rake_tasks(
                 .map(|path| build_output::fmt::value(path.to_string_lossy()))
                 .collect::<Vec<_>>()
                 .join(", ");
+
             section.say_with_details(
                 "Skipping rake tasks",
                 format!("Manifest files found {files}"),

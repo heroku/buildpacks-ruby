@@ -64,7 +64,7 @@ impl Buildpack for RubyBuildpack {
     }
 
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
-        let build_duration = build_output::header("Heroku Ruby Buildpack");
+        let build_duration = build_output::buildpack_name("Heroku Ruby Buildpack");
 
         // ## Set default environment
         let (mut env, store) =

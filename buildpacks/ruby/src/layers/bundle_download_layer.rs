@@ -1,5 +1,4 @@
-use crate::build_output::section::RunCommand;
-use crate::build_output::section::Section;
+use crate::build_output::{RunCommand, Section};
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use commons::fun_run::{self, CmdMapExt};

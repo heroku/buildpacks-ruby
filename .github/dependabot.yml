@@ -4,6 +4,11 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    groups:
+      libcnb:
+        patterns:
+          - "libcnb*"
+          - "libherokubuildpack"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

@@ -18,8 +18,6 @@ id = "heroku-22"
 type = "BSD-3-Clause"
 
 [metadata]
-
 [metadata.release]
-
-[metadata.release.image]
+[metadata.release.docker]
 repository = "docker.io/heroku/buildpack-ruby"

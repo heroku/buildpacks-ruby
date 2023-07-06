@@ -1,11 +1,10 @@
-use std::path::Path;
-
 use commons::gem_list::GemList;
 use libcnb::build::BuildContext;
 use libcnb::data::launch::Process;
 use libcnb::data::launch::ProcessBuilder;
 use libcnb::data::process_type;
 use libherokubuildpack::log as user;
+use std::path::Path;
 
 use crate::RubyBuildpack;
 
@@ -65,15 +64,31 @@ fn detect_web(gem_list: &GemList, app_path: &Path) -> WebProcess {
 }
 
 fn default_rack() -> Process {
-    ProcessBuilder::new(process_type!("web"), "bundle")
-        .args(["exec", "rackup", "--port", "$PORT", "--host", "0.0.0.0"])
+    ProcessBuilder::new(process_type!("web"), ["bash"])
+        .args([
+            "-c",
+            &[
+                "bundle exec rackup",
+                "--port \"$PORT\"",
+                "--host \"0.0.0.0\"",
+            ]
+            .join(" "),
+        ])
         .default(true)
         .build()
 }
 
 fn default_rails() -> Process {
-    ProcessBuilder::new(process_type!("web"), "bin/rails")
-        .args(["server", "--port", "$PORT", "--environment", "$RAILS_ENV"])
+    ProcessBuilder::new(process_type!("web"), ["bash"])
+        .args([
+            "-c",
+            &[
+                "bin/rails server",
+                "--port \"$PORT\"",
+                "--environment \"$RAILS_ENV\"",
+            ]
+            .join(" "),
+        ])
         .default(true)
         .build()
 }

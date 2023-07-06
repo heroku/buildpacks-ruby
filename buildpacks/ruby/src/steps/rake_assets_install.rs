@@ -71,7 +71,9 @@ fn run_rake_assets_precompile(env: &Env) -> Result<(), CmdError> {
             user::log_info(format!("Running  $ {name}"));
 
             cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())
-                .map_err(|error| fun_run::annotate_which_problem(error, cmd, env.get("PATH")))
+                .map_err(|error| {
+                    fun_run::annotate_which_problem(error, cmd, env.get("PATH").cloned())
+                })
                 .map_err(|error| fun_run::on_system_error(name.clone(), error))
                 .and_then(|output| fun_run::nonzero_streamed(name.clone(), output))
         })?;
@@ -95,7 +97,9 @@ fn run_rake_assets_precompile_with_clean(env: &Env) -> Result<(), CmdError> {
             user::log_info(format!("Running  $ {name}"));
 
             cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())
-                .map_err(|error| fun_run::annotate_which_problem(error, cmd, env.get("PATH")))
+                .map_err(|error| {
+                    fun_run::annotate_which_problem(error, cmd, env.get("PATH").cloned())
+                })
                 .map_err(|error| fun_run::on_system_error(name.clone(), error))
                 .and_then(|output| fun_run::nonzero_streamed(name.clone(), output))
         })?;

@@ -118,14 +118,14 @@ mod time {
             let (stop_dots, receiver) = std::sync::mpsc::channel();
 
             let join_dots = thread::spawn(move || {
-                raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, " ["));
+                raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, " ."));
 
                 loop {
                     let msg = receiver.recv_timeout(Duration::from_secs(1));
-                    raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, "-"));
+                    raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, "."));
 
                     if msg.is_ok() {
-                        raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, "] "));
+                        raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, ". "));
                         break;
                     }
                 }

@@ -75,7 +75,9 @@ jobs:
       - name: Install Pack CLI
         uses: buildpacks/github-actions/setup-pack@v5.2.0
       - name: Pull builder image
-        run: docker pull "heroku/builder:22"
+        run: |
+          docker pull "heroku/builder:22"
+          docker pull "heroku/heroku:22-cnb"
       - name: Clone ruby getting started guide
         run: mkdir tmp; git clone https://github.com/heroku/ruby-getting-started tmp/ruby-getting-started
       - name: Install libcnb-cargo for `cargo libcnb package` command
@@ -84,4 +86,4 @@ jobs:
         run: cargo libcnb package
       - name: Getting started guide output
         run: | # Use `script -e -c` to pretend to be a TTY for pack terminal color suport
-          script -e -c "pack build my-image --builder heroku/builder:22 --buildpack heroku/nodejs-engine --buildpack target/buildpack/debug/heroku_ruby --path tmp/ruby-getting-started"
+          script -e -c "pack build my-image --builder heroku/builder:22 --buildpack heroku/nodejs-engine --buildpack target/buildpack/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never"

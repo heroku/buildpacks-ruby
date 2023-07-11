@@ -474,15 +474,18 @@ pub mod fmt {
     pub(crate) const RED: &str = "\x1B[0;31m";
     pub(crate) const YELLOW: &str = "\x1B[0;33m";
     pub(crate) const CYAN: &str = "\x1B[0;36m";
-    // pub(crate) const PURPLE: &str = "\x1B[0;35m"; // magenta
+
+    #[allow(dead_code)]
+    pub(crate) const PURPLE: &str = "\x1B[0;35m"; // magenta
 
     pub(crate) const BOLD_CYAN: &str = "\x1B[1;36m";
     pub(crate) const BOLD_PURPLE: &str = "\x1B[1;35m"; // magenta
 
     pub(crate) const DEFAULT_DIM: &str = "\x1B[2;1m"; // Default color but softer/less vibrant
     pub(crate) const RESET: &str = "\x1B[0m";
-    pub(crate) const NOCOLOR: &str = "\x1B[0m\x1B[0m"; //differentiate between color clear and explicit no color
-    pub(crate) const NOCOLOR_TMP: &str = "🙈🙈🙈"; // Used together with NOCOLOR to act as a placeholder
+
+    #[allow(dead_code)]
+    pub(crate) const NOCOLOR: &str = "\x1B[1;39m"; // Differentiate between color clear and explicit no color https://github.com/heroku/buildpacks-ruby/pull/155#discussion_r1260029915
 
     pub(crate) const HEROKU_COLOR: &str = BOLD_PURPLE;
     pub(crate) const VALUE_COLOR: &str = YELLOW;
@@ -661,16 +664,14 @@ pub mod fmt {
     /// Colors with newlines are a problem since the contents stream to git which prepends `remote:` before the `libcnb_test`
     /// if we don't clear, then we will colorize output that isn't ours.
     ///
-    /// Explicitly uncolored output is handled by a hacky process of treating two color clears as a special case
+    /// Explicitly uncolored output is handled by treating `\x1b[1;39m` (NOCOLOR) as a distinct case from `\x1b[0m`
     pub(crate) fn colorize(color: &str, body: impl AsRef<str>) -> String {
         body.as_ref()
             .split('\n')
-            .map(|section| section.replace(NOCOLOR, NOCOLOR_TMP)) // Explicit no-color hack so it's not cleaned up by accident
             .map(|section| section.replace(RESET, &format!("{RESET}{color}"))) // Handles nested color
             .map(|section| format!("{color}{section}{RESET}")) // Clear after every newline
             .map(|section| section.replace(&format!("{RESET}{color}{RESET}"), RESET)) // Reduce useless color
             .map(|section| section.replace(&format!("{color}{color}"), color)) // Reduce useless color
-            .map(|section| section.replace(NOCOLOR_TMP, NOCOLOR)) // Explicit no-color repair
             .collect::<Vec<String>>()
             .join("\n")
     }

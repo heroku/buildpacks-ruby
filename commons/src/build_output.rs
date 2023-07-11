@@ -471,10 +471,10 @@ pub mod fmt {
     use indoc::formatdoc;
     use std::fmt::Display;
 
-    pub(crate) const RED: &str = "\x1B[31m";
-    pub(crate) const YELLOW: &str = "\x1B[33m";
-    pub(crate) const CYAN: &str = "\x1B[36m";
-    // pub(crate) const PURPLE: &str = "\x1B[35m"; // magenta
+    pub(crate) const RED: &str = "\x1B[0;31m";
+    pub(crate) const YELLOW: &str = "\x1B[0;33m";
+    pub(crate) const CYAN: &str = "\x1B[0;36m";
+    // pub(crate) const PURPLE: &str = "\x1B[0;35m"; // magenta
 
     pub(crate) const BOLD_CYAN: &str = "\x1B[1;36m";
     pub(crate) const BOLD_PURPLE: &str = "\x1B[1;35m"; // magenta

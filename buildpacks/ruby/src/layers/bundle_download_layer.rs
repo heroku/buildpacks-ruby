@@ -52,21 +52,26 @@ impl Layer for BundleDownloadLayer {
             .args([
                 "install",
                 "bundler",
-                "--force",
-                "--no-document", // Don't install ri or rdoc which takes extra time
-                "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
-                "--version",     // Specify exact version to install
+                "--version", // Specify exact version to install
                 &self.version.to_string(),
-                "--install-dir", // Directory where bundler's contents will live
-                &layer_path.to_string_lossy(),
-                "--bindir", // Directory where `bundle` executable lives
-                &bin_dir.to_string_lossy(),
             ])
             .env_clear()
             .envs(&self.env)
             .cmd_map(|cmd| {
+                // Format `gem install --version <version>` without other content for display
+                let name = fun_run::display(cmd);
+                // Arguments we don't need in the output
+                cmd.args([
+                    "--install-dir", // Directory where bundler's contents will live
+                    &layer_path.to_string_lossy(),
+                    "--bindir", // Directory where `bundle` executable lives
+                    &bin_dir.to_string_lossy(),
+                    "--force",
+                    "--no-document", // Don't install ri or rdoc documentation, which takes extra time
+                    "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
+                ]);
                 self.build_output
-                    .run(RunCommand::quiet(cmd))
+                    .run(RunCommand::inline_progress(cmd).with_name(name))
                     .map_err(|error| {
                         fun_run::map_which_problem(error, cmd, self.env.get("PATH").cloned())
                     })

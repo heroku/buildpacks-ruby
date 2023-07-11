@@ -96,7 +96,7 @@ mod time {
 
     /// Handles outputing inline progress based on timing
     ///
-    /// i.e.   `- Installing [------] (5.733s)`
+    /// i.e.   `- Installing ... (5.733s)`
     ///
     /// In this example the dashes roughly equate to seconds.
     /// The moving output in the build indicates we're waiting for something

@@ -85,5 +85,5 @@ jobs:
       - name: Compile ruby buildpack
         run: cargo libcnb package
       - name: Getting started guide output
-        run: | # Use `script -e -c` to pretend to be a TTY for pack terminal color suport
+        run: | # Use `script -e -c` to pretend to be a TTY for pack terminal color support
           script -e -c "pack build my-image --builder heroku/builder:22 --buildpack heroku/nodejs-engine --buildpack target/buildpack/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never"

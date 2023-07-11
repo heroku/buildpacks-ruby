@@ -310,6 +310,13 @@ mod section {
             }
         }
 
+        /// If someone wants to build their own command invocation and wants to match styles with this
+        /// command runner they'll need access to the prefix for consistent execution.
+        #[must_use]
+        pub fn cmd_stream_prefix() -> String {
+            String::from(CMD_INDENT)
+        }
+
         /// Run a command and output nothing to the screen
         fn silent_command(_section: &Section, run_command: RunCommand) -> Result<Output, CmdError> {
             let RunCommand {

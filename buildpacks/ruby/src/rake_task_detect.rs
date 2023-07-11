@@ -42,7 +42,7 @@ impl RakeDetect {
             .env_clear()
             .envs(envs)
             .cmd_map(|cmd| {
-                section.run(RunCommand::quiet(cmd)).or_else(|error| {
+                section.run(RunCommand::silent(cmd)).or_else(|error| {
                     if error_on_failure {
                         Err(error)
                     } else {

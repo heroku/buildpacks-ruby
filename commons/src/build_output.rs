@@ -51,7 +51,7 @@ pub use section::{RunCommand, Section};
 ///
 /// // Run a command with no output:
 /// section
-///     .run(RunCommand::quiet(
+///     .run(RunCommand::silent(
 ///         Command::new("echo").args(&["hello world"]),
 ///     ))
 ///     .unwrap();
@@ -305,7 +305,7 @@ mod section {
                 OutputConfig::Stream | OutputConfig::StreamNoTiming => {
                     Self::stream_command(self, run_command)
                 }
-                OutputConfig::Quiet => Self::silent_command(self, run_command),
+                OutputConfig::Silent => Self::silent_command(self, run_command),
                 OutputConfig::InlineProgress => Self::inline_progress_command(self, run_command),
             }
         }
@@ -386,7 +386,7 @@ mod section {
                     section.say(format!("Done {time}"));
                 }
                 OutputConfig::StreamNoTiming => section.say("Done {time}"),
-                OutputConfig::Quiet | OutputConfig::InlineProgress => unreachable!(),
+                OutputConfig::Silent | OutputConfig::InlineProgress => unreachable!(),
             }
 
             result
@@ -439,12 +439,12 @@ mod section {
         }
 
         /// Do not announce or stream output of a command
-        pub fn quiet(command: &'a mut Command) -> Self {
+        pub fn silent(command: &'a mut Command) -> Self {
             let name = fun_run::display(command);
             Self {
                 command,
                 name,
-                output: OutputConfig::Quiet,
+                output: OutputConfig::Silent,
             }
         }
 
@@ -462,7 +462,7 @@ mod section {
     enum OutputConfig {
         Stream,
         StreamNoTiming,
-        Quiet,
+        Silent,
         InlineProgress,
     }
 }

@@ -591,6 +591,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "heroku-statsd-metrics"
+version = "0.0.0"
+dependencies = [
+ "commons",
+ "flate2",
+ "fs-err",
+ "glob",
+ "indoc",
+ "libcnb",
+ "rand",
+ "regex",
+ "serde",
+ "tar",
+ "tempfile",
+ "thiserror",
+ "ureq",
+ "url",
+]
+
+[[package]]
 name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

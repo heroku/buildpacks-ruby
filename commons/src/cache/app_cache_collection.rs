@@ -80,6 +80,7 @@ impl AppCacheCollection {
         logger: impl Fn(&str) + 'static,
     ) -> Result<Self, CacheError> {
         let log_func = LogFunc(Box::new(logger));
+
         let caches = config
             .into_iter()
             .map(|config| {

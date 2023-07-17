@@ -1,3 +1,4 @@
+use crate::build_output::{RunCommand, Section};
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use commons::fun_run::{self, CmdMapExt};
@@ -7,8 +8,6 @@ use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Env;
-use libherokubuildpack::command::CommandExt;
-use libherokubuildpack::log as user;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::process::Command;
@@ -27,6 +26,7 @@ pub(crate) struct BundleDownloadLayerMetadata {
 pub(crate) struct BundleDownloadLayer {
     pub env: Env,
     pub version: ResolvedBundlerVersion,
+    pub build_output: Section,
 }
 
 impl Layer for BundleDownloadLayer {
@@ -45,8 +45,6 @@ impl Layer for BundleDownloadLayer {
         _context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        user::log_info(format!("Installing bundler {}", self.version));
-
         let bin_dir = layer_path.join("bin");
         let gem_path = layer_path;
 
@@ -54,29 +52,29 @@ impl Layer for BundleDownloadLayer {
             .args([
                 "install",
                 "bundler",
-                "--force",
-                "--no-document", // Don't install ri or rdoc which takes extra time
-                "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
-                "--version",     // Specify exact version to install
+                "--version", // Specify exact version to install
                 &self.version.to_string(),
-                "--install-dir", // Directory where bundler's contents will live
-                &layer_path.to_string_lossy(),
-                "--bindir", // Directory where `bundle` executable lives
-                &bin_dir.to_string_lossy(),
             ])
             .env_clear()
             .envs(&self.env)
             .cmd_map(|cmd| {
+                // Format `gem install --version <version>` without other content for display
                 let name = fun_run::display(cmd);
-
-                user::log_info(format!("Running  $ {name}"));
-
-                cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())
+                // Arguments we don't need in the output
+                cmd.args([
+                    "--install-dir", // Directory where bundler's contents will live
+                    &layer_path.to_string_lossy(),
+                    "--bindir", // Directory where `bundle` executable lives
+                    &bin_dir.to_string_lossy(),
+                    "--force",
+                    "--no-document", // Don't install ri or rdoc documentation, which takes extra time
+                    "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
+                ]);
+                self.build_output
+                    .run(RunCommand::inline_progress(cmd).with_name(name))
                     .map_err(|error| {
-                        fun_run::annotate_which_problem(error, cmd, self.env.get("PATH").cloned())
+                        fun_run::map_which_problem(error, cmd, self.env.get("PATH").cloned())
                     })
-                    .map_err(|error| fun_run::on_system_error(name.clone(), error))
-                    .and_then(|output| fun_run::nonzero_streamed(name.clone(), output))
             })
             .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
 
@@ -113,14 +111,14 @@ impl Layer for BundleDownloadLayer {
             version: self.version.clone(),
         };
         match cache_state(old.clone(), now) {
-            State::NothingChanged(version) => {
-                user::log_info(format!("Using bundler {version} from cache"));
+            State::NothingChanged(_version) => {
+                self.build_output.say("Using cached version");
 
                 Ok(ExistingLayerStrategy::Keep)
             }
-            State::BundlerVersionChanged(old, now) => {
-                user::log_info(format!("Bundler version changed from {old} to {now}"));
-                user::log_info("Clearing bundler from cache");
+            State::BundlerVersionChanged(_old, _now) => {
+                self.build_output
+                    .say_with_details("Clearing cache", "bundler version changed");
 
                 Ok(ExistingLayerStrategy::Recreate)
             }

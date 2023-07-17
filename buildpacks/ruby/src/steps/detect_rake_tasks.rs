@@ -1,54 +1,67 @@
+use crate::build_output::{self, Section};
+use crate::gem_list::GemList;
+use crate::rake_status::{check_rake_ready, RakeStatus};
+use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
-use commons::gem_list::GemList;
-use commons::rake_status::{check_rake_ready, RakeStatus};
-use commons::rake_task_detect::RakeDetect;
 use libcnb::build::BuildContext;
 use libcnb::Env;
-use libherokubuildpack::log as user;
 
 pub(crate) fn detect_rake_tasks(
+    section: &Section,
     gem_list: &GemList,
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
 ) -> Result<Option<RakeDetect>, RubyBuildpackError> {
+    let rake = build_output::fmt::value("rake");
+    let gemfile = build_output::fmt::value("Gemfile");
+    let rakefile = build_output::fmt::value("Rakefile");
+
     match check_rake_ready(
         &context.app_dir,
         gem_list,
         [".sprockets-manifest-*.json", "manifest-*.json"],
     ) {
         RakeStatus::MissingRakeGem => {
-            user::log_info("Cannot run rake tasks, no rake gem in Gemfile");
-            user::log_info("Add `gem 'rake'` to your Gemfile to enable");
+            section.say_with_details(
+                "Cannot run rake tasks",
+                format!("no {rake} gem in {gemfile}"),
+            );
+
+            let gem = build_output::fmt::value("gem 'rake'");
+            section.help(format!("Add {gem} to your {gemfile} to enable"));
 
             Ok(None)
         }
         RakeStatus::MissingRakefile => {
-            user::log_info("Cannot run rake tasks, no Rakefile");
-            user::log_info("Add a `Rakefile` to your project to enable");
+            section.say_with_details("Cannot run rake tasks", format!("no {rakefile}"));
+            section.help(format!("Add {rakefile} to your project to enable"));
 
             Ok(None)
         }
         RakeStatus::SkipManifestFound(paths) => {
-            user::log_info("Skipping rake tasks. Manifest file(s) found");
-            user::log_info(format!(
-                "To enable, delete files: {}",
-                paths
-                    .iter()
-                    .map(|path| path.to_string_lossy())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ));
+            let files = paths
+                .iter()
+                .map(|path| build_output::fmt::value(path.to_string_lossy()))
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            section.say_with_details(
+                "Skipping rake tasks",
+                format!("Manifest files found {files}"),
+            );
+            section.help("Delete files to enable running rake tasks");
 
             Ok(None)
         }
         RakeStatus::Ready(path) => {
-            let path = path.display();
-            user::log_info("Rake gem found");
-            user::log_info(format!("Rakefile found at {path}"));
+            let path = build_output::fmt::value(path.to_string_lossy());
+            section.say_with_details(
+                "Rake detected",
+                format!("{rake} gem found, {rakefile} found at {path}"),
+            );
 
-            user::log_info("Detecting rake tasks via `rake -P`");
-            let rake_detect = RakeDetect::from_rake_command(env, true)
+            let rake_detect = RakeDetect::from_rake_command(section, env, true)
                 .map_err(RubyBuildpackError::RakeDetectError)?;
 
             Ok(Some(rake_detect))

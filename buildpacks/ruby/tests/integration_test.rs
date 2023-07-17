@@ -16,17 +16,17 @@ fn test_default_app() {
         BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby")
         .buildpacks(vec![BuildpackReference::Crate]),
         |context| {
-            assert_contains!(context.pack_stdout, "[Installing Ruby]");
+            assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
             assert_contains!(
                 context.pack_stdout,
-                r#"$ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#);
+                r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
 
             println!("{}", context.pack_stdout); // Needed to get full failure as `rebuild` truncates stdout
             assert_contains!(context.pack_stdout, "Installing webrick");
 
             let config = context.config.clone();
             context.rebuild(config, |rebuild_context| {
-                assert_contains!(rebuild_context.pack_stdout, "Skipping 'bundle install', no changes found in /workspace/Gemfile, /workspace/Gemfile.lock, or user configured environment variables");
+                assert_contains!(rebuild_context.pack_stdout, "Skipping `bundle install` (no changes found in /workspace/Gemfile, /workspace/Gemfile.lock, or user configured environment variables)");
 
                 rebuild_context.start_container(
                     ContainerConfig::new()
@@ -84,13 +84,12 @@ DEPENDENCIES
             BuildpackReference::Crate,
         ]),
         |context| {
-            assert_contains!(context.pack_stdout, "[Installing Ruby]");
+            assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
             assert_contains!(
                 context.pack_stdout,
-                r#"$ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#);
-
-            assert_contains!(context.pack_stdout, "Installing ruby 2.6.8-jruby-9.3.6.0");
-
+                r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#
+            );
+            assert_contains!(context.pack_stdout, "Ruby version `2.6.8-jruby-9.3.6.0` from `Gemfile.lock`");
             });
 }
 
@@ -105,11 +104,10 @@ fn test_ruby_app_with_yarn_app() {
             BuildpackReference::Crate,
         ]),
         |context| {
-            assert_contains!(context.pack_stdout, "[Installing Ruby]");
+            assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
             assert_contains!(
                 context.pack_stdout,
-                r#"$ BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install"#);
-
+                r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
             }
         );
 }

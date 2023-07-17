@@ -48,6 +48,22 @@ pub struct GemfileLock {
 
 impl GemfileLock {
     #[must_use]
+    pub fn ruby_source(&self) -> String {
+        match self.ruby_version {
+            RubyVersion::Explicit(_) => String::from("Gemfile.lock"),
+            RubyVersion::Default => String::from("default"),
+        }
+    }
+
+    #[must_use]
+    pub fn bundler_source(&self) -> String {
+        match self.bundler_version {
+            BundlerVersion::Explicit(_) => String::from("Gemfile.lock"),
+            BundlerVersion::Default => String::from("default"),
+        }
+    }
+
+    #[must_use]
     pub fn resolve_ruby(&self, default: &str) -> ResolvedRubyVersion {
         match &self.ruby_version {
             RubyVersion::Explicit(version) => ResolvedRubyVersion(version.to_string()),

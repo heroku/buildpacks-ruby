@@ -162,6 +162,24 @@ where
         .join(" ")
 }
 
+/// Adds diagnostic information to a `CmdError` using `which_problem` if error is `std::io::Error`
+///
+/// This feature is experimental
+pub fn map_which_problem(
+    error: CmdError,
+    cmd: &mut Command,
+    path_env: Option<OsString>,
+) -> CmdError {
+    match error {
+        CmdError::SystemError(name, error) => {
+            CmdError::SystemError(name, annotate_which_problem(error, cmd, path_env))
+        }
+        CmdError::NonZeroExitNotStreamed(_, _) | CmdError::NonZeroExitAlreadyStreamed(_, _) => {
+            error
+        }
+    }
+}
+
 /// Adds diagnostic information to an `std::io::Error` using `which_problem`
 ///
 /// This feature is experimental

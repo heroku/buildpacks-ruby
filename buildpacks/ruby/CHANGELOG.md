@@ -2,7 +2,9 @@
 
 ## [Unreleased]
 
-- Commons: EnvCommand removed, replaced with fun_run (https://github.com/heroku/buildpacks-ruby/pull/139)
+- Commons: Introduce `build_output` module (https://github.com/heroku/buildpacks-ruby/pull/155)
+- Commons: Remove `gem_list`, `rake_status`, `rake_task_detect` modules (https://github.com/heroku/buildpacks-ruby/pull/155)
+- Commons: `EnvCommand` removed, replaced with `fun_run` (https://github.com/heroku/buildpacks-ruby/pull/139)
 
 ## [2.0.0] 2023/31/01
 

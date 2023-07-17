@@ -1,41 +1,45 @@
-use commons::gem_list::GemList;
+use crate::build_output::{self, Section};
+use crate::gem_list::GemList;
+use crate::RubyBuildpack;
 use libcnb::build::BuildContext;
 use libcnb::data::launch::Process;
 use libcnb::data::launch::ProcessBuilder;
 use libcnb::data::process_type;
-use libherokubuildpack::log as user;
 use std::path::Path;
 
-use crate::RubyBuildpack;
-
 pub(crate) fn get_default_process(
+    section: &Section,
     context: &BuildContext<RubyBuildpack>,
     gem_list: &GemList,
 ) -> Option<Process> {
+    let config_ru = build_output::fmt::value("config.ru");
+    let rails = build_output::fmt::value("rails");
+    let rack = build_output::fmt::value("rack");
+    let railties = build_output::fmt::value("railties");
     match detect_web(gem_list, &context.app_dir) {
         WebProcess::Rails => {
-            user::log_info("Detected railties gem");
-            user::log_info("Setting default web process (rails)");
+            section.say(format!("Detected rails app ({rails} gem)"));
 
             Some(default_rails())
         }
         WebProcess::RackWithConfigRU => {
-            user::log_info("Detected rack gem");
-            user::log_info("Found `config.ru` file at root of application");
-            user::log_info("Setting default web process (rackup)");
+            section.say(format!(
+                "Detected rack app ({rack} gem and {config_ru} at root of application)"
+            ));
 
             Some(default_rack())
         }
         WebProcess::RackMissingConfigRu => {
-            user::log_info("Detected rack gem");
-            user::log_info("Missing `config.ru` file at root of application");
-            user::log_info("Skipping default web process");
+            section.say(format!(
+                "Skipping default web process (detected {rack} gem but missing {config_ru} file"
+            ));
 
             None
         }
         WebProcess::Missing => {
-            user::log_info("No web gems found (railties, rack)");
-            user::log_info("Skipping default web process");
+            section.say(format!(
+                "Skipping default web process (no web gems detected: {rails}, {railties}, {rack}"
+            ));
 
             None
         }

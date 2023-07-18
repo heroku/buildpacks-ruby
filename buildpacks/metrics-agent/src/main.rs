@@ -1,6 +1,7 @@
 mod layers;
 
 use crate::layers::download_agentmon::{DownloadAgentmon, DownloadAgentmonError};
+use crate::layers::spawn_agemntmon_execd::SpawnAgentmonExecd;
 use commons::build_output::{self, fmt::ErrorInfo};
 use indoc::formatdoc;
 use libcnb::{
@@ -50,11 +51,12 @@ impl Buildpack for MetricsAgentBuildpack {
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         let build_duration = build_output::buildpack_name("Heroku Statsd Metrics Agent");
 
-        let section = build_output::section("Metrics agent");
-        context.handle_layer(
-            layer_name!("statsd-metrics-agent"),
-            DownloadAgentmon { section },
-        )?;
+        // let section = build_output::section("Metrics agent");
+        // context.handle_layer(
+        //     layer_name!("statsd-metrics-agent"),
+        //     DownloadAgentmon { section },
+        // )?;
+        context.handle_layer(layer_name!("layer_name"), SpawnAgentmonExecd)?;
 
         // TODO write launch script
         //
@@ -72,7 +74,7 @@ impl Buildpack for MetricsAgentBuildpack {
         //     echo "No agentmon executable found. Not starting."
         // fi
 
-        build_duration.done();
+        build_duration.done_timed();
         BuildResultBuilder::new().build()
     }
 

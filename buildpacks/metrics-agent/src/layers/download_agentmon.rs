@@ -131,7 +131,7 @@ pub(crate) fn untar(
 }
 
 /// Sets file permissions on the given path to 7xx (similar to `chmod +x <path>`)
-fn chmod_plus_x(path: &Path) -> Result<(), std::io::Error> {
+pub fn chmod_plus_x(path: &Path) -> Result<(), std::io::Error> {
     let mut perms = fs_err::metadata(path)?.permissions();
     let mut mode = perms.mode();
     octal_executable_permission(&mut mode);

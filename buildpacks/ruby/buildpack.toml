@@ -1,12 +1,11 @@
 api = "0.9"
 
 [buildpack]
-id = "heroku/ruby"
+id = "heroku/ruby-internal"
 version = "2.0.0"
 name = "Ruby"
 homepage = "https://github.com/heroku/buildpacks-ruby"
-description = "Official Heroku buildpack for using Ruby to target Cloud Native Buildpack (CNB) builds."
-keywords = ["ruby", "rails"]
+description = "Internal Ruby buildpack for Heroku use `heroku/ruby` instead."
 
 [[stacks]]
 id = "heroku-20"
@@ -20,4 +19,4 @@ type = "BSD-3-Clause"
 [metadata]
 [metadata.release]
 [metadata.release.docker]
-repository = "docker.io/heroku/buildpack-ruby"
+repository = "docker.io/heroku/buildpack-ruby-internal"

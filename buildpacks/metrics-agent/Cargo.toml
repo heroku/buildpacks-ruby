@@ -19,5 +19,6 @@ tar = "0.4"
 tempfile = "3"
 thiserror = "1"
 ureq = "2"
-url = "2"
+url = { version = "2", features = ["serde"] }
 glob = "0.3"
+cached = "0.44.0"

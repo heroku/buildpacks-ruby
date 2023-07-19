@@ -3,8 +3,8 @@ name = "heroku-statsd-metrics"
 # This crate is not published, so the only version that is used is the one in buildpack.toml.
 version = "0.0.0"
 publish = false
-edition = "2021"
-rust-version = "1.66"
+edition.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 commons = { path = "../../commons" }
@@ -22,3 +22,5 @@ ureq = "2"
 url = { version = "2", features = ["serde"] }
 glob = "0.3"
 cached = "0.44.0"
+clap = { version = "4.3.17", features = ["derive"] }
+libherokubuildpack.workspace = true

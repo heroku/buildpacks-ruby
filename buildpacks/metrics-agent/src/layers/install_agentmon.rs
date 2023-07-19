@@ -5,6 +5,7 @@ use flate2::read::GzDecoder;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::ExistingLayerStrategy;
 use libcnb::{
+    additional_buildpack_binary_path,
     generic::GenericMetadata,
     layer::{Layer, LayerResultBuilder},
 };
@@ -160,39 +161,11 @@ fn write_execd(agentmon_path: &Path, layer_path: &Path) -> Result<PathBuf, Downl
 
     // This script boots and runs agentmon in a loop
     let background_script = {
-        let script = layer_path.join("agentmon_script");
-        write_bash_script(
-            &script,
-            // Curly braces need to be escaped with another curly
-            format!(
-                r#"
-                setup_metrics() {{
-                    if [[ -z "$HEROKU_METRICS_URL" ]] || [[ "${{DYNO}}" = run\.* ]]; then
-                        return 0
-                    fi
+        let script = layer_path.join("agentmon_loop");
 
-                    AGENTMON_FLAGS=("-statsd-addr=:${{PORT}}")
-
-                    if [[ "${{AGENTMON_DEBUG}}" = "true" ]]; then
-                        AGENTMON_FLAGS+=("-debug")
-                    fi
-
-                    if [[ -x "{agentmon_path}" ]]; then
-                        (while true; do
-                            {agentmon_path} "${{AGENTMON_FLAGS[@]}}" "${{HEROKU_METRICS_URL}}"
-                            echo "agentmon completed with status=${{?}}. Restarting"
-                            sleep 1
-                        done) &
-                    else
-                        echo "No agentmon executable found. Not starting."
-                    fi
-                }}
-
-                setup_metrics
-            "#
-            ),
-        )
-        .map_err(DownloadAgentmonError::CouldNotWriteDestinationFile)?;
+        // Copy compiled binary from `bin/agentmon_loop.rs` to layer
+        fs_err::copy(additional_buildpack_binary_path!("agentmon_loop"), &script)
+            .map_err(DownloadAgentmonError::CouldNotWriteDestinationFile)?;
 
         script
             .canonicalize()
@@ -207,7 +180,7 @@ fn write_execd(agentmon_path: &Path, layer_path: &Path) -> Result<PathBuf, Downl
         let background_script = background_script.display();
         write_bash_script(
             &script,
-            format!(r#"start-stop-daemon --start --background --exec "{background_script}""#),
+            format!(r#"start-stop-daemon --start --background --exec "{background_script}" -- --path {agentmon_path}"#),
         )
         .map_err(DownloadAgentmonError::CouldNotWriteDestinationFile)?;
 

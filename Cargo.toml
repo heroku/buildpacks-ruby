@@ -5,3 +5,11 @@ members = [
     "buildpacks/ruby",
     "commons"
 ]
+
+[workspace.package]
+rust-version = "1.64"
+edition = "2021"
+license = "BSD-3-Clause"
+
+[workspace.dependencies]
+libherokubuildpack = "0.12"

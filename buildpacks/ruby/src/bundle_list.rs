@@ -52,7 +52,7 @@ pub(crate) struct DiagnosticCommands(Vec<DiagnosticCmd>);
 impl Display for DiagnosticCommands {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for diagnostic in &self.0 {
-            writeln!(f, "{}", diagnostic.to_string())?;
+            writeln!(f, "{diagnostic}")?;
         }
         Ok(())
     }

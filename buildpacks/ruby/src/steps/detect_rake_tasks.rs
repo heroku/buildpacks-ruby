@@ -73,7 +73,7 @@ pub(crate) fn detect_rake_tasks(
                 list
             };
 
-            let rake_detect = RakeDetect::from_rake_command(section, env, true, highlight_envs)
+            let rake_detect = RakeDetect::from_rake_command(section, env, true, &highlight_envs)
                 .map_err(RubyBuildpackError::CannotDetectRakeTasks)?;
 
             Ok(Some(rake_detect))

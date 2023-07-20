@@ -22,7 +22,7 @@ pub(crate) fn rake_assets_install(
     let rake_assets_clean = build_output::fmt::value("rake assets:clean");
     let rake_detect_cmd = build_output::fmt::value("bundle exec rake -P");
 
-    let env_list = {
+    let show_keys = {
         let mut list = Vec::new();
         if gem_list.has("railties") {
             list.push(OsString::from("RAILS_ENV"));
@@ -45,7 +45,7 @@ pub(crate) fn rake_assets_install(
             );
             section.help(format!("Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
 
-            run_rake_assets_precompile(section, env, env_list)
+            run_rake_assets_precompile(section, env, &show_keys)
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
         }
         AssetCases::PrecompileAndClean => {
@@ -75,7 +75,7 @@ pub(crate) fn rake_assets_install(
                     .map_err(RubyBuildpackError::InAppDirCacheError)?
             };
 
-            run_rake_assets_precompile_with_clean(section, env, env_list)
+            run_rake_assets_precompile_with_clean(section, env, &show_keys)
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
 
             cache
@@ -90,14 +90,14 @@ pub(crate) fn rake_assets_install(
 fn run_rake_assets_precompile(
     section: &Section,
     env: &Env,
-    keys: Vec<OsString>,
+    keys: &[OsString],
 ) -> Result<(), CmdError> {
     Command::new("bundle")
         .args(["exec", "rake", "assets:precompile", "--trace"])
         .env_clear()
         .envs(env)
         .cmd_map(|cmd| {
-            let name = fun_run::display_with_env_keys(cmd, env, &keys);
+            let name = fun_run::display_with_env_keys(cmd, env, keys);
             let path_env = env.get("PATH").cloned();
             section
                 .run(RunCommand::stream(cmd).with_name(name))
@@ -110,7 +110,7 @@ fn run_rake_assets_precompile(
 fn run_rake_assets_precompile_with_clean(
     section: &Section,
     env: &Env,
-    keys: Vec<OsString>,
+    keys: &[OsString],
 ) -> Result<(), CmdError> {
     Command::new("bundle")
         .args([
@@ -123,7 +123,7 @@ fn run_rake_assets_precompile_with_clean(
         .env_clear()
         .envs(env)
         .cmd_map(|cmd| {
-            let name = fun_run::display_with_env_keys(cmd, env, &keys);
+            let name = fun_run::display_with_env_keys(cmd, env, keys);
             let path_env = env.get("PATH").cloned();
             section
                 .run(RunCommand::stream(cmd).with_name(name))

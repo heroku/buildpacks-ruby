@@ -23,14 +23,14 @@ impl RakeDetect {
         section: &Section,
         env: &libcnb::Env,
         error_on_failure: bool,
-        highlight_keys: Vec<OsString>,
+        highlight_keys: &[OsString],
     ) -> Result<Self, CannotDetectRakeTasks> {
         Command::new("bundle")
             .args(["exec", "rake", "-P", "--trace"])
             .env_clear()
             .envs(env)
             .cmd_map(|cmd| {
-                let name = fun_run::display_with_env_keys(cmd, env, &highlight_keys);
+                let name = fun_run::display_with_env_keys(cmd, env, highlight_keys);
                 section
                     .run(RunCommand::silent(cmd).with_name(name))
                     .or_else(|error| {

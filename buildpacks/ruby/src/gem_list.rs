@@ -2,9 +2,9 @@ use crate::build_output::{RunCommand, Section};
 use commons::fun_run::{self, CmdMapExt};
 use commons::gem_version::GemVersion;
 use core::str::FromStr;
+use indoc::formatdoc;
 use regex::Regex;
 use std::collections::HashMap;
-use std::ffi::OsStr;
 use std::process::Command;
 
 /// ## Gets list of an application's dependencies
@@ -17,8 +17,40 @@ pub(crate) struct GemList {
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum ListError {
-    #[error("Error determining dependencies: \n{0}")]
-    BundleListShellCommandError(fun_run::CmdError),
+    #[error("{0}\n\n{}", .1.join("\n\n"))]
+    CommandErrorWithAnnotations(fun_run::CmdError, Vec<String>),
+}
+
+// If `bundle list` is failing then there's something deeply wrong.
+//
+// Annotate the failure with as much diagnostic information as possible
+fn diagnostic(cmd: &mut Command) -> String {
+    let diagnostic = cmd.cmd_map(|cmd| {
+        let name = fun_run::display(cmd);
+
+        cmd.output()
+            .map_err(|error| fun_run::on_system_error(name.clone(), error))
+            .and_then(|output| fun_run::nonzero_captured(name.clone(), output))
+            .map(|output| (name, output))
+    });
+
+    match diagnostic {
+        Ok((name, output)) => formatdoc! {"
+            System diagnostic information:
+
+            Command: {name}
+            status: {status}
+            stdout: {stdout}
+            stderr: {stderr}
+            ",
+            status = output.status,
+            stdout = String::from_utf8_lossy(&output.stdout).clone(),
+            stderr = String::from_utf8_lossy(&output.stderr).clone(),
+        },
+        Err(error) => {
+            format!("System diagnostic information:\n\n{error}")
+        }
+    }
 }
 
 /// Converts the output of `$ gem list` into a data structure that can be inspected and compared
@@ -29,23 +61,34 @@ impl GemList {
     /// # Errors
     ///
     /// Errors if the command `bundle list` is unsuccessful.
-    pub(crate) fn from_bundle_list<
-        T: IntoIterator<Item = (K, V)>,
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>,
-    >(
-        envs: T,
+    pub(crate) fn from_bundle_list(
+        env: &libcnb::Env,
         build_output: &Section,
     ) -> Result<Self, ListError> {
-        let output = Command::new("bundle")
+        let result = Command::new("bundle")
             .arg("list")
             .env_clear()
-            .envs(envs)
-            .cmd_map(|cmd| build_output.run(RunCommand::inline_progress(cmd)))
-            .map_err(ListError::BundleListShellCommandError)?;
+            .envs(env)
+            .cmd_map(|cmd| build_output.run(RunCommand::inline_progress(cmd)));
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        GemList::from_str(&stdout)
+        match result {
+            Ok(output) => GemList::from_str(&String::from_utf8_lossy(&output.stdout)),
+            Err(error) => Err(ListError::CommandErrorWithAnnotations(
+                error,
+                vec![
+                    Command::new("bundle")
+                        .arg("env")
+                        .env_clear()
+                        .envs(env)
+                        .cmd_map(diagnostic),
+                    Command::new("gem")
+                        .arg("env")
+                        .env_clear()
+                        .envs(env)
+                        .cmd_map(diagnostic),
+                ],
+            )),
+        }
     }
 
     #[must_use]

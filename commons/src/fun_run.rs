@@ -1,4 +1,6 @@
 use lazy_static::lazy_static;
+use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::process::Command;
 use std::process::Output;
@@ -138,23 +140,26 @@ pub fn display(command: &mut Command) -> String {
 pub fn display_with_env_keys<E, K, V, I, O>(cmd: &mut Command, env: E, keys: I) -> String
 where
     E: IntoIterator<Item = (K, V)>,
-    K: Into<OsString>,
-    V: Into<OsString>,
+    K: AsRef<OsStr>,
+    V: AsRef<OsStr>,
     I: IntoIterator<Item = O>,
-    O: Into<OsString>,
+    O: AsRef<OsStr>,
 {
-    let env = env
+    let env_hash = env
         .into_iter()
-        .map(|(k, v)| (k.into(), v.into()))
-        .collect::<std::collections::HashMap<OsString, OsString>>();
+        .map(|(k, v)| (k.as_ref().to_owned(), v.as_ref().to_owned()))
+        .collect::<HashMap<OsString, OsString>>();
 
     keys.into_iter()
         .map(|key| {
-            let key = key.into();
+            let key = key.as_ref();
             format!(
                 "{}={:?}",
                 key.to_string_lossy(),
-                env.get(&key).cloned().unwrap_or_else(|| OsString::from(""))
+                env_hash
+                    .get(key)
+                    .cloned()
+                    .unwrap_or_else(|| OsString::from(""))
             )
         })
         .chain([display(cmd)])

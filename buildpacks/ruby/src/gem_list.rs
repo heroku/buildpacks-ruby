@@ -11,58 +11,29 @@ use std::process::Command;
 ///
 /// Requires `ruby` and `bundle` to be installed and on the PATH
 #[derive(Debug)]
-pub struct GemList {
+pub(crate) struct GemList {
     pub gems: HashMap<String, GemVersion>,
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum ListError {
+pub(crate) enum ListError {
     #[error("Error determining dependencies: \n{0}")]
     BundleListShellCommandError(fun_run::CmdError),
 }
 
 /// Converts the output of `$ gem list` into a data structure that can be inspected and compared
 ///
-/// ```
-/// use commons::gem_list::GemList;
-/// use commons::gem_version::GemVersion;
-/// use std::str::FromStr;
-///
-///         let gem_list = GemList::from_str(
-///             r#"
-/// Gems included by the bundle:
-///   * actioncable (6.1.4.1)
-///   * actionmailbox (6.1.4.1)
-///   * actionmailer (6.1.4.1)
-///   * actionpack (6.1.4.1)
-///   * actiontext (6.1.4.1)
-///   * actionview (6.1.4.1)
-///   * activejob (6.1.4.1)
-///   * activemodel (6.1.4.1)
-///   * activerecord (6.1.4.1)
-///   * activestorage (6.1.4.1)
-///   * activesupport (6.1.4.1)
-///   * addressable (2.8.0)
-///   * ast (2.4.2)
-///   * railties (6.1.4.1)
-/// Use `bundle info` to print more detailed information about a gem
-///             "#,
-///         ).unwrap();
-///
-///         assert!(gem_list.has("railties"));
-///
-///         assert_eq!(
-///            gem_list.version_for("railties").unwrap(),
-///            &GemVersion::from_str("6.1.4.1").unwrap()
-///         );
-/// ```
 impl GemList {
     /// Calls `bundle list` and returns a `GemList` struct
     ///
     /// # Errors
     ///
     /// Errors if the command `bundle list` is unsuccessful.
-    pub fn from_bundle_list<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsStr>>(
+    pub(crate) fn from_bundle_list<
+        T: IntoIterator<Item = (K, V)>,
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
+    >(
         envs: T,
         build_output: &Section,
     ) -> Result<Self, ListError> {

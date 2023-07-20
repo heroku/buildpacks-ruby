@@ -60,8 +60,7 @@ impl Layer for RubyInstallLayer {
             .map_err(RubyInstallError::CouldNotCreateDestinationFile)
             .map_err(RubyBuildpackError::RubyInstallError)?;
 
-        let url = download_url(&context.stack_id, &self.version)
-            .map_err(RubyBuildpackError::RubyInstallError)?;
+        let url = download_url(&context.stack_id, &self.version);
 
         download(url.as_ref(), tmp_ruby_tgz.path())
             .map_err(RubyBuildpackError::RubyInstallError)?;
@@ -129,16 +128,16 @@ enum Changed {
     RubyVersion(ResolvedRubyVersion, ResolvedRubyVersion),
 }
 
-fn download_url(stack: &StackId, version: impl std::fmt::Display) -> Result<Url, RubyInstallError> {
-    let filename = format!("ruby-{version}.tgz");
-    let base = "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com";
-    let mut url = Url::parse(base).map_err(RubyInstallError::UrlParseError)?;
+fn download_url(stack: &StackId, version: impl std::fmt::Display) -> Url {
+    let mut url = Url::parse("https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com")
+        .expect("Internal error: bad url");
 
     url.path_segments_mut()
-        .map_err(|_| RubyInstallError::InvalidBaseUrl(String::from(base)))?
+        .expect("Internal error: bad url")
         .push(stack)
-        .push(&filename);
-    Ok(url)
+        .push(&format!("ruby-{version}.tgz"));
+
+    url
 }
 
 pub(crate) fn download(
@@ -172,12 +171,6 @@ pub(crate) fn untar(
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum RubyInstallError {
-    #[error("Could not parse url {0}")]
-    UrlParseError(url::ParseError),
-
-    #[error("Invalid base url {0}")]
-    InvalidBaseUrl(String),
-
     #[error("Could not open file: {0}")]
     CouldNotOpenFile(std::io::Error),
 
@@ -220,7 +213,7 @@ version = "3.1.3"
 
     #[test]
     fn test_ruby_url() {
-        let out = download_url(&stack_id!("heroku-20"), "2.7.4").unwrap();
+        let out = download_url(&stack_id!("heroku-20"), "2.7.4");
         assert_eq!(
             out.as_ref(),
             "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com/heroku-20/ruby-2.7.4.tgz",

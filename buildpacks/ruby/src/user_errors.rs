@@ -32,6 +32,13 @@ fn log_our_error(error: RubyBuildpackError) {
             formatdoc! {"
             The Ruby buildpack uses rake task information from your application to guide
             build logic. Without this information, the Ruby buildpack cannot continue.
+
+            Try to reproduce the error locally by running the command below.
+            Once you've fixed all errors locally, commit the result to git and retry
+            your build.
+
+            If your build continues to fail, system requirements, such as required packages or
+            configuration, may not be met. Use the error below to debug further.
             "},
             error,
         )

@@ -48,7 +48,9 @@ fn log_our_error(error: RubyBuildpackError) {
             "Error detecting dependencies",
             formatdoc! {"
             The Ruby buildpack requires information about your application’s dependencies to
-            complete the build.
+            complete the build. Without this information, the Ruby buildpack cannot continue.
+
+            Use the following information to help debug the system.
             "},
             error,
         )

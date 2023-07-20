@@ -20,7 +20,7 @@ use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 use regex::Regex;
 
-mod gem_list;
+mod bundle_list;
 mod layers;
 mod rake_status;
 mod rake_task_detect;
@@ -135,8 +135,8 @@ impl Buildpack for RubyBuildpack {
             let section = build_output::section("Setting default processes(es)");
             section.say("Detecting gems");
 
-            let gem_list = gem_list::GemList::from_bundle_list(&env, &section)
-                .map_err(RubyBuildpackError::GemListGetError)?;
+            let gem_list = bundle_list::GemList::from_bundle_list(&env, &section)
+                .map_err(RubyBuildpackError::BundleListError)?;
             let default_process = steps::get_default_process(&section, &context, &gem_list);
 
             (gem_list, default_process)
@@ -183,7 +183,7 @@ fn needs_java(gemfile_lock: &str) -> bool {
 #[derive(Debug)]
 pub(crate) enum RubyBuildpackError {
     CannotDetectRakeTasks(CannotDetectRakeTasks),
-    GemListGetError(gem_list::ListError),
+    BundleListError(bundle_list::CmdErrorWithDiagnostics),
     RubyInstallError(RubyInstallError),
     MissingGemfileLock(std::io::Error),
     InAppDirCacheError(CacheError),

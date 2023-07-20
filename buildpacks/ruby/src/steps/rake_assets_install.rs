@@ -1,5 +1,5 @@
 use crate::build_output::{self, RunCommand, Section};
-use crate::gem_list::GemList;
+use crate::bundle_list::GemList;
 use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;

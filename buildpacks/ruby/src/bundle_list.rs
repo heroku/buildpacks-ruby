@@ -1,11 +1,12 @@
 use crate::build_output::{RunCommand, Section};
-use commons::fun_run::{self, CmdMapExt};
+use commons::fun_run::{self, CmdError, CmdMapExt};
 use commons::gem_version::GemVersion;
 use core::str::FromStr;
-use indoc::formatdoc;
 use regex::Regex;
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::process::Command;
+use std::process::Output;
 
 /// ## Gets list of an application's dependencies
 ///
@@ -16,15 +17,51 @@ pub(crate) struct GemList {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub(crate) enum ListError {
-    #[error("{0}\n\n{}", .1.join("\n\n"))]
-    CommandErrorWithAnnotations(fun_run::CmdError, Vec<String>),
+pub(crate) enum CmdErrorWithDiagnostics {
+    #[error("{0}\n{1}")]
+    CommandErrorWithDiagnostics(fun_run::CmdError, DiagnosticCommands),
+}
+
+#[derive(Debug)]
+pub(crate) enum DiagnosticCmd {
+    Error(CmdError),
+    Info { name: String, output: Output },
+}
+
+impl Display for DiagnosticCmd {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("System diagnostic information:\n\n")?;
+        match self {
+            DiagnosticCmd::Error(error) => writeln!(f, "{error}"),
+            DiagnosticCmd::Info { name, output } => {
+                let status = output.status;
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                writeln!(
+                    f,
+                    "Command: {name}\nstatus: {status}\nstdout: {stdout}\n stderr: {stderr}"
+                )
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct DiagnosticCommands(Vec<DiagnosticCmd>);
+
+impl Display for DiagnosticCommands {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for diagnostic in &self.0 {
+            writeln!(f, "{}", diagnostic.to_string())?;
+        }
+        Ok(())
+    }
 }
 
 // If `bundle list` is failing then there's something deeply wrong.
 //
 // Annotate the failure with as much diagnostic information as possible
-fn diagnostic(cmd: &mut Command) -> String {
+fn run_diagnostic_cmd(cmd: &mut Command) -> DiagnosticCmd {
     let diagnostic = cmd.cmd_map(|cmd| {
         let name = fun_run::display(cmd);
 
@@ -35,21 +72,8 @@ fn diagnostic(cmd: &mut Command) -> String {
     });
 
     match diagnostic {
-        Ok((name, output)) => formatdoc! {"
-            System diagnostic information:
-
-            Command: {name}
-            status: {status}
-            stdout: {stdout}
-            stderr: {stderr}
-            ",
-            status = output.status,
-            stdout = String::from_utf8_lossy(&output.stdout).clone(),
-            stderr = String::from_utf8_lossy(&output.stderr).clone(),
-        },
-        Err(error) => {
-            format!("System diagnostic information:\n\n{error}")
-        }
+        Ok((name, output)) => DiagnosticCmd::Info { name, output },
+        Err(error) => DiagnosticCmd::Error(error),
     }
 }
 
@@ -64,7 +88,7 @@ impl GemList {
     pub(crate) fn from_bundle_list(
         env: &libcnb::Env,
         build_output: &Section,
-    ) -> Result<Self, ListError> {
+    ) -> Result<Self, CmdErrorWithDiagnostics> {
         let result = Command::new("bundle")
             .arg("list")
             .env_clear()
@@ -73,20 +97,20 @@ impl GemList {
 
         match result {
             Ok(output) => GemList::from_str(&String::from_utf8_lossy(&output.stdout)),
-            Err(error) => Err(ListError::CommandErrorWithAnnotations(
+            Err(error) => Err(CmdErrorWithDiagnostics::CommandErrorWithDiagnostics(
                 error,
-                vec![
+                DiagnosticCommands(vec![
                     Command::new("bundle")
                         .arg("env")
                         .env_clear()
                         .envs(env)
-                        .cmd_map(diagnostic),
+                        .cmd_map(run_diagnostic_cmd),
                     Command::new("gem")
                         .arg("env")
                         .env_clear()
                         .envs(env)
-                        .cmd_map(diagnostic),
-                ],
+                        .cmd_map(run_diagnostic_cmd),
+                ]),
             )),
         }
     }
@@ -98,7 +122,7 @@ impl GemList {
 }
 
 impl FromStr for GemList {
-    type Err = ListError;
+    type Err = CmdErrorWithDiagnostics;
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         // https://regex101.com/r/EIJe5G/1

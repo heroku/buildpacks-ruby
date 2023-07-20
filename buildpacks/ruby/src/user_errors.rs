@@ -44,12 +44,11 @@ fn log_our_error(error: RubyBuildpackError) {
             error,
         )
         .print(),
-        RubyBuildpackError::GemListGetError(error) => ErrorInfo::header_body_details(
+        RubyBuildpackError::BundleListError(error) => ErrorInfo::header_body_details(
             "Error detecting dependencies",
             formatdoc! {"
-            The Ruby buildpack uses dependency information from your application to
-            guide build logic. Without this information, the Ruby buildpack cannot
-            continue.
+            The Ruby buildpack requires information about your application’s dependencies to
+            complete the build.
             "},
             error,
         )

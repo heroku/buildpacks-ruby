@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 
 use crate::build_output::{self, Section};
-use crate::gem_list::GemList;
+use crate::bundle_list::GemList;
 use crate::rake_status::{check_rake_ready, RakeStatus};
 use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;

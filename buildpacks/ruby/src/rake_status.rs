@@ -1,4 +1,4 @@
-use crate::gem_list::GemList;
+use crate::bundle_list::GemList;
 use std::path::{Path, PathBuf};
 
 /// Determine if an application is ready to run a rake task or not

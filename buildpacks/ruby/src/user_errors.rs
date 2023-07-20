@@ -8,12 +8,16 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
         Cause::FrameworkError(error) => ErrorInfo::header_body_details(
             "heroku/buildpack-ruby internal buildpack error",
             formatdoc! {"
-                An unexpected internal error was reported by the framework used
-                by this buildpack.
+                The framework used by this buildpack encountered an unexpected error.
+                This type of error usually indicates there's nothing wrong with your application.
 
-                If the issue persists, consider opening an issue on the GitHub
-                repository. If you are unable to deploy to Heroku as a result
-                of this issue, consider opening a ticket for additional support.
+                If you can’t deploy to Heroku due to this issue please check the official Heroku
+                status page https://status.heroku.com/ to see if there is an ongoing incident. Once
+                all incidents have resolved please retry your build.
+
+                If the issue persists, please try to reproduce the behavior locally using the `pack`
+                CLI. If you can reproduce the behavior locally and believe you've found a bug in the
+                buildpack or the framework please open an issue on the buildpack's GitHub repository.
             "},
             error,
         )

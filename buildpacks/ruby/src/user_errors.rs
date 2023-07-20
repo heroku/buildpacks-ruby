@@ -27,7 +27,7 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
 
 fn log_our_error(error: RubyBuildpackError) {
     match error {
-        RubyBuildpackError::RakeDetectError(error) => ErrorInfo::header_body_details(
+        RubyBuildpackError::CannotDetectRakeTasks(error) => ErrorInfo::header_body_details(
             "Error detecting rake tasks",
             formatdoc! {"
             The Ruby buildpack uses rake task information from your application to guide

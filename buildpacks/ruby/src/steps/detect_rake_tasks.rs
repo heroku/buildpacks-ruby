@@ -1,3 +1,5 @@
+use std::ffi::OsString;
+
 use crate::build_output::{self, Section};
 use crate::gem_list::GemList;
 use crate::rake_status::{check_rake_ready, RakeStatus};
@@ -61,8 +63,18 @@ pub(crate) fn detect_rake_tasks(
                 format!("{rake} gem found, {rakefile} found at {path}"),
             );
 
-            let rake_detect = RakeDetect::from_rake_command(section, env, true)
-                .map_err(RubyBuildpackError::RakeDetectError)?;
+            // Add RAILS_ENV=production to encourage people trying to reproduce the issue
+            // locally to use the same env environment.
+            let highlight_envs = {
+                let mut list = Vec::new();
+                if gem_list.has("railties") {
+                    list.push(OsString::from("RAILS_ENV"));
+                }
+                list
+            };
+
+            let rake_detect = RakeDetect::from_rake_command(section, env, true, highlight_envs)
+                .map_err(RubyBuildpackError::CannotDetectRakeTasks)?;
 
             Ok(Some(rake_detect))
         }

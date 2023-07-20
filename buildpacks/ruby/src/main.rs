@@ -2,7 +2,7 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 use crate::layers::{RubyInstallError, RubyInstallLayer};
-use crate::rake_task_detect::RakeError;
+use crate::rake_task_detect::CannotDetectRakeTasks;
 use commons::build_output;
 use commons::cache::CacheError;
 use commons::fun_run::CmdError;
@@ -176,7 +176,7 @@ fn needs_java(gemfile_lock: &str) -> bool {
 
 #[derive(Debug)]
 pub(crate) enum RubyBuildpackError {
-    RakeDetectError(RakeError),
+    CannotDetectRakeTasks(CannotDetectRakeTasks),
     GemListGetError(gem_list::ListError),
     RubyInstallError(RubyInstallError),
     MissingGemfileLock(std::io::Error),

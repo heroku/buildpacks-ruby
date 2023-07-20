@@ -149,7 +149,13 @@ impl Buildpack for RubyBuildpack {
             let rake_detect = crate::steps::detect_rake_tasks(&section, &gem_list, &context, &env)?;
 
             if let Some(rake_detect) = rake_detect {
-                crate::steps::rake_assets_install(&section, &context, &env, &rake_detect)?;
+                crate::steps::rake_assets_install(
+                    &section,
+                    &context,
+                    &env,
+                    &rake_detect,
+                    &gem_list,
+                )?;
             }
         };
         build_duration.done_timed();

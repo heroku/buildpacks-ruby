@@ -1,4 +1,5 @@
 use crate::build_output::{self, RunCommand, Section};
+use crate::gem_list::GemList;
 use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
@@ -6,6 +7,7 @@ use commons::cache::{mib, AppCacheCollection, CacheConfig, KeepPath};
 use commons::fun_run::{self, CmdError, CmdMapExt};
 use libcnb::build::BuildContext;
 use libcnb::Env;
+use std::ffi::OsString;
 use std::process::Command;
 
 pub(crate) fn rake_assets_install(
@@ -13,11 +15,20 @@ pub(crate) fn rake_assets_install(
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
     rake_detect: &RakeDetect,
+    gem_list: &GemList,
 ) -> Result<(), RubyBuildpackError> {
     let cases = asset_cases(rake_detect);
     let rake_assets_precompile = build_output::fmt::value("rake assets:precompile");
     let rake_assets_clean = build_output::fmt::value("rake assets:clean");
     let rake_detect_cmd = build_output::fmt::value("bundle exec rake -P");
+
+    let env_list = {
+        let mut list = Vec::new();
+        if gem_list.has("railties") {
+            list.push(OsString::from("RAILS_ENV"));
+        }
+        list
+    };
 
     match cases {
         AssetCases::None => {
@@ -34,7 +45,7 @@ pub(crate) fn rake_assets_install(
             );
             section.help(format!("Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
 
-            run_rake_assets_precompile(section, env)
+            run_rake_assets_precompile(section, env, env_list)
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
         }
         AssetCases::PrecompileAndClean => {
@@ -64,7 +75,7 @@ pub(crate) fn rake_assets_install(
                     .map_err(RubyBuildpackError::InAppDirCacheError)?
             };
 
-            run_rake_assets_precompile_with_clean(section, env)
+            run_rake_assets_precompile_with_clean(section, env, env_list)
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
 
             cache
@@ -76,22 +87,31 @@ pub(crate) fn rake_assets_install(
     Ok(())
 }
 
-fn run_rake_assets_precompile(section: &Section, env: &Env) -> Result<(), CmdError> {
+fn run_rake_assets_precompile(
+    section: &Section,
+    env: &Env,
+    keys: Vec<OsString>,
+) -> Result<(), CmdError> {
     Command::new("bundle")
         .args(["exec", "rake", "assets:precompile", "--trace"])
         .env_clear()
         .envs(env)
         .cmd_map(|cmd| {
+            let name = fun_run::display_with_env_keys(cmd, env, &keys);
             let path_env = env.get("PATH").cloned();
             section
-                .run(RunCommand::stream(cmd))
+                .run(RunCommand::stream(cmd).with_name(name))
                 .map_err(|error| fun_run::map_which_problem(error, cmd, path_env))
         })?;
 
     Ok(())
 }
 
-fn run_rake_assets_precompile_with_clean(section: &Section, env: &Env) -> Result<(), CmdError> {
+fn run_rake_assets_precompile_with_clean(
+    section: &Section,
+    env: &Env,
+    keys: Vec<OsString>,
+) -> Result<(), CmdError> {
     Command::new("bundle")
         .args([
             "exec",
@@ -103,9 +123,10 @@ fn run_rake_assets_precompile_with_clean(section: &Section, env: &Env) -> Result
         .env_clear()
         .envs(env)
         .cmd_map(|cmd| {
+            let name = fun_run::display_with_env_keys(cmd, env, &keys);
             let path_env = env.get("PATH").cloned();
             section
-                .run(RunCommand::stream(cmd))
+                .run(RunCommand::stream(cmd).with_name(name))
                 .map_err(|error| fun_run::map_which_problem(error, cmd, path_env))
         })?;
 

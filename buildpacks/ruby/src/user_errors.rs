@@ -37,8 +37,9 @@ fn log_our_error(error: RubyBuildpackError) {
             Once you've fixed all errors locally, commit the result to git and retry
             your build.
 
-            If your build continues to fail, system requirements, such as required packages or
-            configuration, may not be met. Use the error below to debug further.
+            If your build continues to fail, application requirements, such as provisioned add-ons,
+            environment variables, or installed system packages may be needed. Use the
+            information below to debug further.
             "},
             error,
         )

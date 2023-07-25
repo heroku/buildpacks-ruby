@@ -2,7 +2,7 @@ api = "0.9"
 
 [buildpack]
 id = "heroku/ruby"
-version = "2.0.0"
+version = "2.0.1"
 name = "Ruby"
 homepage = "https://github.com/heroku/buildpacks-ruby"
 description = "Official Heroku buildpack for using Ruby to target Cloud Native Buildpack (CNB) builds."

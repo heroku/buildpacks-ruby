@@ -5,7 +5,7 @@ use crate::layers::{RubyInstallError, RubyInstallLayer};
 use crate::rake_task_detect::CannotDetectRakeTasks;
 use commons::build_output;
 use commons::cache::CacheError;
-use commons::fun_run::CmdError;
+use commons::fun_run::{CmdError, CmdErrorDiagnostics};
 use commons::gemfile_lock::GemfileLock;
 use core::str::FromStr;
 use layers::{BundleDownloadLayer, BundleInstallLayer};
@@ -72,6 +72,15 @@ impl Buildpack for RubyBuildpack {
 
         // Gather static information about project
         let lockfile_contents = fs_err::read_to_string(context.app_dir.join("Gemfile.lock"))
+            .map_err(|error| {
+                CmdErrorDiagnostics::from_io_error(error).run_and_insert(
+                    std::process::Command::new("ls")
+                        .arg("-la")
+                        .arg(&context.app_dir)
+                        .env_clear()
+                        .envs(&env),
+                )
+            })
             .map_err(RubyBuildpackError::MissingGemfileLock)?;
         let gemfile_lock = GemfileLock::from_str(&lockfile_contents).expect("Infallible");
         let bundler_version = gemfile_lock.resolve_bundler("2.4.5");
@@ -183,9 +192,9 @@ fn needs_java(gemfile_lock: &str) -> bool {
 #[derive(Debug)]
 pub(crate) enum RubyBuildpackError {
     CannotDetectRakeTasks(CannotDetectRakeTasks),
-    BundleListError(bundle_list::CmdErrorWithDiagnostics),
+    BundleListError(CmdErrorDiagnostics),
     RubyInstallError(RubyInstallError),
-    MissingGemfileLock(std::io::Error),
+    MissingGemfileLock(CmdErrorDiagnostics),
     InAppDirCacheError(CacheError),
     BundleInstallDigestError(commons::metadata_digest::DigestError),
     BundleInstallCommandError(CmdError),

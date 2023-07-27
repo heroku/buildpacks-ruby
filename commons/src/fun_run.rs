@@ -291,3 +291,121 @@ pub fn nonzero_captured(name: String, output: Output) -> Result<Output, CmdError
         Err(CmdError::NonZeroExitNotStreamed(name, output))
     }
 }
+
+/// Experimental: Annotate commands with other commands when they fail
+///
+/// API subject to change.
+///
+/// ```no_run
+/// use std::process::Command;
+/// use commons::fun_run::{self, CmdMapExt, CmdErrorDiagnostics};
+/// use libcnb::Env;
+///
+/// let env = Env::new();
+///
+/// Command::new("bundle")
+///     .arg("list")
+///     .env_clear()
+///     .envs(&env)
+///     .cmd_map(|cmd| {
+///         let name = fun_run::display(cmd);
+///
+///         cmd.output()
+///            .map_err(|error| fun_run::on_system_error(name.clone(), error))
+///            .and_then(|output| fun_run::nonzero_captured(name.clone(), output))
+///            .map_err(|error| {
+///                 CmdErrorDiagnostics::from_cmd_error(error)
+///                     .run_and_insert(Command::new("bundle").arg("env").env_clear().envs(&env))
+///                     .run_and_insert(Command::new("gem").arg("env").env_clear().envs(&env))
+///            })
+///     });
+/// ```
+#[derive(Debug)]
+pub struct CmdErrorDiagnostics {
+    error: DiagnoseError,
+    diagnostics: Vec<DiagnosticCmd>,
+}
+
+#[derive(Debug)]
+enum DiagnoseError {
+    Io(std::io::Error),
+    Cmd(CmdError),
+}
+
+impl CmdErrorDiagnostics {
+    #[must_use]
+    pub fn from_cmd_error(error: CmdError) -> Self {
+        let diagnostics = Vec::new();
+        let error = DiagnoseError::Cmd(error);
+        Self { error, diagnostics }
+    }
+
+    #[must_use]
+    pub fn from_io_error(error: std::io::Error) -> Self {
+        let diagnostics = Vec::new();
+        let error = DiagnoseError::Io(error);
+        Self { error, diagnostics }
+    }
+
+    #[must_use]
+    pub fn run_and_insert(mut self, cmd: &mut Command) -> Self {
+        self.diagnostics.push(run_diagnostic_cmd(cmd));
+        self
+    }
+}
+
+impl std::fmt::Display for CmdErrorDiagnostics {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let error = &self.error;
+        match error {
+            DiagnoseError::Io(error) => writeln!(f, "{error}")?,
+            DiagnoseError::Cmd(error) => writeln!(f, "{error}")?,
+        }
+
+        for diagnostic in &self.diagnostics {
+            writeln!(f, "{diagnostic}")?;
+        }
+
+        Ok(())
+    }
+}
+
+fn run_diagnostic_cmd(cmd: &mut Command) -> DiagnosticCmd {
+    let diagnostic = cmd.cmd_map(|cmd| {
+        let name = display(cmd);
+
+        cmd.output()
+            .map_err(|error| on_system_error(name.clone(), error))
+            .and_then(|output| nonzero_captured(name.clone(), output))
+            .map(|output| (name, output))
+    });
+
+    match diagnostic {
+        Ok((name, output)) => DiagnosticCmd::Info { name, output },
+        Err(error) => DiagnosticCmd::Error(error),
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum DiagnosticCmd {
+    Error(CmdError),
+    Info { name: String, output: Output },
+}
+
+impl std::fmt::Display for DiagnosticCmd {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("System diagnostic information:\n\n")?;
+        match self {
+            DiagnosticCmd::Error(error) => writeln!(f, "{error}"),
+            DiagnosticCmd::Info { name, output } => {
+                let status = output.status;
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                writeln!(
+                    f,
+                    "Command: {name}\nstatus: {status}\nstdout: {stdout}\n stderr: {stderr}"
+                )
+            }
+        }
+    }
+}

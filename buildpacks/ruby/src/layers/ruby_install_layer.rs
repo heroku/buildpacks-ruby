@@ -162,7 +162,7 @@ pub(crate) fn untar(
     path: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<(), RubyInstallError> {
-    let file = fs_err::File::open(path.as_ref()).map_err(RubyInstallError::CouldNotOpenFile)?;
+    let file = fs_err::File::open(path.as_ref()).map_err(RubyInstallError::CouldNotOpenTarFile)?;
 
     Archive::new(GzDecoder::new(file))
         .unpack(destination.as_ref())
@@ -171,10 +171,10 @@ pub(crate) fn untar(
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum RubyInstallError {
-    #[error("Could not open file: {0}")]
-    CouldNotOpenFile(std::io::Error),
+    #[error("Could not open downloaded tar file: {0}")]
+    CouldNotOpenTarFile(std::io::Error),
 
-    #[error("Could not untar: {0}")]
+    #[error("Could not untar downloaded file: {0}")]
     CouldNotUnpack(std::io::Error),
 
     // Boxed to prevent `large_enum_variant` errors since `ureq::Error` is massive.

@@ -1,6 +1,8 @@
+use crate::{
+    build_output::{self, fmt::ErrorInfo},
+    RubyBuildpackError,
+};
 use indoc::formatdoc;
-
-use crate::{build_output::fmt::ErrorInfo, RubyBuildpackError};
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
     match cause(err) {
@@ -55,13 +57,18 @@ fn log_our_error(error: RubyBuildpackError) {
             error,
         )
         .print(),
-        RubyBuildpackError::RubyInstallError(error) => ErrorInfo::header_body_details(
-            "Error installing Ruby",
-            formatdoc! {"
-            Could not install the detected Ruby version.
+        RubyBuildpackError::RubyInstallError(error) => ErrorInfo {
+            header: "Error installing Ruby".to_string(),
+            body: formatdoc! {"
+                Could not install the detected Ruby version. Ensure that you're using a supported
+                ruby version and try again.
             "},
-            error,
-        )
+            url: build_output::fmt::Url::Label {
+                label: "Supported ruby versions".to_string(),
+                url: "https://devcenter.heroku.com/articles/ruby-support#ruby-versions".to_string(),
+            },
+            debug_details: Some(error.to_string()),
+        }
         .print(),
         RubyBuildpackError::MissingGemfileLock(error) => ErrorInfo::header_body_details(
             "Error: Gemfile.lock required",

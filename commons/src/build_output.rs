@@ -468,6 +468,7 @@ mod section {
 }
 
 pub mod fmt {
+    use super::fmt;
     use indoc::formatdoc;
     use std::fmt::Display;
 
@@ -486,6 +487,17 @@ pub mod fmt {
 
     #[allow(dead_code)]
     pub(crate) const NOCOLOR: &str = "\x1B[1;39m"; // Differentiate between color clear and explicit no color https://github.com/heroku/buildpacks-ruby/pull/155#discussion_r1260029915
+    #[allow(dead_code)]
+    pub(crate) const ALL_CODES: [&str; 8] = [
+        RED,
+        YELLOW,
+        CYAN,
+        PURPLE,
+        BOLD_CYAN,
+        BOLD_PURPLE,
+        DEFAULT_DIM,
+        RESET,
+    ];
 
     pub(crate) const HEROKU_COLOR: &str = BOLD_PURPLE;
     pub(crate) const VALUE_COLOR: &str = YELLOW;
@@ -494,6 +506,10 @@ pub mod fmt {
     pub(crate) const IMPORTANT_COLOR: &str = CYAN;
     pub(crate) const ERROR_COLOR: &str = RED;
     pub(crate) const WARNING_COLOR: &str = YELLOW;
+
+    pub fn url(contents: impl AsRef<str>) -> String {
+        colorize(URL_COLOR, contents)
+    }
 
     /// Used to decorate a command being run i.e. `bundle install`
     #[must_use]
@@ -528,18 +544,17 @@ pub mod fmt {
         noun: impl AsRef<str>,
         header: impl AsRef<str>,
         body: impl AsRef<str>,
-        url: &Option<String>,
+        url: &Url,
     ) -> String {
         let noun = noun.as_ref();
         let header = header.as_ref();
-        let body = help_url(body, url);
+        let body = help_url(body, url).trim_end().to_string();
         colorize(
             color,
             bangify(formatdoc! {"
                 {noun} {header}
 
-                {body}
-            "}),
+                {body}"}),
         )
     }
 
@@ -549,16 +564,42 @@ pub mod fmt {
         colorize(IMPORTANT_COLOR, bangify(format!("Help: {contents}")))
     }
 
+    /// Holds info about a url
+    #[derive(Debug, Clone, Default)]
+    pub enum Url {
+        #[default]
+        None,
+        Label {
+            label: String,
+            url: String,
+        },
+        MoreInfo(String),
+    }
+
+    impl Display for Url {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Url::Label { label, url } => writeln!(f, "{label}: {}", fmt::url(url)),
+                Url::MoreInfo(url) => writeln!(
+                    f,
+                    "For more information, refer to the following documentation:\n{}",
+                    fmt::url(url)
+                ),
+                Url::None => f.write_str(""),
+            }
+        }
+    }
+
     /// Holds the contents of an error
     ///
     /// Designed so that additional optional fields may be added later without
     /// breaking compatability
     #[derive(Debug, Clone, Default)]
     pub struct ErrorInfo {
-        header: String,
-        body: String,
-        url: Option<String>,
-        debug_details: Option<String>,
+        pub header: String,
+        pub body: String,
+        pub url: Url,
+        pub debug_details: Option<String>,
     }
 
     impl ErrorInfo {
@@ -602,7 +643,7 @@ pub mod fmt {
 
         let body = look_at_me(ERROR_COLOR, "ERROR:", header, body, url);
         if let Some(details) = debug_details {
-            format!("{body}\n\nDebug information: {details}")
+            format!("{body}\n\nDebug information:\n\n{details}")
         } else {
             body
         }
@@ -612,7 +653,7 @@ pub mod fmt {
     ///
     /// Should it have a dedicated struct like `ErrorInfo` or be a function?
     /// Do we want to bundle warnings together and emit them at the end? (I think so, but it's out of current scope)
-    pub fn warning(header: impl AsRef<str>, body: impl AsRef<str>, url: &Option<String>) -> String {
+    pub fn warning(header: impl AsRef<str>, body: impl AsRef<str>, url: &Url) -> String {
         let header = header.as_ref();
         let body = body.as_ref();
 
@@ -622,31 +663,24 @@ pub mod fmt {
     /// Need feedback on this interface
     ///
     /// Same questions as `warning`
-    pub fn important(
-        header: impl AsRef<str>,
-        body: impl AsRef<str>,
-        url: &Option<String>,
-    ) -> String {
+    pub fn important(header: impl AsRef<str>, body: impl AsRef<str>, url: &Url) -> String {
         let header = header.as_ref();
         let body = body.as_ref();
 
         look_at_me(IMPORTANT_COLOR, "", header, body, url)
     }
 
-    fn help_url(body: impl AsRef<str>, url: &Option<String>) -> String {
+    fn help_url(body: impl AsRef<str>, url: &Url) -> String {
         let body = body.as_ref();
+        let body = body.trim_end();
 
-        if let Some(url) = url {
-            let url = colorize(URL_COLOR, url);
+        match url {
+            Url::None => body.to_string(),
+            Url::Label { label: _, url: _ } | Url::MoreInfo(_) => formatdoc! {"
+                {body}
 
-            formatdoc! {"
-            {body}
-
-            For more information, refer to the following documentation:
-            {url}
-        "}
-        } else {
-            body.to_string()
+                {url}
+            "},
         }
     }
 
@@ -654,7 +688,13 @@ pub mod fmt {
     fn bangify(body: impl AsRef<str>) -> String {
         body.as_ref()
             .split('\n')
-            .map(|section| format!("! {section}"))
+            .map(|section| {
+                if section.trim().is_empty() {
+                    "!".to_string()
+                } else {
+                    format!("! {section}")
+                }
+            })
             .collect::<Vec<String>>()
             .join("\n")
     }
@@ -668,10 +708,14 @@ pub mod fmt {
     pub(crate) fn colorize(color: &str, body: impl AsRef<str>) -> String {
         body.as_ref()
             .split('\n')
-            .map(|section| section.replace(RESET, &format!("{RESET}{color}"))) // Handles nested color
-            .map(|section| format!("{color}{section}{RESET}")) // Clear after every newline
-            .map(|section| section.replace(&format!("{RESET}{color}{RESET}"), RESET)) // Reduce useless color
-            .map(|section| section.replace(&format!("{color}{color}"), color)) // Reduce useless color
+            // If sub contents are colorized it will contain SUBCOLOR ... RESET. After the reset,
+            // ensure we change back to the current color
+            .map(|line| line.replace(RESET, &format!("{RESET}{color}"))) // Handles nested color
+            // Set the main color for each line and reset after so we don't colorize `remote:` by accident
+            .map(|line| format!("{color}{line}{RESET}"))
+            // The above logic causes redundant colors and resets, clean them up
+            .map(|line| line.replace(&format!("{RESET}{color}{RESET}"), RESET))
+            .map(|line| line.replace(&format!("{color}{color}"), color)) // Reduce useless color
             .collect::<Vec<String>>()
             .join("\n")
     }
@@ -679,6 +723,44 @@ pub mod fmt {
     #[cfg(test)]
     mod test {
         use super::*;
+        fn strip_control_codes(contents: impl AsRef<str>) -> String {
+            let mut contents = contents.as_ref().to_string();
+            for code in ALL_CODES {
+                contents = contents.replace(code, "");
+            }
+            contents
+        }
+
+        #[test]
+        fn test_error_output_with_url_and_detailsvisual() {
+            let actual = ErrorInfo {
+            header: "Error installing Ruby".to_string(),
+            body: formatdoc! {"
+                Could not install the detected Ruby version. Ensure that you're using a supported
+                ruby version and try again.
+            "},
+            url: Url::MoreInfo(
+                "https://devcenter.heroku.com/articles/ruby-support#ruby-versions".to_string(),
+            ),
+            debug_details: Some("Could not create file: You do not have sufficient permissions to access this file: /path/to/file".to_string()),
+            }.to_string();
+
+            let expected = formatdoc! {
+               "! ERROR: Error installing Ruby
+                !
+                ! Could not install the detected Ruby version. Ensure that you're using a supported
+                ! ruby version and try again.
+                !
+                ! For more information, refer to the following documentation:
+                ! https://devcenter.heroku.com/articles/ruby-support#ruby-versions
+
+                Debug information:
+
+                Could not create file: You do not have sufficient permissions to access this file: /path/to/file"
+            };
+
+            assert_eq!(expected, strip_control_codes(actual));
+        }
 
         #[test]
         fn handles_explicitly_removed_colors() {

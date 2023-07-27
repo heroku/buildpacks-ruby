@@ -70,17 +70,20 @@ fn log_our_error(error: RubyBuildpackError) {
             debug_details: Some(error.to_string()),
         }
         .print(),
-        RubyBuildpackError::MissingGemfileLock(error) => ErrorInfo::header_body_details(
-            "Error: Gemfile.lock required",
-            formatdoc! {"
-            To deploy a Ruby application, a Gemfile.lock file is required in the
-            root of your application, but none was found.
+        RubyBuildpackError::MissingGemfileLock(error) => ErrorInfo {
+            header: "Gemfile.lock` not found".to_string(),
+            body: formatdoc! {"
+                A `Gemfile.lock` file is required and was not found in the root of your application.
 
-            If you have a Gemfile.lock in your application, you may not have it
-            tracked in git, or you may be on a different branch.
+                If you have a `Gemfile.lock` in your application, ensure it’s tracked in Git and
+                that you’re pushing the correct branch.
             "},
-            error,
-        )
+            url: build_output::fmt::Url::MoreInfo(
+                "https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main"
+                    .to_string(),
+            ),
+            debug_details: Some(error.to_string()),
+        }
         .print(),
         RubyBuildpackError::InAppDirCacheError(error) => ErrorInfo::header_body_details(
             "Internal cache error",

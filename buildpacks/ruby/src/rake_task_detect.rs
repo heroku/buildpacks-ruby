@@ -11,7 +11,7 @@ pub(crate) struct RakeDetect {
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum CannotDetectRakeTasks {
-    #[error("Error detecting rake tasks: {0}")]
+    #[error("{0}")]
     DashpCommandError(fun_run::CmdError),
 }
 

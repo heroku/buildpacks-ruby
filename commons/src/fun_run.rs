@@ -239,10 +239,10 @@ pub enum CmdError {
     #[error("Could not run command command {0:?}. Details: {1}")]
     SystemError(String, std::io::Error),
 
-    #[error("Command failed {0:?}.\nstatus: {}\nstdout: {}\nstderr: {}", .1.status,  String::from_utf8_lossy(&.1.stdout), String::from_utf8_lossy(&.1.stderr))]
+    #[error("Command failed: {0:?}\nexit status: {}\nstdout: {}\nstderr: {}", .1.status.code().unwrap_or_else(|| 1),  display_out_or_empty(&.1.stdout), display_out_or_empty(&.1.stderr))]
     NonZeroExitNotStreamed(String, Output),
 
-    #[error("Command failed {0:?}.\nstatus: {}\nstdout: see above\nstderr: see above", .1.status)]
+    #[error("Command failed: {0:?}\nexit status: {}\nstdout: see above\nstderr: see above", .1.status.code().unwrap_or_else(|| 1))]
     NonZeroExitAlreadyStreamed(String, Output),
 }
 
@@ -250,6 +250,15 @@ pub enum CmdError {
 #[must_use]
 pub fn on_system_error(name: String, error: std::io::Error) -> CmdError {
     CmdError::SystemError(name, error)
+}
+
+fn display_out_or_empty(contents: &[u8]) -> String {
+    let contents = String::from_utf8_lossy(contents);
+    if contents.trim().is_empty() {
+        "<empty>".to_string()
+    } else {
+        contents.to_string()
+    }
 }
 
 /// Converts an `Output` into an error when status is non-zero

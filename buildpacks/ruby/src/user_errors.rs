@@ -2,6 +2,7 @@ use crate::{
     build_output::{self, fmt::ErrorInfo},
     RubyBuildpackError,
 };
+use commons::fun_run::CmdError;
 use indoc::formatdoc;
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
@@ -30,24 +31,31 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
 #[allow(clippy::too_many_lines)]
 fn log_our_error(error: RubyBuildpackError) {
     let file_hints = file_hints();
+    let git_branch = git_branch();
+    let heroku_status = heroku_status();
+
     match error {
-        RubyBuildpackError::CannotDetectRakeTasks(error) => ErrorInfo::header_body_details(
-            "Error detecting rake tasks",
-            formatdoc! {"
-            The Ruby buildpack uses rake task information from your application to guide
-            build logic. Without this information, the Ruby buildpack cannot continue.
+        RubyBuildpackError::CannotDetectRakeTasks(error) => {
+            let cmd_debug = match &error {
+                crate::rake_task_detect::CannotDetectRakeTasks::DashpCommandError(error) => local_command_debug(error),
+            };
+            ErrorInfo::header_body_details(
+                "Error detecting rake tasks",
+                formatdoc! {"
+                    The Ruby buildpack uses rake task information from your application to guide
+                    build logic. Without this information, the Ruby buildpack cannot continue.
 
-            Try to reproduce the error locally by running the command below.
-            Once you've fixed all errors locally, commit the result to git and retry
-            your build.
 
-            If your build continues to fail, application requirements, such as provisioned add-ons,
-            environment variables, or installed system packages may be needed. Use the
-            information below to debug further.
-            "},
-            error,
-        )
-        .print(),
+                    {cmd_debug}
+
+                    If your build continues to fail, application requirements, such as provisioned add-ons,
+                    environment variables, or installed system packages may be needed. Use the
+                    information below to debug further.
+                "},
+                error,
+            )
+            .print();
+        },
         RubyBuildpackError::BundleListError(error) => ErrorInfo::header_body_details(
             "Error detecting dependencies",
             formatdoc! {"
@@ -77,7 +85,7 @@ fn log_our_error(error: RubyBuildpackError) {
             body: formatdoc! {"
                 A `Gemfile.lock` file is required and was not found in the root of your application.
 
-                If you have a `Gemfile.lock` in your application, ensure it’s tracked in Git and
+                If you have a `Gemfile.lock` in your application, ensure it is tracked in Git and
                 that you’re pushing the correct branch.
             "},
             url: build_output::fmt::Url::MoreInfo(
@@ -113,32 +121,48 @@ fn log_our_error(error: RubyBuildpackError) {
         )
         .print(),
         RubyBuildpackError::BundleInstallCommandError(error) => ErrorInfo::header_body_details(
-            "Error installing bundler",
+            "Failed to install bundler",
             formatdoc! {"
-            Installation of bundler failed. Bundler is the package managment
-            library for Ruby. Bundler is needed to install your application's dependencies
-            listed in the Gemfile.
+                The ruby package managment tool, `bundler`, failed to install. Bundler is required to install your application's dependencies listed in the `Gemfile`.
+
+                {heroku_status}
             "},
             error,
         )
         .print(),
-        RubyBuildpackError::RakeAssetsPrecompileFailed(error) => ErrorInfo::header_body_details(
-            "Asset compilation failed",
-            formatdoc! {"
-            An error occured while compiling assets via rake command.
-            "},
-            error,
-        )
-        .print(),
-        RubyBuildpackError::GemInstallBundlerCommandError(error) => ErrorInfo::header_body_details(
-            "Installing gems failed",
-            formatdoc! {"
-            Could not install gems to the system via bundler. Gems are dependencies
-            your application listed in the Gemfile and resolved in the Gemfile.lock.
-            "},
-            error,
-        )
-        .print(),
+        RubyBuildpackError::RakeAssetsPrecompileFailed(error) => {
+           let cmd_debug = local_command_debug(&error);
+           ErrorInfo::header_body_details(
+                "Failed to compiile assets",
+                formatdoc! {"
+                An error occured while compiling assets via rake command. Details of the error are
+                listed below.
+
+                {cmd_debug}
+
+                {git_branch}
+                "},
+                error,
+            )
+            .print();
+        },
+        RubyBuildpackError::GemInstallBundlerCommandError(error) => {
+            let cmd_debug = local_command_debug(&error);
+
+            ErrorInfo::header_body_details(
+                "Failed to install gems",
+                formatdoc! {"
+                Could not install gems to the system via bundler. Gems are dependencies
+                your application listed in the Gemfile and resolved in the Gemfile.lock.
+
+                {cmd_debug}
+
+                {git_branch}
+                "},
+                error,
+            )
+            .print();
+        },
     }
 }
 
@@ -156,16 +180,62 @@ fn cause(err: libcnb::Error<RubyBuildpackError>) -> Cause {
 }
 
 fn file_hints() -> String {
+    let heroku_status = heroku_status();
     formatdoc! {"
         Ensure that the permissions on the files in your application directory are correct and that
         all symlinks correctly resolve.
 
+        {heroku_status}
+    "}
+}
+
+fn git_branch() -> String {
+    let url = build_output::fmt::url(
+        "https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main",
+    );
+    formatdoc! {"
         If you believe that your application is correct, ensure all files are tracked in Git and
         that you’re pushing the correct branch:
 
-        https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main
+        {url}
+    "}
+}
 
-        If this failure is occuring while deploying to Heroku check the status page https://status.heroku.com/
+fn heroku_status() -> String {
+    let url = build_output::fmt::url("https://status.heroku.com/");
+    formatdoc! {"
+        If this failure is occuring while deploying to Heroku check the status page {url}
         for incidents. Once all incidents have been resolved, please retry your build.
     "}
+}
+
+fn local_command_debug(error: &CmdError) -> String {
+    let cmd_name = replace_app_path_with_relative(build_output::fmt::command(error.name()));
+
+    formatdoc! {"
+        Ensure you can run the following command  locally with no errors before attempting another build:
+
+        `{cmd_name}`
+
+    "}
+}
+
+fn replace_app_path_with_relative(contents: impl AsRef<str>) -> String {
+    let app_path_re = regex::Regex::new("/workspace/").expect("Internal error: regex");
+
+    app_path_re.replace_all(contents.as_ref(), "./").to_string()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_relative_path() {
+        let expected = r#"BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="./Gemfile" BUNDLE_WITHOUT="development:test" bundle install"#;
+        let actual = replace_app_path_with_relative(
+            r#"BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_WITHOUT="development:test" bundle install"#,
+        );
+        assert_eq!(expected, &actual);
+    }
 }

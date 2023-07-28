@@ -333,14 +333,7 @@ fn bundle_install(env: &Env, section: &Section) -> Result<(), CmdError> {
         fun_run::display_with_env_keys(
             cmd,
             env,
-            [
-                "BUNDLE_BIN",
-                "BUNDLE_CLEAN",
-                "BUNDLE_DEPLOYMENT",
-                "BUNDLE_GEMFILE",
-                "BUNDLE_PATH",
-                "BUNDLE_WITHOUT",
-            ],
+            ["BUNDLE_DEPLOYMENT", "BUNDLE_GEMFILE", "BUNDLE_WITHOUT"],
         )
     };
 

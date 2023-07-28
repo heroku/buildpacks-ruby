@@ -27,6 +27,7 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
     };
 }
 
+#[allow(clippy::too_many_lines)]
 fn log_our_error(error: RubyBuildpackError) {
     match error {
         RubyBuildpackError::CannotDetectRakeTasks(error) => ErrorInfo::header_body_details(
@@ -85,10 +86,21 @@ fn log_our_error(error: RubyBuildpackError) {
             debug_details: Some(error.to_string()),
         }
         .print(),
-        RubyBuildpackError::InAppDirCacheError(error) => ErrorInfo::header_body_details(
-            "Internal cache error",
+        RubyBuildpackError::RakeAssetsCacheError(error) => ErrorInfo::header_body_details(
+            "Error caching frontend assets",
             formatdoc! {"
-            An internal error occured while caching files.
+                An error occurred while attempting to cache frontend assets, and the Ruby buildpack cannot continue.
+
+                Ensure that the permissions on the files in your application directory are correct and that
+                all symlinks correctly resolve.
+
+                If you believe that your application is correct, ensure all files are tracked in Git and
+                that you’re pushing the correct branch:
+
+                https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main
+
+                If your application is still unable to build, visit the status page https://status.heroku.com/
+                to see if you might be affected by a system outage. Once all incidents have been resolved, please retry your build.
             "},
             error,
         )

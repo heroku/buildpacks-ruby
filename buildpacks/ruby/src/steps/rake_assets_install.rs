@@ -72,7 +72,7 @@ pub(crate) fn rake_assets_install(
             let cache = {
                 let section = section.clone();
                 AppCacheCollection::new_and_load(context, cache_config, move |log| section.say(log))
-                    .map_err(RubyBuildpackError::InAppDirCacheError)?
+                    .map_err(RubyBuildpackError::RakeAssetsCacheError)?
             };
 
             run_rake_assets_precompile_with_clean(section, env, &show_keys)
@@ -80,7 +80,7 @@ pub(crate) fn rake_assets_install(
 
             cache
                 .save_and_clean()
-                .map_err(RubyBuildpackError::InAppDirCacheError)?;
+                .map_err(RubyBuildpackError::RakeAssetsCacheError)?;
         }
     }
 

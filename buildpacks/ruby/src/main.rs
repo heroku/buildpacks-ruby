@@ -195,7 +195,7 @@ pub(crate) enum RubyBuildpackError {
     BundleListError(CmdErrorDiagnostics),
     RubyInstallError(RubyInstallError),
     MissingGemfileLock(ErrorDiagnostics<std::io::Error>),
-    InAppDirCacheError(CacheError),
+    RakeAssetsCacheError(CacheError),
     BundleInstallDigestError(commons::metadata_digest::DigestError),
     BundleInstallCommandError(CmdError),
     RakeAssetsPrecompileFailed(CmdError),

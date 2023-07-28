@@ -252,6 +252,34 @@ pub enum CmdError {
     NonZeroExitAlreadyStreamed(String, Output),
 }
 
+impl CmdError {
+    /// Returns a display representation of the command that failed
+    ///
+    /// Example:
+    ///
+    /// ```no_run
+    /// use commons::fun_run::{self, CmdMapExt};
+    /// use std::process::Command;
+    ///
+    /// let result = Command::new("cat")
+    ///     .arg("mouse.txt")
+    ///     .cmd_map(fun_run::quick::output);
+    ///
+    /// match result {
+    ///     Ok(_) => todo!(),
+    ///     Err(error) => assert_eq!(error.name().to_string(), "cat mouse.txt")
+    /// }
+    /// ```
+    #[must_use]
+    pub fn name(&self) -> std::borrow::Cow<'_, str> {
+        match self {
+            CmdError::SystemError(name, _)
+            | CmdError::NonZeroExitNotStreamed(name, _)
+            | CmdError::NonZeroExitAlreadyStreamed(name, _) => name.as_str().into(),
+        }
+    }
+}
+
 impl TryFrom<CmdError> for NamedOutput {
     type Error = CmdError;
 
@@ -463,5 +491,35 @@ impl<E: Display + Debug> Display for ErrorDiagnostics<E> {
         }
 
         Ok(())
+    }
+}
+
+/// Experimental module for common operations with opinonated defaults
+///
+/// API subject to change
+pub mod quick {
+    use super::{display, CmdError, Command, NamedOutput, ResultNameExt};
+    use libherokubuildpack::command::CommandExt;
+
+    /// # Errors
+    ///
+    /// Returns an error if the system errors or if
+    /// the command returns a non-zero exit code.
+    pub fn stream(command: &mut Command) -> Result<NamedOutput, CmdError> {
+        command
+            .output_and_write_streams(std::io::stdout(), std::io::stderr())
+            .with_name(display(command))
+            .and_then(NamedOutput::nonzero_streamed)
+    }
+
+    /// # Errors
+    ///
+    /// Returns an error if the system errors or if
+    /// the command returns a non-zero exit code.
+    pub fn output(command: &mut Command) -> Result<NamedOutput, CmdError> {
+        command
+            .output()
+            .with_name(display(command))
+            .and_then(NamedOutput::nonzero_captured)
     }
 }

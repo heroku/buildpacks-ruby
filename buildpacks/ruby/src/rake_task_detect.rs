@@ -1,5 +1,5 @@
 use crate::build_output::{RunCommand, Section};
-use commons::fun_run::{self, CmdError, CmdMapExt};
+use commons::fun_run::{self, CmdMapExt, NamedOutput};
 use core::str::FromStr;
 use regex::Regex;
 use std::{ffi::OsString, process::Command};
@@ -37,16 +37,12 @@ impl RakeDetect {
                         if error_on_failure {
                             Err(error)
                         } else {
-                            match error {
-                                CmdError::SystemError(_, _) => Err(error),
-                                CmdError::NonZeroExitNotStreamed(_, output)
-                                | CmdError::NonZeroExitAlreadyStreamed(_, output) => Ok(output),
-                            }
+                            TryInto::<NamedOutput>::try_into(error)
                         }
                     })
             })
             .map_err(CannotDetectRakeTasks::DashpCommandError)
-            .and_then(|output| RakeDetect::from_str(&String::from_utf8_lossy(&output.stdout)))
+            .and_then(|named| RakeDetect::from_str(&String::from_utf8_lossy(&named.output.stdout)))
     }
 
     #[must_use]

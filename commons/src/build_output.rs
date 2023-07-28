@@ -245,12 +245,14 @@ pub fn buildpack_name(buildpack: impl AsRef<str>) -> BuildpackDuration {
 }
 
 mod section {
+    use crate::fun_run::{NamedOutput, ResultNameExt};
+
     use super::{
         add_prefix, fmt, fun_run, line_mapped, raw_inline_print, time, time::LiveTimingInline,
         CmdError, Instant,
     };
     use libherokubuildpack::command::CommandExt;
-    use std::process::{Command, Output};
+    use std::process::Command;
 
     const CMD_INDENT: &str = "      ";
     const SECTION_INDENT: &str = "  ";
@@ -300,7 +302,7 @@ mod section {
         ///
         /// Returns an error if the command status is non-zero or if the
         /// system cannot run the command.
-        pub fn run(&self, run_command: RunCommand) -> Result<Output, CmdError> {
+        pub fn run(&self, run_command: RunCommand) -> Result<NamedOutput, CmdError> {
             match run_command.output {
                 OutputConfig::Stream | OutputConfig::StreamNoTiming => {
                     Self::stream_command(self, run_command)
@@ -318,28 +320,31 @@ mod section {
         }
 
         /// Run a command and output nothing to the screen
-        fn silent_command(_section: &Section, run_command: RunCommand) -> Result<Output, CmdError> {
+        fn silent_command(
+            _section: &Section,
+            run_command: RunCommand,
+        ) -> Result<NamedOutput, CmdError> {
             let RunCommand {
                 command,
                 name,
-                output: _,
+                output: _config,
             } = run_command;
 
             command
                 .output()
-                .map_err(|error| fun_run::on_system_error(name.clone(), error))
-                .and_then(|output| fun_run::nonzero_captured(name, output))
+                .with_name(name)
+                .and_then(NamedOutput::nonzero_captured)
         }
 
         /// Run a command. Output command name, but don't stream the contents
         fn inline_progress_command(
             _section: &Section,
             run_command: RunCommand,
-        ) -> Result<Output, CmdError> {
+        ) -> Result<NamedOutput, CmdError> {
             let RunCommand {
                 command,
                 name,
-                output: _,
+                output: _config,
             } = run_command;
             let name = fmt::command(name);
 
@@ -348,8 +353,8 @@ mod section {
             let mut start = LiveTimingInline::new();
             let output = command.output();
             let result = output
-                .map_err(|error| fun_run::on_system_error(name.clone(), error))
-                .and_then(|output| fun_run::nonzero_captured(name, output));
+                .with_name(name)
+                .and_then(NamedOutput::nonzero_captured);
 
             start.done();
 
@@ -357,11 +362,14 @@ mod section {
         }
 
         /// Run a command. Output command name, and stream the contents
-        fn stream_command(section: &Section, run_command: RunCommand) -> Result<Output, CmdError> {
+        fn stream_command(
+            section: &Section,
+            run_command: RunCommand,
+        ) -> Result<NamedOutput, CmdError> {
             let RunCommand {
                 command,
                 name,
-                output,
+                output: config,
             } = run_command;
             let name = fmt::command(name);
 
@@ -374,14 +382,14 @@ mod section {
                     line_mapped(std::io::stdout(), add_prefix(CMD_INDENT)),
                     line_mapped(std::io::stderr(), add_prefix(CMD_INDENT)),
                 )
-                .map_err(|error| fun_run::on_system_error(name.clone(), error))
-                .and_then(|output| fun_run::nonzero_streamed(name, output));
+                .with_name(name)
+                .and_then(NamedOutput::nonzero_streamed);
 
             println!(); // Weird output from prior stream adds indentation that's unwanted
 
             let duration = start.elapsed();
             let time = fmt::details(time::human(&duration));
-            match output {
+            match config {
                 OutputConfig::Stream => {
                     section.say(format!("Done {time}"));
                 }

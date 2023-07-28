@@ -1,9 +1,8 @@
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::ffi::OsStr;
-use std::ffi::OsString;
-use std::process::Command;
-use std::process::Output;
+use std::ffi::{OsStr, OsString};
+use std::fmt::{Debug, Display};
+use std::process::{Command, Output};
 use which_problem::Which;
 
 #[cfg(test)]
@@ -33,13 +32,20 @@ use libherokubuildpack as _;
 ///
 /// - Fun(ctional)
 ///
-/// The main interface is the `cmd_map` method, provided by the `CmdMapExt` trait extension.
-/// Use this along with other fun methods to compose the command run of your dreams.
+/// While the pieces can be composed functionally the real magic comes when you start mixing in the helper structs `NamedOutput` and `CmdError`.
+/// Together these will return a Result type that contains the associated name of the command just called: `Result<NamedOutput, CmdError>`.
+///
+/// Trait extensions:
+///
+///   - `Result<T,E>::cmd_map()` provided by `CmdMapExt`
+///   - `Result<Output,std::io::Error>::with_name` provided by the `ResultNameExt`.
+///
+/// Use these along with other fun methods to compose the command run of your dreams.
 ///
 /// Example:
 ///
 /// ```no_run
-/// use commons::fun_run::{self, CmdMapExt};
+/// use commons::fun_run::{self, CmdMapExt, ResultNameExt};
 /// use libherokubuildpack::command::CommandExt;
 /// use std::process::Command;
 /// use libcnb::Env;
@@ -54,8 +60,8 @@ use libherokubuildpack as _;
 ///         eprintln!("\nRunning command:\n$ {name}");
 ///
 ///         cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())
-///             .map_err(|error| fun_run::on_system_error(name.clone(), error))
-///             .and_then(|output| fun_run::nonzero_streamed(name.clone(), output))
+///             .with_name(name) // Converts Result<Output, std::io::Error> to Result<NamedOutput, CmdError>
+///             .and_then(fun_run::NamedOutput::nonzero_streamed) // Converts `Ok` to `Err` if `NamedOutput` status is not zero
 ///     }).unwrap();
 /// ```
 
@@ -246,6 +252,20 @@ pub enum CmdError {
     NonZeroExitAlreadyStreamed(String, Output),
 }
 
+impl TryFrom<CmdError> for NamedOutput {
+    type Error = CmdError;
+
+    fn try_from(value: CmdError) -> Result<Self, Self::Error> {
+        match value {
+            CmdError::SystemError(_, _) => Err(value),
+            CmdError::NonZeroExitNotStreamed(name, output)
+            | CmdError::NonZeroExitAlreadyStreamed(name, output) => {
+                Ok(NamedOutput { name, output })
+            }
+        }
+    }
+}
+
 /// Converts a `std::io::Error` into a `CmdError` which includes the formatted command name
 #[must_use]
 pub fn on_system_error(name: String, error: std::io::Error) -> CmdError {
@@ -275,9 +295,10 @@ fn display_out_or_empty(contents: &[u8]) -> String {
 /// # Errors
 ///
 /// Returns Err when the `Output` status is non-zero
-pub fn nonzero_streamed(name: String, output: Output) -> Result<Output, CmdError> {
+pub fn nonzero_streamed(name: String, output: impl Into<Output>) -> Result<NamedOutput, CmdError> {
+    let output = output.into();
     if output.status.success() {
-        Ok(output)
+        Ok(NamedOutput { name, output })
     } else {
         Err(CmdError::NonZeroExitAlreadyStreamed(name, output))
     }
@@ -293,11 +314,69 @@ pub fn nonzero_streamed(name: String, output: Output) -> Result<Output, CmdError
 /// # Errors
 ///
 /// Returns Err when the `Output` status is non-zero
-pub fn nonzero_captured(name: String, output: Output) -> Result<Output, CmdError> {
+pub fn nonzero_captured(name: String, output: impl Into<Output>) -> Result<NamedOutput, CmdError> {
+    let output = output.into();
     if output.status.success() {
-        Ok(output)
+        Ok(NamedOutput { name, output })
     } else {
         Err(CmdError::NonZeroExitNotStreamed(name, output))
+    }
+}
+
+/// Holds a the `Output` of a command's execution along with it's "name"
+///
+/// When paired with `CmdError` a `Result<NamedOutput, CmdError>` will retain the
+/// "name" of the command regardless of succss or failure.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NamedOutput {
+    pub name: String,
+    pub output: Output,
+}
+
+/// Easilly convert command output into a result with names
+///
+/// Associated function name is experimental and may change
+pub trait ResultNameExt {
+    /// # Errors
+    ///
+    /// Returns a `CmdError::SystemError` if the original Result was `Err`.
+    fn with_name(self, name: impl AsRef<str>) -> Result<NamedOutput, CmdError>;
+}
+
+/// Convert the value of `Command::output()` into `Result<Output, std::io::Error>`
+impl ResultNameExt for Result<Output, std::io::Error> {
+    /// # Errors
+    ///
+    /// Returns a `CmdError::SystemError` if the original Result was `Err`.
+    fn with_name(self, name: impl AsRef<str>) -> Result<NamedOutput, CmdError> {
+        let name = name.as_ref();
+        self.map_err(|io_error| CmdError::SystemError(name.to_string(), io_error))
+            .map(|output| NamedOutput {
+                name: name.to_string(),
+                output,
+            })
+    }
+}
+
+impl NamedOutput {
+    /// # Errors
+    ///
+    /// Returns an error if the status is not zero
+    pub fn nonzero_captured(self) -> Result<NamedOutput, CmdError> {
+        nonzero_captured(self.name, self.output)
+    }
+
+    /// # Errors
+    ///
+    /// Returns an error if the status is not zero
+    pub fn nonzero_streamed(self) -> Result<NamedOutput, CmdError> {
+        nonzero_streamed(self.name, self.output)
+    }
+}
+
+impl From<NamedOutput> for Output {
+    fn from(value: NamedOutput) -> Self {
+        value.output
     }
 }
 
@@ -323,98 +402,66 @@ pub fn nonzero_captured(name: String, output: Output) -> Result<Output, CmdError
 ///            .map_err(|error| fun_run::on_system_error(name.clone(), error))
 ///            .and_then(|output| fun_run::nonzero_captured(name.clone(), output))
 ///            .map_err(|error| {
-///                 CmdErrorDiagnostics::from_cmd_error(error)
+///                 CmdErrorDiagnostics::new(error)
 ///                     .run_and_insert(Command::new("bundle").arg("env").env_clear().envs(&env))
 ///                     .run_and_insert(Command::new("gem").arg("env").env_clear().envs(&env))
 ///            })
 ///     });
 /// ```
+/// Experimental interface, subject to change
+pub type CmdErrorDiagnostics = ErrorDiagnostics<CmdError>;
+
+/// Experimental interface, subject to change
 #[derive(Debug)]
-pub struct CmdErrorDiagnostics {
-    error: DiagnoseError,
-    diagnostics: Vec<DiagnosticCmd>,
+pub struct ErrorDiagnostics<E: Display + Debug> {
+    pub error: E,
+    pub diagnostics: Vec<Result<NamedOutput, CmdError>>,
 }
 
-#[derive(Debug)]
-enum DiagnoseError {
-    Io(std::io::Error),
-    Cmd(CmdError),
-}
-
-impl CmdErrorDiagnostics {
+impl<E: Display + Debug> ErrorDiagnostics<E> {
     #[must_use]
-    pub fn from_cmd_error(error: CmdError) -> Self {
+    pub fn new(error: E) -> Self {
         let diagnostics = Vec::new();
-        let error = DiagnoseError::Cmd(error);
-        Self { error, diagnostics }
-    }
-
-    #[must_use]
-    pub fn from_io_error(error: std::io::Error) -> Self {
-        let diagnostics = Vec::new();
-        let error = DiagnoseError::Io(error);
         Self { error, diagnostics }
     }
 
     #[must_use]
     pub fn run_and_insert(mut self, cmd: &mut Command) -> Self {
-        self.diagnostics.push(run_diagnostic_cmd(cmd));
+        let name = display(cmd);
+
+        let result = cmd
+            .output()
+            .with_name(name)
+            .and_then(NamedOutput::nonzero_captured);
+
+        self.diagnostics.push(result);
         self
     }
 }
 
-impl std::fmt::Display for CmdErrorDiagnostics {
+impl<E: Display + Debug> Display for ErrorDiagnostics<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let error = &self.error;
-        match error {
-            DiagnoseError::Io(error) => writeln!(f, "{error}")?,
-            DiagnoseError::Cmd(error) => writeln!(f, "{error}")?,
-        }
-
         for diagnostic in &self.diagnostics {
-            writeln!(f, "{diagnostic}")?;
+            writeln!(f, "{}\n\n", self.error)?;
+
+            f.write_str("System diagnostic information:\n\n")?;
+            match &diagnostic {
+                Ok(named) => {
+                    let name = &named.name;
+                    let output = &named.output;
+                    let status = output.status;
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+
+                    writeln!(
+                        f,
+                        "Command: {name}\nstatus: {status}\nstdout: {stdout}\n stderr: {stderr}"
+                    )?;
+                }
+                Err(error) => writeln!(f, "{error}")?,
+            }
         }
 
         Ok(())
-    }
-}
-
-fn run_diagnostic_cmd(cmd: &mut Command) -> DiagnosticCmd {
-    let diagnostic = cmd.cmd_map(|cmd| {
-        let name = display(cmd);
-
-        cmd.output()
-            .map_err(|error| on_system_error(name.clone(), error))
-            .and_then(|output| nonzero_captured(name.clone(), output))
-            .map(|output| (name, output))
-    });
-
-    match diagnostic {
-        Ok((name, output)) => DiagnosticCmd::Info { name, output },
-        Err(error) => DiagnosticCmd::Error(error),
-    }
-}
-
-#[derive(Debug)]
-pub(crate) enum DiagnosticCmd {
-    Error(CmdError),
-    Info { name: String, output: Output },
-}
-
-impl std::fmt::Display for DiagnosticCmd {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("System diagnostic information:\n\n")?;
-        match self {
-            DiagnosticCmd::Error(error) => writeln!(f, "{error}"),
-            DiagnosticCmd::Info { name, output } => {
-                let status = output.status;
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                writeln!(
-                    f,
-                    "Command: {name}\nstatus: {status}\nstdout: {stdout}\n stderr: {stderr}"
-                )
-            }
-        }
     }
 }

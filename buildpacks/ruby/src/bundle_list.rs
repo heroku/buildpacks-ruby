@@ -32,11 +32,11 @@ impl GemList {
             .envs(env)
             .cmd_map(|cmd| build_output.run(RunCommand::inline_progress(cmd)))
             .map_err(|error| {
-                CmdErrorDiagnostics::from_cmd_error(error)
+                CmdErrorDiagnostics::new(error)
                     .run_and_insert(Command::new("bundle").arg("env").env_clear().envs(env))
                     .run_and_insert(Command::new("gem").arg("env").env_clear().envs(env))
             })
-            .and_then(|output| GemList::from_str(&String::from_utf8_lossy(&output.stdout)))
+            .and_then(|named| GemList::from_str(&String::from_utf8_lossy(&named.output.stdout)))
     }
 
     #[must_use]

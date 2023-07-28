@@ -29,6 +29,7 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
 
 #[allow(clippy::too_many_lines)]
 fn log_our_error(error: RubyBuildpackError) {
+    let file_hints = file_hints();
     match error {
         RubyBuildpackError::CannotDetectRakeTasks(error) => ErrorInfo::header_body_details(
             "Error detecting rake tasks",
@@ -91,28 +92,22 @@ fn log_our_error(error: RubyBuildpackError) {
             formatdoc! {"
                 An error occurred while attempting to cache frontend assets, and the Ruby buildpack cannot continue.
 
-                Ensure that the permissions on the files in your application directory are correct and that
-                all symlinks correctly resolve.
-
-                If you believe that your application is correct, ensure all files are tracked in Git and
-                that you’re pushing the correct branch:
-
-                https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main
-
-                If your application is still unable to build, visit the status page https://status.heroku.com/
-                to see if you might be affected by a system outage. Once all incidents have been resolved, please retry your build.
+                {file_hints}
             "},
             error,
         )
         .print(),
         RubyBuildpackError::BundleInstallDigestError(error) => ErrorInfo::header_body_details(
-            "Could not generate digest",
+            "Failed to generate file digest",
             formatdoc! {"
-            To provide the fastest possible install experience the Ruby buildpack
-            converts Gemfile and Gemfile.lock into a cryptographic digest to be
-            used in cache invalidation.
+                An error occurred while generating a file digest. To provide the fastest possible install experience,
+                the Ruby buildpack converts your `Gemfile` and `Gemfile.lock` into a digest to use in cache invalidation.
 
-            While performing this process there was an unexpected internal error.
+                {file_hints}
+
+                If you're unable to resolve this error, you can disable the the digest feature by setting the environment variable:
+
+                HEROKU_SKIP_BUNDLE_DIGEST=1
             "},
             error,
         )
@@ -158,4 +153,19 @@ fn cause(err: libcnb::Error<RubyBuildpackError>) -> Cause {
         libcnb::Error::BuildpackError(err) => Cause::OurError(err),
         err => Cause::FrameworkError(err),
     }
+}
+
+fn file_hints() -> String {
+    formatdoc! {"
+        Ensure that the permissions on the files in your application directory are correct and that
+        all symlinks correctly resolve.
+
+        If you believe that your application is correct, ensure all files are tracked in Git and
+        that you’re pushing the correct branch:
+
+        https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main
+
+        If this failure is occuring while deploying to Heroku check the status page https://status.heroku.com/
+        for incidents. Once all incidents have been resolved, please retry your build.
+    "}
 }

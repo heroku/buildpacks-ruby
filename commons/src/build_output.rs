@@ -625,6 +625,7 @@ pub mod fmt {
         }
 
         pub fn print(&self) {
+            println!();
             println!("{self}");
         }
     }

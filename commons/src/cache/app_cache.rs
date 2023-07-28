@@ -145,8 +145,11 @@ impl AppCache {
     /// - If files cannot be moved from the cache to the path
     /// then an error will be raised.
     pub fn load(&self) -> Result<&Self, CacheError> {
-        fs_err::create_dir_all(&self.path).map_err(CacheError::IoError)?;
-        fs_err::create_dir_all(&self.cache).map_err(CacheError::IoError)?;
+        fs_err::create_dir_all(&self.path).map_err(|error| CacheError::CannotCreateAppDir {
+            path: self.path().to_path_buf(),
+            error,
+        })?;
+        fs_err::create_dir_all(&self.cache).map_err(CacheError::CannotCreateCacheDir)?;
 
         fs_extra::dir::move_dir(
             &self.cache,

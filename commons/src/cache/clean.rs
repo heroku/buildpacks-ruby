@@ -26,7 +26,7 @@ pub(crate) fn lru_clean(path: &Path, limit: Byte) -> Result<Option<FilesWithSize
         Ok(None)
     } else {
         for file in &overage.files {
-            fs_err::remove_file(file).map_err(CacheError::IoError)?;
+            fs_err::remove_file(file).map_err(CacheError::CannotRemoveFileLRU)?;
         }
 
         Ok(Some(overage))
@@ -109,7 +109,13 @@ struct MiniPathModSize {
 
 impl MiniPathModSize {
     fn new(path: PathBuf) -> Result<Self, CacheError> {
-        let metadata = path.metadata().map_err(CacheError::IoError)?;
+        let metadata = path
+            .metadata()
+            .map_err(|error| CacheError::CannotReadMetadata {
+                path: path.clone(),
+                error,
+            })?;
+
         let modified = metadata
             .modified()
             .map_err(CacheError::MtimeUnsupportedOS)?;

@@ -1,6 +1,6 @@
 use crate::RubyBuildpackError;
 use commons::{
-    build_output::{self, error::ErrorBuilder},
+    build_output::{self, paragraph::ErrorBuilder},
     fun_run::CmdError,
 };
 use indoc::formatdoc;
@@ -73,7 +73,7 @@ fn log_our_error(error: RubyBuildpackError) {
                 Could not install the detected Ruby version. Ensure that you're using a supported
                 ruby version and try again.
             "})
-            .url(build_output::error::Url::Label {
+            .url(build_output::paragraph::Url::Label {
                 label: "Supported ruby versions".to_string(),
                 url: "https://devcenter.heroku.com/articles/ruby-support#ruby-versions".to_string(),
             })
@@ -88,7 +88,7 @@ fn log_our_error(error: RubyBuildpackError) {
                 If you have a `Gemfile.lock` in your application, ensure it is tracked in Git and
                 that you’re pushing the correct branch.
             "})
-            .url(build_output::error::Url::MoreInfo(
+            .url(build_output::paragraph::Url::MoreInfo(
                 "https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main"
                     .to_string(),
             )).

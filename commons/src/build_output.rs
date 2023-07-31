@@ -550,7 +550,7 @@ pub mod fmt {
         noun: impl AsRef<str>,
         header: impl AsRef<str>,
         body: impl AsRef<str>,
-        url: &crate::build_output::error::Url,
+        url: &crate::build_output::paragraph::Url,
     ) -> String {
         let noun = noun.as_ref();
         let header = header.as_ref();
@@ -577,7 +577,7 @@ pub mod fmt {
     pub fn warning(
         header: impl AsRef<str>,
         body: impl AsRef<str>,
-        url: &crate::build_output::error::Url,
+        url: &crate::build_output::paragraph::Url,
     ) -> String {
         let header = header.as_ref();
         let body = body.as_ref();
@@ -591,7 +591,7 @@ pub mod fmt {
     pub fn important(
         header: impl AsRef<str>,
         body: impl AsRef<str>,
-        url: &crate::build_output::error::Url,
+        url: &crate::build_output::paragraph::Url,
     ) -> String {
         let header = header.as_ref();
         let body = body.as_ref();
@@ -599,14 +599,14 @@ pub mod fmt {
         look_at_me(IMPORTANT_COLOR, "", header, body, url)
     }
 
-    fn help_url(body: impl AsRef<str>, url: &crate::build_output::error::Url) -> String {
+    fn help_url(body: impl AsRef<str>, url: &crate::build_output::paragraph::Url) -> String {
         let body = body.as_ref();
         let body = body.trim_end();
 
         match url {
-            crate::build_output::error::Url::None => body.to_string(),
-            crate::build_output::error::Url::Label { label: _, url: _ }
-            | crate::build_output::error::Url::MoreInfo(_) => formatdoc! {"
+            crate::build_output::paragraph::Url::None => body.to_string(),
+            crate::build_output::paragraph::Url::Label { label: _, url: _ }
+            | crate::build_output::paragraph::Url::MoreInfo(_) => formatdoc! {"
                 {body}
 
                 {url}
@@ -712,7 +712,7 @@ pub mod fmt {
     }
 }
 
-pub mod error {
+pub mod paragraph {
     use crate::build_output::fmt::{bangify, colorize};
     use itertools::Itertools;
     use std::fmt::Display;
@@ -777,18 +777,18 @@ pub mod error {
         }
     }
 
-    pub enum ErrorPart {
+    pub enum Part {
         Body(Body),
         Url(Url),
         Details(Detail),
     }
 
-    impl Display for ErrorPart {
+    impl Display for Part {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
-                ErrorPart::Body(body) => write!(f, "{body}"),
-                ErrorPart::Url(url) => write!(f, "{url}"),
-                ErrorPart::Details(details) => write!(f, "{details}"),
+                Part::Body(body) => write!(f, "{body}"),
+                Part::Url(url) => write!(f, "{url}"),
+                Part::Details(details) => write!(f, "{details}"),
             }
         }
     }
@@ -799,7 +799,7 @@ pub mod error {
     /// breaking compatability.
     pub struct ErrorBuilder {
         header: String,
-        inner: Vec<ErrorPart>,
+        inner: Vec<Part>,
     }
 
     impl Display for ErrorBuilder {
@@ -815,10 +815,8 @@ pub mod error {
                     let part = Self::format_part(now);
                     // Lookahead to see if the newline should be formatted or not
                     let sep = match next {
-                        ErrorPart::Body(_) | ErrorPart::Url(_) => {
-                            colorize(ERROR_COLOR, bangify("\n"))
-                        }
-                        ErrorPart::Details(_) => "\n".to_string(),
+                        Part::Body(_) | Part::Url(_) => colorize(ERROR_COLOR, bangify("\n")),
+                        Part::Details(_) => "\n".to_string(),
                     };
 
                     format!("{part}{sep}")
@@ -834,11 +832,11 @@ pub mod error {
     }
 
     impl ErrorBuilder {
-        fn format_part(part: &ErrorPart) -> String {
+        fn format_part(part: &Part) -> String {
             let part = match part {
-                ErrorPart::Body(body) => colorize(ERROR_COLOR, bangify(body.to_string().trim())),
-                ErrorPart::Url(url) => colorize(ERROR_COLOR, bangify(url.to_string().trim())),
-                ErrorPart::Details(details) => details.to_string().trim().to_string(),
+                Part::Body(body) => colorize(ERROR_COLOR, bangify(body.to_string().trim())),
+                Part::Url(url) => colorize(ERROR_COLOR, bangify(url.to_string().trim())),
+                Part::Details(details) => details.to_string().trim().to_string(),
             };
             format!("{part}\n")
         }
@@ -851,30 +849,30 @@ pub mod error {
             }
         }
 
-        pub fn add(&mut self, part: ErrorPart) -> &mut Self {
+        pub fn add(&mut self, part: Part) -> &mut Self {
             self.inner.push(part);
             self
         }
 
         pub fn body(&mut self, body: impl AsRef<str>) -> &mut Self {
             self.inner
-                .push(ErrorPart::Body(Body::Plain(body.as_ref().to_string())));
+                .push(Part::Body(Body::Plain(body.as_ref().to_string())));
             self
         }
 
         pub fn url(&mut self, url: Url) -> &mut Self {
-            self.inner.push(ErrorPart::Url(url));
+            self.inner.push(Part::Url(url));
             self
         }
 
         pub fn detail(&mut self, detail: Detail) -> &mut Self {
-            self.inner.push(ErrorPart::Details(detail));
+            self.inner.push(Part::Details(detail));
             self
         }
 
         pub fn debug_details(&mut self, detail: &impl ToString) -> &mut Self {
             self.inner
-                .push(ErrorPart::Details(Detail::Debug(detail.to_string())));
+                .push(Part::Details(Detail::Debug(detail.to_string())));
             self
         }
 

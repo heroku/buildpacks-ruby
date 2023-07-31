@@ -476,9 +476,7 @@ mod section {
 }
 
 pub mod fmt {
-    use super::fmt;
     use indoc::formatdoc;
-    use std::fmt::Display;
 
     pub(crate) const RED: &str = "\x1B[0;31m";
     pub(crate) const YELLOW: &str = "\x1B[0;33m";
@@ -552,7 +550,7 @@ pub mod fmt {
         noun: impl AsRef<str>,
         header: impl AsRef<str>,
         body: impl AsRef<str>,
-        url: &Url,
+        url: &crate::build_output::error::Url,
     ) -> String {
         let noun = noun.as_ref();
         let header = header.as_ref();
@@ -572,97 +570,15 @@ pub mod fmt {
         colorize(IMPORTANT_COLOR, bangify(format!("Help: {contents}")))
     }
 
-    /// Holds info about a url
-    #[derive(Debug, Clone, Default)]
-    pub enum Url {
-        #[default]
-        None,
-        Label {
-            label: String,
-            url: String,
-        },
-        MoreInfo(String),
-    }
-
-    impl Display for Url {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            match self {
-                Url::Label { label, url } => writeln!(f, "{label}: {}", fmt::url(url)),
-                Url::MoreInfo(url) => writeln!(
-                    f,
-                    "For more information, refer to the following documentation:\n{}",
-                    fmt::url(url)
-                ),
-                Url::None => f.write_str(""),
-            }
-        }
-    }
-
-    /// Holds the contents of an error
-    ///
-    /// Designed so that additional optional fields may be added later without
-    /// breaking compatability
-    #[derive(Debug, Clone, Default)]
-    pub struct ErrorInfo {
-        pub header: String,
-        pub body: String,
-        pub url: Url,
-        pub debug_details: Option<String>,
-    }
-
-    impl ErrorInfo {
-        pub fn header_body_details(
-            header: impl AsRef<str>,
-            body: impl AsRef<str>,
-            details: impl Display,
-        ) -> Self {
-            Self {
-                header: header.as_ref().to_string(),
-                body: body.as_ref().to_string(),
-                debug_details: Some(details.to_string()),
-                ..Default::default()
-            }
-        }
-
-        pub fn print(&self) {
-            println!();
-            println!("{self}");
-        }
-    }
-
-    impl Display for ErrorInfo {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.write_str(error(self).as_str())
-        }
-    }
-
-    /// Need feedback on this interface
-    ///
-    /// Should it take fields or a struct
-    /// Struct is more robust to change but extra boilerplate
-    /// If the struct is always needed, this should perhaps be an associated function
-    #[must_use]
-    pub fn error(info: &ErrorInfo) -> String {
-        let ErrorInfo {
-            header,
-            body,
-            url,
-            debug_details,
-        } = info;
-
-        let body = look_at_me(ERROR_COLOR, "ERROR:", header, body, url);
-        if let Some(details) = debug_details {
-            format!("{body}\n\nDebug information:\n\n{details}")
-        } else {
-            body
-        }
-    }
-
     /// Need feedback on this interface
     ///
     /// Should it have a dedicated struct like `ErrorInfo` or be a function?
     /// Do we want to bundle warnings together and emit them at the end? (I think so, but it's out of current scope)
-    pub fn warning(header: impl AsRef<str>, body: impl AsRef<str>, url: &Url) -> String {
+    pub fn warning(
+        header: impl AsRef<str>,
+        body: impl AsRef<str>,
+        url: &crate::build_output::error::Url,
+    ) -> String {
         let header = header.as_ref();
         let body = body.as_ref();
 
@@ -672,20 +588,25 @@ pub mod fmt {
     /// Need feedback on this interface
     ///
     /// Same questions as `warning`
-    pub fn important(header: impl AsRef<str>, body: impl AsRef<str>, url: &Url) -> String {
+    pub fn important(
+        header: impl AsRef<str>,
+        body: impl AsRef<str>,
+        url: &crate::build_output::error::Url,
+    ) -> String {
         let header = header.as_ref();
         let body = body.as_ref();
 
         look_at_me(IMPORTANT_COLOR, "", header, body, url)
     }
 
-    fn help_url(body: impl AsRef<str>, url: &Url) -> String {
+    fn help_url(body: impl AsRef<str>, url: &crate::build_output::error::Url) -> String {
         let body = body.as_ref();
         let body = body.trim_end();
 
         match url {
-            Url::None => body.to_string(),
-            Url::Label { label: _, url: _ } | Url::MoreInfo(_) => formatdoc! {"
+            crate::build_output::error::Url::None => body.to_string(),
+            crate::build_output::error::Url::Label { label: _, url: _ }
+            | crate::build_output::error::Url::MoreInfo(_) => formatdoc! {"
                 {body}
 
                 {url}
@@ -694,18 +615,22 @@ pub mod fmt {
     }
 
     /// Helper method that adds a bang i.e. `!` before strings
-    fn bangify(body: impl AsRef<str>) -> String {
-        body.as_ref()
-            .split('\n')
-            .map(|section| {
-                if section.trim().is_empty() {
-                    "!".to_string()
-                } else {
-                    format!("! {section}")
-                }
-            })
-            .collect::<Vec<String>>()
-            .join("\n")
+    pub(crate) fn bangify(body: impl AsRef<str>) -> String {
+        let body = body.as_ref();
+        if body.trim().is_empty() {
+            "!\n".to_string()
+        } else {
+            body.split('\n')
+                .map(|section| {
+                    if section.trim().is_empty() {
+                        "!".to_string()
+                    } else {
+                        format!("! {section}")
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join("\n")
+        }
     }
 
     /// Colorizes a body while preserving existing color/reset combinations and clearing before newlines
@@ -730,45 +655,25 @@ pub mod fmt {
     }
 
     #[cfg(test)]
+    pub(crate) fn strip_control_codes(contents: impl AsRef<str>) -> String {
+        let mut contents = contents.as_ref().to_string();
+        for code in ALL_CODES {
+            contents = contents.replace(code, "");
+        }
+        contents
+    }
+
+    #[cfg(test)]
     mod test {
         use super::*;
-        fn strip_control_codes(contents: impl AsRef<str>) -> String {
-            let mut contents = contents.as_ref().to_string();
-            for code in ALL_CODES {
-                contents = contents.replace(code, "");
-            }
-            contents
-        }
 
         #[test]
-        fn test_error_output_with_url_and_detailsvisual() {
-            let actual = ErrorInfo {
-            header: "Error installing Ruby".to_string(),
-            body: formatdoc! {"
-                Could not install the detected Ruby version. Ensure that you're using a supported
-                ruby version and try again.
-            "},
-            url: Url::MoreInfo(
-                "https://devcenter.heroku.com/articles/ruby-support#ruby-versions".to_string(),
-            ),
-            debug_details: Some("Could not create file: You do not have sufficient permissions to access this file: /path/to/file".to_string()),
-            }.to_string();
+        fn test_bangify() {
+            let actual = bangify("");
+            assert_eq!("!\n", actual);
 
-            let expected = formatdoc! {
-               "! ERROR: Error installing Ruby
-                !
-                ! Could not install the detected Ruby version. Ensure that you're using a supported
-                ! ruby version and try again.
-                !
-                ! For more information, refer to the following documentation:
-                ! https://devcenter.heroku.com/articles/ruby-support#ruby-versions
-
-                Debug information:
-
-                Could not create file: You do not have sufficient permissions to access this file: /path/to/file"
-            };
-
-            assert_eq!(expected, strip_control_codes(actual));
+            let actual = bangify("\n");
+            assert_eq!("!\n", actual);
         }
 
         #[test]
@@ -803,6 +708,219 @@ pub mod fmt {
         fn simple_case() {
             let actual = colorize(RED, "hello world");
             assert_eq!(format!("{RED}hello world{RESET}"), actual);
+        }
+    }
+}
+
+pub mod error {
+    use crate::build_output::fmt::{bangify, colorize};
+    use itertools::Itertools;
+    use std::fmt::Display;
+
+    pub(crate) const ERROR_COLOR: &str = crate::build_output::fmt::ERROR_COLOR;
+
+    /// Holds info about a url
+    #[derive(Debug, Clone, Default)]
+    pub enum Url {
+        #[default]
+        None,
+        Label {
+            label: String,
+            url: String,
+        },
+        MoreInfo(String),
+    }
+
+    impl Display for Url {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Url::Label { label, url } => {
+                    writeln!(f, "{label}: {}", crate::build_output::fmt::url(url))
+                }
+                Url::MoreInfo(url) => writeln!(
+                    f,
+                    "For more information, refer to the following documentation:\n{}",
+                    crate::build_output::fmt::url(url)
+                ),
+                Url::None => f.write_str(""),
+            }
+        }
+    }
+
+    pub enum Detail {
+        None,
+        Plain(String),
+        Debug(String),
+        Label { label: String, details: String },
+    }
+
+    impl Display for Detail {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Detail::None => f.write_str(""),
+                Detail::Plain(details) => write!(f, "{details}"),
+                Detail::Debug(details) => writeln!(f, "Debug information:\n\n{details}"),
+                Detail::Label { label, details } => writeln!(f, "{label}:\n\n{details}"),
+            }
+        }
+    }
+
+    pub enum Body {
+        Plain(String),
+    }
+
+    impl Display for Body {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Body::Plain(string) => write!(f, "{string}"),
+            }
+        }
+    }
+
+    pub enum ErrorPart {
+        Body(Body),
+        Url(Url),
+        Details(Detail),
+    }
+
+    impl Display for ErrorPart {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                ErrorPart::Body(body) => write!(f, "{body}"),
+                ErrorPart::Url(url) => write!(f, "{url}"),
+                ErrorPart::Details(details) => write!(f, "{details}"),
+            }
+        }
+    }
+
+    /// Build the contents of an error for display
+    ///
+    /// Designed so that additional optional fields may be added later without
+    /// breaking compatability.
+    pub struct ErrorBuilder {
+        header: String,
+        inner: Vec<ErrorPart>,
+    }
+
+    impl Display for ErrorBuilder {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let header = format!("ERROR: {}\n", self.header);
+            writeln!(f, "{}", colorize(ERROR_COLOR, bangify(header)))?;
+
+            let mut parts = self
+                .inner
+                .iter()
+                .tuple_windows::<(_, _)>()
+                .map(|(now, next)| {
+                    let part = Self::format_part(now);
+                    // Lookahead to see if the newline should be formatted or not
+                    let sep = match next {
+                        ErrorPart::Body(_) | ErrorPart::Url(_) => {
+                            colorize(ERROR_COLOR, bangify("\n"))
+                        }
+                        ErrorPart::Details(_) => "\n".to_string(),
+                    };
+
+                    format!("{part}{sep}")
+                })
+                .collect::<Vec<_>>();
+
+            if let Some(part) = self.inner.last() {
+                parts.push(Self::format_part(part));
+            }
+
+            write!(f, "{}", parts.join(""))
+        }
+    }
+
+    impl ErrorBuilder {
+        fn format_part(part: &ErrorPart) -> String {
+            let part = match part {
+                ErrorPart::Body(body) => colorize(ERROR_COLOR, bangify(body.to_string().trim())),
+                ErrorPart::Url(url) => colorize(ERROR_COLOR, bangify(url.to_string().trim())),
+                ErrorPart::Details(details) => details.to_string().trim().to_string(),
+            };
+            format!("{part}\n")
+        }
+
+        #[must_use]
+        pub fn new(header: impl AsRef<str>) -> Self {
+            Self {
+                header: header.as_ref().to_string(),
+                inner: Vec::new(),
+            }
+        }
+
+        pub fn add(&mut self, part: ErrorPart) -> &mut Self {
+            self.inner.push(part);
+            self
+        }
+
+        pub fn body(&mut self, body: impl AsRef<str>) -> &mut Self {
+            self.inner
+                .push(ErrorPart::Body(Body::Plain(body.as_ref().to_string())));
+            self
+        }
+
+        pub fn url(&mut self, url: Url) -> &mut Self {
+            self.inner.push(ErrorPart::Url(url));
+            self
+        }
+
+        pub fn detail(&mut self, detail: Detail) -> &mut Self {
+            self.inner.push(ErrorPart::Details(detail));
+            self
+        }
+
+        pub fn debug_details(&mut self, detail: &impl ToString) -> &mut Self {
+            self.inner
+                .push(ErrorPart::Details(Detail::Debug(detail.to_string())));
+            self
+        }
+
+        pub fn print(&mut self) {
+            eprintln!("{self}");
+        }
+    }
+
+    #[cfg(test)]
+    mod test {
+        use super::*;
+        use crate::build_output::fmt::strip_control_codes;
+        use indoc::formatdoc;
+
+        #[test]
+        fn test_error_output_with_url_and_detailsvisual() {
+            let actual = ErrorBuilder::new(
+            "Error installing Ruby"
+            ).
+            body(formatdoc! {"
+                Could not install the detected Ruby version. Ensure that you're using a supported
+                ruby version and try again.
+            "})
+            .url(Url::MoreInfo(
+                "https://devcenter.heroku.com/articles/ruby-support#ruby-versions".to_string(),
+            ))
+            .debug_details(
+            &"Could not create file: You do not have sufficient permissions to access this file: /path/to/file".to_string()
+            )
+            .to_string();
+
+            let expected = formatdoc! {
+               "! ERROR: Error installing Ruby
+                !
+                ! Could not install the detected Ruby version. Ensure that you're using a supported
+                ! ruby version and try again.
+                !
+                ! For more information, refer to the following documentation:
+                ! https://devcenter.heroku.com/articles/ruby-support#ruby-versions
+
+                Debug information:
+
+                Could not create file: You do not have sufficient permissions to access this file: /path/to/file
+            "};
+
+            assert_eq!(expected, strip_control_codes(actual));
         }
     }
 }

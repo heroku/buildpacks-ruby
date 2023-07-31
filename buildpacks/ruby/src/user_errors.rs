@@ -1,30 +1,31 @@
-use crate::{
-    build_output::{self, fmt::ErrorInfo},
-    RubyBuildpackError,
+use crate::RubyBuildpackError;
+use commons::{
+    build_output::{self, error::ErrorBuilder},
+    fun_run::CmdError,
 };
-use commons::fun_run::CmdError;
 use indoc::formatdoc;
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
     match cause(err) {
         Cause::OurError(error) => log_our_error(error),
-        Cause::FrameworkError(error) => ErrorInfo::header_body_details(
-            "heroku/buildpack-ruby internal buildpack error",
-            formatdoc! {"
+        Cause::FrameworkError(error) => ErrorBuilder::new(
+            "heroku/buildpack-ruby internal buildpack error"
+            ).body(formatdoc! {"
                 The framework used by this buildpack encountered an unexpected error.
                 This type of error usually indicates there's nothing wrong with your application.
-
+            "})
+            .body(formatdoc! {"
                 If you can’t deploy to Heroku due to this issue please check the official Heroku
                 status page https://status.heroku.com/ to see if there is an ongoing incident. Once
                 all incidents have resolved please retry your build.
-
+            "})
+            .body(formatdoc! {"
                 If the issue persists, please try to reproduce the behavior locally using the `pack`
                 CLI. If you can reproduce the behavior locally and believe you've found a bug in the
                 buildpack or the framework please open an issue on the buildpack's GitHub repository.
-            "},
-            error,
-        )
-        .print(),
+            "})
+            .debug_details(&error)
+            .print(),
     };
 }
 
@@ -39,129 +40,118 @@ fn log_our_error(error: RubyBuildpackError) {
             let cmd_debug = match &error {
                 crate::rake_task_detect::CannotDetectRakeTasks::DashpCommandError(error) => local_command_debug(error),
             };
-            ErrorInfo::header_body_details(
-                "Error detecting rake tasks",
-                formatdoc! {"
+            ErrorBuilder::new(
+                "Error detecting rake tasks"
+                )
+                .body(formatdoc! {"
                     The Ruby buildpack uses rake task information from your application to guide
                     build logic. Without this information, the Ruby buildpack cannot continue.
-
-
-                    {cmd_debug}
-
+                "})
+                .body(cmd_debug)
+                .body(formatdoc! {"
                     If your build continues to fail, application requirements, such as provisioned add-ons,
                     environment variables, or installed system packages may be needed. Use the
                     information below to debug further.
-                "},
-                error,
-            )
-            .print();
+                "})
+                .debug_details(&error)
+                .print();
         },
-        RubyBuildpackError::BundleListError(error) => ErrorInfo::header_body_details(
-            "Error detecting dependencies",
-            formatdoc! {"
-            The Ruby buildpack requires information about your application’s dependencies to
-            complete the build. Without this information, the Ruby buildpack cannot continue.
+        RubyBuildpackError::BundleListError(error) => ErrorBuilder::new(
+            "Error detecting dependencies"
+            )
+            .body(formatdoc! {"
+                The Ruby buildpack requires information about your application’s dependencies to
+                complete the build. Without this information, the Ruby buildpack cannot continue.
 
-            Use the following information to help debug the system.
-            "},
-            error,
-        )
-        .print(),
-        RubyBuildpackError::RubyInstallError(error) => ErrorInfo {
-            header: "Error installing Ruby".to_string(),
-            body: formatdoc! {"
+                Use the following information to help debug the system.
+            "})
+            .debug_details(&error)
+            .print(),
+        RubyBuildpackError::RubyInstallError(error) => ErrorBuilder::new(
+             "Error installing Ruby",
+            ).body(formatdoc! {"
                 Could not install the detected Ruby version. Ensure that you're using a supported
                 ruby version and try again.
-            "},
-            url: build_output::fmt::Url::Label {
+            "})
+            .url(build_output::error::Url::Label {
                 label: "Supported ruby versions".to_string(),
                 url: "https://devcenter.heroku.com/articles/ruby-support#ruby-versions".to_string(),
-            },
-            debug_details: Some(error.to_string()),
-        }
-        .print(),
-        RubyBuildpackError::MissingGemfileLock(error) => ErrorInfo {
-            header: "Gemfile.lock` not found".to_string(),
-            body: formatdoc! {"
+            })
+            .debug_details(&error)
+            .print(),
+        RubyBuildpackError::MissingGemfileLock(error) => ErrorBuilder::new(
+            "Gemfile.lock` not found"
+            )
+            .body(formatdoc! {"
                 A `Gemfile.lock` file is required and was not found in the root of your application.
 
                 If you have a `Gemfile.lock` in your application, ensure it is tracked in Git and
                 that you’re pushing the correct branch.
-            "},
-            url: build_output::fmt::Url::MoreInfo(
+            "})
+            .url(build_output::error::Url::MoreInfo(
                 "https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main"
                     .to_string(),
-            ),
-            debug_details: Some(error.to_string()),
-        }
-        .print(),
-        RubyBuildpackError::RakeAssetsCacheError(error) => ErrorInfo::header_body_details(
-            "Error caching frontend assets",
-            formatdoc! {"
+            )).
+            debug_details(&error)
+            .print(),
+        RubyBuildpackError::RakeAssetsCacheError(error) => ErrorBuilder::new(
+            "Error caching frontend assets"
+            )
+            .body(formatdoc! {"
                 An error occurred while attempting to cache frontend assets, and the Ruby buildpack cannot continue.
-
-                {file_hints}
-            "},
-            error,
-        )
-        .print(),
-        RubyBuildpackError::BundleInstallDigestError(error) => ErrorInfo::header_body_details(
-            "Failed to generate file digest",
-            formatdoc! {"
+            "})
+            .body(file_hints)
+            .debug_details(&error)
+            .print(),
+        RubyBuildpackError::BundleInstallDigestError(error) => ErrorBuilder::new(
+            "Failed to generate file digest"
+            )
+            .body(formatdoc! {"
                 An error occurred while generating a file digest. To provide the fastest possible install experience,
                 the Ruby buildpack converts your `Gemfile` and `Gemfile.lock` into a digest to use in cache invalidation.
-
-                {file_hints}
-
+            "})
+            .body(file_hints)
+            .body(formatdoc! {"
                 If you're unable to resolve this error, you can disable the the digest feature by setting the environment variable:
 
                 HEROKU_SKIP_BUNDLE_DIGEST=1
-            "},
-            error,
-        )
-        .print(),
-        RubyBuildpackError::BundleInstallCommandError(error) => ErrorInfo::header_body_details(
-            "Failed to install bundler",
-            formatdoc! {"
-                The ruby package managment tool, `bundler`, failed to install. Bundler is required to install your application's dependencies listed in the `Gemfile`.
-
-                {heroku_status}
-            "},
-            error,
-        )
-        .print(),
-        RubyBuildpackError::RakeAssetsPrecompileFailed(error) => {
-           let cmd_debug = local_command_debug(&error);
-           ErrorInfo::header_body_details(
-                "Failed to compiile assets",
-                formatdoc! {"
-                An error occured while compiling assets via rake command. Details of the error are
-                listed below.
-
-                {cmd_debug}
-
-                {git_branch}
-                "},
-                error,
+            "})
+            .debug_details(&error)
+            .print(),
+        RubyBuildpackError::BundleInstallCommandError(error) => ErrorBuilder::new(
+            "Failed to install bundler"
             )
-            .print();
+            .body(formatdoc! {"
+                The ruby package managment tool, `bundler`, failed to install. Bundler is required to install your application's dependencies listed in the `Gemfile`.
+            "})
+            .body(heroku_status)
+            .debug_details(&error)
+            .print(),
+        RubyBuildpackError::RakeAssetsPrecompileFailed(error) => {
+            let cmd_debug = local_command_debug(&error);
+
+            ErrorBuilder::new("Failed to compile assets")
+                .body(formatdoc! {"
+                    An error occured while compiling assets via rake command. Details of the error are
+                    listed below.
+                "})
+                .body(cmd_debug)
+                .body(git_branch)
+                .debug_details(&error)
+                .print();
         },
         RubyBuildpackError::GemInstallBundlerCommandError(error) => {
             let cmd_debug = local_command_debug(&error);
 
-            ErrorInfo::header_body_details(
-                "Failed to install gems",
-                formatdoc! {"
-                Could not install gems to the system via bundler. Gems are dependencies
-                your application listed in the Gemfile and resolved in the Gemfile.lock.
-
-                {cmd_debug}
-
-                {git_branch}
-                "},
-                error,
-            )
-            .print();
+            ErrorBuilder::new("Failed to install gems")
+                .body(formatdoc! {"
+                    Could not install gems to the system via bundler. Gems are dependencies
+                    your application listed in the Gemfile and resolved in the Gemfile.lock.
+                "})
+                .body(cmd_debug)
+                .body(git_branch)
+                .debug_details(&error)
+                .print();
         },
     }
 }

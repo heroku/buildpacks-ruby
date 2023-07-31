@@ -233,6 +233,7 @@ dependencies = [
  "fs_extra",
  "glob",
  "indoc",
+ "itertools 0.11.0",
  "lazy_static",
  "libcnb",
  "libherokubuildpack",
@@ -761,6 +762,15 @@ name = "itertools"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
 dependencies = [
  "either",
 ]
@@ -1787,7 +1797,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a68ac9b870fb8707f12778b31fb122ec6cf1fc693af5be5fddaeb5341c0a7a4a"
 dependencies = [
  "is_executable",
- "itertools",
+ "itertools 0.10.5",
  "ordered-float",
  "rayon",
  "strsim",

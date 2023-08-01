@@ -112,13 +112,13 @@ impl Layer for BundleDownloadLayer {
         };
         match cache_state(old.clone(), now) {
             State::NothingChanged(_version) => {
-                self.build_output.say("Using cached version");
+                self.build_output.step("Using cached version");
 
                 Ok(ExistingLayerStrategy::Keep)
             }
             State::BundlerVersionChanged(_old, _now) => {
                 self.build_output
-                    .say_with_details("Clearing cache", "bundler version changed");
+                    .step_with_details("Clearing cache", "bundler version changed");
 
                 Ok(ExistingLayerStrategy::Recreate)
             }

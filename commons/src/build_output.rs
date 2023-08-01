@@ -1,5 +1,5 @@
 use crate::fun_run::{self, CmdError};
-use libherokubuildpack::write::{line_mapped, mappers::add_prefix};
+use libherokubuildpack::write::line_mapped;
 use std::io::Write;
 use std::time::Instant;
 use time::BuildpackDuration;
@@ -21,17 +21,17 @@ pub use section::{RunCommand, Section};
 /// let section = build_output::section("Ruby version");
 ///
 /// // Output stuff in that section
-/// section.say("Installing");
-/// section.say_with_details("Installing", "important stuff");
+/// section.step("Installing");
+/// section.step_with_details("Installing", "important stuff");
 ///
 /// // Live stream a progress timer in that section
-/// let mut timer = section.say_with_inline_timer("Installing with progress");
+/// let mut timer = section.step_with_inline_timer("Installing with progress");
 /// // Do stuff here
 /// timer.done();
 ///
 /// // Decorate and format your output
 /// let version = build_output::fmt::value("3.1.2");
-/// section.say(format!("Installing {version}"));
+/// section.step(format!("Installing {version}"));
 ///
 /// // Run a command in that section with a variety of formatting options
 /// // Stream the output to the user:
@@ -65,7 +65,7 @@ pub use section::{RunCommand, Section};
 ///```
 
 mod time {
-    use super::{fmt, raw_inline_print};
+    use super::{fmt, inline_print_flush};
     use std::thread::{self, JoinHandle};
     use std::time::Duration;
     use std::time::Instant;
@@ -118,14 +118,14 @@ mod time {
             let (stop_dots, receiver) = std::sync::mpsc::channel();
 
             let join_dots = thread::spawn(move || {
-                raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, " ."));
+                inline_print_flush(fmt::colorize(fmt::DEFAULT_DIM, " ."));
 
                 loop {
                     let msg = receiver.recv_timeout(Duration::from_secs(1));
-                    raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, "."));
+                    inline_print_flush(fmt::colorize(fmt::DEFAULT_DIM, "."));
 
                     if msg.is_ok() {
-                        raw_inline_print(fmt::colorize(fmt::DEFAULT_DIM, ". "));
+                        inline_print_flush(fmt::colorize(fmt::DEFAULT_DIM, ". "));
                         break;
                     }
                 }
@@ -217,7 +217,7 @@ mod time {
 }
 
 // Helper for printing without newlines that auto-flushes stdout
-fn raw_inline_print(contents: impl AsRef<str>) {
+fn inline_print_flush(contents: impl AsRef<str>) {
     let contents = contents.as_ref();
     print!("{contents}");
     std::io::stdout().flush().expect("Stdout is writable");
@@ -226,7 +226,7 @@ fn raw_inline_print(contents: impl AsRef<str>) {
 /// All work is done inside of a section. Advertize a section topic
 pub fn section(topic: impl AsRef<str>) -> section::Section {
     let topic = String::from(topic.as_ref());
-    println!("- {topic}");
+    println!("{}", fmt::section(&topic));
 
     section::Section { topic }
 }
@@ -245,18 +245,13 @@ pub fn buildpack_name(buildpack: impl AsRef<str>) -> BuildpackDuration {
 }
 
 mod section {
-    use crate::fun_run::{NamedOutput, ResultNameExt};
-
     use super::{
-        add_prefix, fmt, fun_run, line_mapped, raw_inline_print, time, time::LiveTimingInline,
-        CmdError, Instant,
+        fmt, fun_run, inline_print_flush, line_mapped, time, time::LiveTimingInline, CmdError,
+        Instant,
     };
+    use crate::fun_run::{NamedOutput, ResultNameExt};
     use libherokubuildpack::command::CommandExt;
     use std::process::Command;
-
-    const CMD_INDENT: &str = "      ";
-    const SECTION_INDENT: &str = "  ";
-    const SECTION_PREFIX: &str = "  - ";
 
     #[derive(Debug, Clone, Eq, PartialEq)]
     pub struct Section {
@@ -265,23 +260,23 @@ mod section {
 
     impl Section {
         /// Emit contents to the buid output with indentation
-        pub fn say(&self, contents: impl AsRef<str>) {
-            let contents = contents.as_ref();
-            println!("{SECTION_PREFIX}{contents}");
+        pub fn step(&self, contents: impl AsRef<str>) {
+            println!("{}", fmt::step(contents));
         }
 
-        pub fn say_with_details(&self, contents: impl AsRef<str>, details: impl AsRef<str>) {
+        pub fn step_with_details(&self, contents: impl AsRef<str>, details: impl AsRef<str>) {
             let contents = contents.as_ref();
             let details = fmt::details(details.as_ref());
 
-            println!("{SECTION_PREFIX}{contents} {details}");
+            let message = fmt::step(format!("{contents} {details}"));
+            println!("{message}");
         }
 
-        /// Emit an indented help section with a "! Help:" prefix auto added
+        /// Emit an inline indented help section with a "- ! Help: {contents}" prefix auto added
         pub fn help(&self, contents: impl AsRef<str>) {
-            let contents = fmt::help(contents);
+            let contents = fmt::step(fmt::help(contents));
 
-            println!("{SECTION_INDENT}{contents}");
+            println!("{contents}");
         }
 
         /// Start a time and emit a reson for it
@@ -289,9 +284,9 @@ mod section {
         /// The timer will emit an inline progress meter until `LiveTimingInline::done` is called
         /// on it.
         #[must_use]
-        pub fn say_with_inline_timer(&self, reason: impl AsRef<str>) -> time::LiveTimingInline {
+        pub fn step_with_inline_timer(&self, reason: impl AsRef<str>) -> time::LiveTimingInline {
             let reason = reason.as_ref();
-            raw_inline_print(format!("{SECTION_PREFIX}{reason}"));
+            inline_print_flush(fmt::step(reason));
 
             time::LiveTimingInline::new()
         }
@@ -310,13 +305,6 @@ mod section {
                 OutputConfig::Silent => Self::silent_command(self, run_command),
                 OutputConfig::InlineProgress => Self::inline_progress_command(self, run_command),
             }
-        }
-
-        /// If someone wants to build their own command invocation and wants to match styles with this
-        /// command runner they'll need access to the prefix for consistent execution.
-        #[must_use]
-        pub fn cmd_stream_prefix() -> String {
-            String::from(CMD_INDENT)
         }
 
         /// Run a command and output nothing to the screen
@@ -348,7 +336,7 @@ mod section {
             } = run_command;
             let name = fmt::command(name);
 
-            raw_inline_print(format!("{SECTION_PREFIX}Running {name}"));
+            inline_print_flush(fmt::step(format!("Running {name}")));
 
             let mut start = LiveTimingInline::new();
             let output = command.output();
@@ -373,14 +361,14 @@ mod section {
             } = run_command;
             let name = fmt::command(name);
 
-            section.say(format!("Running {name}"));
+            section.step(format!("Running {name}"));
             println!(); // Weird output from prior stream adds indentation that's unwanted
 
             let start = Instant::now();
             let result = command
                 .output_and_write_streams(
-                    line_mapped(std::io::stdout(), add_prefix(CMD_INDENT)),
-                    line_mapped(std::io::stderr(), add_prefix(CMD_INDENT)),
+                    line_mapped(std::io::stdout(), fmt::cmd_stream_format),
+                    line_mapped(std::io::stderr(), fmt::cmd_stream_format),
                 )
                 .with_name(name)
                 .and_then(NamedOutput::nonzero_streamed);
@@ -391,9 +379,9 @@ mod section {
             let time = fmt::details(time::human(&duration));
             match config {
                 OutputConfig::Stream => {
-                    section.say(format!("Done {time}"));
+                    section.step(format!("Done {time}"));
                 }
-                OutputConfig::StreamNoTiming => section.say("Done {time}"),
+                OutputConfig::StreamNoTiming => section.step("Done {time}"),
                 OutputConfig::Silent | OutputConfig::InlineProgress => unreachable!(),
             }
 
@@ -476,14 +464,9 @@ mod section {
 }
 
 pub mod fmt {
-    use indoc::formatdoc;
-
     pub(crate) const RED: &str = "\x1B[0;31m";
     pub(crate) const YELLOW: &str = "\x1B[0;33m";
     pub(crate) const CYAN: &str = "\x1B[0;36m";
-
-    #[allow(dead_code)]
-    pub(crate) const PURPLE: &str = "\x1B[0;35m"; // magenta
 
     pub(crate) const BOLD_CYAN: &str = "\x1B[1;36m";
     pub(crate) const BOLD_PURPLE: &str = "\x1B[1;35m"; // magenta
@@ -491,14 +474,13 @@ pub mod fmt {
     pub(crate) const DEFAULT_DIM: &str = "\x1B[2;1m"; // Default color but softer/less vibrant
     pub(crate) const RESET: &str = "\x1B[0m";
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) const NOCOLOR: &str = "\x1B[1;39m"; // Differentiate between color clear and explicit no color https://github.com/heroku/buildpacks-ruby/pull/155#discussion_r1260029915
-    #[allow(dead_code)]
-    pub(crate) const ALL_CODES: [&str; 8] = [
+    #[cfg(test)]
+    pub(crate) const ALL_CODES: [&str; 7] = [
         RED,
         YELLOW,
         CYAN,
-        PURPLE,
         BOLD_CYAN,
         BOLD_PURPLE,
         DEFAULT_DIM,
@@ -511,8 +493,15 @@ pub mod fmt {
     pub(crate) const URL_COLOR: &str = CYAN;
     pub(crate) const IMPORTANT_COLOR: &str = CYAN;
     pub(crate) const ERROR_COLOR: &str = RED;
+
+    #[allow(dead_code)]
     pub(crate) const WARNING_COLOR: &str = YELLOW;
 
+    const SECTION_PREFIX: &str = "- ";
+    const STEP_PREFIX: &str = "  - ";
+    const CMD_INDENT: &str = "      ";
+
+    #[must_use]
     pub fn url(contents: impl AsRef<str>) -> String {
         colorize(URL_COLOR, contents)
     }
@@ -544,74 +533,48 @@ pub mod fmt {
         colorize(HEROKU_COLOR, format!("\n# {contents}"))
     }
 
-    /// Used to standardize error/warning/important information
-    pub(crate) fn look_at_me(
-        color: &str,
-        noun: impl AsRef<str>,
-        header: impl AsRef<str>,
-        body: impl AsRef<str>,
-        url: &crate::build_output::paragraph::Url,
-    ) -> String {
-        let noun = noun.as_ref();
-        let header = header.as_ref();
-        let body = help_url(body, url).trim_end().to_string();
-        colorize(
-            color,
-            bangify(formatdoc! {"
-                {noun} {header}
+    #[must_use]
+    pub fn section(topic: impl AsRef<str>) -> String {
+        let topic = topic.as_ref();
+        format!("{SECTION_PREFIX}{topic}")
+    }
 
-                {body}"}),
-        )
+    #[must_use]
+    pub fn step(contents: impl AsRef<str>) -> String {
+        let contents = contents.as_ref();
+        format!("{STEP_PREFIX}{contents}")
+    }
+
+    /// Used with libherokubuildpack linemapped command output
+    ///
+    #[must_use]
+    pub fn cmd_stream_format(mut input: Vec<u8>) -> Vec<u8> {
+        let mut result: Vec<u8> = CMD_INDENT.into();
+        result.append(&mut input);
+        result
+    }
+
+    /// Like `cmd_stream_format` but for static intput
+    #[must_use]
+    pub fn cmd_output_format(contents: impl AsRef<str>) -> String {
+        let contents = contents
+            .as_ref()
+            .split('\n')
+            .map(|part| {
+                let tmp = cmd_stream_format(part.into());
+                String::from_utf8_lossy(&tmp).into_owned()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        // Emulate above
+        format!("\n{contents}\n")
     }
 
     #[must_use]
     pub(crate) fn help(contents: impl AsRef<str>) -> String {
         let contents = contents.as_ref();
         colorize(IMPORTANT_COLOR, bangify(format!("Help: {contents}")))
-    }
-
-    /// Need feedback on this interface
-    ///
-    /// Should it have a dedicated struct like `ErrorInfo` or be a function?
-    /// Do we want to bundle warnings together and emit them at the end? (I think so, but it's out of current scope)
-    pub fn warning(
-        header: impl AsRef<str>,
-        body: impl AsRef<str>,
-        url: &crate::build_output::paragraph::Url,
-    ) -> String {
-        let header = header.as_ref();
-        let body = body.as_ref();
-
-        look_at_me(WARNING_COLOR, "WARNING:", header, body, url)
-    }
-
-    /// Need feedback on this interface
-    ///
-    /// Same questions as `warning`
-    pub fn important(
-        header: impl AsRef<str>,
-        body: impl AsRef<str>,
-        url: &crate::build_output::paragraph::Url,
-    ) -> String {
-        let header = header.as_ref();
-        let body = body.as_ref();
-
-        look_at_me(IMPORTANT_COLOR, "", header, body, url)
-    }
-
-    fn help_url(body: impl AsRef<str>, url: &crate::build_output::paragraph::Url) -> String {
-        let body = body.as_ref();
-        let body = body.trim_end();
-
-        match url {
-            crate::build_output::paragraph::Url::None => body.to_string(),
-            crate::build_output::paragraph::Url::Label { label: _, url: _ }
-            | crate::build_output::paragraph::Url::MoreInfo(_) => formatdoc! {"
-                {body}
-
-                {url}
-            "},
-        }
     }
 
     /// Helper method that adds a bang i.e. `!` before strings
@@ -713,14 +676,15 @@ pub mod fmt {
 }
 
 pub mod paragraph {
-    use crate::build_output::fmt::{bangify, colorize};
+    use crate::build_output::fmt::{self, bangify, colorize};
+    use crate::fun_run::CmdError;
     use itertools::Itertools;
     use std::fmt::Display;
 
     pub(crate) const ERROR_COLOR: &str = crate::build_output::fmt::ERROR_COLOR;
 
     /// Holds info about a url
-    #[derive(Debug, Clone, Default)]
+    #[derive(Debug, Clone, Default, PartialEq)]
     pub enum Url {
         #[default]
         None,
@@ -735,21 +699,22 @@ pub mod paragraph {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
                 Url::Label { label, url } => {
-                    writeln!(f, "{label}: {}", crate::build_output::fmt::url(url))
+                    writeln!(f, "{label}: {}", fmt::url(url))
                 }
                 Url::MoreInfo(url) => writeln!(
                     f,
                     "For more information, refer to the following documentation:\n{}",
-                    crate::build_output::fmt::url(url)
+                    fmt::url(url)
                 ),
                 Url::None => f.write_str(""),
             }
         }
     }
 
+    #[derive(Debug, PartialEq, Clone)]
     pub enum Detail {
         None,
-        Plain(String),
+        Raw(String),
         Debug(String),
         Label { label: String, details: String },
     }
@@ -758,29 +723,80 @@ pub mod paragraph {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
                 Detail::None => f.write_str(""),
-                Detail::Plain(details) => write!(f, "{details}"),
+                Detail::Raw(details) => write!(f, "{details}"),
                 Detail::Debug(details) => writeln!(f, "Debug information:\n\n{details}"),
                 Detail::Label { label, details } => writeln!(f, "{label}:\n\n{details}"),
             }
         }
     }
 
+    #[derive(Debug, PartialEq, Clone)]
     pub enum Body {
-        Plain(String),
+        Raw(String),
     }
 
     impl Display for Body {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
-                Body::Plain(string) => write!(f, "{string}"),
+                Body::Raw(string) => write!(f, "{string}"),
             }
         }
     }
 
+    #[derive(Debug, PartialEq, Clone)]
     pub enum Part {
         Body(Body),
         Url(Url),
-        Details(Detail),
+        Detail(Detail),
+    }
+
+    /// Hacky, don't love it, but it works for now
+    impl From<CmdError> for Detail {
+        fn from(value: CmdError) -> Self {
+            let name = fmt::command(value.name());
+
+            let mut parts = vec![fmt::section(format!("Command failed: {name}"))];
+            match value {
+                CmdError::SystemError(_, error) => {
+                    parts.push(fmt::step("system error"));
+                    parts.push(fmt::cmd_output_format(error.to_string()));
+                }
+                CmdError::NonZeroExitNotStreamed(_, output) => {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    parts.push(fmt::step(format!(
+                        "exit status: {}",
+                        output.status.code().unwrap_or(1)
+                    )));
+
+                    if stdout.trim().is_empty() {
+                        parts.push(fmt::step("stdout: <empty>"));
+                    } else {
+                        parts.push(fmt::step("stdout:"));
+                        parts.push(fmt::cmd_output_format(stdout));
+                    }
+
+                    if stderr.trim().is_empty() {
+                        parts.push(fmt::step("stderr: <empty>"));
+                    } else {
+                        parts.push(fmt::step("stderr:"));
+                        parts.push(fmt::cmd_output_format(stderr));
+                    }
+                }
+
+                CmdError::NonZeroExitAlreadyStreamed(_, output) => {
+                    parts.push(fmt::step(format!(
+                        "exit status: {}",
+                        output.status.code().unwrap_or(1)
+                    )));
+
+                    parts.push(fmt::step("stdout: <see above>"));
+                    parts.push(fmt::step("stderr: <see above>"));
+                }
+            }
+
+            Detail::Raw(parts.join("\n"))
+        }
     }
 
     impl Display for Part {
@@ -788,7 +804,7 @@ pub mod paragraph {
             match self {
                 Part::Body(body) => write!(f, "{body}"),
                 Part::Url(url) => write!(f, "{url}"),
-                Part::Details(details) => write!(f, "{details}"),
+                Part::Detail(details) => write!(f, "{details}"),
             }
         }
     }
@@ -798,25 +814,22 @@ pub mod paragraph {
     /// Designed so that additional optional fields may be added later without
     /// breaking compatability.
     pub struct ErrorBuilder {
-        header: String,
         inner: Vec<Part>,
     }
 
     impl Display for ErrorBuilder {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let header = format!("ERROR: {}\n", self.header);
-            writeln!(f, "{}", colorize(ERROR_COLOR, bangify(header)))?;
-
             let mut parts = self
                 .inner
                 .iter()
                 .tuple_windows::<(_, _)>()
                 .map(|(now, next)| {
                     let part = Self::format_part(now);
-                    // Lookahead to see if the newline should be formatted or not
-                    let sep = match next {
-                        Part::Body(_) | Part::Url(_) => colorize(ERROR_COLOR, bangify("\n")),
-                        Part::Details(_) => "\n".to_string(),
+                    // If both last and next lines share a prefix then add a prefix
+                    // to the newline separator
+                    let sep = match (now, next) {
+                        (Part::Detail(_), _) | (_, Part::Detail(_)) => "\n".to_string(),
+                        _ => colorize(ERROR_COLOR, bangify("\n")),
                     };
 
                     format!("{part}{sep}")
@@ -836,17 +849,20 @@ pub mod paragraph {
             let part = match part {
                 Part::Body(body) => colorize(ERROR_COLOR, bangify(body.to_string().trim())),
                 Part::Url(url) => colorize(ERROR_COLOR, bangify(url.to_string().trim())),
-                Part::Details(details) => details.to_string().trim().to_string(),
+                Part::Detail(details) => details.to_string().trim().to_string(),
             };
             format!("{part}\n")
         }
 
         #[must_use]
-        pub fn new(header: impl AsRef<str>) -> Self {
-            Self {
-                header: header.as_ref().to_string(),
-                inner: Vec::new(),
-            }
+        pub fn new() -> Self {
+            Self { inner: Vec::new() }
+        }
+
+        pub fn header(&mut self, header: impl AsRef<str>) -> &mut Self {
+            let header = format!("ERROR: {}", header.as_ref());
+            self.inner.push(Part::Body(Body::Raw(header)));
+            self
         }
 
         pub fn add(&mut self, part: Part) -> &mut Self {
@@ -856,7 +872,7 @@ pub mod paragraph {
 
         pub fn body(&mut self, body: impl AsRef<str>) -> &mut Self {
             self.inner
-                .push(Part::Body(Body::Plain(body.as_ref().to_string())));
+                .push(Part::Body(Body::Raw(body.as_ref().to_string())));
             self
         }
 
@@ -866,18 +882,19 @@ pub mod paragraph {
         }
 
         pub fn detail(&mut self, detail: Detail) -> &mut Self {
-            self.inner.push(Part::Details(detail));
+            self.inner.push(Part::Detail(detail));
             self
         }
 
         pub fn debug_details(&mut self, detail: &impl ToString) -> &mut Self {
             self.inner
-                .push(Part::Details(Detail::Debug(detail.to_string())));
+                .push(Part::Detail(Detail::Debug(detail.to_string())));
             self
         }
 
         pub fn print(&mut self) {
-            eprintln!("{self}");
+            println!();
+            println!("{self}");
         }
     }
 
@@ -885,24 +902,26 @@ pub mod paragraph {
     mod test {
         use super::*;
         use crate::build_output::fmt::strip_control_codes;
+        use crate::fun_run::{self, CmdMapExt, NamedOutput, ResultNameExt};
         use indoc::formatdoc;
 
         #[test]
         fn test_error_output_with_url_and_detailsvisual() {
-            let actual = ErrorBuilder::new(
-            "Error installing Ruby"
-            ).
-            body(formatdoc! {"
-                Could not install the detected Ruby version. Ensure that you're using a supported
-                ruby version and try again.
-            "})
-            .url(Url::MoreInfo(
-                "https://devcenter.heroku.com/articles/ruby-support#ruby-versions".to_string(),
-            ))
-            .debug_details(
-            &"Could not create file: You do not have sufficient permissions to access this file: /path/to/file".to_string()
-            )
-            .to_string();
+            let actual = ErrorBuilder::new()
+                .header(
+                    "Error installing Ruby"
+                )
+                .body(formatdoc! {"
+                    Could not install the detected Ruby version. Ensure that you're using a supported
+                    ruby version and try again.
+                "})
+                .url(Url::MoreInfo(
+                    "https://devcenter.heroku.com/articles/ruby-support#ruby-versions".to_string(),
+                ))
+                .debug_details(
+                &"Could not create file: You do not have sufficient permissions to access this file: /path/to/file".to_string()
+                )
+                .to_string();
 
             let expected = formatdoc! {
                "! ERROR: Error installing Ruby
@@ -919,6 +938,57 @@ pub mod paragraph {
             "};
 
             assert_eq!(expected, strip_control_codes(actual));
+        }
+
+        #[test]
+        fn cmd_error_output() {
+            let result = std::process::Command::new("cat")
+                .arg("does_not_exist")
+                .cmd_map(|cmd| {
+                    cmd.output()
+                        .with_name(fun_run::display(cmd))
+                        .and_then(NamedOutput::nonzero_captured)
+                });
+
+            match result {
+                Ok(out) => panic!("Command should have failed {out:?}"),
+                Err(error) => {
+                    let actual: Detail = error.into();
+                    let expected = formatdoc! {"
+                        - Command failed: `cat does_not_exist`
+                          - exit status: 1
+                          - stdout: <empty>
+                          - stderr:
+
+                              cat: does_not_exist: No such file or directory
+                        "};
+                    assert_eq!(
+                        expected.trim(),
+                        strip_control_codes(actual.clone().to_string().trim())
+                    );
+
+                    let actual = ErrorBuilder::new()
+                        .header("Failed to compile assets")
+                        .body("oops")
+                        .detail(actual)
+                        .to_string();
+
+                    let expected = formatdoc! {"
+                        ! ERROR: Failed to compile assets
+                        !
+                        ! oops
+
+                        - Command failed: `cat does_not_exist`
+                          - exit status: 1
+                          - stdout: <empty>
+                          - stderr:
+
+                              cat: does_not_exist: No such file or directory
+                    "};
+
+                    assert_eq!(expected.trim(), strip_control_codes(actual.trim()));
+                }
+            }
         }
     }
 }

@@ -25,7 +25,7 @@ pub(crate) fn detect_rake_tasks(
         [".sprockets-manifest-*.json", "manifest-*.json"],
     ) {
         RakeStatus::MissingRakeGem => {
-            section.say_with_details(
+            section.step_with_details(
                 "Cannot run rake tasks",
                 format!("no {rake} gem in {gemfile}"),
             );
@@ -36,7 +36,7 @@ pub(crate) fn detect_rake_tasks(
             Ok(None)
         }
         RakeStatus::MissingRakefile => {
-            section.say_with_details("Cannot run rake tasks", format!("no {rakefile}"));
+            section.step_with_details("Cannot run rake tasks", format!("no {rakefile}"));
             section.help(format!("Add {rakefile} to your project to enable"));
 
             Ok(None)
@@ -48,7 +48,7 @@ pub(crate) fn detect_rake_tasks(
                 .collect::<Vec<_>>()
                 .join(", ");
 
-            section.say_with_details(
+            section.step_with_details(
                 "Skipping rake tasks",
                 format!("Manifest files found {files}"),
             );
@@ -58,7 +58,7 @@ pub(crate) fn detect_rake_tasks(
         }
         RakeStatus::Ready(path) => {
             let path = build_output::fmt::value(path.to_string_lossy());
-            section.say_with_details(
+            section.step_with_details(
                 "Rake detected",
                 format!("{rake} gem found, {rakefile} found at {path}"),
             );

@@ -151,7 +151,7 @@ impl Layer for BundleInstallLayer {
 
         match update_state(&layer_data.content_metadata.metadata, &metadata) {
             UpdateState::Run(reason) => {
-                self.build_output.say(reason);
+                self.build_output.step(reason);
 
                 bundle_install(&env, &self.build_output)
                     .map_err(RubyBuildpackError::BundleInstallCommandError)?;
@@ -161,7 +161,7 @@ impl Layer for BundleInstallLayer {
                 let bundle_install = build_output::fmt::value("bundle install");
                 let env_var = build_output::fmt::value(format!("{HEROKU_SKIP_BUNDLE_DIGEST}=1"));
 
-                self.build_output.say_with_details(
+                self.build_output.step_with_details(
                     format!("Skipping {bundle_install}"),
                     format!("no changes found in {checked}"),
                 );
@@ -209,19 +209,19 @@ impl Layer for BundleInstallLayer {
 
         match cache_state(old.clone(), now) {
             Changed::Nothing => {
-                self.build_output.say("Loading cache");
+                self.build_output.step("Loading cache");
 
                 keep_and_run
             }
             Changed::Stack(_old, _now) => {
                 self.build_output
-                    .say_with_details("Clearing cache", "stack changed");
+                    .step_with_details("Clearing cache", "stack changed");
 
                 clear_and_run
             }
             Changed::RubyVersion(_old, _now) => {
                 self.build_output
-                    .say_with_details("Clearing cache", "ruby version changed");
+                    .step_with_details("Clearing cache", "ruby version changed");
 
                 clear_and_run
             }

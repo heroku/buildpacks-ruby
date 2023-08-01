@@ -19,10 +19,10 @@ tempfile = "3"
 thiserror = "1"
 walkdir = "2"
 which_problem = "0.1"
-indoc = "2.0.1"
 libherokubuildpack = "0.13"
 itertools = "0.11.0"
 
 [dev-dependencies]
 filetime = "0.2"
 toml = "0.7"
+indoc = "2.0.1"

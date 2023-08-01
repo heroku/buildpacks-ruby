@@ -248,7 +248,7 @@ pub enum CmdError {
     #[error("Command failed: {0:?}\nexit status: {}\nstdout: {}\nstderr: {}", .1.status.code().unwrap_or_else(|| 1),  display_out_or_empty(&.1.stdout), display_out_or_empty(&.1.stderr))]
     NonZeroExitNotStreamed(String, Output),
 
-    #[error("Command failed: {0:?}\nexit status: {}\nstdout: see above\nstderr: see above", .1.status.code().unwrap_or_else(|| 1))]
+    #[error("Command failed: {0:?}\nexit status: {}\nstdout: <see above>\nstderr: <see above>", .1.status.code().unwrap_or_else(|| 1))]
     NonZeroExitAlreadyStreamed(String, Output),
 }
 

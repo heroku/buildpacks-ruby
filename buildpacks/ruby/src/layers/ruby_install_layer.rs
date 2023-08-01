@@ -54,7 +54,7 @@ impl Layer for RubyInstallLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let mut timer = self.build_output.say_with_inline_timer("Installing");
+        let mut timer = self.build_output.step_with_inline_timer("Installing");
 
         let tmp_ruby_tgz = NamedTempFile::new()
             .map_err(RubyInstallError::CouldNotCreateDestinationFile)
@@ -89,19 +89,19 @@ impl Layer for RubyInstallLayer {
 
         match cache_state(old.clone(), now) {
             Changed::Nothing(_version) => {
-                self.build_output.say("Using cached version");
+                self.build_output.step("Using cached version");
 
                 Ok(ExistingLayerStrategy::Keep)
             }
             Changed::Stack(_old, _now) => {
                 self.build_output
-                    .say_with_details("Clearing cache", "stack changed");
+                    .step_with_details("Clearing cache", "stack changed");
 
                 Ok(ExistingLayerStrategy::Recreate)
             }
             Changed::RubyVersion(_old, _now) => {
                 self.build_output
-                    .say_with_details("Clearing cache", "ruby version changed");
+                    .step_with_details("Clearing cache", "ruby version changed");
 
                 Ok(ExistingLayerStrategy::Recreate)
             }

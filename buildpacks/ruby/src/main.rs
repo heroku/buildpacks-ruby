@@ -2,7 +2,6 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 use crate::layers::{RubyInstallError, RubyInstallLayer};
-use crate::rake_task_detect::CannotDetectRakeTasks;
 use commons::build_output;
 use commons::cache::CacheError;
 use commons::fun_run::{CmdError, CmdErrorDiagnostics, ErrorDiagnostics};
@@ -142,7 +141,7 @@ impl Buildpack for RubyBuildpack {
         // ## Detect gems
         let (gem_list, default_process) = {
             let section = build_output::section("Setting default processes(es)");
-            section.say("Detecting gems");
+            section.step("Detecting gems");
 
             let gem_list = bundle_list::GemList::from_bundle_list(&env, &section)
                 .map_err(RubyBuildpackError::BundleListError)?;
@@ -191,7 +190,7 @@ fn needs_java(gemfile_lock: &str) -> bool {
 
 #[derive(Debug)]
 pub(crate) enum RubyBuildpackError {
-    CannotDetectRakeTasks(CannotDetectRakeTasks),
+    CannotDetectRakeTasks(CmdError),
     BundleListError(CmdErrorDiagnostics),
     RubyInstallError(RubyInstallError),
     MissingGemfileLock(ErrorDiagnostics<std::io::Error>),

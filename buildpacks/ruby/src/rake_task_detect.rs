@@ -1,5 +1,5 @@
 use crate::build_output::{RunCommand, Section};
-use commons::fun_run::{self, CmdMapExt, NamedOutput};
+use commons::fun_run::{self, CmdError, CmdMapExt, NamedOutput};
 use core::str::FromStr;
 use regex::Regex;
 use std::{ffi::OsString, process::Command};
@@ -7,12 +7,6 @@ use std::{ffi::OsString, process::Command};
 #[derive(Default)]
 pub(crate) struct RakeDetect {
     output: String,
-}
-
-#[derive(thiserror::Error, Debug)]
-pub(crate) enum CannotDetectRakeTasks {
-    #[error("{0}")]
-    DashpCommandError(fun_run::CmdError),
 }
 
 impl RakeDetect {
@@ -24,7 +18,7 @@ impl RakeDetect {
         env: &libcnb::Env,
         error_on_failure: bool,
         highlight_keys: &[OsString],
-    ) -> Result<Self, CannotDetectRakeTasks> {
+    ) -> Result<Self, CmdError> {
         Command::new("bundle")
             .args(["exec", "rake", "-P", "--trace"])
             .env_clear()
@@ -41,7 +35,6 @@ impl RakeDetect {
                         }
                     })
             })
-            .map_err(CannotDetectRakeTasks::DashpCommandError)
             .and_then(|named| RakeDetect::from_str(&String::from_utf8_lossy(&named.output.stdout)))
     }
 
@@ -53,7 +46,7 @@ impl RakeDetect {
 }
 
 impl FromStr for RakeDetect {
-    type Err = CannotDetectRakeTasks;
+    type Err = CmdError;
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         Ok(RakeDetect {

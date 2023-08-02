@@ -1,6 +1,5 @@
 use crate::fun_run::{self, CmdError};
 use libherokubuildpack::write::line_mapped;
-use std::io::Write;
 use std::time::Instant;
 use time::BuildpackDuration;
 
@@ -65,7 +64,8 @@ pub use section::{RunCommand, Section};
 ///```
 
 mod time {
-    use super::{fmt, inline_print_flush};
+    use super::fmt;
+    use super::print::PrintControl;
     use std::thread::{self, JoinHandle};
     use std::time::Duration;
     use std::time::Instant;
@@ -77,16 +77,23 @@ mod time {
 
     impl BuildpackDuration {
         /// Emit timing details with done block
-        pub fn done_timed(self) {
+        pub fn done_timed(self) -> PrintControl {
             let time = human(&self.start.elapsed());
             let details = fmt::details(format!("finished in {time}"));
-            println!("- Done {details}");
+
+            PrintControl::new()
+                .print_inline(format!("- Done {details}"))
+                .with_separator(" ")
+                .on_drop_print("\n")
         }
 
         /// Emit done block without timing details
         #[allow(clippy::unused_self)]
-        pub fn done(self) {
-            println!("- Done");
+        pub fn done(self) -> PrintControl {
+            PrintControl::new()
+                .print_inline("- Done")
+                .with_separator(" ")
+                .on_drop_print("\n")
         }
 
         /// Finish without announcing anything
@@ -118,14 +125,14 @@ mod time {
             let (stop_dots, receiver) = std::sync::mpsc::channel();
 
             let join_dots = thread::spawn(move || {
-                inline_print_flush(fmt::colorize(fmt::DEFAULT_DIM, " ."));
+                PrintControl::new().print_inline(fmt::colorize(fmt::DEFAULT_DIM, " ."));
 
                 loop {
                     let msg = receiver.recv_timeout(Duration::from_secs(1));
-                    inline_print_flush(fmt::colorize(fmt::DEFAULT_DIM, "."));
 
+                    PrintControl::new().print_inline(fmt::colorize(fmt::DEFAULT_DIM, "."));
                     if msg.is_ok() {
-                        inline_print_flush(fmt::colorize(fmt::DEFAULT_DIM, ". "));
+                        PrintControl::new().print_inline(fmt::colorize(fmt::DEFAULT_DIM, ". "));
                         break;
                     }
                 }
@@ -145,11 +152,14 @@ mod time {
             }
         }
 
-        pub fn done(&mut self) {
+        pub fn done(&mut self) -> PrintControl {
             self.stop_dots();
-            let time = fmt::details(human(&self.start.elapsed()));
+            let contents = fmt::details(human(&self.start.elapsed()));
 
-            println!("{time}");
+            PrintControl::new()
+                .print_inline(contents)
+                .with_separator(" ")
+                .on_drop_print("\n")
         }
     }
 
@@ -216,17 +226,10 @@ mod time {
     }
 }
 
-// Helper for printing without newlines that auto-flushes stdout
-fn inline_print_flush(contents: impl AsRef<str>) {
-    let contents = contents.as_ref();
-    print!("{contents}");
-    std::io::stdout().flush().expect("Stdout is writable");
-}
-
 /// All work is done inside of a section. Advertize a section topic
 pub fn section(topic: impl AsRef<str>) -> section::Section {
-    let topic = String::from(topic.as_ref());
-    println!("{}", fmt::section(&topic));
+    let topic = fmt::section(String::from(topic.as_ref()));
+    println!("{topic}");
 
     section::Section { topic }
 }
@@ -245,11 +248,11 @@ pub fn buildpack_name(buildpack: impl AsRef<str>) -> BuildpackDuration {
 }
 
 mod section {
-    use super::{
-        fmt, fun_run, inline_print_flush, line_mapped, time, time::LiveTimingInline, CmdError,
-        Instant,
+    use super::{fmt, fun_run, line_mapped, time, time::LiveTimingInline, CmdError, Instant};
+    use crate::{
+        build_output::print::PrintControl,
+        fun_run::{NamedOutput, ResultNameExt},
     };
-    use crate::fun_run::{NamedOutput, ResultNameExt};
     use libherokubuildpack::command::CommandExt;
     use std::process::Command;
 
@@ -260,23 +263,37 @@ mod section {
 
     impl Section {
         /// Emit contents to the buid output with indentation
-        pub fn step(&self, contents: impl AsRef<str>) {
-            println!("{}", fmt::step(contents));
+        pub fn step(&self, contents: impl AsRef<str>) -> PrintControl {
+            PrintControl::new()
+                .print_inline(contents)
+                .with_separator(" ")
+                .on_drop_print("\n")
         }
 
-        pub fn step_with_details(&self, contents: impl AsRef<str>, details: impl AsRef<str>) {
+        pub fn step_with_details(
+            &self,
+            contents: impl AsRef<str>,
+            details: impl AsRef<str>,
+        ) -> PrintControl {
             let contents = contents.as_ref();
             let details = fmt::details(details.as_ref());
 
-            let message = fmt::step(format!("{contents} {details}"));
-            println!("{message}");
+            let contents = fmt::step(format!("{contents} {details}"));
+
+            PrintControl::new()
+                .print_inline(contents)
+                .with_separator(" ")
+                .on_drop_print("\n")
         }
 
         /// Emit an inline indented help section with a "- ! Help: {contents}" prefix auto added
-        pub fn help(&self, contents: impl AsRef<str>) {
+        pub fn help(&self, contents: impl AsRef<str>) -> PrintControl {
             let contents = fmt::step(fmt::help(contents));
 
-            println!("{contents}");
+            PrintControl::new()
+                .print_inline(contents)
+                .with_separator(" ")
+                .on_drop_print("\n")
         }
 
         /// Start a time and emit a reson for it
@@ -286,8 +303,7 @@ mod section {
         #[must_use]
         pub fn step_with_inline_timer(&self, reason: impl AsRef<str>) -> time::LiveTimingInline {
             let reason = reason.as_ref();
-            inline_print_flush(fmt::step(reason));
-
+            PrintControl::new().print_inline(fmt::step(reason));
             time::LiveTimingInline::new()
         }
 
@@ -336,7 +352,7 @@ mod section {
             } = run_command;
             let name = fmt::command(name);
 
-            inline_print_flush(fmt::step(format!("Running {name}")));
+            PrintControl::new().print_inline(fmt::step(format!("Running {name}")));
 
             let mut start = LiveTimingInline::new();
             let output = command.output();
@@ -379,9 +395,9 @@ mod section {
             let time = fmt::details(time::human(&duration));
             match config {
                 OutputConfig::Stream => {
-                    section.step(format!("Done {time}"));
+                    section.step(format!("Done {time}")).done();
                 }
-                OutputConfig::StreamNoTiming => section.step("Done {time}"),
+                OutputConfig::StreamNoTiming => section.step("Done {time}").done(),
                 OutputConfig::Silent | OutputConfig::InlineProgress => unreachable!(),
             }
 
@@ -988,6 +1004,86 @@ pub mod paragraph {
 
                     assert_eq!(expected.trim(), strip_control_codes(actual.trim()));
                 }
+            }
+        }
+    }
+}
+
+mod print {
+    use std::io::Write;
+
+    /// Allows for the caller to control printing beahvior
+    ///
+    /// Problem: Sometimes you know that you want to print a message right now
+    /// you also know that after the message you'll want a newline. But if you
+    /// print a newline at this second, then you'll prevent composing any other
+    /// output from writing to the same line.
+    ///
+    /// Solution: Yield control of the newline back to the caller and default
+    /// to printing a finalized newline character. Default to printing a newline
+    /// on drop so if the caller doesn't assume control a newline is guaranteed
+    /// be added.
+    ///
+    /// Problem: You want to yield control to allow multiple elements to be
+    /// printed to the same line, you don't know if there's going to be anything
+    /// else printed, but if they are, you want a space between them. You also
+    /// don't want trailing whitespace in your output in the event that it's you're
+    /// done printing and want a newline.
+    ///
+    /// Solution: Save the separator now, write it to a
+    #[derive(Default)]
+    pub struct PrintControl {
+        separator: Option<String>,
+        on_drop_print: Option<String>,
+    }
+
+    impl PrintControl {
+        pub fn new() -> Self {
+            Self::default()
+        }
+
+        pub fn with_separator(mut self, separator: impl AsRef<str>) -> Self {
+            self.separator = Some(separator.as_ref().to_string());
+            self
+        }
+
+        /// Change the value to print when struct is dropped
+        pub fn on_drop_print(mut self, value: impl AsRef<str>) -> Self {
+            self.on_drop_print = Some(value.as_ref().to_string());
+            self
+        }
+
+        /// Prints the message inline with prior separator (if there was one)
+        pub fn print_inline(self, contents: impl AsRef<str>) -> Self {
+            self.print_with_last_separator(contents);
+            self
+        }
+
+        /// Finish printing, will output `on_drop_print` if there is one
+        pub fn done(self) {
+            drop(self);
+        }
+
+        fn print_with_last_separator(&self, contents: impl AsRef<str>) -> &Self {
+            if let Some(sep) = &self.separator {
+                Self::inline_print_flush(sep);
+            }
+            Self::inline_print_flush(contents);
+            self
+        }
+
+        // Helper for printing without newlines that auto-flushes stdout
+        fn inline_print_flush(contents: impl AsRef<str>) {
+            let contents = contents.as_ref();
+            print!("{contents}");
+            std::io::stdout().flush().expect("Stdout is writable");
+        }
+    }
+
+    impl Drop for PrintControl {
+        fn drop(&mut self) {
+            if let Some(contents) = &self.on_drop_print {
+                PrintControl::inline_print_flush(contents);
             }
         }
     }

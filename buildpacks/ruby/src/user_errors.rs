@@ -1,6 +1,6 @@
 use crate::RubyBuildpackError;
 use commons::{
-    build_output::{self, paragraph::ErrorBuilder},
+    build_output::{self, attn::Announcement},
     fun_run::CmdError,
 };
 use indoc::formatdoc;
@@ -8,7 +8,8 @@ use indoc::formatdoc;
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
     match cause(err) {
         Cause::OurError(error) => log_our_error(error),
-        Cause::FrameworkError(error) => ErrorBuilder::new()
+        Cause::FrameworkError(error) => Announcement::error()
+            .debug_details(&error)
             .header(
                 "heroku/buildpack-ruby internal buildpack error"
             ).body(formatdoc! {"
@@ -25,7 +26,6 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
                 CLI. If you can reproduce the behavior locally and believe you've found a bug in the
                 buildpack or the framework please open an issue on the buildpack's GitHub repository.
             "})
-            .debug_details(&error)
             .print(),
     };
 }
@@ -39,7 +39,8 @@ fn log_our_error(error: RubyBuildpackError) {
     match error {
         RubyBuildpackError::CannotDetectRakeTasks(error) => {
             let local_debug_cmd = local_command_debug(&error);
-            ErrorBuilder::new()
+            Announcement::error()
+                .detail(error.into())
                 .header(
                     "Error detecting rake tasks"
                 )
@@ -51,10 +52,10 @@ fn log_our_error(error: RubyBuildpackError) {
                 .body(formatdoc! {"
                     Use the information above to debug further.
                 "})
-                .detail(error.into())
                 .print();
         },
-        RubyBuildpackError::BundleListError(error) => ErrorBuilder::new()
+        RubyBuildpackError::BundleListError(error) => Announcement::error()
+            .debug_details(&error)
             .header(
                 "Error detecting dependencies"
             )
@@ -64,22 +65,21 @@ fn log_our_error(error: RubyBuildpackError) {
 
                 Use the following information to help debug the system.
             "})
-            .debug_details(&error)
             .print(),
-        RubyBuildpackError::RubyInstallError(error) => ErrorBuilder::new()
+        RubyBuildpackError::RubyInstallError(error) => Announcement::error()
+            .debug_details(&error)
             .header(
                 "Error installing Ruby",
             ).body(formatdoc! {"
                 Could not install the detected Ruby version. Ensure that you're using a supported
                 ruby version and try again.
             "})
-            .url(build_output::paragraph::Url::Label {
+            .url(build_output::attn::Url::Label {
                 label: "Supported ruby versions".to_string(),
                 url: "https://devcenter.heroku.com/articles/ruby-support#ruby-versions".to_string(),
             })
-            .debug_details(&error)
             .print(),
-        RubyBuildpackError::MissingGemfileLock(error) => ErrorBuilder::new()
+        RubyBuildpackError::MissingGemfileLock(error) => Announcement::error()
             .header(
                 "Gemfile.lock` not found"
             )
@@ -89,13 +89,14 @@ fn log_our_error(error: RubyBuildpackError) {
                 If you have a `Gemfile.lock` in your application, ensure it is tracked in Git and
                 that you’re pushing the correct branch.
             "})
-            .url(build_output::paragraph::Url::MoreInfo(
+            .url(build_output::attn::Url::MoreInfo(
                 "https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main"
                     .to_string(),
             )).
             debug_details(&error)
             .print(),
-        RubyBuildpackError::RakeAssetsCacheError(error) => ErrorBuilder::new()
+        RubyBuildpackError::RakeAssetsCacheError(error) => Announcement::error()
+            .debug_details(&error)
             .header(
                 "Error caching frontend assets"
             )
@@ -103,9 +104,9 @@ fn log_our_error(error: RubyBuildpackError) {
                 An error occurred while attempting to cache frontend assets, and the Ruby buildpack cannot continue.
             "})
             .body(file_hints)
-            .debug_details(&error)
             .print(),
-        RubyBuildpackError::BundleInstallDigestError(error) => ErrorBuilder::new()
+        RubyBuildpackError::BundleInstallDigestError(error) => Announcement::error()
+            .debug_details(&error)
             .header(
                 "Failed to generate file digest"
             )
@@ -119,9 +120,9 @@ fn log_our_error(error: RubyBuildpackError) {
 
                 HEROKU_SKIP_BUNDLE_DIGEST=1
             "})
-            .debug_details(&error)
             .print(),
-        RubyBuildpackError::BundleInstallCommandError(error) => ErrorBuilder::new()
+        RubyBuildpackError::BundleInstallCommandError(error) => Announcement::error()
+            .detail(error.into())
             .header(
                 "Failed to install bundler"
             )
@@ -129,12 +130,12 @@ fn log_our_error(error: RubyBuildpackError) {
                 The ruby package managment tool, `bundler`, failed to install. Bundler is required to install your application's dependencies listed in the `Gemfile`.
             "})
             .body(heroku_status)
-            .detail(error.into())
             .print(),
         RubyBuildpackError::RakeAssetsPrecompileFailed(error) => {
             let cmd_debug = local_command_debug(&error);
 
-            ErrorBuilder::new()
+            Announcement::error()
+                .detail(error.into())
                 .header("Failed to compile assets")
                     .body(formatdoc! {"
                     An error occured while compiling assets via rake command. Details of the error are
@@ -142,13 +143,13 @@ fn log_our_error(error: RubyBuildpackError) {
                 "})
                 .body(cmd_debug)
                 .body(git_branch)
-                .detail(error.into())
                 .print();
         },
         RubyBuildpackError::GemInstallBundlerCommandError(error) => {
             let cmd_debug = local_command_debug(&error);
 
-            ErrorBuilder::new()
+            Announcement::error()
+                .detail(error.into())
                 .header("Failed to install gems")
                     .body(formatdoc! {"
                     Could not install gems to the system via bundler. Gems are dependencies
@@ -156,7 +157,6 @@ fn log_our_error(error: RubyBuildpackError) {
                 "})
                 .body(cmd_debug)
                 .body(git_branch)
-                .detail(error.into())
                 .print();
         },
     }

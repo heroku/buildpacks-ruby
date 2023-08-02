@@ -595,16 +595,28 @@ pub mod fmt {
 
     /// Helper method that adds a bang i.e. `!` before strings
     pub(crate) fn bangify(body: impl AsRef<str>) -> String {
-        let body = body.as_ref();
+        prepend_each_line("!", " ", body)
+    }
+
+    // Ensures every line starts with `prepend`
+    pub(crate) fn prepend_each_line(
+        prepend: impl AsRef<str>,
+        separator: impl AsRef<str>,
+        contents: impl AsRef<str>,
+    ) -> String {
+        let body = contents.as_ref();
+        let prepend = prepend.as_ref();
+        let separator = separator.as_ref();
+
         if body.trim().is_empty() {
-            "!\n".to_string()
+            format!("{prepend}\n")
         } else {
             body.split('\n')
                 .map(|section| {
                     if section.trim().is_empty() {
-                        "!".to_string()
+                        prepend.to_string()
                     } else {
-                        format!("! {section}")
+                        format!("{prepend}{separator}{section}")
                     }
                 })
                 .collect::<Vec<String>>()
@@ -691,23 +703,17 @@ pub mod fmt {
     }
 }
 
-pub mod paragraph {
+pub mod attn {
+    use super::fmt::{ERROR_COLOR, IMPORTANT_COLOR, WARNING_COLOR};
     use crate::build_output::fmt::{self, bangify, colorize};
     use crate::fun_run::CmdError;
     use itertools::Itertools;
     use std::fmt::Display;
 
-    pub(crate) const ERROR_COLOR: &str = crate::build_output::fmt::ERROR_COLOR;
-
     /// Holds info about a url
-    #[derive(Debug, Clone, Default, PartialEq)]
+    #[derive(Debug, Clone, PartialEq)]
     pub enum Url {
-        #[default]
-        None,
-        Label {
-            label: String,
-            url: String,
-        },
+        Label { label: String, url: String },
         MoreInfo(String),
     }
 
@@ -722,14 +728,12 @@ pub mod paragraph {
                     "For more information, refer to the following documentation:\n{}",
                     fmt::url(url)
                 ),
-                Url::None => f.write_str(""),
             }
         }
     }
 
     #[derive(Debug, PartialEq, Clone)]
     pub enum Detail {
-        None,
         Raw(String),
         Debug(String),
         Label { label: String, details: String },
@@ -738,7 +742,6 @@ pub mod paragraph {
     impl Display for Detail {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
-                Detail::None => f.write_str(""),
                 Detail::Raw(details) => write!(f, "{details}"),
                 Detail::Debug(details) => writeln!(f, "Debug information:\n\n{details}"),
                 Detail::Label { label, details } => writeln!(f, "{label}:\n\n{details}"),
@@ -825,27 +828,26 @@ pub mod paragraph {
         }
     }
 
-    /// Build the contents of an error for display
-    ///
-    /// Designed so that additional optional fields may be added later without
-    /// breaking compatability.
-    pub struct ErrorBuilder {
+    /// Build the contents of an Announcement
+    pub struct Announcement {
+        name: String,
+        color: String,
         inner: Vec<Part>,
     }
 
-    impl Display for ErrorBuilder {
+    impl Display for Announcement {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             let mut parts = self
                 .inner
                 .iter()
                 .tuple_windows::<(_, _)>()
                 .map(|(now, next)| {
-                    let part = Self::format_part(now);
+                    let part = self.format_part(now);
                     // If both last and next lines share a prefix then add a prefix
                     // to the newline separator
                     let sep = match (now, next) {
                         (Part::Detail(_), _) | (_, Part::Detail(_)) => "\n".to_string(),
-                        _ => colorize(ERROR_COLOR, bangify("\n")),
+                        _ => colorize(&self.color, bangify("\n")),
                     };
 
                     format!("{part}{sep}")
@@ -853,36 +855,53 @@ pub mod paragraph {
                 .collect::<Vec<_>>();
 
             if let Some(part) = self.inner.last() {
-                parts.push(Self::format_part(part));
+                parts.push(self.format_part(part));
             }
 
             write!(f, "{}", parts.join(""))
         }
     }
 
-    impl ErrorBuilder {
-        fn format_part(part: &Part) -> String {
+    impl Announcement {
+        fn format_part(&self, part: &Part) -> String {
             let part = match part {
-                Part::Body(body) => colorize(ERROR_COLOR, bangify(body.to_string().trim())),
-                Part::Url(url) => colorize(ERROR_COLOR, bangify(url.to_string().trim())),
+                Part::Body(body) => colorize(&self.color, bangify(body.to_string().trim())),
+                Part::Url(url) => colorize(&self.color, bangify(url.to_string().trim())),
                 Part::Detail(details) => details.to_string().trim().to_string(),
             };
             format!("{part}\n")
         }
 
         #[must_use]
-        pub fn new() -> Self {
-            Self { inner: Vec::new() }
+        pub fn error() -> Self {
+            Self {
+                name: "ERROR".to_string(),
+                color: ERROR_COLOR.to_string(),
+                inner: Vec::new(),
+            }
+        }
+
+        #[must_use]
+        pub fn warning() -> Self {
+            Self {
+                name: "WARNING".to_string(),
+                color: WARNING_COLOR.to_string(),
+                inner: Vec::new(),
+            }
+        }
+
+        #[must_use]
+        pub fn important() -> Self {
+            Self {
+                name: "IMPORTANT".to_string(),
+                color: IMPORTANT_COLOR.to_string(),
+                inner: Vec::new(),
+            }
         }
 
         pub fn header(&mut self, header: impl AsRef<str>) -> &mut Self {
-            let header = format!("ERROR: {}", header.as_ref());
+            let header = format!("{}: {}", self.name, header.as_ref());
             self.inner.push(Part::Body(Body::Raw(header)));
-            self
-        }
-
-        pub fn add(&mut self, part: Part) -> &mut Self {
-            self.inner.push(part);
             self
         }
 
@@ -897,6 +916,8 @@ pub mod paragraph {
             self
         }
 
+        /// I don't love having this in here It's technically not part of the announcement
+        /// from a philosophical standpoint, however it makes a nice chained API
         pub fn detail(&mut self, detail: Detail) -> &mut Self {
             self.inner.push(Part::Detail(detail));
             self
@@ -923,7 +944,7 @@ pub mod paragraph {
 
         #[test]
         fn test_error_output_with_url_and_detailsvisual() {
-            let actual = ErrorBuilder::new()
+            let actual = Announcement::error()
                 .header(
                     "Error installing Ruby"
                 )
@@ -983,7 +1004,7 @@ pub mod paragraph {
                         strip_control_codes(actual.clone().to_string().trim())
                     );
 
-                    let actual = ErrorBuilder::new()
+                    let actual = Announcement::error()
                         .header("Failed to compile assets")
                         .body("oops")
                         .detail(actual)

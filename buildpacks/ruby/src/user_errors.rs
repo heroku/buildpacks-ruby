@@ -1,13 +1,54 @@
-use crate::RubyBuildpackError;
 use commons::{
     build_output::{self, attn::Announcement},
-    fun_run::CmdError,
+    cache::CacheError,
+    fun_run::{CmdError, CmdErrorDiagnostics, ErrorDiagnostics},
+    metadata_digest::DigestError,
 };
 use indoc::formatdoc;
 
+#[derive(Debug)]
+#[doc(hidden)]
+pub enum RubyBuildpackError {
+    CannotDetectRakeTasks(CmdError),
+    BundleListError(CmdErrorDiagnostics),
+    RubyInstallError(RubyInstallError),
+    MissingGemfileLock(ErrorDiagnostics<std::io::Error>),
+    RakeAssetsCacheError(CacheError),
+    BundleInstallDigestError(DigestError),
+    BundleInstallCommandError(CmdError),
+    RakeAssetsPrecompileFailed(CmdError),
+    GemInstallBundlerCommandError(CmdError),
+}
+
+#[derive(thiserror::Error, Debug)]
+#[doc(hidden)]
+pub enum RubyInstallError {
+    #[error("Could not open downloaded tar file: {0}")]
+    CouldNotOpenTarFile(std::io::Error),
+
+    #[error("Could not untar downloaded file: {0}")]
+    CouldNotUnpack(std::io::Error),
+
+    // Boxed to prevent `large_enum_variant` errors since `ureq::Error` is massive.
+    #[error("Download error: {0}")]
+    RequestError(Box<ureq::Error>),
+
+    #[error("Could not create file: {0}")]
+    CouldNotCreateDestinationFile(std::io::Error),
+
+    #[error("Could not write file: {0}")]
+    CouldNotWriteDestinationFile(std::io::Error),
+}
+
+impl From<RubyBuildpackError> for libcnb::Error<RubyBuildpackError> {
+    fn from(error: RubyBuildpackError) -> Self {
+        libcnb::Error::BuildpackError(error)
+    }
+}
+
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
     match cause(err) {
-        Cause::OurError(error) => log_our_error(error),
+        Cause::OurError(error) => log_ruby_error(error),
         Cause::FrameworkError(error) => Announcement::error()
             .debug_details(&error)
             .header(
@@ -31,7 +72,7 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
 }
 
 #[allow(clippy::too_many_lines)]
-fn log_our_error(error: RubyBuildpackError) {
+pub fn log_ruby_error(error: RubyBuildpackError) {
     let file_hints = file_hints();
     let git_branch = git_branch();
     let heroku_status = heroku_status();
@@ -80,6 +121,7 @@ fn log_our_error(error: RubyBuildpackError) {
             })
             .print(),
         RubyBuildpackError::MissingGemfileLock(error) => Announcement::error()
+            .debug_details(&error)
             .header(
                 "Gemfile.lock` not found"
             )
@@ -92,8 +134,7 @@ fn log_our_error(error: RubyBuildpackError) {
             .url(build_output::attn::Url::MoreInfo(
                 "https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main"
                     .to_string(),
-            )).
-            debug_details(&error)
+            ))
             .print(),
         RubyBuildpackError::RakeAssetsCacheError(error) => Announcement::error()
             .debug_details(&error)

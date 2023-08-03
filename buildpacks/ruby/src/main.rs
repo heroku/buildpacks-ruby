@@ -1,10 +1,9 @@
 #![warn(unused_crate_dependencies)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
-use crate::layers::{RubyInstallError, RubyInstallLayer};
+use crate::layers::RubyInstallLayer;
 use commons::build_output;
-use commons::cache::CacheError;
-use commons::fun_run::{CmdError, CmdErrorDiagnostics, ErrorDiagnostics};
+use commons::fun_run::ErrorDiagnostics;
 use commons::gemfile_lock::GemfileLock;
 use core::str::FromStr;
 use layers::{BundleDownloadLayer, BundleInstallLayer};
@@ -18,6 +17,7 @@ use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 use regex::Regex;
+use user_errors::RubyBuildpackError;
 
 mod bundle_list;
 mod layers;
@@ -28,6 +28,9 @@ mod user_errors;
 
 #[cfg(test)]
 use libcnb_test as _;
+
+// For bin/print_ruby_errors.rs
+use heroku_ruby_buildpack as _;
 
 pub(crate) struct RubyBuildpack;
 
@@ -186,25 +189,6 @@ impl Buildpack for RubyBuildpack {
 fn needs_java(gemfile_lock: &str) -> bool {
     let java_regex = Regex::new(r"\(jruby ").expect("Internal Error: Invalid regex");
     java_regex.is_match(gemfile_lock)
-}
-
-#[derive(Debug)]
-pub(crate) enum RubyBuildpackError {
-    CannotDetectRakeTasks(CmdError),
-    BundleListError(CmdErrorDiagnostics),
-    RubyInstallError(RubyInstallError),
-    MissingGemfileLock(ErrorDiagnostics<std::io::Error>),
-    RakeAssetsCacheError(CacheError),
-    BundleInstallDigestError(commons::metadata_digest::DigestError),
-    BundleInstallCommandError(CmdError),
-    RakeAssetsPrecompileFailed(CmdError),
-    GemInstallBundlerCommandError(CmdError),
-}
-
-impl From<RubyBuildpackError> for libcnb::Error<RubyBuildpackError> {
-    fn from(error: RubyBuildpackError) -> Self {
-        libcnb::Error::BuildpackError(error)
-    }
 }
 
 buildpack_main!(RubyBuildpack);

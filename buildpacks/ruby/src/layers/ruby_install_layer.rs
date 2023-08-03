@@ -1,3 +1,4 @@
+use crate::user_errors::RubyInstallError;
 use crate::{build_output, RubyBuildpack, RubyBuildpackError};
 use commons::gemfile_lock::ResolvedRubyVersion;
 use flate2::read::GzDecoder;
@@ -167,25 +168,6 @@ pub(crate) fn untar(
     Archive::new(GzDecoder::new(file))
         .unpack(destination.as_ref())
         .map_err(RubyInstallError::CouldNotUnpack)
-}
-
-#[derive(thiserror::Error, Debug)]
-pub(crate) enum RubyInstallError {
-    #[error("Could not open downloaded tar file: {0}")]
-    CouldNotOpenTarFile(std::io::Error),
-
-    #[error("Could not untar downloaded file: {0}")]
-    CouldNotUnpack(std::io::Error),
-
-    // Boxed to prevent `large_enum_variant` errors since `ureq::Error` is massive.
-    #[error("Download error: {0}")]
-    RequestError(Box<ureq::Error>),
-
-    #[error("Could not create file: {0}")]
-    CouldNotCreateDestinationFile(std::io::Error),
-
-    #[error("Could not write file: {0}")]
-    CouldNotWriteDestinationFile(std::io::Error),
 }
 
 #[cfg(test)]

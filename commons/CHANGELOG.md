@@ -7,5 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Breaking: `fun_run::CmdError` variants now use `NamedOutput` instead of `(String, Output)`
 - Breaking: `build_output::section::Section::say` changed to `build_output::section::Section::step`
 - Breaking: functions returning `Result<Output, fun_run::CmdError>` now return `Result<fun_run::NamedOutput, fun_run::CmdError>`

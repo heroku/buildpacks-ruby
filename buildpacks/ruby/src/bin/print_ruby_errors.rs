@@ -1,6 +1,6 @@
 use commons::{
     cache::CacheError,
-    fun_run::{CmdError, CmdErrorDiagnostics, ErrorDiagnostics},
+    fun_run::{CmdError, CmdErrorDiagnostics, ErrorDiagnostics, NamedOutput},
     metadata_digest::DigestError,
 };
 use heroku_ruby_buildpack::user_errors::{log_ruby_error, RubyBuildpackError, RubyInstallError};
@@ -163,14 +163,14 @@ fn fake_stream_command_error(name: impl AsRef<str>, error: impl AsRef<str>) -> C
     let error = error.as_ref().to_string().into_bytes();
 
     let status = ExitStatus::from_raw(1);
-    CmdError::NonZeroExitAlreadyStreamed(
+    CmdError::NonZeroExitAlreadyStreamed(NamedOutput {
         name,
-        Output {
+        output: Output {
             status,
             stdout: Vec::new(),
             stderr: error,
         },
-    )
+    })
 }
 
 fn fake_nonzero_command_error(name: impl AsRef<str>, error: impl AsRef<str>) -> CmdError {
@@ -178,14 +178,14 @@ fn fake_nonzero_command_error(name: impl AsRef<str>, error: impl AsRef<str>) -> 
     let error = error.as_ref().to_string().into_bytes();
 
     let status = ExitStatus::from_raw(1);
-    CmdError::NonZeroExitNotStreamed(
+    CmdError::NonZeroExitNotStreamed(NamedOutput {
         name,
-        Output {
+        output: Output {
             status,
             stdout: Vec::new(),
             stderr: error,
         },
-    )
+    })
 }
 
 fn fake_stdio_command_error(name: impl AsRef<str>, error: impl AsRef<str>) -> CmdError {

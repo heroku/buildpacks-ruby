@@ -780,7 +780,8 @@ pub mod attn {
                     parts.push(fmt::step("system error"));
                     parts.push(fmt::cmd_output_format(error.to_string()));
                 }
-                CmdError::NonZeroExitNotStreamed(_, output) => {
+                CmdError::NonZeroExitNotStreamed(named) => {
+                    let output = named.output;
                     let stdout = String::from_utf8_lossy(&output.stdout);
                     let stderr = String::from_utf8_lossy(&output.stderr);
                     parts.push(fmt::step(format!(
@@ -803,7 +804,8 @@ pub mod attn {
                     }
                 }
 
-                CmdError::NonZeroExitAlreadyStreamed(_, output) => {
+                CmdError::NonZeroExitAlreadyStreamed(named) => {
+                    let output = named.output;
                     parts.push(fmt::step(format!(
                         "exit status: {}",
                         output.status.code().unwrap_or(1)

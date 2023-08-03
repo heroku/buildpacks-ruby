@@ -185,9 +185,7 @@ pub fn map_which_problem(
         CmdError::SystemError(name, error) => {
             CmdError::SystemError(name, annotate_which_problem(error, cmd, path_env))
         }
-        CmdError::NonZeroExitNotStreamed(_, _) | CmdError::NonZeroExitAlreadyStreamed(_, _) => {
-            error
-        }
+        CmdError::NonZeroExitNotStreamed(_) | CmdError::NonZeroExitAlreadyStreamed(_) => error,
     }
 }
 
@@ -245,11 +243,11 @@ pub enum CmdError {
     #[error("Could not run command command {0:?}. Details: {1}")]
     SystemError(String, std::io::Error),
 
-    #[error("Command failed: {0:?}\nexit status: {}\nstdout: {}\nstderr: {}", .1.status.code().unwrap_or_else(|| 1),  display_out_or_empty(&.1.stdout), display_out_or_empty(&.1.stderr))]
-    NonZeroExitNotStreamed(String, Output),
+    #[error("Command failed: {0:?}\nexit status: {}\nstdout: {}\nstderr: {}", .0.output.status.code().unwrap_or_else(|| 1),  display_out_or_empty(&.0.output.stdout), display_out_or_empty(&.0.output.stderr))]
+    NonZeroExitNotStreamed(NamedOutput),
 
-    #[error("Command failed: {0:?}\nexit status: {}\nstdout: <see above>\nstderr: <see above>", .1.status.code().unwrap_or_else(|| 1))]
-    NonZeroExitAlreadyStreamed(String, Output),
+    #[error("Command failed: {0:?}\nexit status: {}\nstdout: <see above>\nstderr: <see above>", .0.output.status.code().unwrap_or_else(|| 1))]
+    NonZeroExitAlreadyStreamed(NamedOutput),
 }
 
 impl CmdError {
@@ -273,9 +271,10 @@ impl CmdError {
     #[must_use]
     pub fn name(&self) -> std::borrow::Cow<'_, str> {
         match self {
-            CmdError::SystemError(name, _)
-            | CmdError::NonZeroExitNotStreamed(name, _)
-            | CmdError::NonZeroExitAlreadyStreamed(name, _) => name.as_str().into(),
+            CmdError::SystemError(name, _) => name.into(),
+            CmdError::NonZeroExitNotStreamed(out) | CmdError::NonZeroExitAlreadyStreamed(out) => {
+                out.name.as_str().into()
+            }
         }
     }
 }
@@ -286,10 +285,8 @@ impl TryFrom<CmdError> for NamedOutput {
     fn try_from(value: CmdError) -> Result<Self, Self::Error> {
         match value {
             CmdError::SystemError(_, _) => Err(value),
-            CmdError::NonZeroExitNotStreamed(name, output)
-            | CmdError::NonZeroExitAlreadyStreamed(name, output) => {
-                Ok(NamedOutput { name, output })
-            }
+            CmdError::NonZeroExitNotStreamed(named)
+            | CmdError::NonZeroExitAlreadyStreamed(named) => Ok(named),
         }
     }
 }
@@ -328,7 +325,10 @@ pub fn nonzero_streamed(name: String, output: impl Into<Output>) -> Result<Named
     if output.status.success() {
         Ok(NamedOutput { name, output })
     } else {
-        Err(CmdError::NonZeroExitAlreadyStreamed(name, output))
+        Err(CmdError::NonZeroExitAlreadyStreamed(NamedOutput {
+            name,
+            output,
+        }))
     }
 }
 
@@ -347,7 +347,10 @@ pub fn nonzero_captured(name: String, output: impl Into<Output>) -> Result<Named
     if output.status.success() {
         Ok(NamedOutput { name, output })
     } else {
-        Err(CmdError::NonZeroExitNotStreamed(name, output))
+        Err(CmdError::NonZeroExitNotStreamed(NamedOutput {
+            name,
+            output,
+        }))
     }
 }
 

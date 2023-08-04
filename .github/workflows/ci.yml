@@ -101,6 +101,8 @@ jobs:
         run: rustup target add x86_64-unknown-linux-musl
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.5.1
+      - name: Build binary
+        run: cargo build --bin print_ruby_errors
       - name: "PRINT: Error output"
         run: | # Use `script -e -c` to pretend to be a TTY for pack terminal color support
           script -e -c "cargo run --bin print_ruby_errors"

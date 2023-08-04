@@ -480,6 +480,10 @@ mod section {
 }
 
 pub mod fmt {
+    use std::process::Output;
+
+    use crate::fun_run::{CmdError, NamedOutput};
+
     pub(crate) const RED: &str = "\x1B[0;31m";
     pub(crate) const YELLOW: &str = "\x1B[0;33m";
     pub(crate) const CYAN: &str = "\x1B[0;36m";
@@ -577,7 +581,7 @@ pub mod fmt {
             .as_ref()
             .split('\n')
             .map(|part| {
-                let tmp = cmd_stream_format(part.into());
+                let tmp: Vec<u8> = cmd_stream_format(part.into());
                 String::from_utf8_lossy(&tmp).into_owned()
             })
             .collect::<Vec<_>>()
@@ -591,6 +595,108 @@ pub mod fmt {
     pub(crate) fn help(contents: impl AsRef<str>) -> String {
         let contents = contents.as_ref();
         colorize(IMPORTANT_COLOR, bangify(format!("Help: {contents}")))
+    }
+
+    #[must_use]
+    pub fn cmd_diagnostics(diagnostics: &Vec<Result<NamedOutput, CmdError>>) -> String {
+        let mut parts = Vec::new();
+        if !diagnostics.is_empty() {
+            parts.push(section("System diagnostic information"));
+        }
+
+        for diagnostic in diagnostics {
+            let name = command(match diagnostic {
+                Ok(output) => output.name.clone(),
+                Err(error) => error.name().to_string(),
+            });
+
+            let status = value(
+                match diagnostic {
+                    Ok(output) => output.status().code().unwrap_or(1),
+                    Err(_) => 1,
+                }
+                .to_string(),
+            );
+
+            let details = details(format!("exit status {status}"));
+            parts.push(step(colorize(
+                IMPORTANT_COLOR,
+                bangify(format!("Diagnostic command {name} {details}")),
+            )));
+
+            match diagnostic {
+                Ok(named_output) => parts.push(output_stdout_stderr_as_steps(&named_output.output)),
+                Err(e) => match e {
+                    CmdError::SystemError(_, e) => parts.push(e.to_string()),
+                    CmdError::NonZeroExitNotStreamed(o)
+                    | CmdError::NonZeroExitAlreadyStreamed(o) => {
+                        parts.push(output_stdout_stderr_as_steps(&o.output));
+                    }
+                },
+            }
+        }
+
+        parts.join("\n")
+    }
+
+    fn output_stdout_stderr_as_steps(output: &Output) -> String {
+        let mut parts = Vec::new();
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
+        if stdout.trim().is_empty() {
+            parts.push(step("stdout: <empty>"));
+        } else {
+            parts.push(step("stdout:"));
+            parts.push(cmd_output_format(stdout));
+        }
+
+        if stderr.trim().is_empty() {
+            parts.push(step("stderr: <empty>"));
+        } else {
+            parts.push(step("stderr:"));
+            parts.push(cmd_output_format(stderr));
+        }
+        parts.join("\n")
+    }
+
+    fn exit_status(output: &Output) -> String {
+        format!(
+            "exit status: {}",
+            value(output.status.code().unwrap_or(1).to_string())
+        )
+    }
+
+    #[must_use]
+    pub fn cmd_error(error: &CmdError) -> String {
+        let name = command(error.name());
+        let section = section(colorize(
+            ERROR_COLOR,
+            bangify(format!(
+                "Command failed {name} {}",
+                details("details below")
+            )),
+        ));
+
+        let mut parts = vec![section];
+        match error {
+            CmdError::SystemError(_, error) => {
+                parts.push(step("System error:"));
+                parts.push(cmd_output_format(error.to_string()));
+            }
+            CmdError::NonZeroExitNotStreamed(named_output) => {
+                parts.push(step(exit_status(&named_output.output)));
+                parts.push(output_stdout_stderr_as_steps(&named_output.output));
+            }
+            CmdError::NonZeroExitAlreadyStreamed(named_output) => {
+                parts.push(step(exit_status(&named_output.output)));
+
+                parts.push(step("stdout: <streamed above>"));
+                parts.push(step("stderr: <streamed above>"));
+            }
+        }
+
+        parts.join("\n")
     }
 
     /// Helper method that adds a bang i.e. `!` before strings
@@ -706,7 +812,6 @@ pub mod fmt {
 pub mod attn {
     use super::fmt::{ERROR_COLOR, IMPORTANT_COLOR, WARNING_COLOR};
     use crate::build_output::fmt::{self, bangify, colorize};
-    use crate::fun_run::CmdError;
     use itertools::Itertools;
     use std::fmt::Display;
 
@@ -735,16 +840,12 @@ pub mod attn {
     #[derive(Debug, PartialEq, Clone)]
     pub enum Detail {
         Raw(String),
-        Debug(String),
-        Label { label: String, details: String },
     }
 
     impl Display for Detail {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
                 Detail::Raw(details) => write!(f, "{details}"),
-                Detail::Debug(details) => writeln!(f, "Debug information:\n\n{details}"),
-                Detail::Label { label, details } => writeln!(f, "{label}:\n\n{details}"),
             }
         }
     }
@@ -767,57 +868,6 @@ pub mod attn {
         Body(Body),
         Url(Url),
         Detail(Detail),
-    }
-
-    /// Hacky, don't love it, but it works for now
-    impl From<CmdError> for Detail {
-        fn from(value: CmdError) -> Self {
-            let name = fmt::command(value.name());
-
-            let mut parts = vec![fmt::section(format!("Command failed: {name}"))];
-            match value {
-                CmdError::SystemError(_, error) => {
-                    parts.push(fmt::step("system error"));
-                    parts.push(fmt::cmd_output_format(error.to_string()));
-                }
-                CmdError::NonZeroExitNotStreamed(named) => {
-                    let output = named.output;
-                    let stdout = String::from_utf8_lossy(&output.stdout);
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    parts.push(fmt::step(format!(
-                        "exit status: {}",
-                        output.status.code().unwrap_or(1)
-                    )));
-
-                    if stdout.trim().is_empty() {
-                        parts.push(fmt::step("stdout: <empty>"));
-                    } else {
-                        parts.push(fmt::step("stdout:"));
-                        parts.push(fmt::cmd_output_format(stdout));
-                    }
-
-                    if stderr.trim().is_empty() {
-                        parts.push(fmt::step("stderr: <empty>"));
-                    } else {
-                        parts.push(fmt::step("stderr:"));
-                        parts.push(fmt::cmd_output_format(stderr));
-                    }
-                }
-
-                CmdError::NonZeroExitAlreadyStreamed(named) => {
-                    let output = named.output;
-                    parts.push(fmt::step(format!(
-                        "exit status: {}",
-                        output.status.code().unwrap_or(1)
-                    )));
-
-                    parts.push(fmt::step("stdout: <see above>"));
-                    parts.push(fmt::step("stderr: <see above>"));
-                }
-            }
-
-            Detail::Raw(parts.join("\n"))
-        }
     }
 
     impl Display for Part {
@@ -925,12 +975,6 @@ pub mod attn {
             self
         }
 
-        pub fn debug_details(&mut self, detail: &impl ToString) -> &mut Self {
-            self.inner
-                .push(Part::Detail(Detail::Debug(detail.to_string())));
-            self
-        }
-
         pub fn print(&mut self) {
             println!();
             println!("{self}");
@@ -940,6 +984,7 @@ pub mod attn {
     #[cfg(test)]
     mod test {
         use super::*;
+        use crate::build_output::attn;
         use crate::build_output::fmt::strip_control_codes;
         use crate::fun_run::{self, CmdMapExt, NamedOutput, ResultNameExt};
         use indoc::formatdoc;
@@ -957,8 +1002,10 @@ pub mod attn {
                 .url(Url::MoreInfo(
                     "https://devcenter.heroku.com/articles/ruby-support#ruby-versions".to_string(),
                 ))
-                .debug_details(
-                &"Could not create file: You do not have sufficient permissions to access this file: /path/to/file".to_string()
+                .detail(
+                    Detail::Raw(formatdoc!{"
+                        Could not create file: You do not have sufficient permissions to access this file: /path/to/file
+                    "})
                 )
                 .to_string();
 
@@ -970,8 +1017,6 @@ pub mod attn {
                 !
                 ! For more information, refer to the following documentation:
                 ! https://devcenter.heroku.com/articles/ruby-support#ruby-versions
-
-                Debug information:
 
                 Could not create file: You do not have sufficient permissions to access this file: /path/to/file
             "};
@@ -992,10 +1037,10 @@ pub mod attn {
             match result {
                 Ok(out) => panic!("Command should have failed {out:?}"),
                 Err(error) => {
-                    let actual: Detail = error.into();
+                    let error_detail = attn::Detail::Raw(fmt::cmd_error(&error));
                     let expected = formatdoc! {"
-                        - Command failed: `cat does_not_exist`
-                          - exit status: 1
+                        - ! Command failed `cat does_not_exist` (details below)
+                          - exit status: `1`
                           - stdout: <empty>
                           - stderr:
 
@@ -1003,13 +1048,13 @@ pub mod attn {
                         "};
                     assert_eq!(
                         expected.trim(),
-                        strip_control_codes(actual.clone().to_string().trim())
+                        strip_control_codes(error_detail.clone().to_string().trim())
                     );
 
                     let actual = Announcement::error()
                         .header("Failed to compile assets")
                         .body("oops")
-                        .detail(actual)
+                        .detail(error_detail)
                         .to_string();
 
                     let expected = formatdoc! {"
@@ -1017,8 +1062,8 @@ pub mod attn {
                         !
                         ! oops
 
-                        - Command failed: `cat does_not_exist`
-                          - exit status: 1
+                        - ! Command failed `cat does_not_exist` (details below)
+                          - exit status: `1`
                           - stdout: <empty>
                           - stderr:
 
@@ -1055,6 +1100,7 @@ mod print {
     ///
     /// Solution: Save the separator now, write it to a
     #[derive(Default)]
+    #[allow(clippy::module_name_repetitions)]
     pub struct PrintControl {
         separator: Option<String>,
         on_drop_print: Option<String>,

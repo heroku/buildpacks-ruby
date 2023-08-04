@@ -36,7 +36,7 @@ impl GemList {
                     .run_and_insert(Command::new("bundle").arg("env").env_clear().envs(env))
                     .run_and_insert(Command::new("gem").arg("env").env_clear().envs(env))
             })
-            .and_then(|named| GemList::from_str(&String::from_utf8_lossy(&named.output.stdout)))
+            .and_then(|output| GemList::from_str(&output.stdout_lossy()))
     }
 
     #[must_use]

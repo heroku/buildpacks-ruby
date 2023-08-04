@@ -2,7 +2,8 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::fmt::{Debug, Display};
-use std::process::{Command, Output};
+use std::os::unix::prelude::ExitStatusExt;
+use std::process::{Command, ExitStatus, Output};
 use which_problem::Which;
 
 #[cfg(test)]
@@ -279,14 +280,19 @@ impl CmdError {
     }
 }
 
-impl TryFrom<CmdError> for NamedOutput {
-    type Error = CmdError;
-
-    fn try_from(value: CmdError) -> Result<Self, Self::Error> {
+impl From<CmdError> for NamedOutput {
+    fn from(value: CmdError) -> Self {
         match value {
-            CmdError::SystemError(_, _) => Err(value),
+            CmdError::SystemError(name, error) => NamedOutput {
+                name,
+                output: Output {
+                    status: ExitStatus::from_raw(error.raw_os_error().unwrap_or(-1)),
+                    stdout: Vec::new(),
+                    stderr: error.to_string().into_bytes(),
+                },
+            },
             CmdError::NonZeroExitNotStreamed(named)
-            | CmdError::NonZeroExitAlreadyStreamed(named) => Ok(named),
+            | CmdError::NonZeroExitAlreadyStreamed(named) => named,
         }
     }
 }
@@ -403,6 +409,27 @@ impl NamedOutput {
     pub fn nonzero_streamed(self) -> Result<NamedOutput, CmdError> {
         nonzero_streamed(self.name, self.output)
     }
+
+    #[must_use]
+    pub fn status(&self) -> &ExitStatus {
+        &self.output.status
+    }
+
+    #[must_use]
+    pub fn stdout_lossy(&self) -> String {
+        String::from_utf8_lossy(&self.output.stdout).to_string()
+    }
+
+    #[must_use]
+    pub fn stderr_lossy(&self) -> String {
+        String::from_utf8_lossy(&self.output.stderr).to_string()
+    }
+}
+
+impl AsRef<Output> for NamedOutput {
+    fn as_ref(&self) -> &Output {
+        &self.output
+    }
 }
 
 impl From<NamedOutput> for Output {
@@ -479,10 +506,9 @@ impl<E: Display + Debug> Display for ErrorDiagnostics<E> {
             match &diagnostic {
                 Ok(named) => {
                     let name = &named.name;
-                    let output = &named.output;
-                    let status = output.status;
-                    let stdout = String::from_utf8_lossy(&output.stdout);
-                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let status = named.status();
+                    let stdout = named.stdout_lossy();
+                    let stderr = named.stderr_lossy();
 
                     writeln!(
                         f,

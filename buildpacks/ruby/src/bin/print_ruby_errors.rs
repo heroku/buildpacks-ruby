@@ -7,7 +7,7 @@ use heroku_ruby_buildpack::user_errors::{log_ruby_error, RubyBuildpackError, Rub
 use indoc::formatdoc;
 use std::{
     os::unix::process::ExitStatusExt,
-    process::{ExitStatus, Output},
+    process::{Command, ExitStatus, Output},
 };
 use tempfile::tempdir;
 
@@ -89,15 +89,18 @@ fn cannot_read_file() -> std::io::Error {
     let path = dir.path().join("Gemfile.lock");
     let result = fs_err::read(&path);
 
-    let error = match result {
+    match result {
         Ok(_) => panic!("{} should not exist", path.display()),
         Err(e) => e,
-    };
-    error
+    }
 }
 
 fn missing_gemfile() -> ErrorDiagnostics<std::io::Error> {
-    ErrorDiagnostics::new(cannot_read_file())
+    let tmp = tempdir().unwrap();
+    let path = tmp.path().join("hello.txt").to_string_lossy().to_string();
+    std::fs::write(&path, "hello").unwrap();
+
+    ErrorDiagnostics::new(cannot_read_file()).run_and_insert(Command::new("ls").args(["la", &path]))
 }
 
 fn ruby_install_error() -> RubyInstallError {
@@ -116,7 +119,7 @@ fn ruby_install_error() -> RubyInstallError {
 
 fn bundle_list_error() -> CmdErrorDiagnostics {
     let error = fake_stdio_command_error("bundle list", "bash: command not found: bundle");
-    CmdErrorDiagnostics::new(error)
+    CmdErrorDiagnostics::new(error).run_and_insert(Command::new("gem").arg("env"))
 }
 
 fn rake_dash_p_error() -> CmdError {

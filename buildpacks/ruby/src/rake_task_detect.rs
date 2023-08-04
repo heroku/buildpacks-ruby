@@ -31,11 +31,11 @@ impl RakeDetect {
                         if error_on_failure {
                             Err(error)
                         } else {
-                            TryInto::<NamedOutput>::try_into(error)
+                            Ok(Into::<NamedOutput>::into(error))
                         }
                     })
             })
-            .and_then(|named| RakeDetect::from_str(&String::from_utf8_lossy(&named.output.stdout)))
+            .and_then(|output| RakeDetect::from_str(&output.stdout_lossy()))
     }
 
     #[must_use]

@@ -265,7 +265,7 @@ mod section {
         /// Emit contents to the buid output with indentation
         pub fn step(&self, contents: impl AsRef<str>) -> PrintControl {
             PrintControl::new()
-                .print_inline(contents)
+                .print_inline(fmt::step(contents))
                 .with_separator(" ")
                 .on_drop_print("\n")
         }

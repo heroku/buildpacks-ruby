@@ -477,6 +477,30 @@ mod section {
         Silent,
         InlineProgress,
     }
+
+    #[cfg(test)]
+    mod test {
+        use crate::build_output::{self, fmt::strip_control_codes, print::LOGGER};
+        use indoc::formatdoc;
+
+        #[test]
+        fn high_level_api() {
+            let steps = build_output::section("Hello world");
+            steps.step("I am an integration test");
+            let mut timer = steps.step_with_inline_timer("Installing");
+            timer.done();
+            steps.step("And I think that's just neat");
+
+            let expected = formatdoc! {"
+              - I am an integration test
+                - Installing ... (< 0.1s)
+                - And I think that's just neat
+            "};
+            let actual = strip_control_codes(LOGGER.contents().unwrap());
+
+            assert_eq!(expected.trim(), actual.trim());
+        }
+    }
 }
 
 pub mod fmt {
@@ -1078,7 +1102,8 @@ pub mod attn {
 }
 
 mod print {
-    use std::io::Write;
+    use lazy_static::lazy_static;
+    use std::sync::{Arc, Mutex};
 
     /// Allows for the caller to control printing beahvior
     ///
@@ -1141,11 +1166,8 @@ mod print {
             self
         }
 
-        // Helper for printing without newlines that auto-flushes stdout
         fn inline_print_flush(contents: impl AsRef<str>) {
-            let contents = contents.as_ref();
-            print!("{contents}");
-            std::io::stdout().flush().expect("Stdout is writable");
+            LOGGER.print(contents);
         }
     }
 
@@ -1153,6 +1175,50 @@ mod print {
         fn drop(&mut self) {
             if let Some(contents) = &self.on_drop_print {
                 PrintControl::inline_print_flush(contents);
+            }
+        }
+    }
+
+    #[cfg(test)]
+    lazy_static! {
+        pub(crate) static ref LOGGER: Logger =
+            Logger::PrintAndStore(Arc::new(Mutex::new(String::new())));
+    }
+    #[cfg(not(test))]
+    lazy_static! {
+        pub(crate) static ref LOGGER: Logger = Logger::PrintOnly;
+    }
+
+    /// Used for capturing output in test mode
+    #[allow(dead_code)]
+    pub(crate) enum Logger {
+        PrintAndStore(Arc<Mutex<String>>),
+        PrintOnly,
+    }
+
+    impl Logger {
+        /// Always print, sometimes capture
+        pub(crate) fn print(&self, s: impl AsRef<str>) {
+            let s = s.as_ref();
+            print!("{s}");
+
+            match self {
+                Logger::PrintAndStore(log) => {
+                    let mut contents = log.lock().unwrap();
+                    contents.push_str(s);
+                }
+                Logger::PrintOnly => {}
+            }
+        }
+
+        #[cfg(test)]
+        pub(crate) fn contents(&self) -> Option<String> {
+            match self {
+                Logger::PrintAndStore(log) => {
+                    let contents = log.lock().unwrap();
+                    Some(contents.clone())
+                }
+                Logger::PrintOnly => None,
             }
         }
     }

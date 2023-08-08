@@ -71,6 +71,7 @@ mod time {
     use std::time::Instant;
 
     /// Time the entire buildpack execution
+    #[derive(Debug)]
     pub struct BuildpackDuration {
         pub(crate) start: Instant,
     }
@@ -107,6 +108,7 @@ mod time {
     ///
     /// In this example the dashes roughly equate to seconds.
     /// The moving output in the build indicates we're waiting for something
+    #[derive(Debug)]
     pub struct LiveTimingInline {
         start: Instant,
         stop_dots: std::sync::mpsc::Sender<usize>,
@@ -122,17 +124,28 @@ mod time {
     impl LiveTimingInline {
         #[must_use]
         pub fn new() -> Self {
+            let parent_thread_id = std::thread::current().id();
             let (stop_dots, receiver) = std::sync::mpsc::channel();
 
             let join_dots = thread::spawn(move || {
-                PrintControl::new().print_inline(fmt::colorize(fmt::DEFAULT_DIM, " ."));
+                let print_control = {
+                    let mut pctl = PrintControl::new();
+                    pctl.thread_id = parent_thread_id;
+                    pctl
+                };
+                print_control
+                    .clone() // Annoying, avoid move error
+                    .print_inline(fmt::colorize(fmt::DEFAULT_DIM, " ."));
 
                 loop {
                     let msg = receiver.recv_timeout(Duration::from_secs(1));
 
-                    PrintControl::new().print_inline(fmt::colorize(fmt::DEFAULT_DIM, "."));
+                    print_control
+                        .clone()
+                        .print_inline(fmt::colorize(fmt::DEFAULT_DIM, "."));
+
                     if msg.is_ok() {
-                        PrintControl::new().print_inline(fmt::colorize(fmt::DEFAULT_DIM, ". "));
+                        print_control.print_inline(fmt::colorize(fmt::DEFAULT_DIM, ". "));
                         break;
                     }
                 }
@@ -406,6 +419,7 @@ mod section {
     }
 
     /// Specify how you want a command to be run by `Section::run`
+    #[derive(Debug)]
     pub struct RunCommand<'a> {
         command: &'a mut Command,
         name: String,
@@ -471,6 +485,7 @@ mod section {
         }
     }
 
+    #[derive(Debug)]
     enum OutputConfig {
         Stream,
         StreamNoTiming,
@@ -496,7 +511,8 @@ mod section {
                 - Installing ... (< 0.1s)
                 - And I think that's just neat
             "};
-            let actual = strip_control_codes(LOGGER.contents().unwrap());
+            let actual =
+                strip_control_codes(LOGGER.contents(&std::thread::current().id()).unwrap());
 
             assert_eq!(expected.trim(), actual.trim());
         }
@@ -905,6 +921,7 @@ pub mod attn {
     }
 
     /// Build the contents of an Announcement
+    #[derive(Debug)]
     pub struct Announcement {
         name: String,
         color: String,
@@ -1103,7 +1120,11 @@ pub mod attn {
 
 mod print {
     use lazy_static::lazy_static;
-    use std::sync::{Arc, Mutex};
+    use std::{
+        collections::HashMap,
+        sync::{Arc, Mutex},
+        thread::ThreadId,
+    };
 
     /// Allows for the caller to control printing beahvior
     ///
@@ -1124,16 +1145,21 @@ mod print {
     /// done printing and want a newline.
     ///
     /// Solution: Save the separator now, write it to a
-    #[derive(Default)]
     #[allow(clippy::module_name_repetitions)]
+    #[derive(Debug, Clone)]
     pub struct PrintControl {
+        pub(crate) thread_id: ThreadId,
         separator: Option<String>,
         on_drop_print: Option<String>,
     }
 
     impl PrintControl {
         pub fn new() -> Self {
-            Self::default()
+            PrintControl {
+                thread_id: std::thread::current().id(),
+                separator: None,
+                on_drop_print: None,
+            }
         }
 
         pub fn with_separator(mut self, separator: impl AsRef<str>) -> Self {
@@ -1160,65 +1186,78 @@ mod print {
 
         fn print_with_last_separator(&self, contents: impl AsRef<str>) -> &Self {
             if let Some(sep) = &self.separator {
-                Self::inline_print_flush(sep);
+                self.inline_print_flush(sep);
             }
-            Self::inline_print_flush(contents);
+            self.inline_print_flush(contents);
             self
         }
 
-        fn inline_print_flush(contents: impl AsRef<str>) {
-            LOGGER.print(contents);
+        fn inline_print_flush(&self, contents: impl AsRef<str>) {
+            LOGGER.print(self.thread_id, contents);
+        }
+    }
+
+    impl Default for PrintControl {
+        fn default() -> Self {
+            Self::new()
         }
     }
 
     impl Drop for PrintControl {
         fn drop(&mut self) {
             if let Some(contents) = &self.on_drop_print {
-                PrintControl::inline_print_flush(contents);
+                self.inline_print_flush(contents);
             }
         }
     }
 
     #[cfg(test)]
     lazy_static! {
-        pub(crate) static ref LOGGER: Logger =
-            Logger::PrintAndStore(Arc::new(Mutex::new(String::new())));
+        pub(crate) static ref LOGGER: ThreadCaptureLogger =
+            ThreadCaptureLogger::PrintAndStore(Arc::new(Mutex::new(HashMap::new())));
     }
     #[cfg(not(test))]
     lazy_static! {
-        pub(crate) static ref LOGGER: Logger = Logger::PrintOnly;
+        pub(crate) static ref LOGGER: ThreadCaptureLogger = ThreadCaptureLogger::PrintOnly;
     }
 
     /// Used for capturing output in test mode
     #[allow(dead_code)]
-    pub(crate) enum Logger {
-        PrintAndStore(Arc<Mutex<String>>),
+    pub(crate) enum ThreadCaptureLogger {
+        PrintAndStore(Arc<Mutex<HashMap<ThreadId, String>>>),
         PrintOnly,
     }
 
-    impl Logger {
-        /// Always print, sometimes capture
-        pub(crate) fn print(&self, s: impl AsRef<str>) {
-            let s = s.as_ref();
-            print!("{s}");
+    impl ThreadCaptureLogger {
+        pub(crate) fn print(&self, key: ThreadId, contents: impl AsRef<str>) {
+            let contents = contents.as_ref();
+            print!("{contents}");
 
             match self {
-                Logger::PrintAndStore(log) => {
-                    let mut contents = log.lock().unwrap();
-                    contents.push_str(s);
+                ThreadCaptureLogger::PrintAndStore(log) => {
+                    let mut hash = log.lock().unwrap();
+                    if let Some(stored) = hash.get_mut(&key) {
+                        stored.push_str(contents);
+                    } else {
+                        hash.insert(key, contents.to_string());
+                    }
                 }
-                Logger::PrintOnly => {}
+                ThreadCaptureLogger::PrintOnly => {}
             }
         }
 
         #[cfg(test)]
-        pub(crate) fn contents(&self) -> Option<String> {
+        pub(crate) fn contents(&self, key: &ThreadId) -> Option<String> {
             match self {
-                Logger::PrintAndStore(log) => {
-                    let contents = log.lock().unwrap();
-                    Some(contents.clone())
+                ThreadCaptureLogger::PrintAndStore(log) => {
+                    let hash = log.lock().unwrap();
+                    if let Some(contents) = hash.get(key) {
+                        Some(contents.clone())
+                    } else {
+                        Some(String::new())
+                    }
                 }
-                Logger::PrintOnly => None,
+                ThreadCaptureLogger::PrintOnly => None,
             }
         }
     }

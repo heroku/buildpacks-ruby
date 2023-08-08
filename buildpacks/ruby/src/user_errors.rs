@@ -53,7 +53,7 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
     match cause(err) {
         Cause::OurError(error) => log_ruby_error(error),
         Cause::FrameworkError(error) => Announcement::error()
-            .detail(attn::Detail::Raw(error.to_string()))
+            .raw(&error)
             .header(
                 "heroku/buildpack-ruby internal buildpack error"
             ).body(formatdoc! {"
@@ -84,9 +84,7 @@ pub fn log_ruby_error(error: RubyBuildpackError) {
         RubyBuildpackError::CannotDetectRakeTasks(error) => {
             let local_debug_cmd = local_command_debug(&error);
             Announcement::error()
-                .detail({
-                    attn::Detail::Raw(build_output::fmt::cmd_error(&error))
-                })
+                .raw(&build_output::fmt::cmd_error(&error))
                 .header(
                     "Error detecting rake tasks"
                 )
@@ -101,15 +99,11 @@ pub fn log_ruby_error(error: RubyBuildpackError) {
                 .print();
         },
         RubyBuildpackError::BundleListError(error_diagnostics) => Announcement::error()
-            .detail({
-                attn::Detail::Raw(
-                    build_output::fmt::cmd_error(&error_diagnostics.error)
-                )
-            })
-            .detail({
-                attn::Detail::Raw(
-                    build_output::fmt::cmd_diagnostics(&error_diagnostics.diagnostics)
-                )
+            .raw(
+                &build_output::fmt::cmd_error(&error_diagnostics.error)
+            )
+            .raw({
+                &build_output::fmt::cmd_diagnostics(&error_diagnostics.diagnostics)
             })
             .header(
                 "Error detecting dependencies"
@@ -122,7 +116,7 @@ pub fn log_ruby_error(error: RubyBuildpackError) {
             "})
             .print(),
         RubyBuildpackError::RubyInstallError(error) => Announcement::error()
-            .detail(attn::Detail::Raw(error.to_string()))
+            .raw(&error)
             .header(
                 "Error installing Ruby",
             ).body(formatdoc! {"
@@ -135,13 +129,11 @@ pub fn log_ruby_error(error: RubyBuildpackError) {
             })
             .print(),
         RubyBuildpackError::MissingGemfileLock(io_error_diagnostics) => Announcement::error()
-            .detail({
-                attn::Detail::Raw(io_error_diagnostics.error.to_string())
+            .raw({
+                &io_error_diagnostics.error
             })
-            .detail({
-                attn::Detail::Raw(
-                    build_output::fmt::cmd_diagnostics(&io_error_diagnostics.diagnostics)
-                )
+            .raw({
+                &build_output::fmt::cmd_diagnostics(&io_error_diagnostics.diagnostics)
             })
             .header(
                 "Gemfile.lock` not found"
@@ -158,7 +150,7 @@ pub fn log_ruby_error(error: RubyBuildpackError) {
             ))
             .print(),
         RubyBuildpackError::RakeAssetsCacheError(error) => Announcement::error()
-            .detail(attn::Detail::Raw(error.to_string()))
+            .raw(&error)
             .header(
                 "Error caching frontend assets"
             )
@@ -168,7 +160,7 @@ pub fn log_ruby_error(error: RubyBuildpackError) {
             .body(file_hints)
             .print(),
         RubyBuildpackError::BundleInstallDigestError(error) => Announcement::error()
-            .detail(attn::Detail::Raw(error.to_string()))
+            .raw(&error.to_string())
             .header(
                 "Failed to generate file digest"
             )
@@ -184,9 +176,7 @@ pub fn log_ruby_error(error: RubyBuildpackError) {
             "})
             .print(),
         RubyBuildpackError::BundleInstallCommandError(error) => Announcement::error()
-            .detail({
-                attn::Detail::Raw(build_output::fmt::cmd_error(&error))
-            })
+            .raw(&build_output::fmt::cmd_error(&error))
             .header(
                 "Failed to install bundler"
             )
@@ -199,9 +189,7 @@ pub fn log_ruby_error(error: RubyBuildpackError) {
             let cmd_debug = local_command_debug(&error);
 
             Announcement::error()
-                .detail({
-                    attn::Detail::Raw(build_output::fmt::cmd_error(&error))
-                })
+                .raw(&build_output::fmt::cmd_error(&error))
                 .header("Failed to compile assets")
                     .body(formatdoc! {"
                     An error occured while compiling assets via rake command. Details of the error are
@@ -215,9 +203,7 @@ pub fn log_ruby_error(error: RubyBuildpackError) {
             let cmd_debug = local_command_debug(&error);
 
             Announcement::error()
-                .detail({
-                    attn::Detail::Raw(build_output::fmt::cmd_error(&error))
-                })
+                .raw(&build_output::fmt::cmd_error(&error))
                 .header("Failed to install gems")
                     .body(formatdoc! {"
                     Could not install gems to the system via bundler. Gems are dependencies

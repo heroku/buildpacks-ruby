@@ -878,19 +878,6 @@ pub mod attn {
     }
 
     #[derive(Debug, PartialEq, Clone)]
-    pub enum Detail {
-        Raw(String),
-    }
-
-    impl Display for Detail {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            match self {
-                Detail::Raw(details) => write!(f, "{details}"),
-            }
-        }
-    }
-
-    #[derive(Debug, PartialEq, Clone)]
     pub enum Body {
         Raw(String),
     }
@@ -907,7 +894,7 @@ pub mod attn {
     pub enum Part {
         Body(Body),
         Url(Url),
-        Detail(Detail),
+        Raw(String),
     }
 
     impl Display for Part {
@@ -915,7 +902,7 @@ pub mod attn {
             match self {
                 Part::Body(body) => write!(f, "{body}"),
                 Part::Url(url) => write!(f, "{url}"),
-                Part::Detail(details) => write!(f, "{details}"),
+                Part::Raw(details) => write!(f, "{details}"),
             }
         }
     }
@@ -939,7 +926,7 @@ pub mod attn {
                     // If both last and next lines share a prefix then add a prefix
                     // to the newline separator
                     let sep = match (now, next) {
-                        (Part::Detail(_), _) | (_, Part::Detail(_)) => "\n".to_string(),
+                        (Part::Raw(_), _) | (_, Part::Raw(_)) => "\n".to_string(),
                         _ => colorize(&self.color, bangify("\n")),
                     };
 
@@ -960,7 +947,7 @@ pub mod attn {
             let part = match part {
                 Part::Body(body) => colorize(&self.color, bangify(body.to_string().trim())),
                 Part::Url(url) => colorize(&self.color, bangify(url.to_string().trim())),
-                Part::Detail(details) => details.to_string().trim().to_string(),
+                Part::Raw(details) => details.to_string().trim().to_string(),
             };
             format!("{part}\n")
         }
@@ -1011,8 +998,8 @@ pub mod attn {
 
         /// I don't love having this in here It's technically not part of the announcement
         /// from a philosophical standpoint, however it makes a nice chained API
-        pub fn detail(&mut self, detail: Detail) -> &mut Self {
-            self.inner.push(Part::Detail(detail));
+        pub fn raw(&mut self, raw: &impl ToString) -> &mut Self {
+            self.inner.push(Part::Raw(raw.to_string()));
             self
         }
 
@@ -1025,7 +1012,6 @@ pub mod attn {
     #[cfg(test)]
     mod test {
         use super::*;
-        use crate::build_output::attn;
         use crate::build_output::fmt::strip_control_codes;
         use crate::fun_run::{self, CmdMapExt, NamedOutput, ResultNameExt};
         use indoc::formatdoc;
@@ -1043,10 +1029,10 @@ pub mod attn {
                 .url(Url::MoreInfo(
                     "https://devcenter.heroku.com/articles/ruby-support#ruby-versions".to_string(),
                 ))
-                .detail(
-                    Detail::Raw(formatdoc!{"
+                .raw(
+                    &formatdoc!{"
                         Could not create file: You do not have sufficient permissions to access this file: /path/to/file
-                    "})
+                    "}
                 )
                 .to_string();
 
@@ -1078,7 +1064,7 @@ pub mod attn {
             match result {
                 Ok(out) => panic!("Command should have failed {out:?}"),
                 Err(error) => {
-                    let error_detail = attn::Detail::Raw(fmt::cmd_error(&error));
+                    let error_detail = fmt::cmd_error(&error);
                     let expected = formatdoc! {"
                         - ! Command failed `cat does_not_exist` (details below)
                           - exit status: `1`
@@ -1095,7 +1081,7 @@ pub mod attn {
                     let actual = Announcement::error()
                         .header("Failed to compile assets")
                         .body("oops")
-                        .detail(error_detail)
+                        .raw(&error_detail)
                         .to_string();
 
                     let expected = formatdoc! {"

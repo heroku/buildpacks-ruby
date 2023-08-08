@@ -511,8 +511,7 @@ mod section {
                 - Installing ... (< 0.1s)
                 - And I think that's just neat
             "};
-            let actual =
-                strip_control_codes(LOGGER.contents(&std::thread::current().id()).unwrap());
+            let actual = strip_control_codes(LOGGER.contents(std::thread::current().id()).unwrap());
 
             assert_eq!(expected.trim(), actual.trim());
         }
@@ -1072,10 +1071,7 @@ pub mod attn {
 
                               cat: does_not_exist: No such file or directory
                         "};
-                    assert_eq!(
-                        expected.trim(),
-                        strip_control_codes(error_detail.clone().to_string().trim())
-                    );
+                    assert_eq!(expected.trim(), strip_control_codes(error_detail.trim()));
 
                     let actual = Announcement::error()
                         .header("Failed to compile assets")
@@ -1232,11 +1228,11 @@ mod print {
         }
 
         #[cfg(test)]
-        pub(crate) fn contents(&self, key: &ThreadId) -> Option<String> {
+        pub(crate) fn contents(&self, key: ThreadId) -> Option<String> {
             match self {
                 ThreadCaptureLogger::PrintAndStore(log) => {
                     let hash = log.lock().unwrap();
-                    if let Some(contents) = hash.get(key) {
+                    if let Some(contents) = hash.get(&key) {
                         Some(contents.clone())
                     } else {
                         Some(String::new())

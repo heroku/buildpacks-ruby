@@ -1004,7 +1004,6 @@ pub mod attn {
         }
 
         pub fn print(&mut self) {
-            println!();
             println!("{self}");
         }
     }

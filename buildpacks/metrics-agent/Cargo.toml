@@ -24,3 +24,7 @@ glob = "0.3"
 cached = "0.44.0"
 clap = { version = "4.3.17", features = ["derive"] }
 libherokubuildpack.workspace = true
+
+
+[dev-dependencies]
+libcnb-test = { git = "https://github.com/heroku/libcnb.rs", branch = "libcnb_test_local_and_meta_buildpack_support" }

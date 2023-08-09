@@ -48,7 +48,7 @@ impl Buildpack for MetricsAgentBuildpack {
     }
 
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
-        let build_duration = build_output::buildpack_name("Heroku Statsd Metrics Agent");
+        let build_duration = build_output::buildpack_name("Heroku StatsD Metrics Agent");
 
         let section = build_output::section("Metrics agent");
         context.handle_layer(

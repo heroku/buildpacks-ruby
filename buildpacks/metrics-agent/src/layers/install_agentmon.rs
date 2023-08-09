@@ -160,7 +160,7 @@ fn write_execd(agentmon_path: &Path, layer_path: &Path) -> Result<PathBuf, Downl
     let agentmon_path = agentmon_path.display();
 
     // This script boots and runs agentmon in a loop
-    let background_script = {
+    let agentmon_loop = {
         let script = layer_path.join("agentmon_loop");
 
         // Copy compiled binary from `bin/agentmon_loop.rs` to layer
@@ -175,16 +175,34 @@ fn write_execd(agentmon_path: &Path, layer_path: &Path) -> Result<PathBuf, Downl
     // We use the exec.d to boot a process. This script MUST exit though as otherwise
     // The container would never boot. To handle this we intentionally leak a process
     let execd_script = {
-        let script = layer_path.join("agentmon_exec.d");
+        let execd_script = layer_path.join("agentmon_exec.d");
+        let log_file = layer_path.join("background.log");
+        fs_err::write(&log_file, "")
+            .map_err(DownloadAgentmonError::CouldNotCreateDestinationFile)?;
 
-        let background_script = background_script.display();
+        let log_file = log_file.display();
+        let agentmon_loop = agentmon_loop.display();
         write_bash_script(
-            &script,
-            format!(r#"start-stop-daemon --start --background --exec "{background_script}" -- --path {agentmon_path}"#),
+            &execd_script,
+            format!(r#"
+                if [ -z "$AGENTMON_DEBUG" ]
+                then
+                    start-stop-daemon --start --background \
+                        --exec "{agentmon_loop}" \
+                        --output {log_file} \
+                        -- --path {agentmon_path}
+                else
+                    echo "To enable logging run with AGENTMON_DEBUG=1" >> {log_file}
+
+                    start-stop-daemon --start --background \
+                        --exec "{agentmon_loop}" \
+                        -- --path {agentmon_path}
+                fi
+            "#),
         )
         .map_err(DownloadAgentmonError::CouldNotWriteDestinationFile)?;
 
-        script
+        execd_script
     };
 
     Ok(execd_script)

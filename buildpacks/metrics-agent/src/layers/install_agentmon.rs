@@ -184,7 +184,8 @@ fn write_execd(agentmon_path: &Path, layer_path: &Path) -> Result<PathBuf, Downl
         let agentmon_loop = agentmon_loop.display();
         write_bash_script(
             &execd_script,
-            format!(r#"
+            format!(
+                r#"
                 if [ -z "$AGENTMON_DEBUG" ]
                 then
                     start-stop-daemon --start --background \
@@ -198,7 +199,8 @@ fn write_execd(agentmon_path: &Path, layer_path: &Path) -> Result<PathBuf, Downl
                         --exec "{agentmon_loop}" \
                         -- --path {agentmon_path}
                 fi
-            "#),
+            "#
+            ),
         )
         .map_err(DownloadAgentmonError::CouldNotWriteDestinationFile)?;
 

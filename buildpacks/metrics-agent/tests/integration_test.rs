@@ -1,15 +1,7 @@
 #![warn(clippy::pedantic)]
 
-use indoc::formatdoc;
-use libcnb_test::{
-    assert_contains, assert_empty, BuildConfig, BuildpackReference, ContainerConfig,
-    ContainerContext, TestRunner,
-};
+use libcnb_test::{assert_contains, BuildConfig, BuildpackReference, ContainerConfig, TestRunner};
 use std::path::PathBuf;
-use std::thread;
-use std::time::Duration;
-use thiserror::__private::DisplayAsDisplay;
-use ureq::Response;
 
 #[test]
 #[ignore = "integration test"]

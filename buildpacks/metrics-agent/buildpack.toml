@@ -20,4 +20,4 @@ type = "BSD-3-Clause"
 [metadata]
 [metadata.release]
 [metadata.release.image]
-repository = "docker.io/heroku/statsd-metrics"
+repository = "docker.io/heroku/buildpack-statsd-metrics"

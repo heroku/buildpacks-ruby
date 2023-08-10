@@ -65,23 +65,10 @@ impl Buildpack for MetricsAgentBuildpack {
     }
 }
 
-#[derive(Debug)]
-enum Cause {
-    OurError(MetricsAgentError),
-    FrameworkError(libcnb::Error<MetricsAgentError>),
-}
-
-fn cause(err: libcnb::Error<MetricsAgentError>) -> Cause {
-    match err {
-        libcnb::Error::BuildpackError(err) => Cause::OurError(err),
-        err => Cause::FrameworkError(err),
-    }
-}
-
 pub(crate) fn on_error(err: libcnb::Error<MetricsAgentError>) {
-    match cause(err) {
-        Cause::OurError(error) => log_our_error(error),
-        Cause::FrameworkError(error) => ErrorInfo::header_body_details(
+    match err {
+        libcnb::Error::BuildpackError(error) => log_our_error(error),
+        error => ErrorInfo::header_body_details(
             "heroku/buildpack-ruby internal buildpack error",
             formatdoc! {"
                 An unexpected internal error was reported by the framework used

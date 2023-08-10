@@ -64,7 +64,7 @@ pub use section::{RunCommand, Section};
 ///     .unwrap();
 ///```
 
-mod time {
+pub(crate) mod time {
     use super::{fmt, raw_inline_print};
     use std::thread::{self, JoinHandle};
     use std::time::Duration;
@@ -170,7 +170,7 @@ mod time {
         (duration.as_secs() / 3600) % 60
     }
 
-    pub(crate) fn human(duration: &Duration) -> String {
+    pub fn human(duration: &Duration) -> String {
         let hours = hours(duration);
         let minutes = minutes(duration);
         let seconds = seconds(duration);

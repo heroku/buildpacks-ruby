@@ -252,10 +252,14 @@ pub(crate) fn untar(
 }
 
 /// Sets file permissions on the given path to 7xx (similar to `chmod +x <path>`)
+///
+/// i.e. chmod +x will ensure that the first digit
+/// of the file permission is 7 on unix so if you pass
+/// in 0o455 it would be mutated to 0o755
 pub fn chmod_plus_x(path: &Path) -> Result<(), std::io::Error> {
     let mut perms = fs_err::metadata(path)?.permissions();
     let mut mode = perms.mode();
-    octal_executable_permission(&mut mode);
+    mode |= 0o700;
     perms.set_mode(mode);
 
     fs_err::set_permissions(path, perms)
@@ -268,16 +272,6 @@ fn write_bash_script(path: &Path, script: impl AsRef<str>) -> std::io::Result<()
     chmod_plus_x(path)?;
 
     Ok(())
-}
-
-/// Ensures the provided octal number's executable
-/// bit is enabled.
-///
-/// i.e. chmod +x will ensure that the first digit
-/// of the file permission is 7 on unix so if you pass
-/// in 0o455 it would be mutated to 0o755
-fn octal_executable_permission(mode: &mut u32) {
-    *mode |= 0o700;
 }
 
 pub(crate) fn download(
@@ -309,21 +303,18 @@ mod tests {
         std::fs::write(&file, "lol").unwrap();
 
         let before = file.metadata().unwrap().permissions().mode();
+
+        let foo = before | 0o777;
+
+        dbg!(before);
+        dbg!(foo);
+
         chmod_plus_x(&file).unwrap();
+
         let after = file.metadata().unwrap().permissions().mode();
         assert!(before != after);
-    }
 
-    #[test]
-    fn test_executable_logic() {
-        // Sets executable bit
-        let mut mode = 0o455;
-        octal_executable_permission(&mut mode);
-        assert_eq!(0o755, mode);
-
-        // Does not affect already executable
-        let mut mode = 0o745;
-        octal_executable_permission(&mut mode);
-        assert_eq!(0o745, mode);
+        // Assert executable
+        assert_eq!(after, after | 0o700);
     }
 }

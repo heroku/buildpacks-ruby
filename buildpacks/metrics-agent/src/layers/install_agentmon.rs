@@ -1,6 +1,5 @@
 use crate::build_output;
 use crate::{MetricsAgentBuildpack, MetricsAgentError};
-use cached::proc_macro::cached;
 use flate2::read::GzDecoder;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::ExistingLayerStrategy;
@@ -11,11 +10,22 @@ use libcnb::{
 };
 use serde::{Deserialize, Serialize};
 use std::os::unix::fs::PermissionsExt;
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tar::Archive;
 use tempfile::NamedTempFile;
-use url::Url;
+
+/// Agentmon URL
+///
+/// - Repo: https://github.com/heroku/agentmon
+/// - Releases: https://github.com/heroku/agentmon/releases
+///
+/// To get the latest s3 url:
+///
+/// ```shell
+/// $ curl https://agentmon-releases.s3.amazonaws.com/latest
+/// ```
+const DOWNLOAD_URL: &str =
+    "https://agentmon-releases.s3.amazonaws.com/agentmon-0.3.1-linux-amd64.tar.gz";
 
 #[derive(Debug)]
 pub(crate) struct InstallAgentmon {
@@ -24,28 +34,11 @@ pub(crate) struct InstallAgentmon {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct Metadata {
-    download_url: Option<Url>,
-}
-
-// All cloneable subtypes to make cachable
-#[derive(thiserror::Error, Debug, Clone)]
-pub(crate) enum GetUrlError {
-    #[error("Response successful, but body not in the form of a URL: {0}")]
-    CannotConvertResponseToString(String),
-
-    #[error("Cannot parse url: {0}")]
-    UrlParseError(url::ParseError),
-
-    // Boxed to prevent `large_enum_variant` errors since `ureq::Error` is massive.
-    #[error("Network error while retrieving the url: {0}")]
-    RequestError(String),
+    download_url: Option<String>,
 }
 
 #[derive(thiserror::Error, Debug)]
-pub(crate) enum DownloadAgentmonError {
-    #[error("Could not determine the url of the latest agentmont release.\n{0}")]
-    CannotGetLatestUrl(GetUrlError),
-
+pub(crate) enum InstallAgentmonError {
     #[error("Could not read file permissions {0}")]
     PermissionError(std::io::Error),
 
@@ -86,25 +79,40 @@ impl Layer for InstallAgentmon {
         libcnb::layer::LayerResult<Self::Metadata>,
         <Self::Buildpack as libcnb::Buildpack>::Error,
     > {
-        let destination_dir = layer_path.join("bin");
-        let executable = destination_dir.join("agentmon");
+        let bin_dir = layer_path.join("bin");
 
         let mut timer = self.section.say_with_inline_timer("Downloading");
-
-        let url = get_latest_url()
-            .map_err(DownloadAgentmonError::CannotGetLatestUrl)
-            .map_err(MetricsAgentError::DownloadAgentmonError)?;
-
-        download_to_dir(&destination_dir, &url)
-            .map_err(MetricsAgentError::DownloadAgentmonError)?;
+        let agentmon =
+            agentmon_download(&bin_dir).map_err(MetricsAgentError::InstallAgentmonError)?;
         timer.done();
 
         self.section.say("Writing scripts");
-        let execd = write_execd(&executable, layer_path)
-            .map_err(MetricsAgentError::DownloadAgentmonError)?;
+        let execd = write_execd_script(&agentmon, layer_path)
+            .map_err(MetricsAgentError::InstallAgentmonError)?;
 
         LayerResultBuilder::new(Metadata {
-            download_url: Some(url),
+            download_url: Some(DOWNLOAD_URL.to_string()),
+        })
+        .exec_d_program("spawn-agentmon", execd)
+        .build()
+    }
+
+    fn update(
+        &self,
+        _context: &libcnb::build::BuildContext<Self::Buildpack>,
+        layer_data: &libcnb::layer::LayerData<Self::Metadata>,
+    ) -> Result<
+        libcnb::layer::LayerResult<Self::Metadata>,
+        <Self::Buildpack as libcnb::Buildpack>::Error,
+    > {
+        let layer_path = &layer_data.path;
+
+        self.section.say("Writing scripts");
+        let execd = write_execd_script(&layer_path.join("bin").join("agentmon"), layer_path)
+            .map_err(MetricsAgentError::InstallAgentmonError)?;
+
+        LayerResultBuilder::new(Metadata {
+            download_url: Some(DOWNLOAD_URL.to_string()),
         })
         .exec_d_program("spawn agentmon", execd)
         .build()
@@ -116,25 +124,19 @@ impl Layer for InstallAgentmon {
         layer_data: &libcnb::layer::LayerData<Self::Metadata>,
     ) -> Result<libcnb::layer::ExistingLayerStrategy, <Self::Buildpack as libcnb::Buildpack>::Error>
     {
-        if let Some(old_url) = &layer_data.content_metadata.metadata.download_url {
-            let url = get_latest_url()
-                .map_err(DownloadAgentmonError::CannotGetLatestUrl)
-                .map_err(MetricsAgentError::DownloadAgentmonError)?;
-
-            if old_url == &url {
-                self.section.say("Using cache");
-                Ok(ExistingLayerStrategy::Keep)
-            } else {
-                let url = build_output::fmt::value(url);
-                self.section
-                    .say_with_details("Clearing cache", format!("Updated url {url}"));
+        match &layer_data.content_metadata.metadata.download_url {
+            Some(url) if url == DOWNLOAD_URL => {
+                self.section.say("Using cached metrics agent");
+                Ok(ExistingLayerStrategy::Update)
+            }
+            Some(url) => {
+                self.section.say_with_details(
+                    "Updating metrics agent",
+                    format!("{} to {}", url, DOWNLOAD_URL),
+                );
                 Ok(ExistingLayerStrategy::Recreate)
             }
-        } else {
-            self.section
-                .say_with_details("Clearing cache", "No url found in metadata");
-
-            Ok(ExistingLayerStrategy::Recreate)
+            None => Ok(ExistingLayerStrategy::Recreate),
         }
     }
 
@@ -153,84 +155,58 @@ impl Layer for InstallAgentmon {
     }
 }
 
-fn write_execd(agentmon_path: &Path, layer_path: &Path) -> Result<PathBuf, DownloadAgentmonError> {
-    let agentmon_path = agentmon_path
-        .canonicalize()
-        .map_err(DownloadAgentmonError::CouldNotOpenFile)?;
-    let agentmon_path = agentmon_path.display();
+fn write_execd_script(agentmon: &Path, layer_path: &Path) -> Result<PathBuf, InstallAgentmonError> {
+    let log = layer_path.join("output.log");
+    let execd = layer_path.join("execd");
+    let daemon = layer_path.join("launch_daemon");
+    let run_loop = layer_path.join("agentmon_loop");
 
-    // This script boots and runs agentmon in a loop
-    let agentmon_loop = {
-        let script = layer_path.join("agentmon_loop");
+    // Ensure log file exists
+    fs_err::write(&log, "").map_err(InstallAgentmonError::CouldNotWriteDestinationFile)?;
 
-        // Copy compiled binary from `bin/agentmon_loop.rs` to layer
-        fs_err::copy(additional_buildpack_binary_path!("agentmon_loop"), &script)
-            .map_err(DownloadAgentmonError::CouldNotWriteDestinationFile)?;
+    // agentmon_loop boots agentmon continuously
+    fs_err::copy(
+        additional_buildpack_binary_path!("agentmon_loop"),
+        &run_loop,
+    )
+    .map_err(InstallAgentmonError::CouldNotWriteDestinationFile)?;
 
-        script
-            .canonicalize()
-            .map_err(DownloadAgentmonError::CouldNotOpenFile)?
-    };
+    // The `launch_daemon` schedules `agentmon_loop` to run in the background
+    fs_err::copy(additional_buildpack_binary_path!("launch_daemon"), &daemon)
+        .map_err(InstallAgentmonError::CouldNotWriteDestinationFile)?;
 
-    // We use the exec.d to boot a process. This script MUST exit though as otherwise
-    // The container would never boot. To handle this we intentionally leak a process
-    let execd_script = {
-        let execd_script = layer_path.join("agentmon_exec.d");
-        let log_file = layer_path.join("background.log");
-        fs_err::write(&log_file, "")
-            .map_err(DownloadAgentmonError::CouldNotCreateDestinationFile)?;
+    // The execd bash script will be run by CNB lifecycle, it runs the `launch_daemon`
+    fs_err::write(
+        &execd,
+        format!(
+            r#"#!/usr/bin/env bash
 
-        let log_file = log_file.display();
-        let agentmon_loop = agentmon_loop.display();
-        write_bash_script(
-            &execd_script,
-            format!(
-                r#"
-                if [ -z "$AGENTMON_DEBUG" ]
-                then
-                    start-stop-daemon --start --background \
-                        --exec "{agentmon_loop}" \
-                        --output {log_file} \
-                        -- --path {agentmon_path}
-                else
-                    echo "To enable logging run with AGENTMON_DEBUG=1" >> {log_file}
+                    {daemon} --log {log} --loop-path {run_loop} --agentmon {agentmon}
+                "#,
+            log = log.display(),
+            daemon = daemon.display(),
+            run_loop = run_loop.display(),
+            agentmon = agentmon.display(),
+        ),
+    )
+    .map_err(InstallAgentmonError::CouldNotCreateDestinationFile)?;
 
-                    start-stop-daemon --start --background \
-                        --exec "{agentmon_loop}" \
-                        -- --path {agentmon_path}
-                fi
-            "#
-            ),
-        )
-        .map_err(DownloadAgentmonError::CouldNotWriteDestinationFile)?;
+    chmod_plus_x(&execd).map_err(InstallAgentmonError::PermissionError)?;
 
-        execd_script
-    };
-
-    Ok(execd_script)
+    Ok(execd)
 }
 
-#[cached]
-fn get_latest_url() -> Result<Url, GetUrlError> {
-    // This file on S3 stores a raw string that holds the URL to the latest agentmon release
-    // It's not a redirect to the latest file, it's a string body that contains a URL.
-    let base = Url::parse("https://agentmon-releases.s3.amazonaws.com/latest")
-        .expect("Internal error: Bad url");
+fn agentmon_download(dir: &Path) -> Result<PathBuf, InstallAgentmonError> {
+    download_to_dir(DOWNLOAD_URL, dir)?;
 
-    let body = ureq::get(base.as_ref())
-        .call()
-        .map_err(|err| GetUrlError::RequestError(err.to_string()))?
-        .into_string()
-        .map_err(|error| GetUrlError::CannotConvertResponseToString(error.to_string()))?;
-
-    Url::parse(body.as_str().trim()).map_err(GetUrlError::UrlParseError)
+    Ok(dir.join("agentmon"))
 }
 
-fn download_to_dir(destination: &Path, url: &Url) -> Result<(), DownloadAgentmonError> {
+fn download_to_dir(url: impl AsRef<str>, destination: &Path) -> Result<(), InstallAgentmonError> {
     let agentmon_tgz =
         NamedTempFile::new().map_err(DownloadAgentmonError::CouldNotCreateDestinationFile)?;
 
-    download(url.as_ref(), agentmon_tgz.path())?;
+    download(url, agentmon_tgz.path())?;
 
     untar(agentmon_tgz.path(), destination)?;
 

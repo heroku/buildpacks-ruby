@@ -1,31 +1,38 @@
 use std::process::Command;
 
+pub(crate) enum LoggerState {
+    NotStarted,
+    Started,
+    InSection,
+    InTimedStep,
+}
+
 pub(crate) trait Logger {
     fn start(self, s: &str) -> Box<dyn StartedLogger>;
 }
 
-pub(crate) trait StartedLogger: ErrorLogger {
+pub(crate) trait StartedLogger: ErrorWarningImportantLogger {
     fn section(self: Box<Self>, s: &str) -> Box<dyn SectionLogger>;
     fn finish_logging(self: Box<Self>);
 }
 
-pub(crate) trait SectionLogger: ErrorLogger {
-    fn step(&self, s: &str) -> Box<dyn SectionLogger>;
+pub(crate) trait SectionLogger: ErrorWarningImportantLogger {
+    fn step(&mut self, s: &str); // -> Box<dyn SectionLogger>;
     fn step_timed(self: Box<Self>, s: &str) -> Box<dyn TimedStepLogger>;
     fn step_command(&self, c: &Command) -> Box<dyn SectionLogger>;
     fn end_section(self: Box<Self>) -> Box<dyn StartedLogger>;
 }
 
-pub(crate) trait TimedStepLogger: ErrorLogger {
+pub(crate) trait TimedStepLogger: ErrorWarningImportantLogger {
     fn finish_timed_step(self: Box<Self>) -> Box<dyn SectionLogger>;
 }
 
 // Object safety needs to be sorted out
-/*
 pub(crate) trait ErrorWarningImportantLogger: ErrorLogger {
-    fn warning(&self, s: &str) -> &Self;
-    fn important(&self, s: &str) -> &Self;
-}*/
+    /// TODO: make this chainable
+    fn warning(&self, s: &str);
+    fn important(&self, s: &str);
+}
 
 pub(crate) trait ErrorLogger {
     fn error(self, s: &str);

@@ -1,108 +1,120 @@
-use crate::output::interface::*;
-use std::ops::Deref;
-use std::process::Command;
-use std::time::Duration;
+// use std::io::Write;
+// use std::marker::PhantomData;
+// use std::ops::Deref;
+// use std::process::Command;
+// use std::time::Duration;
 
-// Extremely stupid implementation just to prove it's implementable
+// // Extremely stupid implementation just to prove it's implementable
 
-pub(crate) enum DumbLogger {
-    NotStarted,
-    Started,
-    InSection,
-    InTimedStep { sender: std::sync::mpsc::Sender<()> },
-}
+// #[derive(Debug)]
+// pub enum DumbLogger {
+//     NotStarted,
+//     Started,
+//     InSection,
+//     InTimedStep { sender: std::sync::mpsc::Sender<()> },
+// }
 
-impl DumbLogger {
-    pub(crate) fn new() -> Self {
-        DumbLogger::NotStarted
-    }
-}
+// impl DumbLogger {
+//     pub fn new() -> Self {
+//         DumbLogger::NotStarted
+//     }
+// }
 
-impl Logger for DumbLogger {
-    fn start(self, s: &str) -> Box<dyn StartedLogger> {
-        match self {
-            DumbLogger::NotStarted => Box::new(Self::Started),
-            _ => panic!(""),
-        }
-    }
-}
+// impl ErrorWarningImportantLogger for DumbLogger {
+//     fn warning(&self, s: &str) {
+//         todo!()
+//     }
 
-impl StartedLogger for DumbLogger {
-    fn section(self: Box<Self>, s: &str) -> Box<dyn SectionLogger> {
-        println!("-> {s}");
-        Box::new(Self::InSection)
-    }
+//     fn important(&self, s: &str) {
+//         todo!()
+//     }
+// }
 
-    fn finish_logging(self: Box<Self>) {
-        println!("ALL DONE; WHEEEE!");
-    }
-}
+// impl Logger for DumbLogger {
+//     fn start(self, s: &str) -> Box<dyn StartedLogger> {
+//         match self {
+//             DumbLogger::NotStarted => Box::new(Self::Started),
+//             _ => panic!("Cannot start {self:?}, can only start NotStarted"),
+//         }
+//     }
+// }
 
-impl SectionLogger for DumbLogger {
-    fn step(&self, s: &str) -> Box<dyn SectionLogger> {
-        println!("   - step: {s}");
-        Box::new(Self::InSection)
-    }
+// impl StartedLogger for DumbLogger {
+//     fn section(self: Box<Self>, s: &str) -> Box<dyn SectionLogger> {
+//         println!("-> {s}");
+//         Box::new(Self::InSection)
+//     }
 
-    fn step_timed(self: Box<Self>, s: &str) -> Box<dyn TimedStepLogger> {
-        print!("   - timed step: {s}");
+//     fn finish_logging(self: Box<Self>) {
+//         println!("ALL DONE; WHEEEE!");
+//     }
+// }
 
-        let (sender, receiver) = std::sync::mpsc::channel();
+// impl SectionLogger for DumbLogger {
+//     fn step(&self, s: &str) -> Box<dyn SectionLogger> {
+//         println!("   - step: {s}");
+//         Box::new(Self::InSection)
+//     }
 
-        std::thread::spawn(move || loop {
-            print!(".");
+//     fn step_timed(self: Box<Self>, s: &str) -> Box<dyn TimedStepLogger> {
+//         print!("   - timed step: {s}");
 
-            if matches!(
-                receiver.try_recv(),
-                Ok(_) | Err(std::sync::mpsc::TryRecvError::Disconnected)
-            ) {
-                break;
-            }
+//         let (sender, receiver) = std::sync::mpsc::channel();
 
-            std::thread::sleep(Duration::from_secs(1));
-        });
+//         std::thread::spawn(move || loop {
+//             print!(".");
 
-        Box::new(Self::InTimedStep { sender })
-    }
+//             if matches!(
+//                 receiver.try_recv(),
+//                 Ok(_) | Err(std::sync::mpsc::TryRecvError::Disconnected)
+//             ) {
+//                 break;
+//             }
 
-    fn step_command(&self, c: &Command) -> Box<dyn SectionLogger> {
-        todo!()
-    }
+//             std::thread::sleep(Duration::from_secs(1));
+//         });
 
-    fn end_section(self: Box<Self>) -> Box<dyn StartedLogger> {
-        println!("\n");
-        Box::new(Self::Started)
-    }
-}
+//         Box::new(Self::InTimedStep { sender })
+//     }
 
-impl TimedStepLogger for DumbLogger {
-    fn finish_timed_step(self: Box<Self>) -> Box<dyn SectionLogger> {
-        match self.deref() {
-            DumbLogger::InTimedStep { sender } => {
-                println!("done!");
-                sender.send(()).unwrap();
-                Box::new(Self::InSection)
-            }
-            _ => panic!(),
-        }
-    }
-}
+//     fn step_command(&self, c: &Command) -> Box<dyn SectionLogger> {
+//         todo!()
+//     }
 
-impl ErrorLogger for DumbLogger {
-    fn error(self, s: &str) {
-        match self {
-            DumbLogger::NotStarted => panic!(),
-            DumbLogger::Started => {
-                eprintln!("Error: {s}")
-            }
-            DumbLogger::InSection => {
-                // TODO: Cleaning up section state before output
-                eprintln!("Error: {s}")
-            }
-            DumbLogger::InTimedStep { .. } => {
-                // TODO: Cleaning up timed step state before output
-                eprintln!("Error: {s}")
-            }
-        }
-    }
-}
+//     fn end_section(self: Box<Self>) -> Box<dyn StartedLogger> {
+//         println!("\n");
+//         Box::new(Self::Started)
+//     }
+// }
+
+// impl TimedStepLogger for DumbLogger {
+//     fn finish_timed_step(self: Box<Self>) -> Box<dyn SectionLogger> {
+//         match self.deref() {
+//             DumbLogger::InTimedStep { sender } => {
+//                 println!("done!");
+//                 sender.send(()).unwrap();
+//                 Box::new(Self::InSection)
+//             }
+//             _ => panic!(),
+//         }
+//     }
+// }
+
+// impl ErrorLogger for DumbLogger {
+//     fn error(self, s: &str) {
+//         match self {
+//             DumbLogger::NotStarted => panic!(),
+//             DumbLogger::Started => {
+//                 eprintln!("Error: {s}")
+//             }
+//             DumbLogger::InSection => {
+//                 // TODO: Cleaning up section state before output
+//                 eprintln!("Error: {s}")
+//             }
+//             DumbLogger::InTimedStep { .. } => {
+//                 // TODO: Cleaning up timed step state before output
+//                 eprintln!("Error: {s}")
+//             }
+//         }
+//     }
+// }

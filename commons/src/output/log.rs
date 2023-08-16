@@ -24,12 +24,9 @@ struct InTimedStep {
     timer: Instant,
 
     /// First option is for implementation ergonomics so all state structs implement Default
-    /// Second option is for threading as `Box<dyn Write + Send + Sync>` does not implement copy
-    /// we have to manually replace memory as the value is moved around. To move it outside of the
-    /// arc I needed to replace the contents inside the arc https://users.rust-lang.org/t/take-ownership-of-arc-mutex-t-inner-value/38097/2
     ///
     /// Maybe there's a better way to do this. It makes it gnarly but it works
-    thread: Option<JoinHandle<Arc<Mutex<Option<Box<dyn Write + Send + Sync>>>>>>,
+    thread: Option<JoinHandle<Arc<Mutex<Box<dyn Write + Send + Sync>>>>>,
 
     sender: Option<std::sync::mpsc::Sender<()>>,
 }
@@ -132,15 +129,13 @@ impl SectionLogger for Writer<InSection> {
         self.write(fmt::step(s));
 
         let (sender, receiver) = std::sync::mpsc::channel::<()>();
-        let destination = std::sync::Arc::new(std::sync::Mutex::new(Some(self.destination)));
+        let destination = std::sync::Arc::new(std::sync::Mutex::new(self.destination));
 
         let thread = std::thread::spawn(move || {
             {
                 let mut output = destination
                     .lock()
-                    .expect("Internal error: UI thread unlock")
-                    .take()
-                    .expect("Internal error: UI Option is None");
+                    .expect("Internal error: UI thread unlock");
 
                 write!(output, " .").expect("Internal error: UI writing dots");
                 loop {
@@ -192,15 +187,18 @@ impl TimedStepLogger for Writer<InTimedStep> {
             .send(())
             .expect("Internal error: UI thread channel is closed");
 
-        let destination = thread
+        let foo = thread
             .expect("Internal error: Expected UI thread join thread handle")
             .join()
-            .expect("Internal error: UI thread did not stop")
-            .lock()
-            .expect("Internal Error: Unlocking UI mutex")
-            .take()
-            .take()
-            .expect("Internal error: UI option is None");
+            .expect("Internal error: UI thread did not stop");
+
+        let bar = Arc::try_unwrap(foo)
+            .map_err(|_| String::from("Internal error: TODO"))
+            .unwrap()
+            .into_inner()
+            .unwrap();
+
+        let destination = bar;
 
         let mut writer = Box::new(Writer {
             state: InSection,

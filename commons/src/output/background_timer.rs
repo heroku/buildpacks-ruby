@@ -1,9 +1,88 @@
-use std::io::Write;
+use std::fmt::Display;
+use std::io::{Stdout, Write};
+use std::ops::DerefMut;
+use std::sync::mpsc::Sender;
 use std::sync::{mpsc, Arc, Mutex};
-use std::thread::sleep;
+use std::thread::{sleep, JoinHandle};
 use std::time::{Duration, Instant};
 
-fn start_timer<D: Write + Send>(
+struct StopTimer {
+    instant: Instant,
+    handle: JoinHandle<()>,
+    sender: Sender<()>,
+    destination: Arc<Mutex<LogBackend>>,
+}
+
+impl StopTimer {
+    fn stop(mut self) -> LogBackend {
+        self.sender.send(()).expect("Internal error");
+        self.handle.join().expect("Internal error");
+
+        let time = self.instant.elapsed().as_secs();
+        let mut destination = Arc::try_unwrap(self.destination)
+            .expect("Internal error")
+            .into_inner()
+            .expect("Internal error");
+
+        destination.write_now(format!("({time}s)\n"));
+        destination
+    }
+}
+
+#[derive(Debug)]
+enum LogBackend {
+    Stdout(Stdout),
+    Memory(Vec<u8>),
+}
+
+impl LogBackend {
+    fn write_now(&mut self, s: impl AsRef<str>) {
+        match self {
+            LogBackend::Stdout(out) => write_now(out, s.as_ref()),
+            LogBackend::Memory(out) => write_now(out, s.as_ref()),
+        }
+    }
+}
+
+impl Display for LogBackend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LogBackend::Stdout(_) => Ok(()),
+            LogBackend::Memory(m) => f.write_str(&String::from_utf8_lossy(m)),
+        }
+    }
+}
+
+fn start_timer(mut destination: LogBackend, start_message: impl AsRef<str>) -> StopTimer {
+    destination.write_now(start_message);
+    let arc_destination = Arc::new(Mutex::new(destination));
+    let instant = Instant::now();
+    let (sender, receiver) = mpsc::channel::<()>();
+
+    let thread_destination = arc_destination.clone();
+    let handle = std::thread::spawn(move || {
+        let mut destination = thread_destination.lock().unwrap();
+        destination.write_now(" .");
+        loop {
+            match receiver.recv_timeout(Duration::from_secs(1)) {
+                Ok(_) => {
+                    destination.write_now(". ");
+                    break;
+                }
+                Err(_) => destination.write_now("."),
+            }
+        }
+    });
+
+    StopTimer {
+        handle,
+        sender,
+        instant,
+        destination: arc_destination.clone(),
+    }
+}
+
+fn start_timer_scoped<D: Write + Send>(
     mut destination: D,
     start_message: impl AsRef<str>,
     f: impl FnOnce(),
@@ -56,9 +135,10 @@ mod test {
 
     #[test]
     fn lol() {
-        let dest = start_timer(Vec::<u8>::new(), "Installing", || {
-            sleep(Duration::from_secs(2));
-        });
-        assert_eq!("Installing .... (2s)", String::from_utf8_lossy(&dest));
+        let timer = start_timer(LogBackend::Memory(Vec::new()), "Installing");
+        sleep(Duration::from_secs(2));
+        let dest = timer.stop();
+
+        assert_eq!("Installing ... (2s)\n", &dest.to_string());
     }
 }

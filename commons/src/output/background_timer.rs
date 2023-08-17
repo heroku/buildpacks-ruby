@@ -32,15 +32,12 @@ where
         write!(&mut io, "{start}").expect("Internal error");
         io.flush().expect("Internal error");
         loop {
-            #[allow(clippy::redundant_else)] // seems like a clippy bug
-            if let Ok(_) = receiver.recv_timeout(Duration::from_secs(1)) {
+            write!(&mut io, "{tick}").expect("Internal error");
+            io.flush().expect("Internal error");
+            if receiver.recv_timeout(Duration::from_secs(1)).is_ok() {
                 write!(&mut io, "{end}").expect("Internal error");
                 io.flush().expect("Internal error");
                 break;
-            } else {
-                write!(&mut io, "{tick}").expect("Internal error");
-                io.flush().expect("Internal error");
-                continue;
             }
         }
     });

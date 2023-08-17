@@ -2,6 +2,7 @@ use crate::output::background_timer::{start_timer, StopDrop, StopIt, StopTimer};
 use crate::output::fmt;
 #[allow(clippy::wildcard_imports)]
 use crate::output::interface::*;
+use std::fmt::Debug;
 use std::fmt::Display;
 use std::io::Write;
 use std::io::{stdout, Stdout};
@@ -10,57 +11,22 @@ use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-/// Concrete type for alternate logging backend
-#[derive(Debug)]
-pub enum IOBackend {
-    Stdout(Stdout),
-    Memory(Vec<u8>),
-}
-
-impl Write for IOBackend {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        match self {
-            IOBackend::Stdout(io) => io.write(buf),
-            IOBackend::Memory(io) => io.write(buf),
-        }
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        match self {
-            IOBackend::Stdout(io) => io.flush(),
-            IOBackend::Memory(io) => io.flush(),
-        }
-    }
-}
-
-impl Display for IOBackend {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            IOBackend::Stdout(_) => Ok(()),
-            IOBackend::Memory(m) => f.write_str(&String::from_utf8_lossy(m)),
-        }
-    }
-}
-
-pub struct Build<T> {
-    io: IOBackend,
+pub struct BuildLog<T, W> {
+    io: W,
     state: PhantomData<T>,
     started: Instant,
 }
 
-impl<T> Build<T> {
-    fn captured(&self) -> String {
-        self.io.to_string()
-    }
-}
+impl<W> StoppedLogger for BuildLog<state::Stopped, W> {}
 
-impl StoppedLogger for Build<state::Stopped> {}
+impl<W> Logger for BuildLog<state::NotStarted, W>
+where
+    W: Write + Send + Sync + Debug + 'static,
+{
+    fn buildpack_name(mut self, buildpack_name: &str) -> Box<dyn StartedLogger> {
+        write_now(&mut self.io, format!("{}\n\n", fmt::header(buildpack_name)));
 
-impl Logger for Build<state::NotStarted> {
-    fn start(mut self, buildpack_name: &str) -> Box<dyn StartedLogger> {
-        writeln_now(&mut self.io, fmt::header(buildpack_name));
-
-        Box::new(Build {
+        Box::new(BuildLog {
             io: self.io,
             state: PhantomData::<state::Started>,
             started: self.started,
@@ -68,29 +34,24 @@ impl Logger for Build<state::NotStarted> {
     }
 }
 
-impl Build<state::NotStarted> {
+impl BuildLog<state::NotStarted, Stdout> {
     fn stdout() -> Self {
         Self {
-            io: IOBackend::Stdout(stdout()),
-            state: PhantomData::<state::NotStarted>,
-            started: Instant::now(),
-        }
-    }
-
-    fn capture() -> Self {
-        Self {
-            io: IOBackend::Memory(Vec::new()),
+            io: stdout(),
             state: PhantomData::<state::NotStarted>,
             started: Instant::now(),
         }
     }
 }
 
-impl StartedLogger for Build<state::Started> {
+impl<W> StartedLogger for BuildLog<state::Started, W>
+where
+    W: Write + Send + Sync + Debug + 'static,
+{
     fn section(mut self: Box<Self>, s: &str) -> Box<dyn SectionLogger> {
         writeln_now(&mut self.io, fmt::section(s));
 
-        Box::new(Build {
+        Box::new(BuildLog {
             io: self.io,
             state: PhantomData::<state::InSection>,
             started: self.started,
@@ -103,7 +64,7 @@ impl StartedLogger for Build<state::Started> {
 
         writeln_now(&mut self.io, fmt::section(format!("Done {details}")));
 
-        Box::new(Build {
+        Box::new(BuildLog {
             io: self.io,
             state: PhantomData::<state::Stopped>,
             started: self.started,
@@ -128,13 +89,16 @@ fn writeln_now<D: Write>(destination: &mut D, msg: impl AsRef<str>) {
 }
 
 #[derive(Debug)]
-struct FinishTimedStep {
-    arc_io: Arc<Mutex<IOBackend>>,
+struct FinishTimedStep<W> {
+    arc_io: Arc<Mutex<W>>,
     background: StopDrop<StopTimer>,
     build_timer: Instant,
 }
 
-impl TimedStepLogger for FinishTimedStep {
+impl<W> TimedStepLogger for FinishTimedStep<W>
+where
+    W: Write + Send + Sync + Debug + 'static,
+{
     fn finish_timed_step(mut self: Box<Self>) -> Box<dyn SectionLogger> {
         // Must stop background writing thread before retrieving IO
         let duration = self.background.stop();
@@ -147,7 +111,7 @@ impl TimedStepLogger for FinishTimedStep {
         let contents = fmt::details(fmt::time::human(&duration));
         write_now(&mut io, format!("{contents}\n"));
 
-        Box::new(Build {
+        Box::new(BuildLog {
             io,
             state: PhantomData::<state::InSection>,
             started: self.build_timer,
@@ -155,7 +119,10 @@ impl TimedStepLogger for FinishTimedStep {
     }
 }
 
-impl SectionLogger for Build<state::InSection> {
+impl<W> SectionLogger for BuildLog<state::InSection, W>
+where
+    W: Write + Send + Sync + Debug + 'static,
+{
     fn step(&mut self, s: &str) {
         writeln_now(&mut self.io, fmt::step(s));
     }
@@ -180,7 +147,7 @@ impl SectionLogger for Build<state::InSection> {
     }
 
     fn end_section(self: Box<Self>) -> Box<dyn StartedLogger> {
-        Box::new(Build {
+        Box::new(BuildLog {
             io: self.io,
             state: PhantomData::<state::Started>,
             started: self.started,
@@ -188,7 +155,7 @@ impl SectionLogger for Build<state::InSection> {
     }
 }
 
-impl<T> ErrorWarningImportantLogger for Build<T> {
+impl<T, W: Write> ErrorWarningImportantLogger for BuildLog<T, W> {
     fn warning(&mut self, s: &str) {
         writeln_now(&mut self.io, fmt::warn(s));
     }
@@ -198,7 +165,7 @@ impl<T> ErrorWarningImportantLogger for Build<T> {
     }
 }
 
-impl<T> ErrorLogger for Build<T> {
+impl<T, W: Write> ErrorLogger for BuildLog<T, W> {
     fn error(&mut self, s: &str) {
         writeln_now(&mut self.io, fmt::error(s));
     }
@@ -220,25 +187,39 @@ mod state {
 
 #[cfg(test)]
 mod test {
+    use fs_err::File;
     use indoc::formatdoc;
-    use std::any::Any;
+    use tempfile::tempdir;
 
     use super::*;
 
     #[test]
     fn test_captures() {
-        let logger = Build::capture().start("Ruby Version").finish_logging();
+        let tmp = tempdir().unwrap();
+        let logfile = tmp.path().join("log.txt");
 
-        let actual = (&logger as &dyn std::any::Any)
-            .downcast_ref::<Box<Build<state::Stopped>>>()
-            .unwrap()
-            .captured();
+        BuildLog {
+            io: File::create(&logfile).unwrap(),
+            state: PhantomData::<state::NotStarted>,
+            started: Instant::now(),
+        }
+        .buildpack_name("Heroku Ruby Buildpack")
+        .section("Ruby version `3.1.3` from `Gemfile.lock`")
+        .step_timed("Installing")
+        .finish_timed_step()
+        .end_section()
+        .finish_logging();
 
-        // let actual = string_from_captured_logger(&logger);
+        let actual = fs_err::read_to_string(&logfile).unwrap();
         let expected = formatdoc! {"
 
+            # Heroku Ruby Buildpack
+
+            - Ruby version `3.1.3` from `Gemfile.lock`
+              - Installing ... (< 0.1s)
+            - Done (finished in < 0.1s)
         "};
 
-        assert_eq!(expected, actual);
+        assert_eq!(expected, fmt::strip_control_codes(actual));
     }
 }

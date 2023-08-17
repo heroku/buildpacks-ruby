@@ -2,7 +2,7 @@ use std::any::Any;
 use std::process::Command;
 
 pub(crate) trait Logger {
-    fn start(self, s: &str) -> Box<dyn StartedLogger>;
+    fn buildpack_name(self, s: &str) -> Box<dyn StartedLogger>;
 }
 
 pub(crate) trait StoppedLogger {}

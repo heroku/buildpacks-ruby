@@ -1,5 +1,4 @@
 use std::io::Write;
-use std::mem::replace;
 use std::sync::mpsc::Sender;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::JoinHandle;
@@ -10,7 +9,7 @@ pub fn start_timer<T>(
     start: impl AsRef<str>,
     tick: impl AsRef<str>,
     end: impl AsRef<str>,
-) -> StopDrop<StopTimer>
+) -> StopJoinGuard<StopTimer>
 where
     // The 'static lifetime means as long as something holds a reference to it, nothing it references
     // will go away.
@@ -34,6 +33,7 @@ where
         loop {
             write!(&mut io, "{tick}").expect("Internal error");
             io.flush().expect("Internal error");
+
             if receiver.recv_timeout(Duration::from_secs(1)).is_ok() {
                 write!(&mut io, "{end}").expect("Internal error");
                 io.flush().expect("Internal error");
@@ -42,10 +42,10 @@ where
         }
     });
 
-    StopDrop {
-        inner: RunState::Running(StopTimer {
-            handle,
-            sender,
+    StopJoinGuard {
+        inner: Some(StopTimer {
+            handle: Some(handle),
+            sender: Some(sender),
             instant,
         }),
     }
@@ -54,53 +54,52 @@ where
 #[derive(Debug)]
 pub struct StopTimer {
     instant: Instant,
-    handle: JoinHandle<()>,
-    sender: Sender<()>,
+    handle: Option<JoinHandle<()>>,
+    sender: Option<Sender<()>>,
 }
 
-pub trait StopIt: std::fmt::Debug {
-    fn stop(self) -> Duration;
-}
-
-impl StopIt for StopTimer {
-    fn stop(self) -> Duration {
-        self.sender.send(()).expect("Internal error");
-        self.handle.join().expect("Internal error");
-
+impl StopTimer {
+    pub fn elapsed(&self) -> Duration {
         self.instant.elapsed()
     }
 }
 
-#[derive(Debug)]
-enum RunState<T> {
-    Running(T),
-    Stopped(Duration),
+pub trait StopJoin: std::fmt::Debug {
+    fn stop_join(self) -> Self;
+}
+
+impl StopJoin for StopTimer {
+    fn stop_join(mut self) -> Self {
+        if let Some(inner) = self.sender.take() {
+            inner.send(()).expect("Internal error");
+        }
+
+        if let Some(inner) = self.handle.take() {
+            inner.join().expect("Internal error");
+        }
+
+        self
+    }
 }
 
 // Guarantees that stop is called on the inner
 //
 // Expects and inner to return a Duration
 #[derive(Debug)]
-pub struct StopDrop<T: StopIt> {
-    inner: RunState<T>,
+pub struct StopJoinGuard<T: StopJoin> {
+    inner: Option<T>,
 }
 
-impl<T: StopIt> StopDrop<T> {
-    pub fn stop(&mut self) -> Duration {
-        let inner = replace(&mut self.inner, RunState::Stopped(Default::default()));
-        match inner {
-            RunState::Running(obj) => {
-                let duration = obj.stop();
-                self.inner = RunState::Stopped(duration);
-                duration
-            }
-            RunState::Stopped(duration) => duration,
-        }
+impl<T: StopJoin> StopJoinGuard<T> {
+    pub fn stop(mut self) -> Option<T> {
+        self.inner.take().map(|inner| inner.stop_join())
     }
 }
 
-impl<T: StopIt> Drop for StopDrop<T> {
+impl<T: StopJoin> Drop for StopJoinGuard<T> {
     fn drop(&mut self) {
-        self.stop();
+        if let Some(inner) = self.inner.take() {
+            inner.stop_join();
+        }
     }
 }

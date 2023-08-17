@@ -1,15 +1,15 @@
-use crate::output::background_timer::{start_timer, StopDrop, StopIt, StopTimer};
+use crate::output::background_timer::{start_timer, StopJoinGuard, StopTimer};
 use crate::output::fmt;
-#[allow(clippy::wildcard_imports)]
-use crate::output::interface::*;
 use std::fmt::Debug;
-use std::fmt::Display;
 use std::io::Write;
 use std::io::{stdout, Stdout};
 use std::marker::PhantomData;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+
+#[allow(clippy::wildcard_imports)]
+use crate::output::interface::*;
 
 pub struct BuildLog<T, W> {
     io: W,
@@ -35,12 +35,24 @@ where
 }
 
 impl BuildLog<state::NotStarted, Stdout> {
-    fn stdout() -> Self {
+    #[allow(dead_code)]
+    fn to_stdout() -> Self {
         Self {
             io: stdout(),
             state: PhantomData::<state::NotStarted>,
             started: Instant::now(),
         }
+    }
+}
+
+impl BuildLog<state::NotStarted, std::fs::File> {
+    #[allow(dead_code)]
+    fn to_file(path: &std::path::Path) -> Result<Self, std::io::Error> {
+        Ok(Self {
+            io: fs_err::File::create(path)?.into(),
+            state: PhantomData::<state::NotStarted>,
+            started: Instant::now(),
+        })
     }
 }
 
@@ -91,7 +103,7 @@ fn writeln_now<D: Write>(destination: &mut D, msg: impl AsRef<str>) {
 #[derive(Debug)]
 struct FinishTimedStep<W> {
     arc_io: Arc<Mutex<W>>,
-    background: StopDrop<StopTimer>,
+    background: StopJoinGuard<StopTimer>,
     build_timer: Instant,
 }
 
@@ -99,9 +111,9 @@ impl<W> TimedStepLogger for FinishTimedStep<W>
 where
     W: Write + Send + Sync + Debug + 'static,
 {
-    fn finish_timed_step(mut self: Box<Self>) -> Box<dyn SectionLogger> {
+    fn finish_timed_step(self: Box<Self>) -> Box<dyn SectionLogger> {
         // Must stop background writing thread before retrieving IO
-        let duration = self.background.stop();
+        let duration = self.background.stop().expect("Internal error").elapsed();
 
         let mut io = Arc::try_unwrap(self.arc_io)
             .expect("Internal error")
@@ -187,7 +199,6 @@ mod state {
 
 #[cfg(test)]
 mod test {
-    use fs_err::File;
     use indoc::formatdoc;
     use tempfile::tempdir;
 
@@ -198,17 +209,14 @@ mod test {
         let tmp = tempdir().unwrap();
         let logfile = tmp.path().join("log.txt");
 
-        BuildLog {
-            io: File::create(&logfile).unwrap(),
-            state: PhantomData::<state::NotStarted>,
-            started: Instant::now(),
-        }
-        .buildpack_name("Heroku Ruby Buildpack")
-        .section("Ruby version `3.1.3` from `Gemfile.lock`")
-        .step_timed("Installing")
-        .finish_timed_step()
-        .end_section()
-        .finish_logging();
+        BuildLog::to_file(&logfile)
+            .unwrap()
+            .buildpack_name("Heroku Ruby Buildpack")
+            .section("Ruby version `3.1.3` from `Gemfile.lock`")
+            .step_timed("Installing")
+            .finish_timed_step()
+            .end_section()
+            .finish_logging();
 
         let actual = fs_err::read_to_string(&logfile).unwrap();
         let expected = formatdoc! {"

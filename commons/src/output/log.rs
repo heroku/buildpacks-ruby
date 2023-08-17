@@ -1,167 +1,177 @@
-use lazy_static::__Deref;
-
+use crate::output::background_timer::{start_timer, StopDrop, StopIt, StopTimer};
 use crate::output::fmt;
+#[allow(clippy::wildcard_imports)]
 use crate::output::interface::*;
-use std::borrow::BorrowMut;
+use std::fmt::Display;
 use std::io::Write;
 use std::io::{stdout, Stdout};
 use std::marker::PhantomData;
 use std::process::Command;
-use std::sync::{Arc, Mutex, PoisonError};
-use std::thread::JoinHandle;
-use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
-#[derive(Debug, Default)]
-pub struct NotStarted;
-
-#[derive(Debug, Default)]
-pub struct Started;
-
-#[derive(Debug, Default)]
-pub struct InSection;
-
-struct InTimedStep {
-    timer: Instant,
-
-    /// First option is for implementation ergonomics so all state structs implement Default
-    ///
-    /// Maybe there's a better way to do this. It makes it gnarly but it works
-    thread: Option<JoinHandle<Arc<Mutex<Box<dyn Write + Send + Sync>>>>>,
-
-    sender: Option<std::sync::mpsc::Sender<()>>,
+/// Concrete type for alternate logging backend
+#[derive(Debug)]
+pub enum IOBackend {
+    Stdout(Stdout),
+    Memory(Vec<u8>),
 }
 
-struct NullWriter;
-
-impl Write for NullWriter {
+impl Write for IOBackend {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        Ok(0)
+        match self {
+            IOBackend::Stdout(io) => io.write(buf),
+            IOBackend::Memory(io) => io.write(buf),
+        }
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
-impl Default for InTimedStep {
-    fn default() -> Self {
-        Self {
-            thread: Default::default(),
-            sender: Default::default(),
-            timer: Instant::now(),
+        match self {
+            IOBackend::Stdout(io) => io.flush(),
+            IOBackend::Memory(io) => io.flush(),
         }
     }
 }
 
-pub struct Writer<T> {
-    state: T,
-    destination: Box<dyn Write + Send + Sync>,
-}
-
-impl<T> Writer<T> {
-    fn write(&mut self, s: impl AsRef<str>) {
-        write!(&mut self.destination, "{}", s.as_ref())
-            .expect("Internal error: could not write to build output");
-
-        self.destination
-            .flush()
-            .expect("Internal error: could not write to build output");
-    }
-
-    fn writeln(&mut self, s: impl AsRef<str>) {
-        writeln!(&mut self.destination, "{}", s.as_ref())
-            .expect("Internal error: could not write to build output");
-
-        self.destination
-            .flush()
-            .expect("Internal error: could not write to build output");
+impl Display for IOBackend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IOBackend::Stdout(_) => Ok(()),
+            IOBackend::Memory(m) => f.write_str(&String::from_utf8_lossy(m)),
+        }
     }
 }
 
-impl Logger for Writer<NotStarted> {
+pub struct Build<T> {
+    io: IOBackend,
+    state: PhantomData<T>,
+    started: Instant,
+}
+
+impl<T> Build<T> {
+    fn captured(&self) -> String {
+        self.io.to_string()
+    }
+}
+
+impl StoppedLogger for Build<state::Stopped> {}
+
+impl Logger for Build<state::NotStarted> {
     fn start(mut self, buildpack_name: &str) -> Box<dyn StartedLogger> {
-        self.writeln(fmt::header(buildpack_name));
+        writeln_now(&mut self.io, fmt::header(buildpack_name));
 
-        Box::new(Writer {
-            state: Default::default(),
-            destination: self.destination,
+        Box::new(Build {
+            io: self.io,
+            state: PhantomData::<state::Started>,
+            started: self.started,
         })
     }
 }
 
-impl Writer<NotStarted> {
+impl Build<state::NotStarted> {
     fn stdout() -> Self {
         Self {
-            state: NotStarted::default(),
-            destination: Box::new(stdout()),
+            io: IOBackend::Stdout(stdout()),
+            state: PhantomData::<state::NotStarted>,
+            started: Instant::now(),
         }
     }
 
     fn capture() -> Self {
         Self {
-            state: NotStarted::default(),
-            destination: Box::new(Vec::new()),
+            io: IOBackend::Memory(Vec::new()),
+            state: PhantomData::<state::NotStarted>,
+            started: Instant::now(),
         }
     }
 }
 
-impl StartedLogger for Writer<Started> {
+impl StartedLogger for Build<state::Started> {
     fn section(mut self: Box<Self>, s: &str) -> Box<dyn SectionLogger> {
-        self.writeln(fmt::section(s));
+        writeln_now(&mut self.io, fmt::section(s));
 
-        Box::new(Writer {
-            state: Default::default(),
-            destination: self.destination,
+        Box::new(Build {
+            io: self.io,
+            state: PhantomData::<state::InSection>,
+            started: self.started,
         })
     }
 
-    fn finish_logging(self: Box<Self>) {
-        todo!()
+    fn finish_logging(mut self: Box<Self>) -> Box<dyn StoppedLogger> {
+        let elapsed = fmt::time::human(&self.started.elapsed());
+        let details = fmt::details(format!("finished in {elapsed}"));
+
+        writeln_now(&mut self.io, fmt::section(format!("Done {details}")));
+
+        Box::new(Build {
+            io: self.io,
+            state: PhantomData::<state::Stopped>,
+            started: self.started,
+        })
     }
 }
 
-impl SectionLogger for Writer<InSection> {
+fn write_now<D: Write>(destination: &mut D, msg: impl AsRef<str>) {
+    write!(destination, "{}", msg.as_ref()).expect("Internal error: UI writer closed");
+
+    destination
+        .flush()
+        .expect("Internal error: UI writer closed");
+}
+
+fn writeln_now<D: Write>(destination: &mut D, msg: impl AsRef<str>) {
+    writeln!(destination, "{}", msg.as_ref()).expect("Internal error: UI writer closed");
+
+    destination
+        .flush()
+        .expect("Internal error: UI writer closed");
+}
+
+#[derive(Debug)]
+struct FinishTimedStep {
+    arc_io: Arc<Mutex<IOBackend>>,
+    background: StopDrop<StopTimer>,
+    build_timer: Instant,
+}
+
+impl TimedStepLogger for FinishTimedStep {
+    fn finish_timed_step(mut self: Box<Self>) -> Box<dyn SectionLogger> {
+        // Must stop background writing thread before retrieving IO
+        let duration = self.background.stop();
+
+        let mut io = Arc::try_unwrap(self.arc_io)
+            .expect("Internal error")
+            .into_inner()
+            .expect("Internal error");
+
+        let contents = fmt::details(fmt::time::human(&duration));
+        write_now(&mut io, format!("{contents}\n"));
+
+        Box::new(Build {
+            io,
+            state: PhantomData::<state::InSection>,
+            started: self.build_timer,
+        })
+    }
+}
+
+impl SectionLogger for Build<state::InSection> {
     fn step(&mut self, s: &str) {
-        self.writeln(fmt::step(s));
+        writeln_now(&mut self.io, fmt::step(s));
     }
 
-    fn step_timed(mut self: Box<Self>, s: &str) -> Box<dyn TimedStepLogger> {
-        self.write(fmt::step(s));
+    fn step_timed(self: Box<Self>, s: &str) -> Box<dyn TimedStepLogger> {
+        let start = fmt::step(format!("{s}{}", fmt::background_timer_start()));
+        let tick = fmt::background_timer_tick();
+        let end = fmt::background_timer_end();
 
-        let (sender, receiver) = std::sync::mpsc::channel::<()>();
-        let destination = std::sync::Arc::new(std::sync::Mutex::new(self.destination));
+        let arc_io = Arc::new(Mutex::new(self.io));
+        let background = start_timer(&arc_io, start, tick, end);
 
-        let thread = std::thread::spawn(move || {
-            {
-                let mut output = destination
-                    .lock()
-                    .expect("Internal error: UI thread unlock");
-
-                write!(output, " .").expect("Internal error: UI writing dots");
-                loop {
-                    write!(output, ".").expect("Internal error: UI writing dots");
-
-                    if matches!(
-                        receiver.try_recv(),
-                        Ok(_) | Err(std::sync::mpsc::TryRecvError::Disconnected)
-                    ) {
-                        write!(output, ". ").expect("Internal error: UI writing dots");
-                        break;
-                    }
-
-                    std::thread::sleep(std::time::Duration::from_secs(1));
-                }
-            }
-            destination
-        });
-
-        Box::new(Writer {
-            state: InTimedStep {
-                timer: Instant::now(),
-                thread: Some(thread),
-                sender: Some(sender),
-            },
-            destination: Box::new(NullWriter),
+        Box::new(FinishTimedStep {
+            arc_io,
+            background,
+            build_timer: self.started,
         })
     }
 
@@ -170,71 +180,65 @@ impl SectionLogger for Writer<InSection> {
     }
 
     fn end_section(self: Box<Self>) -> Box<dyn StartedLogger> {
-        todo!()
+        Box::new(Build {
+            io: self.io,
+            state: PhantomData::<state::Started>,
+            started: self.started,
+        })
     }
 }
 
-impl TimedStepLogger for Writer<InTimedStep> {
-    fn finish_timed_step(mut self: Box<Self>) -> Box<dyn SectionLogger> {
-        // self.destination is a NullWriter at this point, the real destination is inside of self.state.thread
-        //
-        // We must remove before outputting
-        let mut thread = self.state.thread.take();
-        let sender = self.state.sender.take();
+impl<T> ErrorWarningImportantLogger for Build<T> {
+    fn warning(&mut self, s: &str) {
+        writeln_now(&mut self.io, fmt::warn(s));
+    }
 
-        sender
-            .expect("Internal error: Expected channel")
-            .send(())
-            .expect("Internal error: UI thread channel is closed");
-
-        let foo = thread
-            .expect("Internal error: Expected UI thread join thread handle")
-            .join()
-            .expect("Internal error: UI thread did not stop");
-
-        let bar = Arc::try_unwrap(foo)
-            .map_err(|_| String::from("Internal error: TODO"))
-            .unwrap()
-            .into_inner()
-            .unwrap();
-
-        let destination = bar;
-
-        let mut writer = Box::new(Writer {
-            state: InSection,
-            destination: Box::new(destination),
-        });
-
-        writer.writeln(fmt::details(crate::build_output::time::human(
-            &self.state.timer.elapsed(),
-        )));
-        writer
+    fn important(&mut self, s: &str) {
+        writeln_now(&mut self.io, fmt::important(s));
     }
 }
 
-impl<T> ErrorWarningImportantLogger for Writer<T> {
-    fn warning(&self, s: &str) {
-        todo!()
-    }
-
-    fn important(&self, s: &str) {
-        todo!()
+impl<T> ErrorLogger for Build<T> {
+    fn error(&mut self, s: &str) {
+        writeln_now(&mut self.io, fmt::error(s));
     }
 }
 
-impl<T> ErrorLogger for Writer<T> {
-    fn error(self, s: &str) {
-        todo!()
-    }
+mod state {
+    #[derive(Debug)]
+    pub struct NotStarted;
+
+    #[derive(Debug)]
+    pub struct Started;
+
+    #[derive(Debug)]
+    pub struct InSection;
+
+    #[derive(Default)]
+    pub struct Stopped;
 }
 
 #[cfg(test)]
 mod test {
+    use indoc::formatdoc;
+    use std::any::Any;
+
     use super::*;
 
     #[test]
     fn test_captures() {
-        let writer = Writer::capture();
-        writer.start("Ruby Version");
+        let logger = Build::capture().start("Ruby Version").finish_logging();
+
+        let actual = (&logger as &dyn std::any::Any)
+            .downcast_ref::<Box<Build<state::Stopped>>>()
+            .unwrap()
+            .captured();
+
+        // let actual = string_from_captured_logger(&logger);
+        let expected = formatdoc! {"
+
+        "};
+
+        assert_eq!(expected, actual);
     }
 }

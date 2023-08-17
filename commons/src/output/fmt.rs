@@ -1,5 +1,3 @@
-use std::process::Output;
-
 pub(crate) const RED: &str = "\x1B[0;31m";
 pub(crate) const YELLOW: &str = "\x1B[0;33m";
 pub(crate) const CYAN: &str = "\x1B[0;36m";
@@ -81,6 +79,21 @@ pub fn step(contents: impl AsRef<str>) -> String {
     format!("{STEP_PREFIX}{contents}")
 }
 
+#[must_use]
+pub fn background_timer_start() -> String {
+    colorize(DEFAULT_DIM, " .")
+}
+
+#[must_use]
+pub fn background_timer_tick() -> String {
+    colorize(DEFAULT_DIM, ".")
+}
+
+#[must_use]
+pub fn background_timer_end() -> String {
+    colorize(DEFAULT_DIM, ". ")
+}
+
 /// Used with libherokubuildpack linemapped command output
 ///
 #[must_use]
@@ -108,9 +121,18 @@ pub fn cmd_output_format(contents: impl AsRef<str>) -> String {
 }
 
 #[must_use]
-pub(crate) fn help(contents: impl AsRef<str>) -> String {
-    let contents = contents.as_ref();
-    colorize(IMPORTANT_COLOR, bangify(format!("Help: {contents}")))
+pub(crate) fn important(contents: impl AsRef<str>) -> String {
+    colorize(IMPORTANT_COLOR, bangify(contents))
+}
+
+#[must_use]
+pub(crate) fn warn(contents: impl AsRef<str>) -> String {
+    colorize(WARNING_COLOR, bangify(contents))
+}
+
+#[must_use]
+pub(crate) fn error(contents: impl AsRef<str>) -> String {
+    colorize(ERROR_COLOR, bangify(contents))
 }
 
 /// Helper method that adds a bang i.e. `!` before strings
@@ -219,5 +241,71 @@ mod test {
     fn simple_case() {
         let actual = colorize(RED, "hello world");
         assert_eq!(format!("{RED}hello world{RESET}"), actual);
+    }
+}
+
+pub mod time {
+    use std::time::Duration;
+
+    // Returns the part of a duration only in miliseconds
+    pub(crate) fn milliseconds(duration: &Duration) -> u32 {
+        duration.subsec_millis()
+    }
+
+    pub(crate) fn seconds(duration: &Duration) -> u64 {
+        duration.as_secs() % 60
+    }
+
+    pub(crate) fn minutes(duration: &Duration) -> u64 {
+        (duration.as_secs() / 60) % 60
+    }
+
+    pub(crate) fn hours(duration: &Duration) -> u64 {
+        (duration.as_secs() / 3600) % 60
+    }
+
+    pub fn human(duration: &Duration) -> String {
+        let hours = hours(duration);
+        let minutes = minutes(duration);
+        let seconds = seconds(duration);
+        let miliseconds = milliseconds(duration);
+
+        if hours > 0 {
+            format!("{hours}h {minutes}m {seconds}s")
+        } else if minutes > 0 {
+            format!("{minutes}m {seconds}s")
+        } else if seconds > 0 || miliseconds > 100 {
+            // 0.1
+            format!("{seconds}.{miliseconds:0>3}s")
+        } else {
+            String::from("< 0.1s")
+        }
+    }
+
+    #[cfg(test)]
+    mod test {
+        use super::*;
+
+        #[test]
+        fn test_millis_and_seconds() {
+            let duration = Duration::from_millis(1024);
+            assert_eq!(24, milliseconds(&duration));
+            assert_eq!(1, seconds(&duration));
+        }
+
+        #[test]
+        fn test_display_duration() {
+            let duration = Duration::from_millis(99);
+            assert_eq!("< 0.1s", human(&duration).as_str());
+
+            let duration = Duration::from_millis(1024);
+            assert_eq!("1.024s", human(&duration).as_str());
+
+            let duration = std::time::Duration::from_millis(60 * 1024);
+            assert_eq!("1m 1s", human(&duration).as_str());
+
+            let duration = std::time::Duration::from_millis(3600 * 1024);
+            assert_eq!("1h 1m 26s", human(&duration).as_str());
+        }
     }
 }

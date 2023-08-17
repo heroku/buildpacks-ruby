@@ -1,160 +1,109 @@
-use std::fmt::Display;
-use std::io::{Stdout, Write};
-use std::ops::DerefMut;
+use std::io::Write;
+use std::mem::replace;
 use std::sync::mpsc::Sender;
 use std::sync::{mpsc, Arc, Mutex};
-use std::thread::{sleep, JoinHandle};
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-struct StopTimer {
-    instant: Instant,
-    handle: JoinHandle<()>,
-    sender: Sender<()>,
-    destination: Arc<Mutex<LogBackend>>,
-}
-
-impl StopTimer {
-    fn stop(mut self) -> LogBackend {
-        self.sender.send(()).expect("Internal error");
-        self.handle.join().expect("Internal error");
-
-        let time = self.instant.elapsed().as_secs();
-        let mut destination = Arc::try_unwrap(self.destination)
-            .expect("Internal error")
-            .into_inner()
-            .expect("Internal error");
-
-        destination.write_now(format!("({time}s)\n"));
-        destination
-    }
-}
-
-struct StopOrDrop {
-    inner: Option<StopTimer>,
-}
-
-impl StopOrDrop {
-    fn stop(&mut self) -> Option<LogBackend> {
-        self.inner.take().map(StopTimer::stop)
-    }
-}
-
-impl Drop for StopOrDrop {
-    fn drop(&mut self) {
-        self.stop();
-    }
-}
-
-#[derive(Debug)]
-enum LogBackend {
-    Stdout(Stdout),
-    Memory(Vec<u8>),
-}
-
-impl LogBackend {
-    fn write_now(&mut self, s: impl AsRef<str>) {
-        match self {
-            LogBackend::Stdout(out) => write_now(out, s.as_ref()),
-            LogBackend::Memory(out) => write_now(out, s.as_ref()),
-        }
-    }
-}
-
-impl Display for LogBackend {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LogBackend::Stdout(_) => Ok(()),
-            LogBackend::Memory(m) => f.write_str(&String::from_utf8_lossy(m)),
-        }
-    }
-}
-
-fn start_timer(mut destination: LogBackend, start_message: impl AsRef<str>) -> StopTimer {
-    destination.write_now(start_message);
-    let arc_destination = Arc::new(Mutex::new(destination));
+pub fn start_timer<T>(
+    arc_io: &Arc<Mutex<T>>,
+    start: impl AsRef<str>,
+    tick: impl AsRef<str>,
+    end: impl AsRef<str>,
+) -> StopDrop<StopTimer>
+where
+    // The 'static lifetime means as long as something holds a reference to it, nothing it references
+    // will go away.
+    //
+    // From https://users.rust-lang.org/t/why-does-thread-spawn-need-static-lifetime-for-generic-bounds/4541
+    //
+    //   [lifetimes] refer to the minimum possible lifetime of any borrowed references that the object contains.
+    T: Write + Send + Sync + 'static,
+{
     let instant = Instant::now();
     let (sender, receiver) = mpsc::channel::<()>();
+    let start = start.as_ref().to_string();
+    let tick = tick.as_ref().to_string();
+    let end = end.as_ref().to_string();
 
-    let thread_destination = arc_destination.clone();
+    let arc_io = arc_io.clone();
     let handle = std::thread::spawn(move || {
-        let mut destination = thread_destination.lock().unwrap();
-        destination.write_now(" .");
+        let mut io = arc_io.lock().unwrap();
+        write!(&mut io, "{start}").expect("Internal error");
+        io.flush().expect("Internal error");
         loop {
-            match receiver.recv_timeout(Duration::from_secs(1)) {
-                Ok(_) => {
-                    destination.write_now(". ");
-                    break;
-                }
-                Err(_) => destination.write_now("."),
+            #[allow(clippy::redundant_else)] // seems like a clippy bug
+            if let Ok(_) = receiver.recv_timeout(Duration::from_secs(1)) {
+                write!(&mut io, "{end}").expect("Internal error");
+                io.flush().expect("Internal error");
+                break;
+            } else {
+                write!(&mut io, "{tick}").expect("Internal error");
+                io.flush().expect("Internal error");
+                continue;
             }
         }
     });
 
-    StopTimer {
-        handle,
-        sender,
-        instant,
-        destination: arc_destination.clone(),
+    StopDrop {
+        inner: RunState::Running(StopTimer {
+            handle,
+            sender,
+            instant,
+        }),
     }
 }
 
-fn start_timer_scoped<D: Write + Send>(
-    mut destination: D,
-    start_message: impl AsRef<str>,
-    f: impl FnOnce(),
-) -> D {
-    let (sender, receiver) = mpsc::channel::<()>();
-    write_now(&mut destination, start_message);
-    let timer = Instant::now();
+#[derive(Debug)]
+pub struct StopTimer {
+    instant: Instant,
+    handle: JoinHandle<()>,
+    sender: Sender<()>,
+}
 
-    std::thread::scope(|s| {
-        let handle = s.spawn(move || {
-            write_now(&mut destination, " .");
-            loop {
-                match receiver.recv_timeout(Duration::from_secs(1)) {
-                    Ok(_) => {
-                        write_now(&mut destination, ". ");
-                        break;
-                    }
-                    Err(_) => write_now(&mut destination, "."),
-                }
+pub trait StopIt: std::fmt::Debug {
+    fn stop(self) -> Duration;
+}
+
+impl StopIt for StopTimer {
+    fn stop(self) -> Duration {
+        self.sender.send(()).expect("Internal error");
+        self.handle.join().expect("Internal error");
+
+        self.instant.elapsed()
+    }
+}
+
+#[derive(Debug)]
+enum RunState<T> {
+    Running(T),
+    Stopped(Duration),
+}
+
+// Guarantees that stop is called on the inner
+//
+// Expects and inner to return a Duration
+#[derive(Debug)]
+pub struct StopDrop<T: StopIt> {
+    inner: RunState<T>,
+}
+
+impl<T: StopIt> StopDrop<T> {
+    pub fn stop(&mut self) -> Duration {
+        let inner = replace(&mut self.inner, RunState::Stopped(Default::default()));
+        match inner {
+            RunState::Running(obj) => {
+                let duration = obj.stop();
+                self.inner = RunState::Stopped(duration);
+                duration
             }
-            destination
-        });
-
-        f();
-        sender.send(()).expect("Internal error: channel is closed");
-
-        let mut destination = handle
-            .join()
-            .expect("Internal error: UI thread unexpectedly errored");
-
-        write_now(
-            &mut destination,
-            format!("({:?}s)", timer.elapsed().as_secs()),
-        );
-        destination
-    })
+            RunState::Stopped(duration) => duration,
+        }
+    }
 }
 
-fn write_now<D: Write>(destination: &mut D, msg: impl AsRef<str>) {
-    write!(destination, "{}", msg.as_ref()).expect("Internal error: UI writer closed");
-
-    destination
-        .flush()
-        .expect("Internal error: UI writer closed");
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn lol() {
-        let timer = start_timer(LogBackend::Memory(Vec::new()), "Installing");
-        sleep(Duration::from_secs(2));
-        let dest = timer.stop();
-
-        assert_eq!("Installing ... (2s)\n", &dest.to_string());
+impl<T: StopIt> Drop for StopDrop<T> {
+    fn drop(&mut self) {
+        self.stop();
     }
 }

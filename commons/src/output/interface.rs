@@ -1,19 +1,15 @@
+use std::any::Any;
 use std::process::Command;
-
-pub(crate) enum LoggerState {
-    NotStarted,
-    Started,
-    InSection,
-    InTimedStep,
-}
 
 pub(crate) trait Logger {
     fn start(self, s: &str) -> Box<dyn StartedLogger>;
 }
 
+pub(crate) trait StoppedLogger {}
+
 pub(crate) trait StartedLogger: ErrorWarningImportantLogger {
     fn section(self: Box<Self>, s: &str) -> Box<dyn SectionLogger>;
-    fn finish_logging(self: Box<Self>);
+    fn finish_logging(self: Box<Self>) -> Box<dyn StoppedLogger>;
 }
 
 pub(crate) trait SectionLogger: ErrorWarningImportantLogger {
@@ -23,19 +19,19 @@ pub(crate) trait SectionLogger: ErrorWarningImportantLogger {
     fn end_section(self: Box<Self>) -> Box<dyn StartedLogger>;
 }
 
-pub(crate) trait TimedStepLogger: ErrorWarningImportantLogger {
+pub(crate) trait TimedStepLogger {
     fn finish_timed_step(self: Box<Self>) -> Box<dyn SectionLogger>;
 }
 
 // Object safety needs to be sorted out
 pub(crate) trait ErrorWarningImportantLogger: ErrorLogger {
     /// TODO: make this chainable
-    fn warning(&self, s: &str);
-    fn important(&self, s: &str);
+    fn warning(&mut self, s: &str);
+    fn important(&mut self, s: &str);
 }
 
 pub(crate) trait ErrorLogger {
-    fn error(self, s: &str);
+    fn error(&mut self, s: &str);
 }
 
 // print_header() -- Example: print the buildpack

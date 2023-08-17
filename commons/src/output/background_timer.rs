@@ -29,6 +29,22 @@ impl StopTimer {
     }
 }
 
+struct StopOrDrop {
+    inner: Option<StopTimer>,
+}
+
+impl StopOrDrop {
+    fn stop(&mut self) -> Option<LogBackend> {
+        self.inner.take().map(StopTimer::stop)
+    }
+}
+
+impl Drop for StopOrDrop {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
 #[derive(Debug)]
 enum LogBackend {
     Stdout(Stdout),

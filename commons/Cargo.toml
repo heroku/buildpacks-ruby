@@ -19,7 +19,7 @@ tempfile = "3"
 thiserror = "1"
 walkdir = "2"
 which_problem = "0.1"
-indoc = "2.0.1"
+indoc = "2.0.3"
 libherokubuildpack = "0.13"
 
 [dev-dependencies]

@@ -117,7 +117,7 @@ fn request_container(
     port: u16,
     path: &str,
 ) -> Result<Response, Box<ureq::Error>> {
-    let addr = container.address_for_port(port).unwrap();
+    let addr = container.address_for_port(port);
     let ip = addr.ip();
     let port = addr.port();
     let req = ureq::get(&format!("http://{ip}:{port}/{path}"));

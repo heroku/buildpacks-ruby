@@ -200,13 +200,13 @@ $(set -pipefail; cd buildpacks/ruby && cargo libcnb package --release; cd -)
 To build the application vendored in `buildpacks/ruby/tests/fixtures/default_ruby` you can run:
 
 ```
-pack build my-image --buildpack target/buildpack/debug/heroku_ruby --path buildpacks/ruby/tests/fixtures/default_ruby --verbose
+pack build my-image --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby --path buildpacks/ruby/tests/fixtures/default_ruby --verbose
 ```
 
 The deployed buildpack ships with a builder that tells the `pack` CLI what other builpacks it needs. In development you must specify them via the `--buildpack` flag before this buildpack. For example to build an app that needs nodejs can run like this:
 
 ```
-pack build my-image --buildpack heroku/nodejs-engine --buildpack heroku/procfile --buildpack target/buildpack/debug/heroku_ruby --path <path/to/application> --verbose
+pack build my-image --buildpack heroku/nodejs-engine --buildpack heroku/procfile --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby --path <path/to/application> --verbose
 ```
 
 List of buildpacks this buildpack depends on:
@@ -235,7 +235,7 @@ As a oneliner:
 ```
 cargo libcnb package &&
 docker rmi my-image --force  &&
-pack build my-image --buildpack target/buildpack/debug/heroku_ruby --path buildpacks/ruby/tests/fixtures/default_ruby --verbose &&
+pack build my-image --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby --path buildpacks/ruby/tests/fixtures/default_ruby --verbose &&
 docker run -it --rm --entrypoint='/cnb/lifecycle/launcher' my-image 'which bundle'
 ```
 

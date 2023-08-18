@@ -11,7 +11,7 @@ commons = { path = "../../commons" }
 flate2 = "1"
 fs-err = "2"
 indoc = "2"
-libcnb = "0.13"
+libcnb = "0.14"
 rand = "0.8"
 regex = "1"
 serde = "1"
@@ -23,5 +23,5 @@ url = "2"
 glob = "0.3"
 
 [dev-dependencies]
-libcnb-test = "0.13"
+libcnb-test = "0.14"
 toml = "0.7"

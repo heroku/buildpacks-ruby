@@ -11,6 +11,44 @@ use std::time::Instant;
 #[allow(clippy::wildcard_imports)]
 use crate::output::interface::*;
 
+#[derive(Debug)]
+pub struct ReadYourWrite<W>
+where
+    W: Write + AsRef<[u8]>,
+{
+    arc: Arc<Mutex<W>>,
+}
+
+impl<W> ReadYourWrite<W>
+where
+    W: Write + AsRef<[u8]>,
+{
+    fn writer(writer: W) -> Self {
+        Self {
+            arc: Arc::new(Mutex::new(writer)),
+        }
+    }
+
+    fn reader(&self) -> Arc<Mutex<W>> {
+        self.arc.clone()
+    }
+}
+
+impl<W> Write for ReadYourWrite<W>
+where
+    W: Write + AsRef<[u8]>,
+{
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let mut writer = self.arc.lock().expect("Internal error");
+        writer.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        let mut writer = self.arc.lock().expect("Internal error");
+        writer.flush()
+    }
+}
+
 pub struct BuildLog<T, W> {
     io: W,
     state: PhantomData<T>,
@@ -31,6 +69,16 @@ where
             state: PhantomData::<state::Started>,
             started: self.started,
         })
+    }
+}
+
+impl<W: Write> BuildLog<state::NotStarted, W> {
+    fn new(io: W) -> Self {
+        Self {
+            io,
+            state: PhantomData::<state::NotStarted>,
+            started: Instant::now(),
+        }
     }
 }
 
@@ -200,17 +248,15 @@ mod state {
 #[cfg(test)]
 mod test {
     use indoc::formatdoc;
-    use tempfile::tempdir;
 
     use super::*;
 
     #[test]
     fn test_captures() {
-        let tmp = tempdir().unwrap();
-        let logfile = tmp.path().join("log.txt");
+        let writer = ReadYourWrite::writer(Vec::new());
+        let reader = writer.reader();
 
-        BuildLog::to_file(&logfile)
-            .unwrap()
+        BuildLog::new(writer)
             .buildpack_name("Heroku Ruby Buildpack")
             .section("Ruby version `3.1.3` from `Gemfile.lock`")
             .step_timed("Installing")
@@ -218,7 +264,7 @@ mod test {
             .end_section()
             .finish_logging();
 
-        let actual = fs_err::read_to_string(&logfile).unwrap();
+        let actual = String::from_utf8_lossy(&reader.lock().unwrap()).to_string();
         let expected = formatdoc! {"
 
             # Heroku Ruby Buildpack

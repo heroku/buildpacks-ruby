@@ -10,8 +10,11 @@ rust-version = "1.66"
 commons = { path = "../../commons" }
 flate2 = "1"
 fs-err = "2"
+glob = "0.3"
 indoc = "2"
-libcnb = "0.13"
+# libcnb has a much bigger impact on buildpack behaviour than any other dependencies,
+# so it's pinned to an exact version to isolate it from lockfile refreshes.
+libcnb = "=0.14.0"
 rand = "0.8"
 regex = "1"
 serde = "1"
@@ -20,8 +23,7 @@ tempfile = "3"
 thiserror = "1"
 ureq = "2"
 url = "2"
-glob = "0.3"
 
 [dev-dependencies]
-libcnb-test = "0.13"
+libcnb-test = "=0.14.0"
 toml = "0.7"

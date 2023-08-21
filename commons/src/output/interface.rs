@@ -1,4 +1,4 @@
-use std::process::Command;
+use std::io::Write;
 
 pub(crate) trait Logger {
     fn buildpack_name(self, s: &str) -> Box<dyn StartedLogger>;
@@ -11,10 +11,15 @@ pub(crate) trait StartedLogger: ErrorWarningImportantLogger {
     fn finish_logging(self: Box<Self>) -> Box<dyn StoppedLogger>;
 }
 
+pub(crate) trait StreamLogger {
+    fn io(&mut self) -> Box<dyn Write + Send + Sync + 'static>;
+    fn finish_timed_stream(self: Box<Self>) -> Box<dyn SectionLogger>;
+}
+
 pub(crate) trait SectionLogger: ErrorWarningImportantLogger {
     fn step(&mut self, s: &str); // -> Box<dyn SectionLogger>;
     fn step_timed(self: Box<Self>, s: &str) -> Box<dyn TimedStepLogger>;
-    fn step_command(&self, c: &Command) -> Box<dyn SectionLogger>;
+    fn step_timed_stream(self: Box<Self>, s: &str) -> Box<dyn StreamLogger>;
     fn end_section(self: Box<Self>) -> Box<dyn StartedLogger>;
 }
 

@@ -264,6 +264,7 @@ pub mod time {
         (duration.as_secs() / 3600) % 60
     }
 
+    #[must_use]
     pub fn human(duration: &Duration) -> String {
         let hours = hours(duration);
         let minutes = minutes(duration);

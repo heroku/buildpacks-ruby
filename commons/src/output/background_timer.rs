@@ -92,7 +92,7 @@ pub struct StopJoinGuard<T: StopJoin> {
 
 impl<T: StopJoin> StopJoinGuard<T> {
     pub fn stop(mut self) -> Option<T> {
-        self.inner.take().map(|inner| inner.stop_join())
+        self.inner.take().map(StopJoin::stop_join)
     }
 }
 

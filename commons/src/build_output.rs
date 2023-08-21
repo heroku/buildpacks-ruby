@@ -245,12 +245,14 @@ pub fn buildpack_name(buildpack: impl AsRef<str>) -> BuildpackDuration {
 }
 
 mod section {
+    use crate::fun_run::NamedOutput;
+
     use super::{
         add_prefix, fmt, fun_run, line_mapped, raw_inline_print, time, time::LiveTimingInline,
         CmdError, Instant,
     };
     use libherokubuildpack::command::CommandExt;
-    use std::process::{Command, Output};
+    use std::process::Command;
 
     const CMD_INDENT: &str = "      ";
     const SECTION_INDENT: &str = "  ";
@@ -300,7 +302,7 @@ mod section {
         ///
         /// Returns an error if the command status is non-zero or if the
         /// system cannot run the command.
-        pub fn run(&self, run_command: RunCommand) -> Result<Output, CmdError> {
+        pub fn run(&self, run_command: RunCommand) -> Result<NamedOutput, CmdError> {
             match run_command.output {
                 OutputConfig::Stream | OutputConfig::StreamNoTiming => {
                     Self::stream_command(self, run_command)
@@ -318,7 +320,10 @@ mod section {
         }
 
         /// Run a command and output nothing to the screen
-        fn silent_command(_section: &Section, run_command: RunCommand) -> Result<Output, CmdError> {
+        fn silent_command(
+            _section: &Section,
+            run_command: RunCommand,
+        ) -> Result<NamedOutput, CmdError> {
             let RunCommand {
                 command,
                 name,
@@ -335,7 +340,7 @@ mod section {
         fn inline_progress_command(
             _section: &Section,
             run_command: RunCommand,
-        ) -> Result<Output, CmdError> {
+        ) -> Result<NamedOutput, CmdError> {
             let RunCommand {
                 command,
                 name,
@@ -357,7 +362,10 @@ mod section {
         }
 
         /// Run a command. Output command name, and stream the contents
-        fn stream_command(section: &Section, run_command: RunCommand) -> Result<Output, CmdError> {
+        fn stream_command(
+            section: &Section,
+            run_command: RunCommand,
+        ) -> Result<NamedOutput, CmdError> {
             let RunCommand {
                 command,
                 name,

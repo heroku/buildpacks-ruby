@@ -73,8 +73,7 @@ impl GemList {
             .cmd_map(|cmd| build_output.run(RunCommand::inline_progress(cmd)))
             .map_err(ListError::BundleListShellCommandError)?;
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        GemList::from_str(&stdout)
+        GemList::from_str(&output.stdout_lossy())
     }
 
     #[must_use]

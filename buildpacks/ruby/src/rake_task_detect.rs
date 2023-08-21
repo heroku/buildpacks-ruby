@@ -48,14 +48,14 @@ impl RakeDetect {
                     } else {
                         match error {
                             CmdError::SystemError(_, _) => Err(error),
-                            CmdError::NonZeroExitNotStreamed(_, output)
-                            | CmdError::NonZeroExitAlreadyStreamed(_, output) => Ok(output),
+                            CmdError::NonZeroExitNotStreamed(output)
+                            | CmdError::NonZeroExitAlreadyStreamed(output) => Ok(output),
                         }
                     }
                 })
             })
             .map_err(RakeError::DashpCommandError)
-            .and_then(|output| RakeDetect::from_str(&String::from_utf8_lossy(&output.stdout)))
+            .and_then(|output| RakeDetect::from_str(&&output.stdout_lossy()))
     }
 
     #[must_use]

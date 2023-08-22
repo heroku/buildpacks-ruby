@@ -55,7 +55,7 @@ impl RakeDetect {
                 })
             })
             .map_err(RakeError::DashpCommandError)
-            .and_then(|output| RakeDetect::from_str(&&output.stdout_lossy()))
+            .and_then(|output| RakeDetect::from_str(&output.stdout_lossy()))
     }
 
     #[must_use]

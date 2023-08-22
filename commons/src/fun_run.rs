@@ -11,6 +11,8 @@ use which_problem::Which;
 #[cfg(test)]
 use libherokubuildpack as _;
 
+use crate::fun_run;
+
 /// The `fun_run` module is designed to make running commands more fun for you
 /// and your users.
 ///
@@ -35,37 +37,86 @@ use libherokubuildpack as _;
 ///
 /// - Fun(ctional)
 ///
-/// While the pieces can be composed functionally the real magic comes when you start mixing in the helper structs `NamedOutput` and `CmdError`.
+/// While the pieces can be composed functionally the real magic comes when you start mixing in the helper structs `NamedCommand`, `NamedOutput` and `CmdError`.
 /// Together these will return a Result type that contains the associated name of the command just called: `Result<NamedOutput, CmdError>`.
-///
-/// Trait extensions:
-///
-///   - `Result<T,E>::cmd_map()` provided by `CmdMapExt`
-///   - `Result<Output,std::io::Error>::with_name` provided by the `ResultNameExt`.
-///
-/// Use these along with other fun methods to compose the command run of your dreams.
 ///
 /// Example:
 ///
 /// ```no_run
-/// use commons::fun_run::{self, CmdMapExt, ResultNameExt};
-/// use libherokubuildpack::command::CommandExt;
+/// use commons::fun_run::CommandWithName;
 /// use std::process::Command;
 /// use libcnb::Env;
 ///
 /// let env = Env::new();
 ///
-/// Command::new("bundle")
+/// let result = Command::new("bundle")
 ///     .args(["install"])
 ///     .envs(&env)
-///     .cmd_map(|cmd| {
-///         let name = fun_run::display(cmd);
-///         eprintln!("\nRunning command:\n$ {name}");
+///     .stream_output(std::io::stdout(), std::io::stderr());
 ///
-///         cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())
-///             .with_name(name) // Converts Result<Output, std::io::Error> to Result<NamedOutput, CmdError>
-///             .and_then(fun_run::NamedOutput::nonzero_streamed) // Converts `Ok` to `Err` if `NamedOutput` status is not zero
-///     }).unwrap();
+/// match result {
+///     Ok(output) => {
+///         assert_eq!("bundle install", &output.name())
+///     },
+///     Err(varient) => {
+///         assert_eq!("bundle install", &varient.name())
+///     }
+/// }
+/// ```
+///
+/// Change names as you see fit:
+///
+/// ```no_run
+/// use commons::fun_run::CommandWithName;
+/// use std::process::Command;
+/// use libcnb::Env;
+///
+/// let env = Env::new();
+///
+/// let result = Command::new("gem")
+///     .args(["install", "bundler", "-v", "2.4.1.7"])
+///     .envs(&env)
+///     // Overwrites default command name which would include extra arguments
+///     .named("gem install")
+///     .stream_output(std::io::stdout(), std::io::stderr());
+///
+/// match result {
+///     Ok(output) => {
+///         assert_eq!("bundle install", &output.name())
+///     },
+///     Err(varient) => {
+///         assert_eq!("bundle install", &varient.name())
+///     }
+/// }
+/// ```
+///
+/// Or include env vars:
+///
+/// ```no_run
+/// use commons::fun_run::{self, CommandWithName};
+/// use std::process::Command;
+/// use libcnb::Env;
+///
+/// let env = Env::new();
+///
+/// let result = Command::new("gem")
+///     .args(["install", "bundler", "-v", "2.4.1.7"])
+///     .envs(&env)
+///     // Overwrites default command name
+///     .named_fn(|cmd| {
+///         // Annotate command with GEM_HOME env var
+///         fun_run::display_with_env_keys(cmd, &env, ["GEM_HOME"])
+///     })
+///     .stream_output(std::io::stdout(), std::io::stderr());
+///
+/// match result {
+///     Ok(output) => {
+///         assert_eq!("GEM_HOME=\"/usr/bin/local/.gems\" gem install bundler -v 2.4.1.7", &output.name())
+///     },
+///     Err(varient) => {
+///         assert_eq!("GEM_HOME=\"/usr/bin/local/.gems\" gem install bundler -v 2.4.1.7", &varient.name())
+///     }
+/// }
 /// ```
 
 /// Allows for a functional-style flow when running a `Command` via
@@ -114,29 +165,21 @@ impl ResultNameExt for Result<Output, std::io::Error> {
     }
 }
 
-/// It's a command, with a name
-///
-/// Experimental struct
-pub struct NamedCommand<'a> {
-    name: String,
-    command: &'a mut Command,
-}
+pub trait CommandWithName {
+    fn name(&mut self) -> String;
+    fn mut_cmd(&mut self) -> &mut Command;
 
-impl<'a> NamedCommand<'a> {
-    fn new(command: &'a mut Command) -> Self {
-        Self {
-            name: display(command),
-            command,
-        }
+    fn named(&mut self, s: impl AsRef<str>) -> NamedCommand<'_> {
+        let name = s.as_ref().to_string();
+        let command = self.mut_cmd();
+        NamedCommand { name, command }
     }
 
-    /// Generate a new `RunCommand` with a different name
-    #[must_use]
-    pub fn with_name(self, name: impl AsRef<str>) -> Self {
-        Self {
-            name: name.as_ref().to_string(),
-            command: self.command,
-        }
+    #[allow(clippy::needless_lifetimes)]
+    fn named_fn<'a>(&'a mut self, f: impl FnOnce(&mut Command) -> String) -> NamedCommand<'a> {
+        let cmd = self.mut_cmd();
+        let name = f(cmd);
+        self.named(name)
     }
 
     /// Runs the command without streaming
@@ -145,9 +188,9 @@ impl<'a> NamedCommand<'a> {
     ///
     /// Returns `CmdError::SystemError` if the system is unable to run the command.
     /// Returns `CmdError::NonZeroExitNotStreamed` if the exit code is not zero.
-    pub fn output(&mut self) -> Result<NamedOutput, CmdError> {
-        let name = &self.name;
-        self.command
+    fn output(&mut self) -> Result<NamedOutput, CmdError> {
+        let name = self.name();
+        self.mut_cmd()
             .output()
             .with_name(name)
             .and_then(NamedOutput::nonzero_captured)
@@ -159,7 +202,7 @@ impl<'a> NamedCommand<'a> {
     ///
     /// Returns `CmdError::SystemError` if the system is unable to run the command
     /// Returns `CmdError::NonZeroExitAlreadyStreamed` if the exit code is not zero.
-    pub fn stream_output<OW, EW>(
+    fn stream_output<OW, EW>(
         &mut self,
         stdout_write: OW,
         stderr_write: EW,
@@ -168,11 +211,37 @@ impl<'a> NamedCommand<'a> {
         OW: Write + Send,
         EW: Write + Send,
     {
-        let name = &self.name;
-        self.command
+        let name = &self.name();
+        self.mut_cmd()
             .output_and_write_streams(stdout_write, stderr_write)
             .with_name(name)
             .and_then(NamedOutput::nonzero_streamed)
+    }
+}
+
+impl CommandWithName for Command {
+    fn name(&mut self) -> String {
+        fun_run::display(self)
+    }
+
+    fn mut_cmd(&mut self) -> &mut Command {
+        self
+    }
+}
+
+/// It's a command, with a name
+pub struct NamedCommand<'a> {
+    name: String,
+    command: &'a mut Command,
+}
+
+impl CommandWithName for NamedCommand<'_> {
+    fn name(&mut self) -> String {
+        self.name.to_string()
+    }
+
+    fn mut_cmd(&mut self) -> &mut Command {
+        self.command
     }
 }
 
@@ -182,8 +251,8 @@ impl<'a> NamedCommand<'a> {
 /// "name" of the command regardless of succss or failure.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NamedOutput {
-    pub name: String,
-    pub output: Output,
+    name: String,
+    output: Output,
 }
 
 impl NamedOutput {
@@ -214,6 +283,11 @@ impl NamedOutput {
     #[must_use]
     pub fn stderr_lossy(&self) -> String {
         String::from_utf8_lossy(&self.output.stderr).to_string()
+    }
+
+    #[must_use]
+    pub fn name(&self) -> String {
+        self.name.clone()
     }
 }
 

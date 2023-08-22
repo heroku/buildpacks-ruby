@@ -1,40 +1,40 @@
 use std::io::Write;
 
-pub(crate) trait Logger {
+pub trait Logger {
     fn buildpack_name(self, s: &str) -> Box<dyn StartedLogger>;
 }
 
-pub(crate) trait StoppedLogger {}
+pub trait StoppedLogger {}
 
-pub(crate) trait StartedLogger: ErrorWarningImportantLogger {
+pub trait StartedLogger: ErrorWarningImportantLogger {
     fn section(self: Box<Self>, s: &str) -> Box<dyn SectionLogger>;
     fn finish_logging(self: Box<Self>) -> Box<dyn StoppedLogger>;
 }
 
-pub(crate) trait StreamLogger {
+pub trait StreamLogger {
     fn io(&mut self) -> Box<dyn Write + Send + Sync + 'static>;
     fn finish_timed_stream(self: Box<Self>) -> Box<dyn SectionLogger>;
 }
 
-pub(crate) trait SectionLogger: ErrorWarningImportantLogger {
+pub trait SectionLogger: ErrorWarningImportantLogger {
     fn step(&mut self, s: &str); // -> Box<dyn SectionLogger>;
     fn step_timed(self: Box<Self>, s: &str) -> Box<dyn TimedStepLogger>;
     fn step_timed_stream(self: Box<Self>, s: &str) -> Box<dyn StreamLogger>;
     fn end_section(self: Box<Self>) -> Box<dyn StartedLogger>;
 }
 
-pub(crate) trait TimedStepLogger {
+pub trait TimedStepLogger {
     fn finish_timed_step(self: Box<Self>) -> Box<dyn SectionLogger>;
 }
 
 // Object safety needs to be sorted out
-pub(crate) trait ErrorWarningImportantLogger: ErrorLogger {
+pub trait ErrorWarningImportantLogger: ErrorLogger {
     /// TODO: make this chainable
     fn warning(&mut self, s: &str);
     fn important(&mut self, s: &str);
 }
 
-pub(crate) trait ErrorLogger {
+pub trait ErrorLogger {
     fn error(&mut self, s: &str);
 }
 

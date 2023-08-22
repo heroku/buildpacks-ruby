@@ -1,5 +1,6 @@
-use crate::{build_output, RubyBuildpack, RubyBuildpackError};
+use crate::{LayerLogger, RubyBuildpack, RubyBuildpackError};
 use commons::gemfile_lock::ResolvedRubyVersion;
+use commons::output::fmt;
 use flate2::read::GzDecoder;
 use libcnb::build::BuildContext;
 use libcnb::data::buildpack::StackId;
@@ -25,10 +26,9 @@ use url::Url;
 ///
 /// When the Ruby version changes, invalidate and re-run.
 ///
-#[derive(PartialEq, Eq)]
-pub(crate) struct RubyInstallLayer {
+pub(crate) struct RubyInstallLayer<'a> {
     pub version: ResolvedRubyVersion,
-    pub build_output: build_output::Section,
+    pub layer_logger: &'a LayerLogger,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -37,7 +37,7 @@ pub(crate) struct RubyInstallLayerMetadata {
     pub version: ResolvedRubyVersion,
 }
 
-impl Layer for RubyInstallLayer {
+impl<'a> Layer for RubyInstallLayer<'a> {
     type Buildpack = RubyBuildpack;
     type Metadata = RubyInstallLayerMetadata;
 
@@ -54,27 +54,25 @@ impl Layer for RubyInstallLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let mut timer = self.build_output.say_with_inline_timer("Installing");
+        self.layer_logger.lock().step_timed("Installing", || {
+            let tmp_ruby_tgz = NamedTempFile::new()
+                .map_err(RubyInstallError::CouldNotCreateDestinationFile)
+                .map_err(RubyBuildpackError::RubyInstallError)?;
 
-        let tmp_ruby_tgz = NamedTempFile::new()
-            .map_err(RubyInstallError::CouldNotCreateDestinationFile)
-            .map_err(RubyBuildpackError::RubyInstallError)?;
+            let url = download_url(&context.stack_id, &self.version)
+                .map_err(RubyBuildpackError::RubyInstallError)?;
 
-        let url = download_url(&context.stack_id, &self.version)
-            .map_err(RubyBuildpackError::RubyInstallError)?;
+            download(url.as_ref(), tmp_ruby_tgz.path())
+                .map_err(RubyBuildpackError::RubyInstallError)?;
 
-        download(url.as_ref(), tmp_ruby_tgz.path())
-            .map_err(RubyBuildpackError::RubyInstallError)?;
+            untar(tmp_ruby_tgz.path(), layer_path).map_err(RubyBuildpackError::RubyInstallError)?;
 
-        untar(tmp_ruby_tgz.path(), layer_path).map_err(RubyBuildpackError::RubyInstallError)?;
-
-        timer.done();
-
-        LayerResultBuilder::new(RubyInstallLayerMetadata {
-            stack: context.stack_id.clone(),
-            version: self.version.clone(),
+            LayerResultBuilder::new(RubyInstallLayerMetadata {
+                stack: context.stack_id.clone(),
+                version: self.version.clone(),
+            })
+            .build()
         })
-        .build()
     }
 
     fn existing_layer_strategy(
@@ -90,19 +88,22 @@ impl Layer for RubyInstallLayer {
 
         match cache_state(old.clone(), now) {
             Changed::Nothing(_version) => {
-                self.build_output.say("Using cached version");
+                self.layer_logger.lock().step("Using cached version");
 
                 Ok(ExistingLayerStrategy::Keep)
             }
             Changed::Stack(_old, _now) => {
-                self.build_output
-                    .say_with_details("Clearing cache", "stack changed");
+                self.layer_logger
+                    .lock()
+                    .step(&format!("Clearing cache {}", fmt::details("stack changed")));
 
                 Ok(ExistingLayerStrategy::Recreate)
             }
             Changed::RubyVersion(_old, _now) => {
-                self.build_output
-                    .say_with_details("Clearing cache", "ruby version changed");
+                self.layer_logger.lock().step(&format!(
+                    "Clearing cache {}",
+                    fmt::details("ruby version changed")
+                ));
 
                 Ok(ExistingLayerStrategy::Recreate)
             }

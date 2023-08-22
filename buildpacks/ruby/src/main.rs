@@ -8,6 +8,8 @@ use commons::build_output;
 use commons::cache::CacheError;
 use commons::fun_run::CmdError;
 use commons::gemfile_lock::GemfileLock;
+use commons::output::interface::{Logger, SectionLogger, StartedLogger, StreamLogger};
+use commons::output::log::BuildLog;
 use core::str::FromStr;
 use layers::{BundleDownloadLayer, BundleInstallLayer};
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
@@ -20,6 +22,8 @@ use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 use regex::Regex;
+use std::cell::{RefCell, RefMut};
+use std::io::stdout;
 
 mod gem_list;
 mod layers;
@@ -67,6 +71,7 @@ impl Buildpack for RubyBuildpack {
     }
 
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
+        let mut logger = BuildLog::new(stdout()).buildpack_name("Heroku Ruby Buildpack");
         let build_duration = build_output::buildpack_name("Heroku Ruby Buildpack");
 
         // ## Set default environment
@@ -96,21 +101,23 @@ impl Buildpack for RubyBuildpack {
 
         // ## Install executable ruby version
 
-        env = {
-            let section = build_output::section(format!(
+        (logger, env) = {
+            let logger = logger.section(&format!(
                 "Ruby version {} from {}",
                 build_output::fmt::value(ruby_version.to_string()),
                 build_output::fmt::value(gemfile_lock.ruby_source())
             ));
+            let layer_logger = LayerLogger::new(logger);
             let ruby_layer = context //
                 .handle_layer(
                     layer_name!("ruby"),
                     RubyInstallLayer {
-                        build_output: section,
                         version: ruby_version.clone(),
+                        layer_logger: &layer_logger,
                     },
                 )?;
-            ruby_layer.env.apply(Scope::Build, &env)
+            let env = ruby_layer.env.apply(Scope::Build, &env);
+            (layer_logger.done(), env)
         };
 
         // ## Setup bundler

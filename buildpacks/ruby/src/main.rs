@@ -146,8 +146,9 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Bundle install
-        env = {
-            let section = build_output::section("Bundle install");
+        (logger, env) = {
+            let section = logger.section("Bundle install");
+            let mut layer_logger = LayerLogger::new(section);
 
             let bundle_install_layer = context.handle_layer(
                 layer_name!("gems"),
@@ -155,10 +156,12 @@ impl Buildpack for RubyBuildpack {
                     env: env.clone(),
                     without: BundleWithout::new("development:test"),
                     ruby_version,
-                    build_output: section,
+                    logger: layer_logger.clone(),
                 },
             )?;
-            bundle_install_layer.env.apply(Scope::Build, &env)
+            let env = bundle_install_layer.env.apply(Scope::Build, &env);
+            let logger = layer_logger.finish_layer();
+            (logger, env)
         };
 
         // ## Detect gems

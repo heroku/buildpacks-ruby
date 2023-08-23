@@ -121,6 +121,11 @@ pub fn cmd_output_format(contents: impl AsRef<str>) -> String {
 }
 
 #[must_use]
+pub fn help_prefix() -> String {
+    colorize(IMPORTANT_COLOR, bangify("Help:"))
+}
+
+#[must_use]
 pub(crate) fn important(contents: impl AsRef<str>) -> String {
     colorize(IMPORTANT_COLOR, bangify(contents))
 }

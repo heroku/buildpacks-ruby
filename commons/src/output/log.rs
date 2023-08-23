@@ -95,6 +95,7 @@ impl<'a> GuardedLayerLogger<'a> {
 ///     // ...
 /// });
 /// ```
+#[derive(Debug)]
 pub struct LayerLogger {
     inner: Arc<Mutex<OnceCell<Box<dyn SectionLogger>>>>,
 }

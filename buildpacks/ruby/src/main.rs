@@ -165,15 +165,15 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Detect gems
-        let (gem_list, default_process) = {
-            let section = build_output::section("Setting default processes(es)");
-            section.say("Detecting gems");
+        let (logger, gem_list, default_process) = {
+            let section = logger.section("Setting default processes(es)");
+            let layer_logger = LayerLogger::new(section);
 
-            let gem_list = gem_list::GemList::from_bundle_list(&env, &section)
+            let gem_list = gem_list::GemList::from_bundle_list(&env, &layer_logger)
                 .map_err(RubyBuildpackError::GemListGetError)?;
-            let default_process = steps::get_default_process(&section, &context, &gem_list);
+            let default_process = steps::get_default_process(&layer_logger, &context, &gem_list);
 
-            (gem_list, default_process)
+            (layer_logger.finish_layer(), gem_list, default_process)
         };
 
         // ## Assets install

@@ -75,7 +75,6 @@ impl Buildpack for RubyBuildpack {
 
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         let mut logger = BuildLog::new(stdout()).buildpack_name("Heroku Ruby Buildpack");
-        let build_duration = build_output::buildpack_name("Heroku Ruby Buildpack");
 
         // ## Set default environment
         let (mut env, store) =
@@ -179,14 +178,22 @@ impl Buildpack for RubyBuildpack {
         // ## Assets install
 
         {
-            let section = build_output::section("Rake assets install");
-            let rake_detect = crate::steps::detect_rake_tasks(&section, &gem_list, &context, &env)?;
+            let section = logger.section("Rake assets install");
+            let mut layer_logger = LayerLogger::new(section);
+            let rake_detect =
+                crate::steps::detect_rake_tasks(&layer_logger, &gem_list, &context, &env)?;
 
             if let Some(rake_detect) = rake_detect {
-                crate::steps::rake_assets_install(&section, &context, &env, &rake_detect)?;
+                crate::steps::rake_assets_install(
+                    layer_logger.clone(),
+                    &context,
+                    &env,
+                    &rake_detect,
+                )?;
             }
+
+            layer_logger.finish_layer().finish_logging();
         };
-        build_duration.done_timed();
 
         if let Some(default_process) = default_process {
             BuildResultBuilder::new()

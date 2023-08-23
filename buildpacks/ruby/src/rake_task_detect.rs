@@ -1,9 +1,8 @@
-use commons::fun_run::{self, CmdError, CmdMapExt};
+use commons::fun_run::{self, CmdError, CommandWithName};
+use commons::output::{fmt, log::LayerLogger};
 use core::str::FromStr;
 use regex::Regex;
 use std::{ffi::OsStr, process::Command};
-
-use crate::build_output::{RunCommand, Section};
 
 /// Run `rake -P` and parse output to show what rake tasks an application has
 ///
@@ -33,26 +32,30 @@ impl RakeDetect {
     ///
     /// Will return `Err` if `bundle exec rake -p` command cannot be invoked by the operating system.
     pub fn from_rake_command<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsStr>>(
-        section: &Section,
+        logger: &LayerLogger,
         envs: T,
         error_on_failure: bool,
     ) -> Result<Self, RakeError> {
-        Command::new("bundle")
-            .args(["exec", "rake", "-P", "--trace"])
+        let mut cmd = Command::new("bundle");
+        cmd.args(["exec", "rake", "-P", "--trace"])
             .env_clear()
-            .envs(envs)
-            .cmd_map(|cmd| {
-                section.run(RunCommand::silent(cmd)).or_else(|error| {
-                    if error_on_failure {
-                        Err(error)
-                    } else {
-                        match error {
-                            CmdError::SystemError(_, _) => Err(error),
-                            CmdError::NonZeroExitNotStreamed(output)
-                            | CmdError::NonZeroExitAlreadyStreamed(output) => Ok(output),
-                        }
+            .envs(envs);
+
+        logger
+            .lock()
+            .step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
+                cmd.stream_output(stream.io(), stream.io())
+            })
+            .or_else(|error| {
+                if error_on_failure {
+                    Err(error)
+                } else {
+                    match error {
+                        CmdError::SystemError(_, _) => Err(error),
+                        CmdError::NonZeroExitNotStreamed(output)
+                        | CmdError::NonZeroExitAlreadyStreamed(output) => Ok(output),
                     }
-                })
+                }
             })
             .map_err(RakeError::DashpCommandError)
             .and_then(|output| RakeDetect::from_str(&output.stdout_lossy()))

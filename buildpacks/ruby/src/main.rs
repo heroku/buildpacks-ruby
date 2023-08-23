@@ -124,21 +124,25 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Setup bundler
-        env = {
-            let section = build_output::section(format!(
+        (logger, env) = {
+            let section = logger.section(&format!(
                 "Bundler version {} from {}",
                 build_output::fmt::value(bundler_version.to_string()),
                 build_output::fmt::value(gemfile_lock.bundler_source())
             ));
+            let mut layer_logger = LayerLogger::new(section);
             let download_bundler_layer = context.handle_layer(
                 layer_name!("bundler"),
                 BundleDownloadLayer {
                     env: env.clone(),
                     version: bundler_version,
-                    build_output: section,
+                    logger: layer_logger.clone(),
                 },
             )?;
-            download_bundler_layer.env.apply(Scope::Build, &env)
+            let logger = layer_logger.finish_layer();
+            let env = download_bundler_layer.env.apply(Scope::Build, &env);
+
+            (logger, env)
         };
 
         // ## Bundle install

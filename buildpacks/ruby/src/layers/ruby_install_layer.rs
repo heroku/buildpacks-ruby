@@ -95,12 +95,12 @@ impl Layer for RubyInstallLayer {
             Changed::Stack(_old, _now) => {
                 self.layer_logger
                     .lock()
-                    .step(&format!("Clearing cache {}", fmt::details("stack changed")));
+                    .step(format!("Clearing cache {}", fmt::details("stack changed")));
 
                 Ok(ExistingLayerStrategy::Recreate)
             }
             Changed::RubyVersion(_old, _now) => {
-                self.layer_logger.lock().step(&format!(
+                self.layer_logger.lock().step(format!(
                     "Clearing cache {}",
                     fmt::details("ruby version changed")
                 ));

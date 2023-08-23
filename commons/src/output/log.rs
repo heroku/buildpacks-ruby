@@ -1,54 +1,138 @@
 use crate::output::background_timer::{start_timer, StopJoinGuard, StopTimer};
 use crate::output::fmt;
+use std::cell::OnceCell;
 use std::fmt::Debug;
-use std::io::Write;
-use std::io::{stdout, Stdout};
+use std::io::{stdout, Stdout, Write};
 use std::marker::PhantomData;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
 
 #[allow(clippy::wildcard_imports)]
 use crate::output::interface::*;
 
-#[derive(Debug)]
-pub(crate) struct ReadYourWrite<W>
-where
-    W: Write + AsRef<[u8]>,
-{
-    arc: Arc<Mutex<W>>,
+/// # Build output logging
+///
+/// The main interfaces are `BuildLog` and `LayerLogger`
+///
+/// ## `BuildLog`
+///
+/// TODO
+///
+/// ## `LayerLogger`
+///
+/// TODO
+///
+
+pub struct GuardedLayerLogger<'a> {
+    inner: MutexGuard<'a, OnceCell<Box<dyn SectionLogger>>>,
 }
 
-impl<W> ReadYourWrite<W>
-where
-    W: Write + AsRef<[u8]>,
-{
-    #[allow(dead_code)]
-    fn writer(writer: W) -> Self {
+impl<'a> GuardedLayerLogger<'a> {
+    /// # Panics
+    ///
+    /// Expects the `OnceCell` to always be populated. As long as all updates are made via this
+    /// function we ensure that a logger is always set.
+    fn update<T>(
+        mut self,
+        f: impl FnOnce(Box<dyn SectionLogger>) -> (Box<dyn SectionLogger>, T),
+    ) -> T {
+        let logger = self.inner.take().expect("Internal error");
+        let (log, out) = f(logger);
+        self.inner.set(log).expect("Internal error");
+        out
+    }
+
+    pub fn step_timed<T>(self, s: impl AsRef<str>, f: impl FnOnce() -> T) -> T {
+        self.update(move |logger| {
+            let log = logger.step_timed(s.as_ref());
+            let out = f();
+
+            (log.finish_timed_step(), out)
+        })
+    }
+
+    pub fn step_stream<T>(
+        self,
+        s: impl AsRef<str>,
+        f: impl FnOnce(&mut Box<dyn StreamLogger>) -> T,
+    ) -> T {
+        self.update(move |logger| {
+            let mut log = logger.step_timed_stream(s.as_ref());
+            let out = f(&mut log);
+
+            (log.finish_timed_stream(), out)
+        })
+    }
+
+    pub fn step(mut self, s: impl AsRef<str>) {
+        self.inner
+            .get_mut()
+            .expect("Internal error")
+            .step(s.as_ref());
+    }
+
+    #[must_use]
+    pub fn done(mut self) -> Box<dyn StartedLogger> {
+        self.inner.take().expect("Internal error").end_section()
+    }
+}
+
+/// Implements interior mutability because layers cannot have mutating methods
+///
+/// Use inside a layer by unlocking and calling logging methods:
+///
+/// ```
+/// use commons::output::{interface::*, log::{BuildLog, LayerLogger}};
+///
+/// let log = BuildLog::new(std::io::stdout())
+///     .buildpack_name("Testing")
+///     .section("test");
+///
+/// let layer_logger = LayerLogger::new(log);
+///
+/// layer_logger.lock().step("Clearing cache");
+/// layer_logger.lock().step_timed("Installing", || {
+///     // ...
+/// });
+/// ```
+pub struct LayerLogger {
+    inner: Arc<Mutex<OnceCell<Box<dyn SectionLogger>>>>,
+}
+
+impl<'a> LayerLogger {
+    #[must_use]
+    pub fn new(logger: Box<dyn SectionLogger>) -> Self {
+        let cell = OnceCell::new();
+        cell.set(logger).expect("Internal error");
         Self {
-            arc: Arc::new(Mutex::new(writer)),
+            inner: Arc::new(Mutex::new(cell)),
         }
     }
 
-    #[allow(dead_code)]
-    fn reader(&self) -> Arc<Mutex<W>> {
-        self.arc.clone()
+    #[must_use]
+    pub fn clone(&mut self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+
+    /// # Panic
+    ///
+    /// Runtime panic if the interior is already locked
+    #[must_use]
+    pub fn lock(&'a self) -> GuardedLayerLogger<'a> {
+        let lock = self.inner.try_lock().expect("Cannot call lock twice");
+        GuardedLayerLogger { inner: lock }
+    }
+
+    #[must_use]
+    pub fn finish_layer(self) -> Box<dyn StartedLogger> {
+        self.lock().done()
     }
 }
 
-impl<W> Write for ReadYourWrite<W>
-where
-    W: Write + AsRef<[u8]> + Debug,
-{
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let mut writer = self.arc.lock().expect("Internal error");
-        writer.write(buf)
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        let mut writer = self.arc.lock().expect("Internal error");
-        writer.flush()
-    }
-}
+#[cfg(test)]
+mod testz {}
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
@@ -347,12 +431,106 @@ mod state {
     pub struct Stopped;
 }
 
+/// Threadsafe writer that can be read from
+///
+/// Useful for testing
+#[derive(Debug)]
+pub struct ReadYourWrite<W>
+where
+    W: Write + AsRef<[u8]>,
+{
+    arc: Arc<Mutex<W>>,
+}
+
+impl<W> ReadYourWrite<W>
+where
+    W: Write + AsRef<[u8]>,
+{
+    #[allow(dead_code)]
+    pub fn writer(writer: W) -> Self {
+        Self {
+            arc: Arc::new(Mutex::new(writer)),
+        }
+    }
+
+    #[must_use]
+    pub fn reader(&self) -> Arc<Mutex<W>> {
+        self.arc.clone()
+    }
+}
+
+impl<W> Write for ReadYourWrite<W>
+where
+    W: Write + AsRef<[u8]> + Debug,
+{
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let mut writer = self.arc.lock().expect("Internal error");
+        writer.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        let mut writer = self.arc.lock().expect("Internal error");
+        writer.flush()
+    }
+}
+
 #[cfg(test)]
 mod test {
+    use super::*;
+    use crate::output::fmt;
+    use crate::output::log::{BuildLog, ReadYourWrite};
     use indoc::formatdoc;
+    use libcnb_test::assert_contains;
     use libherokubuildpack::command::CommandExt;
 
-    use super::*;
+    #[test]
+    fn layer_logger_interface() {
+        let writer = ReadYourWrite::writer(Vec::new());
+        let reader = writer.reader();
+        let log = BuildLog::new(writer)
+            .buildpack_name("Testing")
+            .section("test");
+
+        let logger = LayerLogger::new(log);
+
+        logger.lock().step("hello");
+        {
+            let mut vec = reader.lock().unwrap();
+            let actual = fmt::strip_control_codes(String::from_utf8_lossy(&vec));
+            assert_contains!(actual, "  - hello\n");
+            vec.clear();
+        }
+
+        let out = logger.lock().step_timed("world", || 1);
+        {
+            assert_eq!(out, 1);
+
+            let mut vec = reader.lock().unwrap();
+            let actual = fmt::strip_control_codes(String::from_utf8_lossy(&vec));
+            assert_contains!(actual, "  - world ... (< 0.1s)\n");
+            vec.clear();
+        }
+
+        logger.lock().step_stream("streamed", |log| {
+            writeln!(log.io(), "like ice cream").unwrap();
+        });
+        {
+            let mut vec = reader.lock().unwrap();
+            let actual = fmt::strip_control_codes(String::from_utf8_lossy(&vec));
+            assert_contains!(actual, "  - streamed\n\n      like ice cream\n");
+            vec.clear();
+        }
+
+        assert!(
+            std::panic::catch_unwind(|| {
+                logger
+                    .lock()
+                    .step_timed("timed", || logger.lock().step("double lock"));
+            })
+            .is_err(),
+            "Expected runtime error due to double lock"
+        );
+    }
 
     /// Iterator yielding every line in a string. The line includes newline character(s).
     ///

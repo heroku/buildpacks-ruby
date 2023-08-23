@@ -8,8 +8,12 @@ use commons::build_output;
 use commons::cache::CacheError;
 use commons::fun_run::CmdError;
 use commons::gemfile_lock::GemfileLock;
-use commons::output::interface::{Logger, SectionLogger, StartedLogger, StreamLogger};
-use commons::output::log::BuildLog;
+
+#[allow(clippy::wildcard_imports)]
+use commons::output::{
+    interface::*,
+    log::{BuildLog, LayerLogger},
+};
 use core::str::FromStr;
 use layers::{BundleDownloadLayer, BundleInstallLayer};
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
@@ -22,10 +26,7 @@ use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 use regex::Regex;
-use std::cell::{OnceCell, RefCell, RefMut};
 use std::io::stdout;
-use std::rc::Rc;
-use std::sync::{Arc, Mutex, MutexGuard};
 
 mod gem_list;
 mod layers;
@@ -119,7 +120,7 @@ impl Buildpack for RubyBuildpack {
                     },
                 )?;
             let env = ruby_layer.env.apply(Scope::Build, &env);
-            (layer_logger.done(), env)
+            (layer_logger.finish_layer(), env)
         };
 
         // ## Setup bundler

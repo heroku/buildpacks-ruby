@@ -4,11 +4,11 @@
 use crate::layers::metrics_agent_install::{MetricsAgentInstall, MetricsAgentInstallError};
 use crate::layers::{RubyInstallError, RubyInstallLayer};
 use crate::rake_task_detect::RakeError;
-use commons::build_output;
 use commons::cache::CacheError;
 use commons::fun_run::CmdError;
 use commons::gemfile_lock::GemfileLock;
 
+use commons::output::fmt;
 #[allow(clippy::wildcard_imports)]
 use commons::output::{
     interface::*,
@@ -106,8 +106,8 @@ impl Buildpack for RubyBuildpack {
         (logger, env) = {
             let logger = logger.section(&format!(
                 "Ruby version {} from {}",
-                build_output::fmt::value(ruby_version.to_string()),
-                build_output::fmt::value(gemfile_lock.ruby_source())
+                fmt::value(ruby_version.to_string()),
+                fmt::value(gemfile_lock.ruby_source())
             ));
             let mut layer_logger = LayerLogger::new(logger);
             let ruby_layer = context //
@@ -126,8 +126,8 @@ impl Buildpack for RubyBuildpack {
         (logger, env) = {
             let section = logger.section(&format!(
                 "Bundler version {} from {}",
-                build_output::fmt::value(bundler_version.to_string()),
-                build_output::fmt::value(gemfile_lock.bundler_source())
+                fmt::value(bundler_version.to_string()),
+                fmt::value(gemfile_lock.bundler_source())
             ));
             let mut layer_logger = LayerLogger::new(section);
             let download_bundler_layer = context.handle_layer(

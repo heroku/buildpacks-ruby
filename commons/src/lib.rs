@@ -1,7 +1,6 @@
 #![warn(unused_crate_dependencies)]
 #![warn(clippy::pedantic)]
 
-pub mod build_output;
 pub mod cache;
 pub mod display;
 pub mod fun_run;

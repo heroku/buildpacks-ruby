@@ -25,6 +25,7 @@ walkdir = "2"
 which_problem = "0.1"
 
 [dev-dependencies]
+indoc = "2.0.1"
 filetime = "0.2"
 toml = "0.8"
 libcnb-test = "0.15.0"

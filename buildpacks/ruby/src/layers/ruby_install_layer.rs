@@ -26,9 +26,9 @@ use url::Url;
 ///
 /// When the Ruby version changes, invalidate and re-run.
 ///
-pub(crate) struct RubyInstallLayer<'a> {
+pub(crate) struct RubyInstallLayer {
     pub version: ResolvedRubyVersion,
-    pub layer_logger: &'a LayerLogger,
+    pub layer_logger: LayerLogger,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -37,7 +37,7 @@ pub(crate) struct RubyInstallLayerMetadata {
     pub version: ResolvedRubyVersion,
 }
 
-impl<'a> Layer for RubyInstallLayer<'a> {
+impl Layer for RubyInstallLayer {
     type Buildpack = RubyBuildpack;
     type Metadata = RubyInstallLayerMetadata;
 

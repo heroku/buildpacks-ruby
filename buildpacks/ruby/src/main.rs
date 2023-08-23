@@ -22,8 +22,10 @@ use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 use regex::Regex;
-use std::cell::{RefCell, RefMut};
+use std::cell::{OnceCell, RefCell, RefMut};
 use std::io::stdout;
+use std::rc::Rc;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 mod gem_list;
 mod layers;
@@ -107,13 +109,13 @@ impl Buildpack for RubyBuildpack {
                 build_output::fmt::value(ruby_version.to_string()),
                 build_output::fmt::value(gemfile_lock.ruby_source())
             ));
-            let layer_logger = LayerLogger::new(logger);
+            let mut layer_logger = LayerLogger::new(logger);
             let ruby_layer = context //
                 .handle_layer(
                     layer_name!("ruby"),
                     RubyInstallLayer {
                         version: ruby_version.clone(),
-                        layer_logger: &layer_logger,
+                        layer_logger: layer_logger.clone(),
                     },
                 )?;
             let env = ruby_layer.env.apply(Scope::Build, &env);

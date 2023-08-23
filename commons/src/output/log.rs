@@ -37,7 +37,7 @@ where
 
 impl<W> Write for ReadYourWrite<W>
 where
-    W: Write + AsRef<[u8]>,
+    W: Write + AsRef<[u8]> + Debug,
 {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let mut writer = self.arc.lock().expect("Internal error");
@@ -51,13 +51,14 @@ where
 }
 
 #[allow(clippy::module_name_repetitions)]
-pub struct BuildLog<T, W> {
+#[derive(Debug)]
+pub struct BuildLog<T, W: Debug> {
     io: W,
     state: PhantomData<T>,
     started: Instant,
 }
 
-impl<W> StoppedLogger for BuildLog<state::Stopped, W> {}
+impl<W> StoppedLogger for BuildLog<state::Stopped, W> where W: Debug {}
 
 impl<W> Logger for BuildLog<state::NotStarted, W>
 where
@@ -74,7 +75,10 @@ where
     }
 }
 
-impl<W: Write> BuildLog<state::NotStarted, W> {
+impl<W> BuildLog<state::NotStarted, W>
+where
+    W: Write + Debug,
+{
     pub fn new(io: W) -> Self {
         Self {
             io,
@@ -178,7 +182,7 @@ where
 
 impl<W> StreamTimed<W>
 where
-    W: Write + Send + Sync,
+    W: Write + Send + Sync + Debug,
 {
     fn start(&mut self) {
         let mut guard = self.arc_io.lock().expect("Internal error");
@@ -305,7 +309,11 @@ where
     }
 }
 
-impl<T, W: Write> ErrorWarningImportantLogger for BuildLog<T, W> {
+impl<T, W> ErrorWarningImportantLogger for BuildLog<T, W>
+where
+    T: Debug,
+    W: Write + Debug,
+{
     fn warning(&mut self, s: &str) {
         writeln_now(&mut self.io, fmt::warn(s));
     }
@@ -315,7 +323,11 @@ impl<T, W: Write> ErrorWarningImportantLogger for BuildLog<T, W> {
     }
 }
 
-impl<T, W: Write> ErrorLogger for BuildLog<T, W> {
+impl<T, W> ErrorLogger for BuildLog<T, W>
+where
+    T: Debug,
+    W: Write + Debug,
+{
     fn error(&mut self, s: &str) {
         writeln_now(&mut self.io, fmt::error(s));
     }
@@ -331,7 +343,7 @@ mod state {
     #[derive(Debug)]
     pub struct InSection;
 
-    #[derive(Default)]
+    #[derive(Debug)]
     pub struct Stopped;
 }
 

@@ -1,7 +1,8 @@
 #[allow(clippy::wildcard_imports)]
-use commons::output::{interface::*, log::BuildLog};
+use commons::output::{fmt, interface::*, log::BuildLog};
 
 use crate::RubyBuildpackError;
+use commons::fun_run::CmdError;
 use indoc::formatdoc;
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
@@ -11,80 +12,193 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
         Cause::FrameworkError(_error) => log.error(&formatdoc! {"
                 Error: heroku/buildpack-ruby internal buildpack error
 
-                An unexpected internal error was reported by the framework used
-                by this buildpack.
+                The framework used by this buildpack encountered an unexpected error.
+                This type of error usually indicates there's nothing wrong with your application.
 
-                If the issue persists, consider opening an issue on the GitHub
-                repository. If you are unable to deploy to Heroku as a result
-                of this issue, consider opening a ticket for additional support.
+                If you can’t deploy to Heroku due to this issue please check the official Heroku
+                status page https://status.heroku.com/ to see if there is an ongoing incident. Once
+                all incidents have resolved please retry your build.
+
+                If the issue persists, please try to reproduce the behavior locally using the `pack`
+                CLI. If you can reproduce the behavior locally and believe you've found a bug in the
+                buildpack or the framework please open an issue on the buildpack's GitHub repository.
             "}),
     };
 }
 
+#[allow(clippy::too_many_lines)]
 fn log_our_error(error: RubyBuildpackError) {
     let mut log = BuildLog::new(std::io::stdout());
+    let git_branch_url =
+        fmt::url("https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main");
+    let ruby_versions_url =
+        fmt::url("https://devcenter.heroku.com/articles/ruby-support#ruby-versions");
+    let rubygems_status_url = fmt::url("https://status.rubygems.org/");
+
+    let TODO = "TODO";
+
     match error {
-        RubyBuildpackError::RakeDetectError(_error) => log.error(&formatdoc! {"
-            Error detecting rake tasks
+        RubyBuildpackError::MissingGemfileLock(_error) => {
+            // Status: Pending TODOs
+            // - Error: TODO display error in section format
+            // Diagnostics:
+            // - TODO diagnostics: `ls -la` app dir
+            log.error(&formatdoc! {"
+                Error: `Gemfile.lock` not found
 
-            The Ruby buildpack uses rake task information from your application to guide
-            build logic. Without this information, the Ruby buildpack cannot continue.
-            "}),
+                A `Gemfile.lock` file is required and was not found in the root of your application.
 
-        RubyBuildpackError::GemListGetError(_error) => log.error(&formatdoc! {"
-            Error detecting dependencies
+                If you have a `Gemfile.lock` in your application, ensure it is tracked in Git and
+                that you’re pushing the correct branch.
 
-            The Ruby buildpack uses dependency information from your application to
-            guide build logic. Without this information, the Ruby buildpack cannot
-            continue.
-            "}),
+                For more information:
+                {git_branch_url}
+            "});
+        }
+        RubyBuildpackError::RubyInstallError(_error) => {
+            // Status: Ready, pending TODOs
+            // - Error: TODO display error in section format
+            // Diagnostics:
+            // - None,
+            // Future:
+            // - In the future use a manifest file to list if version is available on a different stack
+            // - In the future add a "did you mean" Levenshtein distance to see if they typoed like "3.6.0" when they meant "3.0.6"
+            log.error(&formatdoc! {"
+                Error installing Ruby
 
-        RubyBuildpackError::RubyInstallError(_error) => log.error(&formatdoc! {"
-            Error installing Ruby
+                Could not install the detected Ruby version. Ensure that you're using a supported
+                ruby version and try again.
 
-            Could not install the detected Ruby version.
-            "}),
-        RubyBuildpackError::MissingGemfileLock(_error) => log.error(&formatdoc! {"
-            Error: Gemfile.lock required
+                Supported ruby versions:
+                {ruby_versions_url}
+            "});
+        }
+        RubyBuildpackError::GemInstallBundlerCommandError(_error) => {
+            // Status: Ready, pending TODOs
+            // - Error: TODO display error in section format
+            // Diagnostics:
+            // - TODO `gem env`
+            log.error(&formatdoc! {"
+                Error installing bundler
 
-            To deploy a Ruby application, a Gemfile.lock file is required in the
-            root of your application, but none was found.
+                The ruby package managment tool, `bundler`, failed to install. Bundler is required
+                to install your application's dependencies listed in the `Gemfile`.
 
-            If you have a Gemfile.lock in your application, you may not have it
-            tracked in git, or you may be on a different branch.
-            "}),
-        RubyBuildpackError::InAppDirCacheError(_error) => log.error(&formatdoc! {"
-            Internal cache error
+                Check the status page of RubyGems.org:
+                {rubygems_status_url}
 
-            An internal error occured while caching files.
-            "}),
-        RubyBuildpackError::BundleInstallDigestError(_error) => log.error(&formatdoc! {"
-            Could not generate digest
+                Once all incidents have been resolved, please retry your build.
+            "});
+        }
+        RubyBuildpackError::BundleInstallCommandError(_error) => {
+            // Status: Ready, pending TODOs
+            // - ERROR: TODO display error in section format
+            // Diagnostics:
+            // - None
+            // Future:
+            // - Grep error output for common things like using sqlite3, use classic buildpack
+            log.error(&formatdoc! {"
+                Error installing your applications's dependencies
 
-            To provide the fastest possible install experience the Ruby buildpack
-            converts Gemfile and Gemfile.lock into a cryptographic digest to be
-            used in cache invalidation.
+                Could not install gems to the system via bundler. Gems are dependencies
+                your application listed in the `Gemfile` and resolved in the `Gemfile.lock`.
 
-            While performing this process there was an unexpected internal error.
-            "}),
-        RubyBuildpackError::BundleInstallCommandError(_error) => log.error(&formatdoc! {"
-            Error installing bundler
+                {TODO} local_command_debug
 
-            Installation of bundler failed. Bundler is the package managment
-            library for Ruby. Bundler is needed to install your application's dependencies
-            listed in the Gemfile.
-            "}),
-        RubyBuildpackError::RakeAssetsPrecompileFailed(_error) => log.error(&formatdoc! {"
-            Asset compilation failed
+                If you believe that your application is correct, ensure all files are tracked in Git and
+                that you’re pushing the correct branch:
+                {git_branch_url}
 
-            An error occured while compiling assets via rake command.
-            "}),
-        RubyBuildpackError::GemInstallBundlerCommandError(_error) => log.error(&formatdoc! {"
-            Installing gems failed
+                Use the information above to debug further.
+            "});
+        }
+        RubyBuildpackError::BundleInstallDigestError(_error) => {
+            // Status: Ready, pending TODOs
+            // - Error: TODO display error in section format
+            // Diagnostics:
+            // - TODO `ls la` home directory
+            log.error(&formatdoc! {"
+                Error generating file digest
 
-            Could not install gems to the system via bundler. Gems are dependencies
-            your application listed in the Gemfile and resolved in the Gemfile.lock.
-            "}),
+                An error occurred while generating a file digest. To provide the fastest possible
+                install experience, the Ruby buildpack converts your `Gemfile` and `Gemfile.lock`
+                into a digest to use in cache invalidation.
+
+                Ensure that the permissions on the files in your application directory are correct and that
+                all symlinks correctly resolve.
+
+                If you're unable to resolve this error, you can disable the the digest feature by
+                setting the environment variable:
+
+                HEROKU_SKIP_BUNDLE_DIGEST=1
+            "});
+        }
+        RubyBuildpackError::RakeDetectError(_error) => {
+            // Status: Ready, pending TODOs
+            // - ERROR: TODO display error in section format
+            // Diagnostics:
+            // - None
+            // Future:
+            // - Annotate with information on requiring test or development only gems in the Rakefile
+            log.error(&formatdoc! {"
+                Error detecting rake tasks
+
+                The Ruby buildpack uses rake task information from your application to guide
+                build logic. Without this information, the Ruby buildpack cannot continue.
+
+                {TODO} local_debug_cmd
+
+                Use the information above to debug further.
+            "});
+        }
+        RubyBuildpackError::RakeAssetsPrecompileFailed(_error) => {
+            // Status: Checking
+            // - Error: TODO display error in section format
+            // Diagnostics:
+            // - None
+            log.error(&formatdoc! {"
+                Error compiling assets
+
+                An error occured while compiling assets via rake command.
+
+                {TODO} local_command_debug
+
+                Use the information above to debug further.
+            "});
+        }
+        RubyBuildpackError::InAppDirCacheError(_error) => {
+            // Status: Ready, pending TODOs
+            // - Error: TODO display error in section format
+            // Diagnostics:
+            // - None
+            // Future:
+            // - Separate between failures in layer dirs or in app dirs, if we can isolate to an app dir we could debug more
+            // to determine if there's bad permissions or bad file symlink
+            log.error(&formatdoc! {"
+                Error caching frontend assets
+
+                An error occurred while attempting to cache frontend assets, and the Ruby buildpack
+                cannot continue.
+
+                Ensure that the permissions on the files in your application directory are correct and that
+                all symlinks correctly resolve.
+            "});
+        }
+        RubyBuildpackError::GemListGetError(_error) => {
+            // Status: Pending TODOs
+            // - Error: TODO display error in section format
+            // Diagnostics:
+            // - TODO `gem env`
+            // - TODO `bundle env`
+            log.error(&formatdoc! {"
+                Error detecting dependencies
+
+                The Ruby buildpack requires information about your application’s dependencies to
+                complete the build. Without this information, the Ruby buildpack cannot continue.
+
+                Use the information above to debug further.
+            "});
+        }
     }
 }
 
@@ -98,5 +212,36 @@ fn cause(err: libcnb::Error<RubyBuildpackError>) -> Cause {
     match err {
         libcnb::Error::BuildpackError(err) => Cause::OurError(err),
         err => Cause::FrameworkError(err),
+    }
+}
+
+fn local_command_debug(error: &CmdError) -> String {
+    let cmd_name = replace_app_path_with_relative(fmt::command(error.name()));
+
+    formatdoc! {"
+        Ensure you can run the following command locally with no errors before attempting another build:
+
+        {cmd_name}
+
+    "}
+}
+
+fn replace_app_path_with_relative(contents: impl AsRef<str>) -> String {
+    let app_path_re = regex::Regex::new("/workspace/").expect("Internal error: regex");
+
+    app_path_re.replace_all(contents.as_ref(), "./").to_string()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_relative_path() {
+        let expected = r#"BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="./Gemfile" BUNDLE_WITHOUT="development:test" bundle install"#;
+        let actual = replace_app_path_with_relative(
+            r#"BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_WITHOUT="development:test" bundle install"#,
+        );
+        assert_eq!(expected, &actual);
     }
 }

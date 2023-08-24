@@ -1,7 +1,6 @@
 use commons::fun_run::{self, CommandWithName};
 use commons::gem_version::GemVersion;
-use commons::output::fmt;
-use commons::output::log::LayerLogger;
+use commons::output::{fmt, layer_logger::LayerLogger};
 use core::str::FromStr;
 use regex::Regex;
 use std::collections::HashMap;

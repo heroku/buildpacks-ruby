@@ -1,7 +1,6 @@
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use commons::fun_run::CommandWithName;
-use commons::output::fmt;
-use commons::output::log::LayerLogger;
+use commons::output::{fmt, layer_logger::LayerLogger};
 use commons::{
     display::SentenceList,
     fun_run::{self, CmdError},

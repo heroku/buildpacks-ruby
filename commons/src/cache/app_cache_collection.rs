@@ -1,5 +1,5 @@
 use crate::cache::{AppCache, CacheConfig, CacheError, CacheState, FilesWithSize, PathState};
-use crate::output::log::LayerLogger;
+use crate::output::layer_logger::LayerLogger;
 use libcnb::{build::BuildContext, Buildpack};
 use std::fmt::Debug;
 

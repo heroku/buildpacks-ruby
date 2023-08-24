@@ -1,7 +1,6 @@
 use crate::gem_list::GemList;
 use crate::RubyBuildpack;
-use commons::output::fmt;
-use commons::output::log::LayerLogger;
+use commons::output::{fmt, layer_logger::LayerLogger};
 use libcnb::build::BuildContext;
 use libcnb::data::launch::Process;
 use libcnb::data::launch::ProcessBuilder;

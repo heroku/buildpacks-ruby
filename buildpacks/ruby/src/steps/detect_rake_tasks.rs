@@ -3,7 +3,7 @@ use crate::rake_status::{check_rake_ready, RakeStatus};
 use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
-use commons::output::{fmt, log::LayerLogger};
+use commons::output::{fmt, layer_logger::LayerLogger};
 use libcnb::build::BuildContext;
 use libcnb::Env;
 

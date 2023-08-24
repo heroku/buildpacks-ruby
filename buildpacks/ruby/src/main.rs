@@ -10,10 +10,7 @@ use commons::gemfile_lock::GemfileLock;
 
 use commons::output::fmt;
 #[allow(clippy::wildcard_imports)]
-use commons::output::{
-    interface::*,
-    log::{BuildLog, LayerLogger},
-};
+use commons::output::{interface::*, layer_logger::LayerLogger, log::BuildLog};
 use core::str::FromStr;
 use layers::{BundleDownloadLayer, BundleInstallLayer};
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};

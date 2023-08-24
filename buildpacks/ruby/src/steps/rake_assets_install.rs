@@ -3,7 +3,7 @@ use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use commons::cache::{mib, AppCacheCollection, CacheConfig, KeepPath};
 use commons::fun_run::{self, CmdError, CommandWithName};
-use commons::output::{fmt, log::LayerLogger};
+use commons::output::{fmt, layer_logger::LayerLogger};
 use libcnb::build::BuildContext;
 use libcnb::Env;
 use std::process::Command;

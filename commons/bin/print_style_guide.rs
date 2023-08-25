@@ -1,3 +1,4 @@
+use ascii_table::AsciiTable;
 use commons::fun_run::CommandWithName;
 use commons::output::fmt;
 use commons::output::interface::Logger;
@@ -5,7 +6,6 @@ use commons::output::log::BuildLog;
 use indoc::formatdoc;
 use std::io::stdout;
 use std::process::Command;
-use ascii_table::AsciiTable;
 
 fn main() {
     println!(
@@ -22,43 +22,45 @@ fn main() {
         let mut log = BuildLog::new(stdout()).buildpack_name("Section logging features");
         log = log
             .section("Section heading example")
-            .step_and("step example")
-            .step_and("step example two")
+            .step("step example")
+            .step("step example two")
             .end_section();
 
         log = log
             .section("Section and step description")
-            .step_and(
+            .step(
                 "A section should be a noun i.e. 'Ruby Version', consider this the section topic.",
             )
-            .step_and("A step should be a verb i.e. 'Downloading'")
-            .step_and("Related verbs should be nested under a single section")
-            .step_and(&formatdoc! {"
+            .step("A step should be a verb i.e. 'Downloading'")
+            .step("Related verbs should be nested under a single section")
+            .step(
+                &formatdoc! {"
                 Steps can be multiple lines long
                 However they're best as short, factual,
                 descriptions of what the program is doing.
-            "}.trim())
-            .step_and("Prefer a single line when possible")
-            .step_and("Sections and steps are sentence cased with no ending puncuation")
-            .step_and(&format!("{help_prefix} capitalize the first letter"))
+            "}
+                .trim(),
+            )
+            .step("Prefer a single line when possible")
+            .step("Sections and steps are sentence cased with no ending puncuation")
+            .step(&format!("{help_prefix} capitalize the first letter"))
             .end_section();
 
         let mut command = Command::new("bash");
         command.args(["-c", "ps aux | grep cargo"]);
 
         let mut stream = log.section("Timer steps")
-        .step_and("Long running code should execute with a timer printing to the UI, to indicate the progam did not hang.")
-        .step_and("Example:")
+        .step("Long running code should execute with a timer printing to the UI, to indicate the progam did not hang.")
+        .step("Example:")
         .step_timed("Background progress timer")
         .finish_timed_step()
-        .step_and("Output can be streamed. Mostly from commands. Example:")
+        .step("Output can be streamed. Mostly from commands. Example:")
         .step_timed_stream(&format!("Running {}", fmt::command(command.name())));
 
         command.stream_output(stream.io(), stream.io()).unwrap();
         log = stream.finish_timed_stream().end_section();
         drop(log);
     }
-
 
     {
         let debug_info = fmt::debug_info_prefix();
@@ -67,12 +69,12 @@ fn main() {
         let mut log = BuildLog::new(stdout()).buildpack_name("Error and warnings");
         log = log
             .section("Debug information")
-            .step_and("Should go above errors in section/step format")
+            .step("Should go above errors in section/step format")
             .end_section();
 
         log = log
             .section(&debug_info)
-            .step_and(&cmd_error.to_string())
+            .step(&cmd_error.to_string())
             .end_section();
 
         log.error(&formatdoc! {"
@@ -109,7 +111,7 @@ fn main() {
 
         log = log
             .section("Description of this section")
-            .step_and(&formatdoc! {"
+            .step(&formatdoc! {"
                 Formatting helpers can be used to enhance log output:
             "})
             .end_section();
@@ -120,14 +122,24 @@ fn main() {
         table.column(1).set_header("Code");
         table.column(2).set_header("When to use");
 
-
         let mut data: Vec<Vec<String>> = Vec::new();
-        data.push(vec![fmt::value("2.3.4"), "fmt::value(\"2.3.f\")".to_string(), "With versions, file names or other important values worth highlighting".to_string()]);
-        data.push(vec![fmt::url("https://www.schneems.com"), "fmt::url(\"https://www.schneems.com\")".to_string(), "With urls".to_string()]);
-        data.push(vec![fmt::command("bundle install"), "fmt::command(command.name())".to_string(), "With commands (alongside of `fun_run::CommandWithName`)".to_string()]);
+        data.push(vec![
+            fmt::value("2.3.4"),
+            "fmt::value(\"2.3.f\")".to_string(),
+            "With versions, file names or other important values worth highlighting".to_string(),
+        ]);
+        data.push(vec![
+            fmt::url("https://www.schneems.com"),
+            "fmt::url(\"https://www.schneems.com\")".to_string(),
+            "With urls".to_string(),
+        ]);
+        data.push(vec![
+            fmt::command("bundle install"),
+            "fmt::command(command.name())".to_string(),
+            "With commands (alongside of `fun_run::CommandWithName`)".to_string(),
+        ]);
         data.push(vec![fmt::details("extra information"), "fmt::details(\"extra information\")".to_string(), "Add specific information at the end of a line i.e. 'Cache cleared (ruby version changed)'".to_string()]);
         table.print(data);
         drop(log);
     }
 }
-

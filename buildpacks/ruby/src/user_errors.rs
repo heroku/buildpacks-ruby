@@ -44,7 +44,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
                     "Could not find {}, details:",
                     fmt::value(path.to_string_lossy())
                 ))
-                .step_and(&error.to_string())
+                .step(&error.to_string())
                 .end_section();
 
             if let Some(dir) = path.parent() {
@@ -74,7 +74,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             // - In the future use a manifest file to list if version is available on a different stack
             // - In the future add a "did you mean" Levenshtein distance to see if they typoed like "3.6.0" when they meant "3.0.6"
             log.section(&debug_info_prefix)
-                .step_and(&error.to_string())
+                .step(&error.to_string())
                 .error(&formatdoc! {"
                     Error installing Ruby
 
@@ -88,7 +88,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
         RubyBuildpackError::GemInstallBundlerCommandError(error) => {
             log = log
                 .section(&debug_info_prefix)
-                .step_and(&error.to_string())
+                .step(&error.to_string())
                 .end_section();
 
             log = debug_cmd(
@@ -114,7 +114,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             let local_command = local_command_debug(&error);
             log
                 .section(&debug_info_prefix)
-                .step_and(&error.to_string())
+                .step(&error.to_string())
                 .end_section()
                 .error(&formatdoc! {"
                     Error installing your applications's dependencies
@@ -134,7 +134,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
         RubyBuildpackError::BundleInstallDigestError(path, error) => {
             log = log
                 .section(&debug_info_prefix)
-                .step_and(&error.to_string())
+                .step(&error.to_string())
                 .end_section();
 
             if let Some(dir) = path.parent() {
@@ -169,7 +169,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             let local_command = local_command_debug(&error);
             log = log
                 .section(&debug_info_prefix)
-                .step_and(&error.to_string())
+                .step(&error.to_string())
                 .end_section();
 
             log.error(&formatdoc! {"
@@ -187,7 +187,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             let local_command = local_command_debug(&error);
             log = log
                 .section(&debug_info_prefix)
-                .step_and(&error.to_string())
+                .step(&error.to_string())
                 .end_section();
 
             log.error(&formatdoc! {"
@@ -206,7 +206,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             // to determine if there's bad permissions or bad file symlink
             log = log
                 .section(&debug_info_prefix)
-                .step_and(&error.to_string())
+                .step(&error.to_string())
                 .end_section();
 
             log.error(&formatdoc! {"
@@ -222,7 +222,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
         RubyBuildpackError::GemListGetError(error) => {
             log = log
                 .section(&debug_info_prefix)
-                .step_and(&error.to_string())
+                .step(&error.to_string())
                 .end_section();
 
             log = debug_cmd(
@@ -287,7 +287,7 @@ fn debug_cmd(log: Box<dyn SectionLogger>, command: &mut Command) -> Box<dyn Star
         Ok(_) => stream.finish_timed_stream().end_section(),
         Err(e) => stream
             .finish_timed_stream()
-            .step_and(&e.to_string())
+            .step(&e.to_string())
             .end_section(),
     }
 }

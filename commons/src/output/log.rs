@@ -197,7 +197,7 @@ where
             started: self.build_timer,
         };
 
-        section.step(&format!(
+        section.mut_step(&format!(
             "Done {}",
             fmt::details(fmt::time::human(&duration))
         ));
@@ -241,12 +241,12 @@ impl<W> SectionLogger for BuildLog<state::InSection, W>
 where
     W: Write + Send + Sync + Debug + 'static,
 {
-    fn step(&mut self, s: &str) {
+    fn mut_step(&mut self, s: &str) {
         writeln_now(&mut self.io, fmt::step(s));
     }
 
-    fn step_and(mut self: Box<Self>, s: &str) -> Box<dyn SectionLogger> {
-        self.step(s);
+    fn step(mut self: Box<Self>, s: &str) -> Box<dyn SectionLogger> {
+        self.mut_step(s);
 
         Box::new(BuildLog {
             io: self.io,
@@ -271,7 +271,7 @@ where
     }
 
     fn step_timed_stream(mut self: Box<Self>, s: &str) -> Box<dyn StreamLogger> {
-        self.step(s);
+        self.mut_step(s);
 
         let started = Instant::now();
         let build_timer = self.started;

@@ -237,7 +237,7 @@ impl<'a> GuardedLayerLogger<'a> {
     }
 
     pub fn step(mut self, s: impl AsRef<str>) {
-        self.inner.get_mut().step(s.as_ref());
+        self.inner.get_mut().mut_step(s.as_ref());
     }
 }
 

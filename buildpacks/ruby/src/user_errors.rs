@@ -8,9 +8,9 @@ use commons::fun_run::{CmdError, CommandWithName};
 use indoc::formatdoc;
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
-    let mut log = BuildLog::new(std::io::stdout());
+    let mut log = BuildLog::new(std::io::stdout()).without_buildpack_name();
     match cause(err) {
-        Cause::OurError(error) => log_our_error(error),
+        Cause::OurError(error) => log_our_error(log, error),
         Cause::FrameworkError(_error) => log.error(&formatdoc! {"
                 Error: heroku/buildpack-ruby internal buildpack error
 
@@ -29,15 +29,13 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
 }
 
 #[allow(clippy::too_many_lines)]
-fn log_our_error(error: RubyBuildpackError) {
-    let mut log = BuildLog::new(std::io::stdout()).without_buildpack_name();
+fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
     let git_branch_url =
         fmt::url("https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main");
     let ruby_versions_url =
         fmt::url("https://devcenter.heroku.com/articles/ruby-support#ruby-versions");
     let rubygems_status_url = fmt::url("https://status.rubygems.org/");
-
-    let TODO = "TODO";
+    let debug_info_prefix = fmt::debug_info_prefix();
 
     match error {
         RubyBuildpackError::MissingGemfileLock(path, error) => {
@@ -50,7 +48,13 @@ fn log_our_error(error: RubyBuildpackError) {
                 .end_section();
 
             if let Some(dir) = path.parent() {
-                log = debug_ls_la(log, dir);
+                log = debug_cmd(
+                    log.section(&format!(
+                        "{debug_info_prefix} Contents of the {} directory",
+                        fmt::value(dir.to_string_lossy())
+                    )),
+                    Command::new("ls").args(["la", &dir.to_string_lossy()]),
+                );
             }
 
             log.error(&formatdoc! {"
@@ -65,29 +69,33 @@ fn log_our_error(error: RubyBuildpackError) {
                 {git_branch_url}
             "});
         }
-        RubyBuildpackError::RubyInstallError(_error) => {
-            // Status: Ready, pending TODOs
-            // - Error: TODO display error in section format
-            // Diagnostics:
-            // - None,
+        RubyBuildpackError::RubyInstallError(error) => {
             // Future:
             // - In the future use a manifest file to list if version is available on a different stack
             // - In the future add a "did you mean" Levenshtein distance to see if they typoed like "3.6.0" when they meant "3.0.6"
-            log.error(&formatdoc! {"
-                Error installing Ruby
+            log.section(&debug_info_prefix)
+                .step_and(&error.to_string())
+                .error(&formatdoc! {"
+                    Error installing Ruby
 
-                Could not install the detected Ruby version. Ensure that you're using a supported
-                ruby version and try again.
+                    Could not install the detected Ruby version. Ensure that you're using a supported
+                    ruby version and try again.
 
-                Supported ruby versions:
-                {ruby_versions_url}
-            "});
+                    Supported ruby versions:
+                    {ruby_versions_url}
+                "});
         }
-        RubyBuildpackError::GemInstallBundlerCommandError(_error) => {
-            // Status: Ready, pending TODOs
-            // - Error: TODO display error in section format
-            // Diagnostics:
-            // - TODO `gem env`
+        RubyBuildpackError::GemInstallBundlerCommandError(error) => {
+            log = log
+                .section(&debug_info_prefix)
+                .step_and(&error.to_string())
+                .end_section();
+
+            log = debug_cmd(
+                log.section(&debug_info_prefix),
+                Command::new("gem").arg("env"),
+            );
+
             log.error(&formatdoc! {"
                 Error installing bundler
 
@@ -100,33 +108,45 @@ fn log_our_error(error: RubyBuildpackError) {
                 Once all incidents have been resolved, please retry your build.
             "});
         }
-        RubyBuildpackError::BundleInstallCommandError(_error) => {
-            // Status: Ready, pending TODOs
-            // - ERROR: TODO display error in section format
-            // Diagnostics:
-            // - None
+        RubyBuildpackError::BundleInstallCommandError(error) => {
             // Future:
             // - Grep error output for common things like using sqlite3, use classic buildpack
-            log.error(&formatdoc! {"
-                Error installing your applications's dependencies
+            let local_command = local_command_debug(&error);
+            log
+                .section(&debug_info_prefix)
+                .step_and(&error.to_string())
+                .end_section()
+                .error(&formatdoc! {"
+                    Error installing your applications's dependencies
 
-                Could not install gems to the system via bundler. Gems are dependencies
-                your application listed in the `Gemfile` and resolved in the `Gemfile.lock`.
+                    Could not install gems to the system via bundler. Gems are dependencies
+                    your application listed in the `Gemfile` and resolved in the `Gemfile.lock`.
 
-                {TODO} local_command_debug
+                    {local_command}
 
-                If you believe that your application is correct, ensure all files are tracked in Git and
-                that you’re pushing the correct branch:
-                {git_branch_url}
+                    If you believe that your application is correct, ensure all files are tracked in Git and
+                    that you’re pushing the correct branch:
+                    {git_branch_url}
 
-                Use the information above to debug further.
-            "});
+                    Use the information above to debug further.
+                "});
         }
-        RubyBuildpackError::BundleInstallDigestError(_error) => {
-            // Status: Ready, pending TODOs
-            // - Error: TODO display error in section format
-            // Diagnostics:
-            // - TODO `ls la` home directory
+        RubyBuildpackError::BundleInstallDigestError(path, error) => {
+            log = log
+                .section(&debug_info_prefix)
+                .step_and(&error.to_string())
+                .end_section();
+
+            if let Some(dir) = path.parent() {
+                log = debug_cmd(
+                    log.section(&format!(
+                        "{debug_info_prefix} Contents of the {} directory",
+                        fmt::value(dir.to_string_lossy())
+                    )),
+                    Command::new("ls").args(["la", &dir.to_string_lossy()]),
+                );
+            }
+
             log.error(&formatdoc! {"
                 Error generating file digest
 
@@ -143,47 +163,52 @@ fn log_our_error(error: RubyBuildpackError) {
                 HEROKU_SKIP_BUNDLE_DIGEST=1
             "});
         }
-        RubyBuildpackError::RakeDetectError(_error) => {
-            // Status: Ready, pending TODOs
-            // - ERROR: TODO display error in section format
-            // Diagnostics:
-            // - None
+        RubyBuildpackError::RakeDetectError(error) => {
             // Future:
             // - Annotate with information on requiring test or development only gems in the Rakefile
+            let local_command = local_command_debug(&error);
+            log = log
+                .section(&debug_info_prefix)
+                .step_and(&error.to_string())
+                .end_section();
+
             log.error(&formatdoc! {"
                 Error detecting rake tasks
 
                 The Ruby buildpack uses rake task information from your application to guide
                 build logic. Without this information, the Ruby buildpack cannot continue.
 
-                {TODO} local_debug_cmd
+                {local_command}
 
                 Use the information above to debug further.
             "});
         }
-        RubyBuildpackError::RakeAssetsPrecompileFailed(_error) => {
-            // Status: Checking
-            // - Error: TODO display error in section format
-            // Diagnostics:
-            // - None
+        RubyBuildpackError::RakeAssetsPrecompileFailed(error) => {
+            let local_command = local_command_debug(&error);
+            log = log
+                .section(&debug_info_prefix)
+                .step_and(&error.to_string())
+                .end_section();
+
             log.error(&formatdoc! {"
                 Error compiling assets
 
                 An error occured while compiling assets via rake command.
 
-                {TODO} local_command_debug
+                {local_command}
 
                 Use the information above to debug further.
             "});
         }
-        RubyBuildpackError::InAppDirCacheError(_error) => {
-            // Status: Ready, pending TODOs
-            // - Error: TODO display error in section format
-            // Diagnostics:
-            // - None
+        RubyBuildpackError::InAppDirCacheError(error) => {
             // Future:
             // - Separate between failures in layer dirs or in app dirs, if we can isolate to an app dir we could debug more
             // to determine if there's bad permissions or bad file symlink
+            log = log
+                .section(&debug_info_prefix)
+                .step_and(&error.to_string())
+                .end_section();
+
             log.error(&formatdoc! {"
                 Error caching frontend assets
 
@@ -194,12 +219,22 @@ fn log_our_error(error: RubyBuildpackError) {
                 all symlinks correctly resolve.
             "});
         }
-        RubyBuildpackError::GemListGetError(_error) => {
-            // Status: Pending TODOs
-            // - Error: TODO display error in section format
-            // Diagnostics:
-            // - TODO `gem env`
-            // - TODO `bundle env`
+        RubyBuildpackError::GemListGetError(error) => {
+            log = log
+                .section(&debug_info_prefix)
+                .step_and(&error.to_string())
+                .end_section();
+
+            log = debug_cmd(
+                log.section(&debug_info_prefix),
+                Command::new("gem").arg("env"),
+            );
+
+            log = debug_cmd(
+                log.section(&debug_info_prefix),
+                Command::new("bundle").arg("env"),
+            );
+
             log.error(&formatdoc! {"
                 Error detecting dependencies
 
@@ -242,23 +277,17 @@ fn replace_app_path_with_relative(contents: impl AsRef<str>) -> String {
     app_path_re.replace_all(contents.as_ref(), "./").to_string()
 }
 
-fn debug_ls_la(log: Box<dyn StartedLogger>, dir: &std::path::Path) -> Box<dyn StartedLogger> {
-    let debug_info_prefix = fmt::debug_info_prefix();
-    let mut cmd = Command::new("ls");
-    cmd.args(["la", &dir.to_string_lossy()]);
+fn debug_cmd(log: Box<dyn SectionLogger>, command: &mut Command) -> Box<dyn StartedLogger> {
+    let mut stream = log.step_timed_stream(&format!(
+        "Running debug command {}",
+        fmt::command(command.name())
+    ));
 
-    let mut stream = log
-        .section(&format!(
-            "{debug_info_prefix} Contents of the {} directory",
-            fmt::value(&dir.to_string_lossy())
-        ))
-        .step_timed_stream(&format!("Debug command {}", fmt::command(cmd.name())));
-
-    match cmd.stream_output(stream.io(), stream.io()) {
+    match command.stream_output(stream.io(), stream.io()) {
         Ok(_) => stream.finish_timed_stream().end_section(),
         Err(e) => stream
             .finish_timed_stream()
-            .step_and(&format!("Debug command failed {}", e.to_string()))
+            .step_and(&e.to_string())
             .end_section(),
     }
 }

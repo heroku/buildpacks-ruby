@@ -68,7 +68,11 @@ impl BundleInstallLayer {
                 &context.app_dir.join("Gemfile.lock"),
             ],
         )
-        .map_err(RubyBuildpackError::BundleInstallDigestError)?;
+        .map_err(|error| match error {
+            commons::metadata_digest::DigestError::CannotReadFile(path, error) => {
+                RubyBuildpackError::BundleInstallDigestError(path, error)
+            }
+        })?;
 
         let stack = context.stack_id.clone();
         let ruby_version = self.ruby_version.clone();

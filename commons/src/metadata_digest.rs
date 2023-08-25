@@ -407,7 +407,8 @@ impl PathsDigest {
 
     fn add_paths(&mut self, paths: &[&Path]) -> Result<&mut Self, DigestError> {
         for path in paths {
-            let contents = fs_err::read_to_string(path).map_err(DigestError::CannotReadFile)?;
+            let contents = fs_err::read_to_string(path)
+                .map_err(|error| DigestError::CannotReadFile(path.to_path_buf(), error))?;
             self.0
                 .insert(path.to_path_buf(), sha_from_string(&contents));
         }
@@ -418,8 +419,8 @@ impl PathsDigest {
 
 #[derive(thiserror::Error, Debug)]
 pub enum DigestError {
-    #[error("Attempted to read file for digest but cannot: {0}")]
-    CannotReadFile(std::io::Error),
+    #[error("Attempted to read file for digest but cannot: {1}")]
+    CannotReadFile(PathBuf, std::io::Error),
 }
 
 fn sha_from_env(env: &Env) -> ShaString {

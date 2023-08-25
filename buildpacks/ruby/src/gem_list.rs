@@ -1,4 +1,4 @@
-use commons::fun_run::{self, CommandWithName};
+use commons::fun_run::{CmdError, CommandWithName};
 use commons::gem_version::GemVersion;
 use commons::output::{fmt, layer_logger::LayerLogger};
 use core::str::FromStr;
@@ -13,12 +13,6 @@ use std::process::Command;
 #[derive(Debug)]
 pub struct GemList {
     pub gems: HashMap<String, GemVersion>,
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum ListError {
-    #[error("Error determining dependencies: \n{0}")]
-    BundleListShellCommandError(fun_run::CmdError),
 }
 
 /// Converts the output of `$ gem list` into a data structure that can be inspected and compared
@@ -65,16 +59,14 @@ impl GemList {
     pub fn from_bundle_list<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsStr>>(
         envs: T,
         logger: &LayerLogger,
-    ) -> Result<Self, ListError> {
+    ) -> Result<Self, CmdError> {
         let mut cmd = Command::new("bundle");
         cmd.arg("list").env_clear().envs(envs);
 
         logger
             .lock()
             .step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
-                let output = cmd
-                    .stream_output(stream.io(), stream.io())
-                    .map_err(ListError::BundleListShellCommandError)?;
+                let output = cmd.stream_output(stream.io(), stream.io())?;
 
                 GemList::from_str(&output.stdout_lossy())
             })
@@ -87,7 +79,7 @@ impl GemList {
 }
 
 impl FromStr for GemList {
-    type Err = ListError;
+    type Err = CmdError;
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         // https://regex101.com/r/EIJe5G/1

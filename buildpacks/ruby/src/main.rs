@@ -3,10 +3,9 @@
 #![allow(clippy::module_name_repetitions)]
 use crate::layers::metrics_agent_install::{MetricsAgentInstall, MetricsAgentInstallError};
 use crate::layers::{RubyInstallError, RubyInstallLayer};
-use crate::rake_task_detect::RakeError;
 use commons::cache::CacheError;
 use commons::fun_run::CmdError;
-use commons::gemfile_lock::{self, GemfileLock};
+use commons::gemfile_lock::GemfileLock;
 
 use commons::output::fmt;
 #[allow(clippy::wildcard_imports)]
@@ -22,7 +21,6 @@ use libcnb::generic::{GenericMetadata, GenericPlatform};
 use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
-use regex::Regex;
 use std::io::stdout;
 
 mod gem_list;
@@ -209,19 +207,19 @@ impl Buildpack for RubyBuildpack {
 }
 
 fn needs_java(gemfile_lock: &str) -> bool {
-    let java_regex = Regex::new(r"\(jruby ").expect("Internal Error: Invalid regex");
+    let java_regex = regex::Regex::new(r"\(jruby ").expect("clippy");
     java_regex.is_match(gemfile_lock)
 }
 
 #[derive(Debug)]
 pub(crate) enum RubyBuildpackError {
-    RakeDetectError(RakeError),
-    GemListGetError(gem_list::ListError),
+    RakeDetectError(CmdError),
+    GemListGetError(CmdError),
     RubyInstallError(RubyInstallError),
     MetricsAgentError(MetricsAgentInstallError),
     MissingGemfileLock(std::path::PathBuf, std::io::Error),
     InAppDirCacheError(CacheError),
-    BundleInstallDigestError(commons::metadata_digest::DigestError),
+    BundleInstallDigestError(std::path::PathBuf, std::io::Error),
     BundleInstallCommandError(CmdError),
     RakeAssetsPrecompileFailed(CmdError),
     GemInstallBundlerCommandError(CmdError),

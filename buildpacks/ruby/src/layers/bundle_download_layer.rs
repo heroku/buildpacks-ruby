@@ -59,8 +59,7 @@ impl Layer for BundleDownloadLayer {
         .envs(&self.env);
 
         // Format `gem install --version <version>` without other content for display
-        let name = fun_run::display(&mut cmd);
-        let mut cmd = cmd.named(name);
+        let short_name = fun_run::display(&mut cmd);
 
         // Arguments we don't need in the output
         cmd.mut_cmd().args([
@@ -75,7 +74,7 @@ impl Layer for BundleDownloadLayer {
 
         self.logger
             .lock()
-            .step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
+            .step_stream(format!("Running {}", fmt::command(short_name)), |stream| {
                 cmd.stream_output(stream.io(), stream.io())
                     .map_err(|error| {
                         fun_run::map_which_problem(

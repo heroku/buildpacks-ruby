@@ -62,64 +62,6 @@ pub fn details(contents: impl AsRef<str>) -> String {
     format!("({contents})")
 }
 
-/// Used to decorate a buildpack
-#[must_use]
-pub(crate) fn header(contents: impl AsRef<str>) -> String {
-    let contents = contents.as_ref();
-    colorize(HEROKU_COLOR, format!("\n# {contents}"))
-}
-
-#[must_use]
-pub fn section(topic: impl AsRef<str>) -> String {
-    prefix_indent(SECTION_PREFIX, topic)
-}
-
-#[must_use]
-pub fn step(contents: impl AsRef<str>) -> String {
-    prefix_indent(STEP_PREFIX, contents)
-}
-
-#[must_use]
-pub fn background_timer_start() -> String {
-    colorize(DEFAULT_DIM, " .")
-}
-
-#[must_use]
-pub fn background_timer_tick() -> String {
-    colorize(DEFAULT_DIM, ".")
-}
-
-#[must_use]
-pub fn background_timer_end() -> String {
-    colorize(DEFAULT_DIM, ". ")
-}
-
-/// Used with libherokubuildpack linemapped command output
-///
-#[must_use]
-pub fn cmd_stream_format(mut input: Vec<u8>) -> Vec<u8> {
-    let mut result: Vec<u8> = CMD_INDENT.into();
-    result.append(&mut input);
-    result
-}
-
-/// Like `cmd_stream_format` but for static intput
-#[must_use]
-pub fn cmd_output_format(contents: impl AsRef<str>) -> String {
-    let contents = contents
-        .as_ref()
-        .split('\n')
-        .map(|part| {
-            let tmp: Vec<u8> = cmd_stream_format(part.into());
-            String::from_utf8_lossy(&tmp).into_owned()
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    // Emulate above
-    format!("\n{contents}\n")
-}
-
 #[must_use]
 pub fn debug_info_prefix() -> String {
     colorize(IMPORTANT_COLOR, bangify("Debug info:"))
@@ -128,6 +70,47 @@ pub fn debug_info_prefix() -> String {
 #[must_use]
 pub fn help_prefix() -> String {
     colorize(IMPORTANT_COLOR, bangify("Help:"))
+}
+
+/// Used with libherokubuildpack linemapped command output
+///
+#[must_use]
+pub(crate) fn cmd_stream_format(mut input: Vec<u8>) -> Vec<u8> {
+    let mut result: Vec<u8> = CMD_INDENT.into();
+    result.append(&mut input);
+    result
+}
+
+#[must_use]
+pub(crate) fn background_timer_start() -> String {
+    colorize(DEFAULT_DIM, " .")
+}
+
+#[must_use]
+pub(crate) fn background_timer_tick() -> String {
+    colorize(DEFAULT_DIM, ".")
+}
+
+#[must_use]
+pub(crate) fn background_timer_end() -> String {
+    colorize(DEFAULT_DIM, ". ")
+}
+
+#[must_use]
+pub(crate) fn section(topic: impl AsRef<str>) -> String {
+    prefix_indent(SECTION_PREFIX, topic)
+}
+
+#[must_use]
+pub(crate) fn step(contents: impl AsRef<str>) -> String {
+    prefix_indent(STEP_PREFIX, contents)
+}
+
+/// Used to decorate a buildpack
+#[must_use]
+pub(crate) fn header(contents: impl AsRef<str>) -> String {
+    let contents = contents.as_ref();
+    colorize(HEROKU_COLOR, format!("\n# {contents}"))
 }
 
 // Prefix is expected to be a single line
@@ -182,20 +165,31 @@ pub(crate) fn prepend_each_line(
     let prepend = prepend.as_ref();
     let separator = separator.as_ref();
 
-    if body.trim().is_empty() {
-        format!("{prepend}\n")
-    } else {
-        body.split('\n')
-            .map(|section| {
-                if section.trim().is_empty() {
-                    prepend.to_string()
-                } else {
-                    format!("{prepend}{separator}{section}")
-                }
-            })
-            .collect::<Vec<String>>()
-            .join("\n")
-    }
+    let lines = LinesWithEndings::from(body)
+        .map(|line| {
+            if line.trim().is_empty() {
+                format!("{prepend}{line}")
+            } else {
+                format!("{prepend}{separator}{line}")
+            }
+        })
+        .collect::<String>();
+    lines
+
+    // if body.trim().is_empty() {
+    //     format!("{prepend}\n")
+    // } else {
+    //     body.split('\n')
+    //         .map(|section| {
+    //             if section.trim().is_empty() {
+    //                 prepend.to_string()
+    //             } else {
+    //                 format!("{prepend}{separator}{section}")
+    //             }
+    //         })
+    //         .collect::<Vec<String>>()
+    //         .join("\n")
+    // }
 }
 
 /// Colorizes a body while preserving existing color/reset combinations and clearing before newlines
@@ -241,8 +235,8 @@ mod test {
 
     #[test]
     fn test_bangify() {
-        let actual = bangify("");
-        assert_eq!("!\n", actual);
+        let actual = bangify("hello");
+        assert_eq!("! hello", actual);
 
         let actual = bangify("\n");
         assert_eq!("!\n", actual);
@@ -304,7 +298,7 @@ pub mod time {
     }
 
     #[must_use]
-    pub fn human(duration: &Duration) -> String {
+    pub(crate) fn human(duration: &Duration) -> String {
         let hours = hours(duration);
         let minutes = minutes(duration);
         let seconds = seconds(duration);

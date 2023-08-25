@@ -66,6 +66,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ascii_table"
+version = "4.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c2bee9b9ee0e5768772e38c07ef0ba23a490d7e1336ec7207c25712a2661c55"
+dependencies = [
+ "lazy_static",
+ "regex",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -230,6 +240,7 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 name = "commons"
 version = "0.1.0"
 dependencies = [
+ "ascii_table",
  "byte-unit",
  "fancy-regex",
  "filetime",

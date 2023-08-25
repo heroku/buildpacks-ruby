@@ -188,7 +188,7 @@ pub trait CommandWithName {
     ///
     /// Returns `CmdError::SystemError` if the system is unable to run the command.
     /// Returns `CmdError::NonZeroExitNotStreamed` if the exit code is not zero.
-    fn output(&mut self) -> Result<NamedOutput, CmdError> {
+    fn named_output(&mut self) -> Result<NamedOutput, CmdError> {
         let name = self.name();
         self.mut_cmd()
             .output()
@@ -454,7 +454,7 @@ fn annotate_io_error(source: std::io::Error, annotation: String) -> std::io::Err
 #[derive(Debug, thiserror::Error)]
 #[allow(clippy::module_name_repetitions)]
 pub enum CmdError {
-    #[error("Could not run command command {0:?}. Details: {1}")]
+    #[error("Could not run command {0}. {1}")]
     SystemError(String, std::io::Error),
 
     #[error("Command failed: {0:?}\nexit status: {}\nstdout: {}\nstderr: {}", .0.output.status.code().unwrap_or_else(|| 1),  display_out_or_empty(&.0.output.stdout), display_out_or_empty(&.0.output.stderr))]

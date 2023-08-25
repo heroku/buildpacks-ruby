@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+[[bin]]
+name = "print_style_guide"
+path = "bin/print_style_guide.rs"
+
 [dependencies]
 byte-unit = "4"
 fancy-regex = "0.11"
@@ -23,6 +27,7 @@ tempfile = "3"
 thiserror = "1"
 walkdir = "2"
 which_problem = "0.1"
+ascii_table = { version = "4.0.2", features = ["color_codes"] }
 
 [dev-dependencies]
 indoc = "2.0.1"

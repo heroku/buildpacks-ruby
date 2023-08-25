@@ -41,6 +41,14 @@ where
             started: self.started,
         })
     }
+
+    fn without_buildpack_name(self) -> Box<dyn StartedLogger> {
+        Box::new(BuildLog {
+            io: self.io,
+            state: PhantomData::<state::Started>,
+            started: self.started,
+        })
+    }
 }
 
 impl<W> BuildLog<state::NotStarted, W>
@@ -235,6 +243,16 @@ where
 {
     fn step(&mut self, s: &str) {
         writeln_now(&mut self.io, fmt::step(s));
+    }
+
+    fn step_and(mut self: Box<Self>, s: &str) -> Box<dyn SectionLogger> {
+        self.step(s);
+
+        Box::new(BuildLog {
+            io: self.io,
+            state: PhantomData::<state::InSection>,
+            started: self.started,
+        })
     }
 
     fn step_timed(self: Box<Self>, s: &str) -> Box<dyn TimedStepLogger> {

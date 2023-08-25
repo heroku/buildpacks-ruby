@@ -1,8 +1,10 @@
+use std::process::Command;
+
 #[allow(clippy::wildcard_imports)]
 use commons::output::{fmt, interface::*, log::BuildLog};
 
 use crate::RubyBuildpackError;
-use commons::fun_run::CmdError;
+use commons::fun_run::{CmdError, CommandWithName};
 use indoc::formatdoc;
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
@@ -28,7 +30,7 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
 
 #[allow(clippy::too_many_lines)]
 fn log_our_error(error: RubyBuildpackError) {
-    let mut log = BuildLog::new(std::io::stdout());
+    let mut log = BuildLog::new(std::io::stdout()).without_buildpack_name();
     let git_branch_url =
         fmt::url("https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main");
     let ruby_versions_url =
@@ -38,11 +40,19 @@ fn log_our_error(error: RubyBuildpackError) {
     let TODO = "TODO";
 
     match error {
-        RubyBuildpackError::MissingGemfileLock(_error) => {
-            // Status: Pending TODOs
-            // - Error: TODO display error in section format
-            // Diagnostics:
-            // - TODO diagnostics: `ls -la` app dir
+        RubyBuildpackError::MissingGemfileLock(path, error) => {
+            log = log
+                .section(&format!(
+                    "Could not find {}, details:",
+                    fmt::value(path.to_string_lossy())
+                ))
+                .step_and(&error.to_string())
+                .end_section();
+
+            if let Some(dir) = path.parent() {
+                log = debug_ls_la(log, dir);
+            }
+
             log.error(&formatdoc! {"
                 Error: `Gemfile.lock` not found
 
@@ -230,6 +240,27 @@ fn replace_app_path_with_relative(contents: impl AsRef<str>) -> String {
     let app_path_re = regex::Regex::new("/workspace/").expect("Internal error: regex");
 
     app_path_re.replace_all(contents.as_ref(), "./").to_string()
+}
+
+fn debug_ls_la(log: Box<dyn StartedLogger>, dir: &std::path::Path) -> Box<dyn StartedLogger> {
+    let debug_info_prefix = fmt::debug_info_prefix();
+    let mut cmd = Command::new("ls");
+    cmd.args(["la", &dir.to_string_lossy()]);
+
+    let mut stream = log
+        .section(&format!(
+            "{debug_info_prefix} Contents of the {} directory",
+            fmt::value(&dir.to_string_lossy())
+        ))
+        .step_timed_stream(&format!("Debug command {}", fmt::command(cmd.name())));
+
+    match cmd.stream_output(stream.io(), stream.io()) {
+        Ok(_) => stream.finish_timed_stream().end_section(),
+        Err(e) => stream
+            .finish_timed_stream()
+            .step_and(&format!("Debug command failed {}", e.to_string()))
+            .end_section(),
+    }
 }
 
 #[cfg(test)]

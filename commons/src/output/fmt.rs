@@ -121,6 +121,11 @@ pub fn cmd_output_format(contents: impl AsRef<str>) -> String {
 }
 
 #[must_use]
+pub fn debug_info_prefix() -> String {
+    colorize(IMPORTANT_COLOR, bangify("Debug info:"))
+}
+
+#[must_use]
 pub fn help_prefix() -> String {
     colorize(IMPORTANT_COLOR, bangify("Help:"))
 }

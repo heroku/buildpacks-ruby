@@ -6,7 +6,7 @@ use crate::layers::{RubyInstallError, RubyInstallLayer};
 use crate::rake_task_detect::RakeError;
 use commons::cache::CacheError;
 use commons::fun_run::CmdError;
-use commons::gemfile_lock::GemfileLock;
+use commons::gemfile_lock::{self, GemfileLock};
 
 use commons::output::fmt;
 #[allow(clippy::wildcard_imports)]
@@ -78,8 +78,9 @@ impl Buildpack for RubyBuildpack {
             crate::steps::default_env(&context, &context.platform.env().clone())?;
 
         // Gather static information about project
-        let lockfile_contents = fs_err::read_to_string(context.app_dir.join("Gemfile.lock"))
-            .map_err(RubyBuildpackError::MissingGemfileLock)?;
+        let lockfile = context.app_dir.join("Gemfile.lock");
+        let lockfile_contents = fs_err::read_to_string(&lockfile)
+            .map_err(|error| RubyBuildpackError::MissingGemfileLock(lockfile, error))?;
         let gemfile_lock = GemfileLock::from_str(&lockfile_contents).expect("Infallible");
         let bundler_version = gemfile_lock.resolve_bundler("2.4.5");
         let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
@@ -218,7 +219,7 @@ pub(crate) enum RubyBuildpackError {
     GemListGetError(gem_list::ListError),
     RubyInstallError(RubyInstallError),
     MetricsAgentError(MetricsAgentInstallError),
-    MissingGemfileLock(std::io::Error),
+    MissingGemfileLock(std::path::PathBuf, std::io::Error),
     InAppDirCacheError(CacheError),
     BundleInstallDigestError(commons::metadata_digest::DigestError),
     BundleInstallCommandError(CmdError),

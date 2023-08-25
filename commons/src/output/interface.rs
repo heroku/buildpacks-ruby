@@ -3,6 +3,7 @@ use std::io::Write;
 
 pub trait Logger: Debug {
     fn buildpack_name(self, s: &str) -> Box<dyn StartedLogger>;
+    fn without_buildpack_name(self) -> Box<dyn StartedLogger>;
 }
 
 pub trait StoppedLogger: Debug {}
@@ -19,6 +20,7 @@ pub trait StreamLogger: Debug {
 
 pub trait SectionLogger: ErrorWarningImportantLogger + Debug {
     fn step(&mut self, s: &str); // -> Box<dyn SectionLogger>;
+    fn step_and(self: Box<Self>, s: &str) -> Box<dyn SectionLogger>;
     fn step_timed(self: Box<Self>, s: &str) -> Box<dyn TimedStepLogger>;
     fn step_timed_stream(self: Box<Self>, s: &str) -> Box<dyn StreamLogger>;
     fn end_section(self: Box<Self>) -> Box<dyn StartedLogger>;

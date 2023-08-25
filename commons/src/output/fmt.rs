@@ -12,7 +12,6 @@ pub(crate) const RESET: &str = "\x1B[0m";
 
 #[cfg(test)]
 pub(crate) const NOCOLOR: &str = "\x1B[1;39m"; // Differentiate between color clear and explicit no color https://github.com/heroku/buildpacks-ruby/pull/155#discussion_r1260029915
-#[cfg(test)]
 pub(crate) const ALL_CODES: [&str; 7] = [
     RED,
     YELLOW,
@@ -120,7 +119,9 @@ pub(crate) fn prefix_indent(prefix: impl AsRef<str>, contents: impl AsRef<str>) 
     let prefix = prefix.as_ref();
     let contents = contents.as_ref();
     let non_whitespace_re = regex::Regex::new("\\S").expect("Clippy");
-    let indent_str = non_whitespace_re.replace_all(prefix.clone(), " "); // Preserve whitespace characters like tab and space, replace all characters with spaces
+    let clean_prefix = strip_control_codes(prefix.clone());
+
+    let indent_str = non_whitespace_re.replace_all(&clean_prefix, " "); // Preserve whitespace characters like tab and space, replace all characters with spaces
     let lines = LinesWithEndings::from(contents).collect::<Vec<_>>();
 
     if let Some((first, rest)) = lines.split_first() {
@@ -213,7 +214,6 @@ pub(crate) fn colorize(color: &str, body: impl AsRef<str>) -> String {
         .join("\n")
 }
 
-#[cfg(test)]
 pub(crate) fn strip_control_codes(contents: impl AsRef<str>) -> String {
     let mut contents = contents.as_ref().to_string();
     for code in ALL_CODES {
@@ -231,6 +231,8 @@ mod test {
         assert_eq!("- hello", &prefix_indent("- ", "hello"));
         assert_eq!("- hello\n  world", &prefix_indent("- ", "hello\nworld"));
         assert_eq!("- hello\n  world\n", &prefix_indent("- ", "hello\nworld\n"));
+        let actual = prefix_indent(format!("- {RED}help:{RESET} "), "hello\nworld\n");
+        assert_eq!(&format!("- {RED}help:{RESET} hello\n        world\n"), &actual);
     }
 
     #[test]

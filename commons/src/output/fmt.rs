@@ -1,3 +1,5 @@
+use crate::output::util::LinesWithEndings;
+
 pub(crate) const RED: &str = "\x1B[0;31m";
 pub(crate) const YELLOW: &str = "\x1B[0;33m";
 pub(crate) const CYAN: &str = "\x1B[0;36m";
@@ -69,14 +71,12 @@ pub(crate) fn header(contents: impl AsRef<str>) -> String {
 
 #[must_use]
 pub fn section(topic: impl AsRef<str>) -> String {
-    let topic = topic.as_ref();
-    format!("{SECTION_PREFIX}{topic}")
+    prefix_indent(SECTION_PREFIX, topic)
 }
 
 #[must_use]
 pub fn step(contents: impl AsRef<str>) -> String {
-    let contents = contents.as_ref();
-    format!("{STEP_PREFIX}{contents}")
+    prefix_indent(STEP_PREFIX, contents)
 }
 
 #[must_use]
@@ -128,6 +128,28 @@ pub fn debug_info_prefix() -> String {
 #[must_use]
 pub fn help_prefix() -> String {
     colorize(IMPORTANT_COLOR, bangify("Help:"))
+}
+
+// Prefix is expected to be a single line
+//
+// If contents is multi line then indent additional lines to align with the end of the prefix.
+pub(crate) fn prefix_indent(prefix: impl AsRef<str>, contents: impl AsRef<str>) -> String {
+    let prefix = prefix.as_ref();
+    let contents = contents.as_ref();
+    let non_whitespace_re = regex::Regex::new("\\S").expect("Clippy");
+    let indent_str = non_whitespace_re.replace_all(prefix.clone(), " "); // Preserve whitespace characters like tab and space, replace all characters with spaces
+    let lines = LinesWithEndings::from(contents).collect::<Vec<_>>();
+
+    if let Some((first, rest)) = lines.split_first() {
+        format!(
+            "{prefix}{first}{}",
+            rest.iter()
+                .map(|line| format!("{indent_str}{line}"))
+                .collect::<String>()
+        )
+    } else {
+        prefix.to_string()
+    }
 }
 
 #[must_use]
@@ -209,6 +231,13 @@ pub(crate) fn strip_control_codes(contents: impl AsRef<str>) -> String {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_prefix_indent() {
+        assert_eq!("- hello", &prefix_indent("- ", "hello"));
+        assert_eq!("- hello\n  world", &prefix_indent("- ", "hello\nworld"));
+        assert_eq!("- hello\n  world\n", &prefix_indent("- ", "hello\nworld\n"));
+    }
 
     #[test]
     fn test_bangify() {

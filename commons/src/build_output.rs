@@ -533,15 +533,14 @@ pub mod fmt {
         let noun = noun.as_ref();
         let header = header.as_ref();
         let body = help_url(body, url);
-
-        let contents = colorize(
+        colorize(
             color,
             bangify(formatdoc! {"
                 {noun} {header}
 
-                {body}"}),
-        );
-        format!("\n{contents}")
+                {body}
+            "}),
+        )
     }
 
     #[must_use]
@@ -601,18 +600,11 @@ pub mod fmt {
             debug_details,
         } = info;
 
+        let body = look_at_me(ERROR_COLOR, "ERROR:", header, body, url);
         if let Some(details) = debug_details {
-            let message = look_at_me(
-                ERROR_COLOR,
-                "ERROR:",
-                header,
-                format!("{body}\n\nDebug information: "),
-                url,
-            );
-
-            format!("{message}\n{details}\n")
+            format!("{body}\n\nDebug information: {details}")
         } else {
-            look_at_me(ERROR_COLOR, "ERROR:", header, body, url)
+            body
         }
     }
 

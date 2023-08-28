@@ -130,10 +130,8 @@ impl Layer for MetricsAgentInstall {
                 Ok(ExistingLayerStrategy::Update)
             }
             Some(url) => {
-                self.section.say_with_details(
-                    "Updating metrics agent",
-                    format!("{url} to {DOWNLOAD_URL}"),
-                );
+                self.section
+                    .say_with_details("Updating metrics agent", format!("{url} to {DOWNLOAD_URL}"));
                 Ok(ExistingLayerStrategy::Recreate)
             }
             None => Ok(ExistingLayerStrategy::Recreate),

@@ -116,9 +116,8 @@ fn test_ruby_app_with_yarn_app() {
 #[ignore = "integration test"]
 fn test_barnes_app() {
     TestRunner::default().build(
-        BuildConfig::new("heroku/builder:22", "tests/fixtures/barnes_app").buildpacks(vec![
-            BuildpackReference::Crate,
-        ]),
+        BuildConfig::new("heroku/builder:22", "tests/fixtures/barnes_app")
+            .buildpacks(vec![BuildpackReference::Crate]),
         |context| {
             assert_contains!(context.pack_stdout, "# Heroku StatsD Metrics Agent");
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");

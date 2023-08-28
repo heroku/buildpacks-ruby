@@ -96,7 +96,10 @@ enum Error {
 /// - Environment variable DYNO starts with `run.`
 fn build_args(env: &HashMap<String, String>) -> Result<Vec<String>, Error> {
     let mut args = Vec::new();
-    if env.get("DYNO").is_some_and(|value| value.starts_with("run.")) {
+    if env
+        .get("DYNO")
+        .is_some_and(|value| value.starts_with("run."))
+    {
         return Err(Error::RunDynoDetected);
     }
 
@@ -106,7 +109,10 @@ fn build_args(env: &HashMap<String, String>) -> Result<Vec<String>, Error> {
         return Err(Error::MissingPort);
     };
 
-    if env.get("AGENTMON_DEBUG").is_some_and(|value| value == "true") {
+    if env
+        .get("AGENTMON_DEBUG")
+        .is_some_and(|value| value == "true")
+    {
         args.push("-debug".to_string());
     };
 

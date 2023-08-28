@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use std::{path::Path, process::Command};
 
 const HEROKU_SKIP_BUNDLE_DIGEST: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
-const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
+pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
 
 /// Mostly runs 'bundle install'
 ///
@@ -33,15 +33,15 @@ const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
 pub(crate) struct BundleInstallLayer<'a> {
     pub env: Env,
     pub without: BundleWithout,
-    pub ruby_version: ResolvedRubyVersion,
     pub _section_log: &'a dyn SectionLogger,
+    pub metadata: BundleInstallLayerMetadata,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
 pub(crate) struct BundleInstallLayerMetadata {
-    stack: StackId,
-    ruby_version: ResolvedRubyVersion,
-    force_bundle_install_key: String,
+    pub stack: StackId,
+    pub ruby_version: ResolvedRubyVersion,
+    pub force_bundle_install_key: String,
 
     /// A struct that holds the cryptographic hash of components that can
     /// affect the result of `bundle install`. When these values do not
@@ -54,40 +54,10 @@ pub(crate) struct BundleInstallLayerMetadata {
     /// This value is cached with metadata, so changing the struct
     /// may cause metadata to be invalidated (and the cache cleared).
     ///
-    digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
+    pub digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
 
 impl<'a> BundleInstallLayer<'a> {
-    fn build_metadata(
-        &self,
-        context: &BuildContext<RubyBuildpack>,
-        _layer_path: &Path,
-    ) -> Result<BundleInstallLayerMetadata, RubyBuildpackError> {
-        let digest = MetadataDigest::new_env_files(
-            &context.platform,
-            &[
-                &context.app_dir.join("Gemfile"),
-                &context.app_dir.join("Gemfile.lock"),
-            ],
-        )
-        .map_err(|error| match error {
-            commons::metadata_digest::DigestError::CannotReadFile(path, error) => {
-                RubyBuildpackError::BundleInstallDigestError(path, error)
-            }
-        })?;
-
-        let stack = context.stack_id.clone();
-        let ruby_version = self.ruby_version.clone();
-        let force_bundle_install_key = String::from(FORCE_BUNDLE_INSTALL_CACHE_KEY);
-
-        Ok(BundleInstallLayerMetadata {
-            stack,
-            ruby_version,
-            force_bundle_install_key,
-            digest,
-        })
-    }
-
     #[allow(clippy::unnecessary_wraps)]
     fn build_layer_env(
         &self,
@@ -150,7 +120,7 @@ impl Layer for BundleInstallLayer<'_> {
         context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let metadata = self.build_metadata(context, &layer_data.path)?;
+        let metadata = self.metadata.clone();
         let layer_env = self.build_layer_env(context, &layer_data.path)?;
         let env = layer_env.apply(Scope::Build, &self.env);
 
@@ -186,13 +156,14 @@ impl Layer for BundleInstallLayer<'_> {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let metadata = self.build_metadata(context, layer_path)?;
         let layer_env = self.build_layer_env(context, layer_path)?;
         let env = layer_env.apply(Scope::Build, &self.env);
 
         bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
 
-        LayerResultBuilder::new(metadata).env(layer_env).build()
+        LayerResultBuilder::new(self.metadata.clone())
+            .env(layer_env)
+            .build()
     }
 
     /// When there is a cache determines if we will run:
@@ -204,11 +175,11 @@ impl Layer for BundleInstallLayer<'_> {
     /// create is run.
     fn existing_layer_strategy(
         &self,
-        context: &BuildContext<Self::Buildpack>,
+        _context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
         let old = &layer_data.content_metadata.metadata;
-        let now = self.build_metadata(context, &layer_data.path)?;
+        let now = self.metadata.clone();
 
         let clear_and_run = Ok(ExistingLayerStrategy::Recreate);
         let keep_and_run = Ok(ExistingLayerStrategy::Update);

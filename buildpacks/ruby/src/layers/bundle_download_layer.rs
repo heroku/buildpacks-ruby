@@ -16,7 +16,7 @@ use std::process::Command;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct BundleDownloadLayerMetadata {
-    version: ResolvedBundlerVersion,
+    pub version: ResolvedBundlerVersion,
 }
 
 /// # Install the bundler gem
@@ -27,7 +27,7 @@ pub(crate) struct BundleDownloadLayerMetadata {
 /// `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
 pub(crate) struct BundleDownloadLayer<'a> {
     pub env: Env,
-    pub version: ResolvedBundlerVersion,
+    pub metadata: BundleDownloadLayerMetadata,
     pub _section_logger: &'a dyn SectionLogger,
 }
 
@@ -56,7 +56,7 @@ impl<'a> Layer for BundleDownloadLayer<'a> {
             "install",
             "bundler",
             "--version", // Specify exact version to install
-            &self.version.to_string(),
+            &self.metadata.version.to_string(),
         ])
         .env_clear()
         .envs(&self.env);
@@ -83,27 +83,25 @@ impl<'a> Layer for BundleDownloadLayer<'a> {
         })
         .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
 
-        LayerResultBuilder::new(BundleDownloadLayerMetadata {
-            version: self.version.clone(),
-        })
-        .env(
-            LayerEnv::new()
-                .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
-                .chainable_insert(
-                    Scope::All,
-                    ModificationBehavior::Prepend,
-                    "PATH", // Ensure this path comes before default bundler that ships with ruby, don't rely on the lifecycle
-                    bin_dir,
-                )
-                .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
-                .chainable_insert(
-                    Scope::All,
-                    ModificationBehavior::Prepend,
-                    "GEM_PATH", // Bundler is a gem too, allow it to be required
-                    gem_path,
-                ),
-        )
-        .build()
+        LayerResultBuilder::new(self.metadata.clone())
+            .env(
+                LayerEnv::new()
+                    .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
+                    .chainable_insert(
+                        Scope::All,
+                        ModificationBehavior::Prepend,
+                        "PATH", // Ensure this path comes before default bundler that ships with ruby, don't rely on the lifecycle
+                        bin_dir,
+                    )
+                    .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
+                    .chainable_insert(
+                        Scope::All,
+                        ModificationBehavior::Prepend,
+                        "GEM_PATH", // Bundler is a gem too, allow it to be required
+                        gem_path,
+                    ),
+            )
+            .build()
     }
 
     fn existing_layer_strategy(
@@ -112,9 +110,7 @@ impl<'a> Layer for BundleDownloadLayer<'a> {
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
         let old = &layer_data.content_metadata.metadata;
-        let now = BundleDownloadLayerMetadata {
-            version: self.version.clone(),
-        };
+        let now = self.metadata.clone();
         match cache_state(old.clone(), now) {
             State::NothingChanged(_version) => {
                 section_log::step("Using cached version");

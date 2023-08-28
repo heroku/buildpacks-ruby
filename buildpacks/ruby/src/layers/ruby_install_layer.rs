@@ -30,7 +30,7 @@ use url::Url;
 ///
 pub(crate) struct RubyInstallLayer<'a> {
     pub _in_section: &'a dyn SectionLogger, // force the layer to be called within a Section logging context, not necessary but it's safer
-    pub version: ResolvedRubyVersion,
+    pub metadata: RubyInstallLayerMetadata,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -53,7 +53,7 @@ impl<'a> Layer for RubyInstallLayer<'a> {
 
     fn create(
         &self,
-        context: &BuildContext<Self::Buildpack>,
+        _context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
         log::step_timed("Installing", || {
@@ -61,7 +61,7 @@ impl<'a> Layer for RubyInstallLayer<'a> {
                 .map_err(RubyInstallError::CouldNotCreateDestinationFile)
                 .map_err(RubyBuildpackError::RubyInstallError)?;
 
-            let url = download_url(&context.stack_id, &self.version)
+            let url = download_url(&self.metadata.stack, &self.metadata.version)
                 .map_err(RubyBuildpackError::RubyInstallError)?;
 
             download(url.as_ref(), tmp_ruby_tgz.path())
@@ -69,24 +69,17 @@ impl<'a> Layer for RubyInstallLayer<'a> {
 
             untar(tmp_ruby_tgz.path(), layer_path).map_err(RubyBuildpackError::RubyInstallError)?;
 
-            LayerResultBuilder::new(RubyInstallLayerMetadata {
-                stack: context.stack_id.clone(),
-                version: self.version.clone(),
-            })
-            .build()
+            LayerResultBuilder::new(self.metadata.clone()).build()
         })
     }
 
     fn existing_layer_strategy(
         &self,
-        context: &BuildContext<Self::Buildpack>,
+        _context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
         let old = &layer_data.content_metadata.metadata;
-        let now = RubyInstallLayerMetadata {
-            stack: context.stack_id.clone(),
-            version: self.version.clone(),
-        };
+        let now = self.metadata.clone();
 
         match cache_state(old.clone(), now) {
             Changed::Nothing(_version) => {

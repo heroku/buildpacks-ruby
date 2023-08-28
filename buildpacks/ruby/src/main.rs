@@ -6,12 +6,15 @@ use crate::layers::{RubyInstallError, RubyInstallLayer};
 use commons::cache::CacheError;
 use commons::fun_run::CmdError;
 use commons::gemfile_lock::GemfileLock;
-
+use commons::metadata_digest::MetadataDigest;
 use commons::output::fmt;
-#[allow(clippy::wildcard_imports)]
-use commons::output::{interface::*, log::BuildLog};
 use core::str::FromStr;
-use layers::{BundleDownloadLayer, BundleInstallLayer};
+use layers::{
+    bundle_download_layer::BundleDownloadLayer, bundle_download_layer::BundleDownloadLayerMetadata,
+    bundle_install_layer::BundleInstallLayer, bundle_install_layer::BundleInstallLayerMetadata,
+    ruby_install_layer::RubyInstallError, ruby_install_layer::RubyInstallLayer,
+    ruby_install_layer::RubyInstallLayerMetadata,
+};
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
 use libcnb::data::launch::LaunchBuilder;
@@ -22,6 +25,9 @@ use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 use std::io::stdout;
+
+#[allow(clippy::wildcard_imports)]
+use commons::output::{interface::*, log::BuildLog};
 
 mod gem_list;
 mod layers;
@@ -68,6 +74,7 @@ impl Buildpack for RubyBuildpack {
             .build()
     }
 
+    #[allow(clippy::too_many_lines)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         let mut logger = BuildLog::new(stdout()).buildpack_name("Heroku Ruby Buildpack");
 
@@ -110,7 +117,10 @@ impl Buildpack for RubyBuildpack {
                     layer_name!("ruby"),
                     RubyInstallLayer {
                         _in_section: section.as_ref(),
-                        version: ruby_version.clone(),
+                        metadata: RubyInstallLayerMetadata {
+                            stack: context.stack_id.clone(),
+                            version: ruby_version.clone(),
+                        },
                     },
                 )?;
             let env = ruby_layer.env.apply(Scope::Build, &env);
@@ -128,7 +138,9 @@ impl Buildpack for RubyBuildpack {
                 layer_name!("bundler"),
                 BundleDownloadLayer {
                     env: env.clone(),
-                    version: bundler_version,
+                    metadata: BundleDownloadLayerMetadata {
+                        version: bundler_version,
+                    },
                     _section_logger: section.as_ref(),
                 },
             )?;
@@ -145,8 +157,26 @@ impl Buildpack for RubyBuildpack {
                 BundleInstallLayer {
                     env: env.clone(),
                     without: BundleWithout::new("development:test"),
-                    ruby_version,
                     _section_log: section.as_ref(),
+                    metadata: BundleInstallLayerMetadata {
+                        stack: context.stack_id.clone(),
+                        ruby_version: ruby_version.clone(),
+                        force_bundle_install_key: String::from(
+                            crate::layers::bundle_install_layer::FORCE_BUNDLE_INSTALL_CACHE_KEY,
+                        ),
+                        digest: MetadataDigest::new_env_files(
+                            &context.platform,
+                            &[
+                                &context.app_dir.join("Gemfile"),
+                                &context.app_dir.join("Gemfile.lock"),
+                            ],
+                        )
+                        .map_err(|error| match error {
+                            commons::metadata_digest::DigestError::CannotReadFile(path, error) => {
+                                RubyBuildpackError::BundleInstallDigestError(path, error)
+                            }
+                        })?,
+                    },
                 },
             )?;
             let env = bundle_install_layer.env.apply(Scope::Build, &env);
@@ -165,7 +195,6 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Assets install
-
         logger = {
             let section = logger.section("Rake assets install");
             let rake_detect =

@@ -34,7 +34,7 @@ fn main() {
             .step("A step should be a verb i.e. 'Downloading'")
             .step("Related verbs should be nested under a single section")
             .step(
-                &formatdoc! {"
+                formatdoc! {"
                 Steps can be multiple lines long
                 However they're best as short, factual,
                 descriptions of what the program is doing.
@@ -122,23 +122,29 @@ fn main() {
         table.column(1).set_header("Code");
         table.column(2).set_header("When to use");
 
-        let mut data: Vec<Vec<String>> = Vec::new();
-        data.push(vec![
-            fmt::value("2.3.4"),
-            "fmt::value(\"2.3.f\")".to_string(),
-            "With versions, file names or other important values worth highlighting".to_string(),
-        ]);
-        data.push(vec![
-            fmt::url("https://www.schneems.com"),
-            "fmt::url(\"https://www.schneems.com\")".to_string(),
-            "With urls".to_string(),
-        ]);
-        data.push(vec![
-            fmt::command("bundle install"),
-            "fmt::command(command.name())".to_string(),
-            "With commands (alongside of `fun_run::CommandWithName`)".to_string(),
-        ]);
-        data.push(vec![fmt::details("extra information"), "fmt::details(\"extra information\")".to_string(), "Add specific information at the end of a line i.e. 'Cache cleared (ruby version changed)'".to_string()]);
+        let data: Vec<Vec<String>> = vec![
+            vec![
+                fmt::value("2.3.4"),
+                "fmt::value(\"2.3.f\")".to_string(),
+                "With versions, file names or other important values worth highlighting".to_string(),
+            ],
+            vec![
+                fmt::url("https://www.schneems.com"),
+                "fmt::url(\"https://www.schneems.com\")".to_string(),
+                "With urls".to_string(),
+            ],
+            vec![
+                fmt::command("bundle install"),
+                "fmt::command(command.name())".to_string(),
+                "With commands (alongside of `fun_run::CommandWithName`)".to_string(),
+            ],
+            vec![
+                fmt::details("extra information"),
+                "fmt::details(\"extra information\")".to_string(),
+                "Add specific information at the end of a line i.e. 'Cache cleared (ruby version changed)'".to_string()
+            ]
+        ];
+
         table.print(data);
         drop(log);
     }

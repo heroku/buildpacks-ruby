@@ -3,12 +3,13 @@ use crate::rake_status::{check_rake_ready, RakeStatus};
 use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
-use commons::output::{fmt, layer_logger::LayerLogger};
+use commons::output::fmt;
+use commons::output::{interface::SectionLogger, section_log as log};
 use libcnb::build::BuildContext;
 use libcnb::Env;
 
-pub(crate) fn detect_rake_tasks(
-    logger: &LayerLogger,
+pub(crate) fn detect_rake_tasks<'a>(
+    logger: &dyn SectionLogger,
     gem_list: &GemList,
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
@@ -24,12 +25,12 @@ pub(crate) fn detect_rake_tasks(
         [".sprockets-manifest-*.json", "manifest-*.json"],
     ) {
         RakeStatus::MissingRakeGem => {
-            logger.lock().step(format!(
+            log::step(format!(
                 "Cannot run rake tasks {}",
                 fmt::details(format!("no {rake} gem in {gemfile}"))
             ));
 
-            logger.lock().step(format!(
+            log::step(format!(
                 "{help} Add {gem} to your {gemfile} to enable",
                 gem = fmt::value("gem 'rake'")
             ));
@@ -37,13 +38,11 @@ pub(crate) fn detect_rake_tasks(
             Ok(None)
         }
         RakeStatus::MissingRakefile => {
-            logger.lock().step(format!(
+            log::step(format!(
                 "Cannot run rake tasks {}",
                 fmt::details(format!("no {rakefile}"))
             ));
-            logger
-                .lock()
-                .step(format!("{help} Add {rakefile} to your project to enable",));
+            log::step(format!("{help} Add {rakefile} to your project to enable",));
 
             Ok(None)
         }
@@ -54,18 +53,16 @@ pub(crate) fn detect_rake_tasks(
                 .collect::<Vec<_>>()
                 .join(", ");
 
-            logger.lock().step(format!(
+            log::step(format!(
                 "Skipping rake tasks {}",
                 fmt::details(format!("Manifest files found {files}"))
             ));
-            logger
-                .lock()
-                .step(format!("{help} Delete files to enable running rake tasks"));
+            log::step(format!("{help} Delete files to enable running rake tasks"));
 
             Ok(None)
         }
         RakeStatus::Ready(path) => {
-            logger.lock().step(format!(
+            log::step(format!(
                 "Rake detected {}",
                 fmt::details(format!(
                     "{rake} gem found, {rakefile} found ad {path}",

@@ -1,6 +1,7 @@
 use commons::fun_run::{CmdError, CommandWithName};
 use commons::gem_version::GemVersion;
-use commons::output::{fmt, layer_logger::LayerLogger};
+use commons::output::fmt;
+use commons::output::{interface::SectionLogger, section_log as log};
 use core::str::FromStr;
 use regex::Regex;
 use std::collections::HashMap;
@@ -56,20 +57,23 @@ impl GemList {
     /// # Errors
     ///
     /// Errors if the command `bundle list` is unsuccessful.
-    pub fn from_bundle_list<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsStr>>(
+    pub fn from_bundle_list<
+        'a,
+        T: IntoIterator<Item = (K, V)>,
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
+    >(
         envs: T,
-        logger: &LayerLogger,
+        _logger: &'a dyn SectionLogger,
     ) -> Result<Self, CmdError> {
         let mut cmd = Command::new("bundle");
         cmd.arg("list").env_clear().envs(envs);
 
-        logger
-            .lock()
-            .step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
-                let output = cmd.stream_output(stream.io(), stream.io())?;
+        log::step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
+            let output = cmd.stream_output(stream.io(), stream.io())?;
 
-                GemList::from_str(&output.stdout_lossy())
-            })
+            GemList::from_str(&output.stdout_lossy())
+        })
     }
 
     #[must_use]

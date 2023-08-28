@@ -2,7 +2,9 @@ use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use commons::fun_run::{self, CommandWithName};
 use commons::gemfile_lock::ResolvedBundlerVersion;
-use commons::output::{fmt, layer_logger::LayerLogger};
+use commons::output::fmt;
+use commons::output::interface::SectionLogger;
+use commons::output::section_log;
 use libcnb::build::BuildContext;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
@@ -23,13 +25,13 @@ pub(crate) struct BundleDownloadLayerMetadata {
 ///
 /// Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
 /// `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
-pub(crate) struct BundleDownloadLayer {
+pub(crate) struct BundleDownloadLayer<'a> {
     pub env: Env,
     pub version: ResolvedBundlerVersion,
-    pub logger: LayerLogger,
+    pub _section_logger: &'a dyn SectionLogger,
 }
 
-impl Layer for BundleDownloadLayer {
+impl<'a> Layer for BundleDownloadLayer<'a> {
     type Buildpack = RubyBuildpack;
     type Metadata = BundleDownloadLayerMetadata;
 
@@ -40,6 +42,7 @@ impl Layer for BundleDownloadLayer {
             cache: true,
         }
     }
+
     fn create(
         &self,
         _context: &BuildContext<Self::Buildpack>,
@@ -72,19 +75,13 @@ impl Layer for BundleDownloadLayer {
             "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
         ]);
 
-        self.logger
-            .lock()
-            .step_stream(format!("Running {}", fmt::command(short_name)), |stream| {
-                cmd.stream_output(stream.io(), stream.io())
-                    .map_err(|error| {
-                        fun_run::map_which_problem(
-                            error,
-                            cmd.mut_cmd(),
-                            self.env.get("PATH").cloned(),
-                        )
-                    })
-            })
-            .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
+        section_log::step_stream(format!("Running {}", fmt::command(short_name)), |stream| {
+            cmd.stream_output(stream.io(), stream.io())
+                .map_err(|error| {
+                    fun_run::map_which_problem(error, cmd.mut_cmd(), self.env.get("PATH").cloned())
+                })
+        })
+        .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
 
         LayerResultBuilder::new(BundleDownloadLayerMetadata {
             version: self.version.clone(),
@@ -120,12 +117,12 @@ impl Layer for BundleDownloadLayer {
         };
         match cache_state(old.clone(), now) {
             State::NothingChanged(_version) => {
-                self.logger.lock().step("Using cached version");
+                section_log::step("Using cached version");
 
                 Ok(ExistingLayerStrategy::Keep)
             }
             State::BundlerVersionChanged(_old, _now) => {
-                self.logger.lock().step(format!(
+                section_log::step(format!(
                     "Clearing cache {}",
                     fmt::details("bundler version changed")
                 ));

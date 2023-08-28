@@ -1,5 +1,6 @@
 use commons::fun_run::{CmdError, CommandWithName};
-use commons::output::{fmt, layer_logger::LayerLogger};
+use commons::output::fmt;
+use commons::output::{interface::SectionLogger, section_log as log};
 use core::str::FromStr;
 use std::{ffi::OsStr, process::Command};
 
@@ -22,7 +23,7 @@ impl RakeDetect {
     ///
     /// Will return `Err` if `bundle exec rake -p` command cannot be invoked by the operating system.
     pub fn from_rake_command<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsStr>>(
-        logger: &LayerLogger,
+        _logger: &dyn SectionLogger,
         envs: T,
         error_on_failure: bool,
     ) -> Result<Self, CmdError> {
@@ -31,23 +32,21 @@ impl RakeDetect {
             .env_clear()
             .envs(envs);
 
-        logger
-            .lock()
-            .step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
-                cmd.stream_output(stream.io(), stream.io())
-            })
-            .or_else(|error| {
-                if error_on_failure {
-                    Err(error)
-                } else {
-                    match error {
-                        CmdError::SystemError(_, _) => Err(error),
-                        CmdError::NonZeroExitNotStreamed(output)
-                        | CmdError::NonZeroExitAlreadyStreamed(output) => Ok(output),
-                    }
+        log::step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
+            cmd.stream_output(stream.io(), stream.io())
+        })
+        .or_else(|error| {
+            if error_on_failure {
+                Err(error)
+            } else {
+                match error {
+                    CmdError::SystemError(_, _) => Err(error),
+                    CmdError::NonZeroExitNotStreamed(output)
+                    | CmdError::NonZeroExitAlreadyStreamed(output) => Ok(output),
                 }
-            })
-            .and_then(|output| RakeDetect::from_str(&output.stdout_lossy()))
+            }
+        })
+        .and_then(|output| RakeDetect::from_str(&output.stdout_lossy()))
     }
 
     #[must_use]

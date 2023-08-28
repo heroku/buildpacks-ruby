@@ -9,7 +9,7 @@ use commons::gemfile_lock::GemfileLock;
 
 use commons::output::fmt;
 #[allow(clippy::wildcard_imports)]
-use commons::output::{interface::*, layer_logger::LayerLogger, log::BuildLog};
+use commons::output::{interface::*, log::BuildLog};
 use core::str::FromStr;
 use layers::{BundleDownloadLayer, BundleInstallLayer};
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
@@ -100,7 +100,7 @@ impl Buildpack for RubyBuildpack {
         // ## Install executable ruby version
 
         (logger, env) = {
-            let logger = logger.section(&format!(
+            let section = logger.section(&format!(
                 "Ruby version {} from {}",
                 fmt::value(ruby_version.to_string()),
                 fmt::value(gemfile_lock.ruby_source())
@@ -109,12 +109,12 @@ impl Buildpack for RubyBuildpack {
                 .handle_layer(
                     layer_name!("ruby"),
                     RubyInstallLayer {
-                        _in_section: logger.as_ref(),
+                        _in_section: section.as_ref(),
                         version: ruby_version.clone(),
                     },
                 )?;
             let env = ruby_layer.env.apply(Scope::Build, &env);
-            (logger.end_section(), env)
+            (section.end_section(), env)
         };
 
         // ## Setup bundler
@@ -124,71 +124,60 @@ impl Buildpack for RubyBuildpack {
                 fmt::value(bundler_version.to_string()),
                 fmt::value(gemfile_lock.bundler_source())
             ));
-            let mut layer_logger = LayerLogger::new(section);
             let download_bundler_layer = context.handle_layer(
                 layer_name!("bundler"),
                 BundleDownloadLayer {
                     env: env.clone(),
                     version: bundler_version,
-                    logger: layer_logger.clone(),
+                    _section_logger: section.as_ref(),
                 },
             )?;
-            let logger = layer_logger.finish_layer();
             let env = download_bundler_layer.env.apply(Scope::Build, &env);
 
-            (logger, env)
+            (section.end_section(), env)
         };
 
         // ## Bundle install
         (logger, env) = {
             let section = logger.section("Bundle install");
-            let mut layer_logger = LayerLogger::new(section);
-
             let bundle_install_layer = context.handle_layer(
                 layer_name!("gems"),
                 BundleInstallLayer {
                     env: env.clone(),
                     without: BundleWithout::new("development:test"),
                     ruby_version,
-                    logger: layer_logger.clone(),
+                    _section_log: section.as_ref(),
                 },
             )?;
             let env = bundle_install_layer.env.apply(Scope::Build, &env);
-            let logger = layer_logger.finish_layer();
-            (logger, env)
+            (section.end_section(), env)
         };
 
         // ## Detect gems
-        let (logger, gem_list, default_process) = {
+        let (mut logger, gem_list, default_process) = {
             let section = logger.section("Setting default processes(es)");
-            let layer_logger = LayerLogger::new(section);
 
-            let gem_list = gem_list::GemList::from_bundle_list(&env, &layer_logger)
+            let gem_list = gem_list::GemList::from_bundle_list(&env, section.as_ref())
                 .map_err(RubyBuildpackError::GemListGetError)?;
-            let default_process = steps::get_default_process(&layer_logger, &context, &gem_list);
+            let default_process = steps::get_default_process(section.as_ref(), &context, &gem_list);
 
-            (layer_logger.finish_layer(), gem_list, default_process)
+            (section.end_section(), gem_list, default_process)
         };
 
         // ## Assets install
 
-        {
+        logger = {
             let section = logger.section("Rake assets install");
-            let mut layer_logger = LayerLogger::new(section);
             let rake_detect =
-                crate::steps::detect_rake_tasks(&layer_logger, &gem_list, &context, &env)?;
+                crate::steps::detect_rake_tasks(section.as_ref(), &gem_list, &context, &env)?;
 
             if let Some(rake_detect) = rake_detect {
-                crate::steps::rake_assets_install(
-                    layer_logger.clone(),
-                    &context,
-                    &env,
-                    &rake_detect,
-                )?;
+                crate::steps::rake_assets_install(section.as_ref(), &context, &env, &rake_detect)?;
             }
 
-            layer_logger.finish_layer().finish_logging();
+            section.end_section()
         };
+        logger.finish_logging();
 
         if let Some(default_process) = default_process {
             BuildResultBuilder::new()

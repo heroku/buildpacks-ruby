@@ -1,5 +1,5 @@
 use crate::cache::{AppCache, CacheConfig, CacheError, CacheState, FilesWithSize, PathState};
-use crate::output::layer_logger::LayerLogger;
+use crate::output::{interface::SectionLogger, section_log as log};
 use libcnb::{build::BuildContext, Buildpack};
 use std::fmt::Debug;
 
@@ -13,12 +13,12 @@ use std::fmt::Debug;
 /// Default logging is provided for each operation.
 ///
 #[derive(Debug)]
-pub struct AppCacheCollection {
-    log: LayerLogger,
+pub struct AppCacheCollection<'a> {
+    _log: &'a dyn SectionLogger,
     collection: Vec<AppCache>,
 }
 
-impl AppCacheCollection {
+impl<'a> AppCacheCollection<'a> {
     /// Store multiple application paths in the cache
     ///
     /// # Errors
@@ -29,13 +29,19 @@ impl AppCacheCollection {
     pub fn new_and_load<B: Buildpack>(
         context: &BuildContext<B>,
         config: impl IntoIterator<Item = CacheConfig>,
-        log: LayerLogger,
+        _log: &'a dyn SectionLogger,
     ) -> Result<Self, CacheError> {
         let caches = config
             .into_iter()
             .map(|config| {
                 AppCache::new_and_load(context, config).map(|store| {
-                    log_load(&log, &store);
+                    let path = store.path().display();
+
+                    log::step(match store.cache_state() {
+                        CacheState::NewEmpty => format!("Creating cache for {path}"),
+                        CacheState::ExistsEmpty => format!("Loading (empty) cache for {path}"),
+                        CacheState::ExistsWithContents => format!("Loading cache for {path}"),
+                    });
                     store
                 })
             })
@@ -43,7 +49,7 @@ impl AppCacheCollection {
 
         Ok(Self {
             collection: caches,
-            log,
+            _log,
         })
     }
 
@@ -68,7 +74,7 @@ impl AppCacheCollection {
     fn log_save(&self, store: &AppCache) {
         let path = store.path().display();
 
-        self.log.lock().step(match store.path_state() {
+        log::step(match store.path_state() {
             PathState::Empty => format!("Storing cache for (empty) {path}"),
             PathState::HasFiles => format!("Storing cache for {path}"),
         });
@@ -80,21 +86,11 @@ impl AppCacheCollection {
         let removed_len = removed.files.len();
         let removed_size = removed.adjusted_bytes();
 
-        self.log.lock().step(format!(
+        log::step(format!(
             "Detected cache size exceeded (over {limit} limit by {removed_size}) for {path}"
         ));
-        self.log.lock().step(format!(
+        log::step(format!(
             "Removed {removed_len} files from the cache for {path}",
         ));
     }
-}
-
-fn log_load(log: &LayerLogger, store: &AppCache) {
-    let path = store.path().display();
-
-    log.lock().step(match store.cache_state() {
-        CacheState::NewEmpty => format!("Creating cache for {path}"),
-        CacheState::ExistsEmpty => format!("Loading (empty) cache for {path}"),
-        CacheState::ExistsWithContents => format!("Loading cache for {path}"),
-    });
 }

@@ -105,17 +105,16 @@ impl Buildpack for RubyBuildpack {
                 fmt::value(ruby_version.to_string()),
                 fmt::value(gemfile_lock.ruby_source())
             ));
-            let mut layer_logger = LayerLogger::new(logger);
             let ruby_layer = context //
                 .handle_layer(
                     layer_name!("ruby"),
                     RubyInstallLayer {
+                        _in_section: logger.as_ref(),
                         version: ruby_version.clone(),
-                        layer_logger: layer_logger.clone(),
                     },
                 )?;
             let env = ruby_layer.env.apply(Scope::Build, &env);
-            (layer_logger.finish_layer(), env)
+            (logger.end_section(), env)
         };
 
         // ## Setup bundler

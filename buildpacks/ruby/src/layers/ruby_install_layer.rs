@@ -1,6 +1,8 @@
-use crate::{LayerLogger, RubyBuildpack, RubyBuildpackError};
+use crate::{RubyBuildpack, RubyBuildpackError};
 use commons::gemfile_lock::ResolvedRubyVersion;
 use commons::output::fmt;
+use commons::output::interface::SectionLogger;
+use commons::output::section_log as log;
 use flate2::read::GzDecoder;
 use libcnb::build::BuildContext;
 use libcnb::data::buildpack::StackId;
@@ -26,9 +28,9 @@ use url::Url;
 ///
 /// When the Ruby version changes, invalidate and re-run.
 ///
-pub(crate) struct RubyInstallLayer {
+pub(crate) struct RubyInstallLayer<'a> {
+    pub _in_section: &'a dyn SectionLogger, // force the layer to be called within a Section logging context, not necessary but it's safer
     pub version: ResolvedRubyVersion,
-    pub layer_logger: LayerLogger,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -37,7 +39,7 @@ pub(crate) struct RubyInstallLayerMetadata {
     pub version: ResolvedRubyVersion,
 }
 
-impl Layer for RubyInstallLayer {
+impl<'a> Layer for RubyInstallLayer<'a> {
     type Buildpack = RubyBuildpack;
     type Metadata = RubyInstallLayerMetadata;
 
@@ -54,7 +56,7 @@ impl Layer for RubyInstallLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        self.layer_logger.lock().step_timed("Installing", || {
+        log::step_timed("Installing", || {
             let tmp_ruby_tgz = NamedTempFile::new()
                 .map_err(RubyInstallError::CouldNotCreateDestinationFile)
                 .map_err(RubyBuildpackError::RubyInstallError)?;
@@ -88,19 +90,17 @@ impl Layer for RubyInstallLayer {
 
         match cache_state(old.clone(), now) {
             Changed::Nothing(_version) => {
-                self.layer_logger.lock().step("Using cached version");
+                log::step("Using cached version");
 
                 Ok(ExistingLayerStrategy::Keep)
             }
             Changed::Stack(_old, _now) => {
-                self.layer_logger
-                    .lock()
-                    .step(format!("Clearing cache {}", fmt::details("stack changed")));
+                log::step(format!("Clearing cache {}", fmt::details("stack changed")));
 
                 Ok(ExistingLayerStrategy::Recreate)
             }
             Changed::RubyVersion(_old, _now) => {
-                self.layer_logger.lock().step(format!(
+                log::step(format!(
                     "Clearing cache {}",
                     fmt::details("ruby version changed")
                 ));

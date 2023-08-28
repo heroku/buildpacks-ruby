@@ -21,9 +21,9 @@ use crate::output::interface::*;
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub struct BuildLog<T, W: Debug> {
-    io: W,
-    state: PhantomData<T>,
-    started: Instant,
+    pub(crate) io: W,
+    pub(crate) state: PhantomData<T>,
+    pub(crate) started: Instant,
 }
 
 impl<W> StoppedLogger for BuildLog<state::Stopped, W> where W: Debug {}
@@ -319,7 +319,7 @@ where
     }
 }
 
-mod state {
+pub(crate) mod state {
     #[derive(Debug)]
     pub struct NotStarted;
 

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- buildpacks/ruby: Introduce heroku build metrics support (https://github.com/heroku/buildpacks-ruby/pull/172)
+
 ## [2.0.1] - 2023-07-25
 
 - Commons: Introduce `build_output` module (https://github.com/heroku/buildpacks-ruby/pull/155)

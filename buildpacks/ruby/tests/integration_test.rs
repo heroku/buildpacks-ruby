@@ -119,7 +119,6 @@ fn test_barnes_app() {
         BuildConfig::new("heroku/builder:22", "tests/fixtures/barnes_app")
             .buildpacks(vec![BuildpackReference::Crate]),
         |context| {
-            assert_contains!(context.pack_stdout, "# Heroku StatsD Metrics Agent");
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
 
             context.start_container(

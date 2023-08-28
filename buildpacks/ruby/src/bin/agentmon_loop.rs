@@ -20,7 +20,9 @@ const SLEEP_FOR: Duration = Duration::from_secs(1);
 ///
 /// Example:
 ///
+/// ```shell
 /// $ cargo run --bin agentmon_loop -- --path <path/to/agentmon/binary>
+/// ```
 
 /// Turn CLI arguments into a Rust struct
 #[derive(Parser, Debug)]
@@ -37,7 +39,7 @@ fn main() {
         exit(1);
     }
 
-    let agentmon_args = match build_args(std::env::vars().collect::<HashMap<String, String>>()) {
+    let agentmon_args = match build_args(&std::env::vars().collect::<HashMap<String, String>>()) {
         Ok(args) => args,
         Err(e) => {
             eprintln!("Cannot start agentmon: {e}");
@@ -90,22 +92,21 @@ enum Error {
 ///
 /// # Errors
 ///
-/// - PORT is not set
-/// - HEROKU_METRICS_URL is not set
-/// - DYNO starts with `run.`
-fn build_args(env: HashMap<String, String>) -> Result<Vec<String>, Error> {
+/// - Environment variables: PORT or `HEROKU_METRICS_URL` are not set
+/// - Environment variable DYNO starts with `run.`
+fn build_args(env: &HashMap<String, String>) -> Result<Vec<String>, Error> {
     let mut args = Vec::new();
-    if let Some(true) = env.get("DYNO").map(|value| value.starts_with("run.")) {
+    if env.get("DYNO").is_some_and(|value| value.starts_with("run.")) {
         return Err(Error::RunDynoDetected);
     }
 
     if let Some(port) = env.get("PORT") {
-        args.push(format!("statsd-addr=:{port}"));
+        args.push(format!("-statsd-addr=:{port}"));
     } else {
         return Err(Error::MissingPort);
     };
 
-    if let Some(true) = env.get("AGENTMON_DEBUG").map(|value| value == "true") {
+    if env.get("AGENTMON_DEBUG").is_some_and(|value| value == "true") {
         args.push("-debug".to_string());
     };
 
@@ -124,7 +125,7 @@ mod test {
 
     #[test]
     fn missing_port() {
-        let result = build_args(HashMap::new());
+        let result = build_args(&HashMap::new());
 
         assert_eq!(result, Err(Error::MissingPort));
     }
@@ -138,12 +139,12 @@ mod test {
             "https://example.com".to_string(),
         );
 
-        let result = build_args(env);
+        let result = build_args(&env);
 
         assert_eq!(
             result,
             Ok(vec![
-                "statsd-addr=:90210".to_string(),
+                "-statsd-addr=:90210".to_string(),
                 "https://example.com".to_string()
             ])
         );
@@ -159,12 +160,12 @@ mod test {
         );
         env.insert("AGENTMON_DEBUG".to_string(), "true".to_string());
 
-        let result = build_args(env);
+        let result = build_args(&env);
 
         assert_eq!(
             result,
             Ok(vec![
-                "statsd-addr=:90210".to_string(),
+                "-statsd-addr=:90210".to_string(),
                 "-debug".to_string(),
                 "https://example.com".to_string()
             ])

@@ -70,6 +70,17 @@ fn log_our_error(error: RubyBuildpackError) {
             error,
         )
         .print(),
+        RubyBuildpackError::MetricsAgentError(error) => ErrorInfo::header_body_details(
+            formatdoc! {
+                "Could not install Statsd agent"
+            },
+            formatdoc! {
+                "An error occured while downloading and installing the metrics agent
+                the buildpack cannot continue"
+            },
+            error,
+        )
+        .print(),
         RubyBuildpackError::BundleInstallDigestError(error) => ErrorInfo::header_body_details(
             "Could not generate digest",
             formatdoc! {"

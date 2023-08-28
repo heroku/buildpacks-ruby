@@ -1,10 +1,5 @@
 [workspace]
-resolver = "2"
-members = [
-    "buildpacks/metrics-agent",
-    "buildpacks/ruby",
-    "commons"
-]
+members = ["buildpacks/ruby", "commons"]
 
 [workspace.package]
 rust-version = "1.64"

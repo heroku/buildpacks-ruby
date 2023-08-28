@@ -23,6 +23,7 @@ tempfile = "3"
 thiserror = "1"
 ureq = "2"
 url = "2"
+clap = { version = "4.4.1", features = ["derive"] }
 
 [dev-dependencies]
 libcnb-test = "=0.14.0"

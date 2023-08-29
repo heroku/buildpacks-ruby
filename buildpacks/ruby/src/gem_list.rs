@@ -57,15 +57,12 @@ impl GemList {
     /// # Errors
     ///
     /// Errors if the command `bundle list` is unsuccessful.
-    pub fn from_bundle_list<
-        'a,
+    pub fn from_bundle_list<T, K, V>(envs: T, _logger: &dyn SectionLogger) -> Result<Self, CmdError>
+    where
         T: IntoIterator<Item = (K, V)>,
         K: AsRef<OsStr>,
         V: AsRef<OsStr>,
-    >(
-        envs: T,
-        _logger: &'a dyn SectionLogger,
-    ) -> Result<Self, CmdError> {
+    {
         let mut cmd = Command::new("bundle");
         cmd.arg("list").env_clear().envs(envs);
 

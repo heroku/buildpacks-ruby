@@ -232,7 +232,10 @@ mod test {
         assert_eq!("- hello\n  world", &prefix_indent("- ", "hello\nworld"));
         assert_eq!("- hello\n  world\n", &prefix_indent("- ", "hello\nworld\n"));
         let actual = prefix_indent(format!("- {RED}help:{RESET} "), "hello\nworld\n");
-        assert_eq!(&format!("- {RED}help:{RESET} hello\n        world\n"), &actual);
+        assert_eq!(
+            &format!("- {RED}help:{RESET} hello\n        world\n"),
+            &actual
+        );
     }
 
     #[test]

@@ -8,7 +8,7 @@ use commons::output::{interface::SectionLogger, section_log as log};
 use libcnb::build::BuildContext;
 use libcnb::Env;
 
-pub(crate) fn detect_rake_tasks<'a>(
+pub(crate) fn detect_rake_tasks(
     logger: &dyn SectionLogger,
     gem_list: &GemList,
     context: &BuildContext<RubyBuildpack>,

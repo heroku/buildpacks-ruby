@@ -9,8 +9,8 @@ use libcnb::build::BuildContext;
 use libcnb::Env;
 use std::process::Command;
 
-pub(crate) fn rake_assets_install<'a>(
-    logger: &'a dyn SectionLogger,
+pub(crate) fn rake_assets_install(
+    logger: &dyn SectionLogger,
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
     rake_detect: &RakeDetect,

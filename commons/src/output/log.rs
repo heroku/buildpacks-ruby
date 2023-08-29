@@ -367,7 +367,7 @@ mod test {
         let actual = LinesWithEndings::from(&actual)
             .map(|line| {
                 // Remove empty indented lines https://github.com/heroku/libcnb.rs/issues/582
-                regex::Regex::new(r#"^\s+$"#)
+                regex::Regex::new(r"^\s+$")
                     .expect("clippy")
                     .replace(line, "\n")
                     .to_string()

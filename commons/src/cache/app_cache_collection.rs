@@ -1,4 +1,4 @@
-use crate::cache::{AppCache, CacheConfig, CacheError, CacheState, FilesWithSize, PathState};
+use crate::cache::{AppCache, CacheConfig, CacheError, CacheState, PathState};
 use crate::output::{interface::SectionLogger, section_log as log};
 use libcnb::{build::BuildContext, Buildpack};
 use std::fmt::Debug;
@@ -29,7 +29,7 @@ impl<'a> AppCacheCollection<'a> {
     pub fn new_and_load<B: Buildpack>(
         context: &BuildContext<B>,
         config: impl IntoIterator<Item = CacheConfig>,
-        _log: &'a dyn SectionLogger,
+        log: &'a dyn SectionLogger,
     ) -> Result<Self, CacheError> {
         let caches = config
             .into_iter()
@@ -49,7 +49,7 @@ impl<'a> AppCacheCollection<'a> {
 
         Ok(Self {
             collection: caches,
-            _log,
+            _log: log,
         })
     }
 
@@ -61,36 +61,28 @@ impl<'a> AppCacheCollection<'a> {
     /// be completed. For example due to file permissions.
     pub fn save_and_clean(&self) -> Result<(), CacheError> {
         for store in &self.collection {
-            self.log_save(store);
+            let path = store.path().display();
+
+            log::step(match store.path_state() {
+                PathState::Empty => format!("Storing cache for (empty) {path}"),
+                PathState::HasFiles => format!("Storing cache for {path}"),
+            });
 
             if let Some(removed) = store.save_and_clean()? {
-                self.log_clean(store, &removed);
+                let path = store.path().display();
+                let limit = store.limit();
+                let removed_len = removed.files.len();
+                let removed_size = removed.adjusted_bytes();
+
+                log::step(format!(
+                    "Detected cache size exceeded (over {limit} limit by {removed_size}) for {path}"
+                ));
+                log::step(format!(
+                    "Removed {removed_len} files from the cache for {path}",
+                ));
             }
         }
 
         Ok(())
-    }
-
-    fn log_save(&self, store: &AppCache) {
-        let path = store.path().display();
-
-        log::step(match store.path_state() {
-            PathState::Empty => format!("Storing cache for (empty) {path}"),
-            PathState::HasFiles => format!("Storing cache for {path}"),
-        });
-    }
-
-    fn log_clean(&self, store: &AppCache, removed: &FilesWithSize) {
-        let path = store.path().display();
-        let limit = store.limit();
-        let removed_len = removed.files.len();
-        let removed_size = removed.adjusted_bytes();
-
-        log::step(format!(
-            "Detected cache size exceeded (over {limit} limit by {removed_size}) for {path}"
-        ));
-        log::step(format!(
-            "Removed {removed_len} files from the cache for {path}",
-        ));
     }
 }

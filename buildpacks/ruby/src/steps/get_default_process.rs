@@ -8,8 +8,8 @@ use libcnb::data::launch::ProcessBuilder;
 use libcnb::data::process_type;
 use std::path::Path;
 
-pub(crate) fn get_default_process<'a>(
-    _logger: &'a dyn SectionLogger,
+pub(crate) fn get_default_process(
+    _logger: &dyn SectionLogger,
     context: &BuildContext<RubyBuildpack>,
     gem_list: &GemList,
 ) -> Option<Process> {

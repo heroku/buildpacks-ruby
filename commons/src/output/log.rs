@@ -219,7 +219,7 @@ where
 {
     fn finish_timed_step(self: Box<Self>) -> Box<dyn SectionLogger> {
         // Must stop background writing thread before retrieving IO
-        let duration = self.background.stop().expect("Internal error").elapsed();
+        let duration = self.background.stop().elapsed();
 
         let mut io = Arc::try_unwrap(self.arc_io)
             .expect("Internal error")

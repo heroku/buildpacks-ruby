@@ -4,7 +4,16 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-pub fn start_timer<T>(
+/// This module is responsible for the logic involved in the printing to output while
+/// other work is being performed.
+
+/// Prints a start, then a tick every second, and an end to the given `Write` value.
+///
+/// Returns a struct that allows for manually stopping the timer or will automatically stop
+/// the timer if the guard is dropped. This functionality allows for errors that trigger
+/// an exit of the function to not accidentally have a timer printing in the background
+/// forever.
+pub(crate) fn start_timer<T>(
     arc_io: &Arc<Mutex<T>>,
     start: impl AsRef<str>,
     tick: impl AsRef<str>,
@@ -51,20 +60,21 @@ where
     }
 }
 
+/// Responsible for stopping a running timer thread
 #[derive(Debug)]
-pub struct StopTimer {
+pub(crate) struct StopTimer {
     instant: Instant,
     handle: Option<JoinHandle<()>>,
     sender: Option<Sender<()>>,
 }
 
 impl StopTimer {
-    pub fn elapsed(&self) -> Duration {
+    pub(crate) fn elapsed(&self) -> Duration {
         self.instant.elapsed()
     }
 }
 
-pub trait StopJoin: std::fmt::Debug {
+pub(crate) trait StopJoin: std::fmt::Debug {
     fn stop_join(self) -> Self;
 }
 
@@ -83,16 +93,23 @@ impl StopJoin for StopTimer {
 }
 
 // Guarantees that stop is called on the inner
-//
-// Expects and inner to return a Duration
 #[derive(Debug)]
-pub struct StopJoinGuard<T: StopJoin> {
+pub(crate) struct StopJoinGuard<T: StopJoin> {
     inner: Option<T>,
 }
 
 impl<T: StopJoin> StopJoinGuard<T> {
-    pub fn stop(mut self) -> Option<T> {
-        self.inner.take().map(StopJoin::stop_join)
+    /// Since this consumes self and `stop_join` consumes
+    /// the inner, the option will never be empty unless
+    /// it was created with a None inner.
+    ///
+    /// Since inner is private we guarantee it's always Some
+    /// until this struct is consumed.
+    pub(crate) fn stop(mut self) -> T {
+        self.inner
+            .take()
+            .map(StopJoin::stop_join)
+            .expect("Internal error: Should never panic, codepath tested")
     }
 }
 
@@ -101,5 +118,23 @@ impl<T: StopJoin> Drop for StopJoinGuard<T> {
         if let Some(inner) = self.inner.take() {
             inner.stop_join();
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::output::util::ReadYourWrite;
+    use libcnb_test::assert_contains;
+
+    #[test]
+    fn does_stop_does_not_panic() {
+        let writer = ReadYourWrite::writer(Vec::new());
+        let reader = writer.reader();
+        let done = start_timer(&writer.arc_io(), " .", ".", ". ");
+
+        let _ = done.stop();
+
+        assert_contains!(String::from_utf8_lossy(&reader.lock().unwrap()), " ... ");
     }
 }

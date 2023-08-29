@@ -1,5 +1,6 @@
 /// Output logging within a section
 ///
+/// TODO: Example usage in a layer
 ///
 /// ## Context
 ///
@@ -18,6 +19,7 @@ use std::io::Stdout;
 use std::marker::PhantomData;
 use std::time::Instant;
 
+/// Helper function
 fn logger() -> Box<dyn SectionLogger> {
     Box::new(BuildLog::<state::InSection, Stdout> {
         io: std::io::stdout(),
@@ -42,4 +44,16 @@ pub fn step_stream<T>(s: impl AsRef<str>, f: impl FnOnce(&mut Box<dyn StreamLogg
     let out = f(&mut stream);
     stream.finish_timed_stream();
     out
+}
+
+pub fn error(s: impl AsRef<str>) {
+    logger().error(s.as_ref());
+}
+
+pub fn warning(s: impl AsRef<str>) {
+    logger().warning(s.as_ref());
+}
+
+pub fn important(s: impl AsRef<str>) {
+    logger().important(s.as_ref());
 }

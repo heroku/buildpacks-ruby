@@ -40,17 +40,3 @@ pub trait ErrorWarningImportantLogger: ErrorLogger + Debug {
 pub trait ErrorLogger: Debug {
     fn error(&mut self, s: &str);
 }
-
-// print_header() -- Example: print the buildpack
-// print_header_with_timer() -- Example: print the buildpack
-// print_section() -- Example: entering a section of related things (typically a noun/topic)
-// print_step() -- Example: sub-bullet (typically a verb, running, installing, verb)
-// print_help_step() -- same as above, different styling and prefix
-// print_step_with_inline_timer() -- step, prints immediately what it's doing, printing dot every second, when stopped wraps up.
-// --> stop_timer()
-// print_step_command() -- As above, command will be run internally, timer stopped, etc.
-// print_error(error_spec)
-// print_warning(warn_spec)
-// print_important(important_spec) -- not a problem, but heads up
-
-// In addition: formatting of sub-text like URLs, "values", env_vars, etc.

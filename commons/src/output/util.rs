@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 ///
 /// Useful for testing
 #[derive(Debug)]
-pub struct ReadYourWrite<W>
+pub(crate) struct ReadYourWrite<W>
 where
     W: Write + AsRef<[u8]>,
 {
@@ -27,6 +27,12 @@ where
     #[must_use]
     #[allow(dead_code)]
     pub(crate) fn reader(&self) -> Arc<Mutex<W>> {
+        self.arc.clone()
+    }
+
+    #[must_use]
+    #[allow(dead_code)]
+    pub(crate) fn arc_io(&self) -> Arc<Mutex<W>> {
         self.arc.clone()
     }
 }

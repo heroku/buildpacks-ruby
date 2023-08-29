@@ -282,7 +282,7 @@ mod test {
     }
 }
 
-pub mod time {
+pub(crate) mod time {
     use std::time::Duration;
 
     // Returns the part of a duration only in miliseconds

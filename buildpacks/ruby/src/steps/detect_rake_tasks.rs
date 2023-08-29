@@ -3,7 +3,7 @@ use crate::rake_status::{check_rake_ready, RakeStatus};
 use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
-use commons::output::fmt;
+use commons::output::fmt::{self, HELP};
 use commons::output::{interface::SectionLogger, section_log as log};
 use libcnb::build::BuildContext;
 use libcnb::Env;
@@ -14,7 +14,6 @@ pub(crate) fn detect_rake_tasks(
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
 ) -> Result<Option<RakeDetect>, RubyBuildpackError> {
-    let help = fmt::help_prefix();
     let rake = fmt::value("rake");
     let gemfile = fmt::value("Gemfile");
     let rakefile = fmt::value("Rakefile");
@@ -31,7 +30,7 @@ pub(crate) fn detect_rake_tasks(
             ));
 
             log::step(format!(
-                "{help} Add {gem} to your {gemfile} to enable",
+                "{HELP} Add {gem} to your {gemfile} to enable",
                 gem = fmt::value("gem 'rake'")
             ));
 
@@ -42,7 +41,7 @@ pub(crate) fn detect_rake_tasks(
                 "Cannot run rake tasks {}",
                 fmt::details(format!("no {rakefile}"))
             ));
-            log::step(format!("{help} Add {rakefile} to your project to enable",));
+            log::step(format!("{HELP} Add {rakefile} to your project to enable",));
 
             Ok(None)
         }
@@ -57,7 +56,7 @@ pub(crate) fn detect_rake_tasks(
                 "Skipping rake tasks {}",
                 fmt::details(format!("Manifest files found {files}"))
             ));
-            log::step(format!("{help} Delete files to enable running rake tasks"));
+            log::step(format!("{HELP} Delete files to enable running rake tasks"));
 
             Ok(None)
         }

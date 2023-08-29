@@ -6,11 +6,9 @@ pub trait Logger: Debug {
     fn without_buildpack_name(self) -> Box<dyn StartedLogger>;
 }
 
-pub trait StoppedLogger: Debug {}
-
 pub trait StartedLogger: ErrorWarningImportantLogger + Debug {
     fn section(self: Box<Self>, s: &str) -> Box<dyn SectionLogger>;
-    fn finish_logging(self: Box<Self>) -> Box<dyn StoppedLogger>;
+    fn finish_logging(self: Box<Self>);
 }
 
 pub trait StreamLogger: Debug {

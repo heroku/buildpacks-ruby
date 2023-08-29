@@ -1,9 +1,11 @@
 use ascii_table::AsciiTable;
 use commons::fun_run::CommandWithName;
-use commons::output::fmt;
+use commons::output::fmt::{self, DEBUG_INFO, HELP};
 use commons::output::interface::Logger;
 use commons::output::log::BuildLog;
+use commons::output::section_log;
 use indoc::formatdoc;
+use libherokubuildpack::command::CommandExt;
 use std::io::stdout;
 use std::process::Command;
 
@@ -18,7 +20,6 @@ fn main() {
     );
 
     {
-        let help_prefix = fmt::help_prefix();
         let mut log = BuildLog::new(stdout()).buildpack_name("Section logging features");
         log = log
             .section("Section heading example")
@@ -43,7 +44,7 @@ fn main() {
             )
             .step("Prefer a single line when possible")
             .step("Sections and steps are sentence cased with no ending puncuation")
-            .step(&format!("{help_prefix} capitalize the first letter"))
+            .step(&format!("{HELP} capitalize the first letter"))
             .end_section();
 
         let mut command = Command::new("bash");
@@ -63,7 +64,50 @@ fn main() {
     }
 
     {
-        let debug_info = fmt::debug_info_prefix();
+        let mut log = BuildLog::new(stdout()).buildpack_name("Section log functions");
+        log = log
+            .section("Logging inside a layer")
+            .step(
+                formatdoc! {"
+                Layer interfaces are neither mutable nor consuming i.e.
+
+                    ```
+                    fn create(
+                        &self,
+                        _context: &BuildContext<Self::Buildpack>,
+                        layer_path: &Path,
+                    ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError>
+                    ```
+
+                To allow logging within a layer you can use the `output::section_log` interface.
+            "}
+                .trim_end(),
+            )
+            .step("This `section_log` inteface allows you to log without state")
+            .step("That means you're responsonsible creating a section before calling it")
+            .step("Here's an example")
+            .end_section();
+
+        let section_log = log.section("Example:");
+
+        section_log::step("section_log::step()");
+        section_log::step_timed("section_log::step_timed()", || {
+            // do work here
+        });
+        section_log::step_stream("section_log::step_stream()", |stream| {
+            Command::new("bash")
+                .args(["-c", "ps | grep cargo"])
+                .output_and_write_streams(stream.io(), stream.io())
+                .unwrap()
+        });
+        section_log::step(formatdoc! {"
+            If you want to help make sure you're within a section then you can require your layer
+            takes a reference to `&'a dyn SectionLogger`
+        "});
+        section_log.end_section();
+    }
+
+    {
         let cmd_error = Command::new("iDoNotExist").named_output().err().unwrap();
 
         let mut log = BuildLog::new(stdout()).buildpack_name("Error and warnings");
@@ -73,7 +117,7 @@ fn main() {
             .end_section();
 
         log = log
-            .section(&debug_info)
+            .section(DEBUG_INFO)
             .step(&cmd_error.to_string())
             .end_section();
 
@@ -110,7 +154,7 @@ fn main() {
         let mut log = BuildLog::new(stdout()).buildpack_name("Formatting helpers");
 
         log = log
-            .section("Description of this section")
+            .section("The fmt module")
             .step(&formatdoc! {"
                 Formatting helpers can be used to enhance log output:
             "})
@@ -142,6 +186,16 @@ fn main() {
                 fmt::details("extra information"),
                 "fmt::details(\"extra information\")".to_string(),
                 "Add specific information at the end of a line i.e. 'Cache cleared (ruby version changed)'".to_string()
+            ],
+            vec![
+                fmt::HELP.to_string(),
+                "fmt::HELP.to_string()".to_string(),
+                "A help prefix, use it in a step or section title".to_string()
+            ],
+            vec![
+                fmt::DEBUG_INFO.to_string(),
+                "fmt::DEBUG_INFO.to_string()".to_string(),
+                "A debug prefix, use it in a step or section title".to_string()
             ]
         ];
 

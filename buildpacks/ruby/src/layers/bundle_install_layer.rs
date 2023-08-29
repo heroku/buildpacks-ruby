@@ -1,6 +1,6 @@
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use commons::fun_run::CommandWithName;
-use commons::output::fmt;
+use commons::output::fmt::{self, HELP};
 use commons::output::interface::SectionLogger;
 use commons::output::section_log as log;
 use commons::{
@@ -141,8 +141,7 @@ impl Layer for BundleInstallLayer<'_> {
                 ));
 
                 log::step(format!(
-                    "{help} To force run {bundle_install} set {env_var}",
-                    help = fmt::help_prefix()
+                    "{HELP} To force run {bundle_install} set {env_var}",
                 ));
             }
         }

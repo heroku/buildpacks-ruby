@@ -36,6 +36,12 @@ const SECTION_PREFIX: &str = "- ";
 const STEP_PREFIX: &str = "  - ";
 const CMD_INDENT: &str = "      ";
 
+// "{IMPORTANT_COLOR}! HELP{RESET}"
+pub const HELP: &str = "\x1B[0;36m! Help:\x1B[0m";
+
+// "{IMPORTANT_COLOR}Debug info:{RESET}"
+pub const DEBUG_INFO: &str = "\x1B[0;36mDebug info:\x1B[0m";
+
 #[must_use]
 pub fn url(contents: impl AsRef<str>) -> String {
     colorize(URL_COLOR, contents)
@@ -59,16 +65,6 @@ pub fn value(contents: impl AsRef<str>) -> String {
 pub fn details(contents: impl AsRef<str>) -> String {
     let contents = contents.as_ref();
     format!("({contents})")
-}
-
-#[must_use]
-pub fn debug_info_prefix() -> String {
-    colorize(IMPORTANT_COLOR, bangify("Debug info:"))
-}
-
-#[must_use]
-pub fn help_prefix() -> String {
-    colorize(IMPORTANT_COLOR, bangify("Help:"))
 }
 
 /// Used with libherokubuildpack linemapped command output

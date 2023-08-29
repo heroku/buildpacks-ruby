@@ -19,7 +19,20 @@ use std::io::Stdout;
 use std::marker::PhantomData;
 use std::time::Instant;
 
-/// Helper function
+/// Write to the build output in a `Box<dyn SectionLogger>` format with functions
+///
+/// ## What
+///
+/// Logging from within a layer can be difficult because calls to the layer interface are not
+/// mutable nor consumable. Functions can be used at any time with no restrictions. The
+/// only downside is that the buildpack author (you) is now responsible for:
+///
+/// - Ensuring that `Box<dyn StartedLogger>::section()` was called right before any of these
+/// functions are called.
+/// - Ensuring that you are not attempting to log while already logging i.e. calling `step()` within a
+/// `step_timed()` call.
+///
+/// For usage details run `cargo run --bin print_style_guide`
 fn logger() -> Box<dyn SectionLogger> {
     Box::new(BuildLog::<state::InSection, Stdout> {
         io: std::io::stdout(),

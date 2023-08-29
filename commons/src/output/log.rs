@@ -11,12 +11,26 @@ use crate::output::interface::*;
 
 /// # Build output logging
 ///
-/// The main interfaces are `BuildLog` and `LayerLogger`
+/// Use the `BuildLog` to output structured text as a buildpack is executing
 ///
-/// ## `BuildLog`
+/// ```
+/// use commons::output::{interface::*, log::BuildLog};
 ///
-/// TODO
+/// let mut logger = BuildLog::new(std::io::stdout())
+///     .buildpack_name("Heroku Ruby Buildpack");
 ///
+/// logger = logger
+///     .section("Ruby version")
+///     .step_timed("Installing")
+///     .finish_timed_step()
+///     .end_section();
+///
+/// logger.finish_logging();
+/// ```
+///
+/// To log inside of a layer see [`section_log`].
+///
+/// For usage details run `cargo run --bin print_style_guide`
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
@@ -26,7 +40,20 @@ pub struct BuildLog<T, W: Debug> {
     pub(crate) started: Instant,
 }
 
-impl<W> StoppedLogger for BuildLog<state::Stopped, W> where W: Debug {}
+/// Various states for `BuildLog` to contain
+///
+/// The `BuildLog` struct acts as a logging state machine. These structs
+/// are meant to represent those states
+pub(crate) mod state {
+    #[derive(Debug)]
+    pub struct NotStarted;
+
+    #[derive(Debug)]
+    pub struct Started;
+
+    #[derive(Debug)]
+    pub struct InSection;
+}
 
 impl<W> Logger for BuildLog<state::NotStarted, W>
 where
@@ -100,143 +127,13 @@ where
         })
     }
 
-    fn finish_logging(mut self: Box<Self>) -> Box<dyn StoppedLogger> {
+    fn finish_logging(mut self: Box<Self>) {
         let elapsed = fmt::time::human(&self.started.elapsed());
         let details = fmt::details(format!("finished in {elapsed}"));
 
         writeln_now(&mut self.io, fmt::section(format!("Done {details}")));
-
-        Box::new(BuildLog {
-            io: self.io,
-            state: PhantomData::<state::Stopped>,
-            started: self.started,
-        })
     }
 }
-
-fn write_now<D: Write>(destination: &mut D, msg: impl AsRef<str>) {
-    write!(destination, "{}", msg.as_ref()).expect("Internal error: UI writer closed");
-
-    destination
-        .flush()
-        .expect("Internal error: UI writer closed");
-}
-
-fn writeln_now<D: Write>(destination: &mut D, msg: impl AsRef<str>) {
-    writeln!(destination, "{}", msg.as_ref()).expect("Internal error: UI writer closed");
-
-    destination
-        .flush()
-        .expect("Internal error: UI writer closed");
-}
-
-#[derive(Debug)]
-struct StreamTimed<W> {
-    arc_io: Arc<Mutex<W>>,
-    started: Instant,
-    build_timer: Instant,
-}
-
-struct LockedWriter<W> {
-    arc: Arc<Mutex<W>>,
-}
-
-impl<W> Write for LockedWriter<W>
-where
-    W: Write + Send + Sync + Debug + 'static,
-{
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let mut io = self.arc.lock().expect("Internal error");
-        io.write(buf)
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        let mut io = self.arc.lock().expect("Internal error");
-        io.flush()
-    }
-}
-
-impl<W> StreamTimed<W>
-where
-    W: Write + Send + Sync + Debug,
-{
-    fn start(&mut self) {
-        let mut guard = self.arc_io.lock().expect("Internal error");
-        let mut io = guard.by_ref();
-        // Newline before stream
-        writeln_now(&mut io, "");
-    }
-}
-
-impl<W> StreamLogger for StreamTimed<W>
-where
-    W: Write + Send + Sync + Debug + 'static,
-{
-    fn io(&mut self) -> Box<dyn Write + Send + Sync> {
-        Box::new(libherokubuildpack::write::line_mapped(
-            LockedWriter {
-                arc: self.arc_io.clone(),
-            },
-            fmt::cmd_stream_format,
-        ))
-    }
-
-    fn finish_timed_stream(self: Box<Self>) -> Box<dyn SectionLogger> {
-        let duration = self.started.elapsed();
-        let mut io = Arc::try_unwrap(self.arc_io)
-            .expect("Internal error")
-            .into_inner()
-            .expect("Internal error");
-
-        // Newline after stream
-        writeln_now(&mut io, "");
-
-        let mut section = BuildLog {
-            io,
-            state: PhantomData::<state::InSection>,
-            started: self.build_timer,
-        };
-
-        section.mut_step(&format!(
-            "Done {}",
-            fmt::details(fmt::time::human(&duration))
-        ));
-
-        Box::new(section)
-    }
-}
-
-#[derive(Debug)]
-struct FinishTimedStep<W> {
-    arc_io: Arc<Mutex<W>>,
-    background: StopJoinGuard<StopTimer>,
-    build_timer: Instant,
-}
-
-impl<W> TimedStepLogger for FinishTimedStep<W>
-where
-    W: Write + Send + Sync + Debug + 'static,
-{
-    fn finish_timed_step(self: Box<Self>) -> Box<dyn SectionLogger> {
-        // Must stop background writing thread before retrieving IO
-        let duration = self.background.stop().elapsed();
-
-        let mut io = Arc::try_unwrap(self.arc_io)
-            .expect("Internal error")
-            .into_inner()
-            .expect("Internal error");
-
-        let contents = fmt::details(fmt::time::human(&duration));
-        write_now(&mut io, format!("{contents}\n"));
-
-        Box::new(BuildLog {
-            io,
-            state: PhantomData::<state::InSection>,
-            started: self.build_timer,
-        })
-    }
-}
-
 impl<W> SectionLogger for BuildLog<state::InSection, W>
 where
     W: Write + Send + Sync + Debug + 'static,
@@ -319,18 +216,147 @@ where
     }
 }
 
-pub(crate) mod state {
-    #[derive(Debug)]
-    pub struct NotStarted;
+/// Implements Box<dyn Write + Send + Sync>
+///
+/// Ensures that the `W` can be passed across thread boundries
+/// by wrapping in a mutex.
+///
+/// It implements writing by unlocking and delegating to the internal writer.
+/// Can be used for `Box<dyn StreamLogger>::io()`
+#[derive(Debug)]
+struct LockedWriter<W> {
+    arc: Arc<Mutex<W>>,
+}
 
-    #[derive(Debug)]
-    pub struct Started;
+impl<W> Write for LockedWriter<W>
+where
+    W: Write + Send + Sync + Debug + 'static,
+{
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let mut io = self.arc.lock().expect("Logging mutex poisoned");
+        io.write(buf)
+    }
 
-    #[derive(Debug)]
-    pub struct InSection;
+    fn flush(&mut self) -> std::io::Result<()> {
+        let mut io = self.arc.lock().expect("Logging mutex poisoned");
+        io.flush()
+    }
+}
 
-    #[derive(Debug)]
-    pub struct Stopped;
+/// Used to implement `Box<dyn StreamLogger>` interface
+///
+/// Mostly used for logging a running command
+#[derive(Debug)]
+struct StreamTimed<W> {
+    arc_io: Arc<Mutex<W>>,
+    started: Instant,
+    build_timer: Instant,
+}
+
+impl<W> StreamTimed<W>
+where
+    W: Write + Send + Sync + Debug,
+{
+    fn start(&mut self) {
+        let mut guard = self.arc_io.lock().expect("Internal error");
+        let mut io = guard.by_ref();
+        // Newline before stream
+        writeln_now(&mut io, "");
+    }
+}
+
+impl<W> StreamLogger for StreamTimed<W>
+where
+    W: Write + Send + Sync + Debug + 'static,
+{
+    /// Yield boxed writer that can be used for formatting and streaming contents
+    /// back to the logger.
+    fn io(&mut self) -> Box<dyn Write + Send + Sync> {
+        Box::new(libherokubuildpack::write::line_mapped(
+            LockedWriter {
+                arc: self.arc_io.clone(),
+            },
+            fmt::cmd_stream_format,
+        ))
+    }
+
+    fn finish_timed_stream(self: Box<Self>) -> Box<dyn SectionLogger> {
+        let duration = self.started.elapsed();
+        let mut io = Arc::try_unwrap(self.arc_io)
+            .expect("Internal error")
+            .into_inner()
+            .expect("Internal error");
+
+        // Newline after stream
+        writeln_now(&mut io, "");
+
+        let mut section = BuildLog {
+            io,
+            state: PhantomData::<state::InSection>,
+            started: self.build_timer,
+        };
+
+        section.mut_step(&format!(
+            "Done {}",
+            fmt::details(fmt::time::human(&duration))
+        ));
+
+        Box::new(section)
+    }
+}
+
+/// Implements `Box<dyn FinishTimedStep>`
+///
+/// Used to end a background inline timer i.e. Installing ...... (<0.1s)
+#[derive(Debug)]
+struct FinishTimedStep<W> {
+    arc_io: Arc<Mutex<W>>,
+    background: StopJoinGuard<StopTimer>,
+    build_timer: Instant,
+}
+
+impl<W> TimedStepLogger for FinishTimedStep<W>
+where
+    W: Write + Send + Sync + Debug + 'static,
+{
+    fn finish_timed_step(self: Box<Self>) -> Box<dyn SectionLogger> {
+        // Must stop background writing thread before retrieving IO
+        let duration = self.background.stop().elapsed();
+
+        let mut io = Arc::try_unwrap(self.arc_io)
+            .expect("Internal error")
+            .into_inner()
+            .expect("Internal error");
+
+        let contents = fmt::details(fmt::time::human(&duration));
+        write_now(&mut io, format!("{contents}\n"));
+
+        Box::new(BuildLog {
+            io,
+            state: PhantomData::<state::InSection>,
+            started: self.build_timer,
+        })
+    }
+}
+
+/// Internal helper, ensures that all contents are always flushed (never buffered)
+///
+/// This is especially important for writing individual characters to the same line
+fn write_now<D: Write>(destination: &mut D, msg: impl AsRef<str>) {
+    write!(destination, "{}", msg.as_ref()).expect("Internal error: UI writer closed");
+
+    destination
+        .flush()
+        .expect("Internal error: UI writer closed");
+}
+
+/// Internal helper, ensures that all contents are always flushed (never buffered)
+fn writeln_now<D: Write>(destination: &mut D, msg: impl AsRef<str>) {
+    writeln!(destination, "{}", msg.as_ref()).expect("Internal error: UI writer closed");
+
+    destination
+        .flush()
+        .expect("Internal error: UI writer closed");
 }
 
 #[cfg(test)]

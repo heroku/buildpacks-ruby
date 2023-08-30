@@ -1,4 +1,4 @@
-#[allow(clippy::wildcard_dependencies)]
+#[allow(clippy::wildcard_imports)]
 use commons::output::{fmt, section_log::*};
 
 use crate::gem_list::GemList;

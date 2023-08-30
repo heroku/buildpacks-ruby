@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use std::io::Write;
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 #[allow(clippy::wildcard_imports)]
 pub use crate::output::interface::*;
@@ -14,7 +14,7 @@ pub use crate::output::interface::*;
 /// Use the `BuildLog` to output structured text as a buildpack is executing
 ///
 /// ```
-/// use commons::output::{interface::*, log::BuildLog};
+/// use commons::output::build_log::*;
 ///
 /// let mut logger = BuildLog::new(std::io::stdout())
 ///     .buildpack_name("Heroku Ruby Buildpack");
@@ -147,7 +147,7 @@ where
         let end = fmt::background_timer_end();
 
         let arc_io = Arc::new(Mutex::new(self.io));
-        let background = start_timer(&arc_io, start, tick, end);
+        let background = start_timer(&arc_io, Duration::from_secs(1), start, tick, end);
 
         Box::new(FinishTimedStep {
             arc_io,

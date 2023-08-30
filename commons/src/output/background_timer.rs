@@ -15,6 +15,7 @@ use std::time::{Duration, Instant};
 /// forever.
 pub(crate) fn start_timer<T>(
     arc_io: &Arc<Mutex<T>>,
+    tick_duration: Duration,
     start: impl AsRef<str>,
     tick: impl AsRef<str>,
     end: impl AsRef<str>,
@@ -43,7 +44,7 @@ where
             write!(&mut io, "{tick}").expect("Internal error");
             io.flush().expect("Internal error");
 
-            if receiver.recv_timeout(Duration::from_secs(1)).is_ok() {
+            if receiver.recv_timeout(tick_duration).is_ok() {
                 write!(&mut io, "{end}").expect("Internal error");
                 io.flush().expect("Internal error");
                 break;
@@ -126,15 +127,31 @@ mod test {
     use super::*;
     use crate::output::util::ReadYourWrite;
     use libcnb_test::assert_contains;
+    use std::thread::sleep;
 
     #[test]
     fn does_stop_does_not_panic() {
         let writer = ReadYourWrite::writer(Vec::new());
         let reader = writer.reader();
-        let done = start_timer(&writer.arc_io(), " .", ".", ". ");
+        let done = start_timer(&writer.arc_io(), Duration::from_millis(1), " .", ".", ". ");
 
         let _ = done.stop();
 
         assert_contains!(String::from_utf8_lossy(&reader.lock().unwrap()), " ... ");
+    }
+
+    #[test]
+    fn test_drop_stops_timer() {
+        let writer = ReadYourWrite::writer(Vec::new());
+        let reader = writer.reader();
+        let done = start_timer(&writer.arc_io(), Duration::from_millis(1), " .", ".", ". ");
+
+        drop(done);
+        sleep(Duration::from_millis(2));
+
+        let before = String::from_utf8_lossy(&reader.lock().unwrap()).to_string();
+        sleep(Duration::from_millis(100));
+        let after = String::from_utf8_lossy(&reader.lock().unwrap()).to_string();
+        assert_eq!(before, after);
     }
 }

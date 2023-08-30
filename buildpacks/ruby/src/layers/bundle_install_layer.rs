@@ -1,8 +1,11 @@
+#[allow(clippy::wildcard_imports)]
+use commons::output::{
+    fmt::{self, HELP},
+    section_log::*,
+};
+
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use commons::fun_run::CommandWithName;
-use commons::output::fmt::{self, HELP};
-use commons::output::interface::SectionLogger;
-use commons::output::section_log as log;
 use commons::{
     display::SentenceList,
     fun_run::{self, CmdError},
@@ -126,7 +129,7 @@ impl Layer for BundleInstallLayer<'_> {
 
         match update_state(&layer_data.content_metadata.metadata, &metadata) {
             UpdateState::Run(reason) => {
-                log::log_step(reason);
+                log_step(reason);
 
                 bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
             }
@@ -135,12 +138,12 @@ impl Layer for BundleInstallLayer<'_> {
                 let bundle_install = fmt::value("bundle install");
                 let env_var = fmt::value(format!("{HEROKU_SKIP_BUNDLE_DIGEST}=1"));
 
-                log::log_step(format!(
+                log_step(format!(
                     "Skipping {bundle_install} {}",
                     fmt::details(format!("no changes found in {checked}"))
                 ));
 
-                log::log_step(format!(
+                log_step(format!(
                     "{HELP} To force run {bundle_install} set {env_var}",
                 ));
             }
@@ -185,17 +188,17 @@ impl Layer for BundleInstallLayer<'_> {
 
         match cache_state(old.clone(), now) {
             Changed::Nothing => {
-                log::log_step("Loading cache");
+                log_step("Loading cache");
 
                 keep_and_run
             }
             Changed::Stack(_old, _now) => {
-                log::log_step(format!("Clearing cache {}", fmt::details("stack changed")));
+                log_step(format!("Clearing cache {}", fmt::details("stack changed")));
 
                 clear_and_run
             }
             Changed::RubyVersion(_old, _now) => {
-                log::log_step(format!(
+                log_step(format!(
                     "Clearing cache {}",
                     fmt::details("ruby version changed")
                 ));
@@ -330,7 +333,7 @@ fn bundle_install(env: &Env) -> Result<(), CmdError> {
 
     let mut cmd = cmd.named_fn(display_with_env);
 
-    log::log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
+    log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
         cmd.stream_output(stream.io(), stream.io())
     })
     .map_err(|error| fun_run::map_which_problem(error, cmd.mut_cmd(), path_env))?;

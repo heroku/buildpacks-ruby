@@ -1,7 +1,8 @@
+#[allow(clippy::wildcard_dependencies)]
+use commons::output::{fmt, section_log::*};
+
 use crate::gem_list::GemList;
 use crate::RubyBuildpack;
-use commons::output::fmt;
-use commons::output::{interface::SectionLogger, section_log as log};
 use libcnb::build::BuildContext;
 use libcnb::data::launch::Process;
 use libcnb::data::launch::ProcessBuilder;
@@ -19,26 +20,26 @@ pub(crate) fn get_default_process(
     let railties = fmt::value("railties");
     match detect_web(gem_list, &context.app_dir) {
         WebProcess::Rails => {
-            log::log_step(format!("Detected rails app ({rails} gem)"));
+            log_step(format!("Detected rails app ({rails} gem)"));
 
             Some(default_rails())
         }
         WebProcess::RackWithConfigRU => {
-            log::log_step(format!(
+            log_step(format!(
                 "Detected rack app ({rack} gem and {config_ru} at root of application)"
             ));
 
             Some(default_rack())
         }
         WebProcess::RackMissingConfigRu => {
-            log::log_step(format!(
+            log_step(format!(
                 "Skipping default web process (detected {rack} gem but missing {config_ru} file"
             ));
 
             None
         }
         WebProcess::Missing => {
-            log::log_step(format!(
+            log_step(format!(
                 "Skipping default web process (no web gems detected: {rails}, {railties}, {rack}"
             ));
 

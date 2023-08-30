@@ -1,12 +1,14 @@
 #[allow(clippy::wildcard_imports)]
-use commons::output::section_log::*;
+use commons::output::{
+    fmt::{self, HELP},
+    section_log::*,
+};
 
 use crate::gem_list::GemList;
 use crate::rake_status::{check_rake_ready, RakeStatus};
 use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
-use commons::output::fmt::{self, HELP};
 use libcnb::build::BuildContext;
 use libcnb::Env;
 

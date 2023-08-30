@@ -2,8 +2,8 @@ use std::process::Command;
 
 #[allow(clippy::wildcard_imports)]
 use commons::output::{
+    build_log::*,
     fmt::{self, DEBUG_INFO},
-    log::*,
 };
 
 use crate::RubyBuildpackError;

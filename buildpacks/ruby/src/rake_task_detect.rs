@@ -1,8 +1,7 @@
 #[allow(clippy::wildcard_imports)]
-use commons::output::section_log::*;
+use commons::output::{fmt, section_log::*};
 
 use commons::fun_run::{CmdError, CommandWithName};
-use commons::output::fmt;
 use core::str::FromStr;
 use std::{ffi::OsStr, process::Command};
 

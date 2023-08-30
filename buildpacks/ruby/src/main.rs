@@ -7,7 +7,6 @@ use commons::cache::CacheError;
 use commons::fun_run::CmdError;
 use commons::gemfile_lock::GemfileLock;
 use commons::metadata_digest::MetadataDigest;
-use commons::output::fmt;
 use core::str::FromStr;
 use layers::{
     bundle_download_layer::BundleDownloadLayer, bundle_download_layer::BundleDownloadLayerMetadata,
@@ -27,7 +26,7 @@ use libcnb::{buildpack_main, Buildpack};
 use std::io::stdout;
 
 #[allow(clippy::wildcard_imports)]
-use commons::output::log::*;
+use commons::output::{build_log::*, fmt};
 
 mod gem_list;
 mod layers;

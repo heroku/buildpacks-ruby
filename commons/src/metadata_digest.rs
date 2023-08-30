@@ -409,6 +409,7 @@ impl PathsDigest {
         for path in paths {
             let contents = fs_err::read_to_string(path)
                 .map_err(|error| DigestError::CannotReadFile(path.to_path_buf(), error))?;
+
             self.0
                 .insert(path.to_path_buf(), sha_from_string(&contents));
         }

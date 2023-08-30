@@ -1,10 +1,10 @@
+#[allow(clippy::wildcard_imports)]
+use commons::output::{fmt, section_log::*};
+
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use commons::fun_run::{self, CommandWithName};
 use commons::gemfile_lock::ResolvedBundlerVersion;
-use commons::output::fmt;
-use commons::output::interface::SectionLogger;
-use commons::output::section_log;
 use libcnb::build::BuildContext;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
@@ -75,7 +75,7 @@ impl<'a> Layer for BundleDownloadLayer<'a> {
             "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
         ]);
 
-        section_log::log_step_stream(format!("Running {}", fmt::command(short_name)), |stream| {
+        log_step_stream(format!("Running {}", fmt::command(short_name)), |stream| {
             cmd.stream_output(stream.io(), stream.io())
                 .map_err(|error| {
                     fun_run::map_which_problem(error, cmd.mut_cmd(), self.env.get("PATH").cloned())
@@ -113,12 +113,12 @@ impl<'a> Layer for BundleDownloadLayer<'a> {
         let now = self.metadata.clone();
         match cache_state(old.clone(), now) {
             State::NothingChanged(_version) => {
-                section_log::log_step("Using cached version");
+                log_step("Using cached version");
 
                 Ok(ExistingLayerStrategy::Keep)
             }
             State::BundlerVersionChanged(_old, _now) => {
-                section_log::log_step(format!(
+                log_step(format!(
                     "Clearing cache {}",
                     fmt::details("bundler version changed")
                 ));

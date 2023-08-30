@@ -1,6 +1,6 @@
+use crate::output::build_log::{state, BuildLog};
 #[allow(clippy::wildcard_imports)]
 pub use crate::output::interface::*;
-use crate::output::log::{state, BuildLog};
 use std::io::Stdout;
 use std::marker::PhantomData;
 use std::time::Instant;

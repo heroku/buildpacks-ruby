@@ -1,8 +1,11 @@
+#[allow(clippy::wildcard_imports)]
+use commons::output::{
+    fmt::{self},
+    section_log::*,
+};
+
 use crate::{RubyBuildpack, RubyBuildpackError};
 use commons::gemfile_lock::ResolvedRubyVersion;
-use commons::output::fmt;
-use commons::output::interface::SectionLogger;
-use commons::output::section_log as log;
 use flate2::read::GzDecoder;
 use libcnb::build::BuildContext;
 use libcnb::data::buildpack::StackId;
@@ -56,7 +59,7 @@ impl<'a> Layer for RubyInstallLayer<'a> {
         _context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        log::log_step_timed("Installing", || {
+        log_step_timed("Installing", || {
             let tmp_ruby_tgz = NamedTempFile::new()
                 .map_err(RubyInstallError::CouldNotCreateDestinationFile)
                 .map_err(RubyBuildpackError::RubyInstallError)?;
@@ -83,17 +86,17 @@ impl<'a> Layer for RubyInstallLayer<'a> {
 
         match cache_state(old.clone(), now) {
             Changed::Nothing(_version) => {
-                log::log_step("Using cached version");
+                log_step("Using cached version");
 
                 Ok(ExistingLayerStrategy::Keep)
             }
             Changed::Stack(_old, _now) => {
-                log::log_step(format!("Clearing cache {}", fmt::details("stack changed")));
+                log_step(format!("Clearing cache {}", fmt::details("stack changed")));
 
                 Ok(ExistingLayerStrategy::Recreate)
             }
             Changed::RubyVersion(_old, _now) => {
-                log::log_step(format!(
+                log_step(format!(
                     "Clearing cache {}",
                     fmt::details("ruby version changed")
                 ));

@@ -1,9 +1,9 @@
+#[allow(clippy::wildcard_imports)]
+use commons::output::{build_log::*, section_log::*};
+
 use ascii_table::AsciiTable;
 use commons::fun_run::CommandWithName;
 use commons::output::fmt::{self, DEBUG_INFO, HELP};
-use commons::output::interface::Logger;
-use commons::output::log::BuildLog;
-use commons::output::section_log;
 use indoc::formatdoc;
 use libherokubuildpack::command::CommandExt;
 use std::io::stdout;
@@ -90,17 +90,17 @@ fn main() {
 
         let section_log = log.section("Example:");
 
-        section_log::log_step("section_log::step()");
-        section_log::log_step_timed("section_log::step_timed()", || {
+        log_step("log_step()");
+        log_step_timed("log_step_timed()", || {
             // do work here
         });
-        section_log::log_step_stream("section_log::step_stream()", |stream| {
+        log_step_stream("log_step_stream()", |stream| {
             Command::new("bash")
                 .args(["-c", "ps | grep cargo"])
                 .output_and_write_streams(stream.io(), stream.io())
                 .unwrap()
         });
-        section_log::log_step(formatdoc! {"
+        log_step(formatdoc! {"
             If you want to help make sure you're within a section then you can require your layer
             takes a reference to `&'a dyn SectionLogger`
         "});

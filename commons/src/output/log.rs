@@ -258,10 +258,28 @@ where
     W: Write + Send + Sync + Debug,
 {
     fn start(&mut self) {
-        let mut guard = self.arc_io.lock().expect("Internal error");
+        let mut guard = self.arc_io.lock().expect("Logging mutex posioned");
         let mut io = guard.by_ref();
         // Newline before stream
         writeln_now(&mut io, "");
+    }
+}
+
+// Need a trait that is both write a debug
+trait WriteDebug: Write + Debug {}
+impl<T> WriteDebug for T where T: Write + Debug {}
+
+/// Attempt to unwrap an io inside of an `Arc<Mutex>` if this fails because there is more
+/// than a single reference don't panic, return the original IO instead.
+///
+/// This prevents a runtime panic and allows us to continue logging
+fn try_unrwap_arc_io<W>(arc_io: Arc<Mutex<W>>) -> Box<dyn WriteDebug + Send + Sync + 'static>
+where
+    W: Write + Send + Sync + Debug + 'static,
+{
+    match Arc::try_unwrap(arc_io) {
+        Ok(mutex) => Box::new(mutex.into_inner().expect("Logging mutex was poisioned")),
+        Err(original) => Box::new(LockedWriter { arc: original }),
     }
 }
 
@@ -282,18 +300,16 @@ where
 
     fn finish_timed_stream(self: Box<Self>) -> Box<dyn SectionLogger> {
         let duration = self.started.elapsed();
-        let mut io = Arc::try_unwrap(self.arc_io)
-            .expect("Internal error")
-            .into_inner()
-            .expect("Internal error");
+        let started = self.build_timer;
+        let mut io = try_unrwap_arc_io(self.arc_io);
 
-        // Newline after stream
+        // // Newline after stream
         writeln_now(&mut io, "");
 
         let mut section = BuildLog {
             io,
             state: PhantomData::<state::InSection>,
-            started: self.build_timer,
+            started,
         };
 
         section.mut_step(&format!(
@@ -322,19 +338,15 @@ where
     fn finish_timed_step(self: Box<Self>) -> Box<dyn SectionLogger> {
         // Must stop background writing thread before retrieving IO
         let duration = self.background.stop().elapsed();
+        let started = self.build_timer;
+        let mut io = try_unrwap_arc_io(self.arc_io);
 
-        let mut io = Arc::try_unwrap(self.arc_io)
-            .expect("Internal error")
-            .into_inner()
-            .expect("Internal error");
-
-        let contents = fmt::details(fmt::time::human(&duration));
-        write_now(&mut io, format!("{contents}\n"));
+        writeln_now(&mut io, fmt::details(fmt::time::human(&duration)));
 
         Box::new(BuildLog {
             io,
             state: PhantomData::<state::InSection>,
-            started: self.build_timer,
+            started,
         })
     }
 }
@@ -343,20 +355,20 @@ where
 ///
 /// This is especially important for writing individual characters to the same line
 fn write_now<D: Write>(destination: &mut D, msg: impl AsRef<str>) {
-    write!(destination, "{}", msg.as_ref()).expect("Internal error: UI writer closed");
+    write!(destination, "{}", msg.as_ref()).expect("Logging error: UI writer closed");
 
     destination
         .flush()
-        .expect("Internal error: UI writer closed");
+        .expect("Logging error: UI writer closed");
 }
 
 /// Internal helper, ensures that all contents are always flushed (never buffered)
 fn writeln_now<D: Write>(destination: &mut D, msg: impl AsRef<str>) {
-    writeln!(destination, "{}", msg.as_ref()).expect("Internal error: UI writer closed");
+    writeln!(destination, "{}", msg.as_ref()).expect("Logging error: UI writer closed");
 
     destination
         .flush()
-        .expect("Internal error: UI writer closed");
+        .expect("Logging error: UI writer closed");
 }
 
 #[cfg(test)]

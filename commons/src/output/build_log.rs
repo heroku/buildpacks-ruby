@@ -363,11 +363,12 @@ fn writeln_now<D: Write>(destination: &mut D, msg: impl AsRef<str>) {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::output::fmt;
+    use crate::output::fmt::{self, strip_control_codes};
     use crate::output::util::{strip_trailing_whitespace, ReadYourWrite};
     use indoc::formatdoc;
     use libcnb_test::assert_contains;
     use libherokubuildpack::command::CommandExt;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_captures() {
@@ -431,5 +432,81 @@ mod test {
         )));
 
         assert_contains!(actual, "      hello world\n");
+    }
+
+    #[test]
+    fn warning_step_padding() {
+        let writer = ReadYourWrite::writer(Vec::new());
+        let reader = writer.reader();
+
+        let mut logger = BuildLog::new(writer)
+            .buildpack_name("RCT")
+            .section("Guest thoughs")
+            .step("The scenery here is wonderful");
+
+        logger.warning("It's too crowded here\nI'm tired");
+
+        logger
+            .step("The jumping fountains are great")
+            .step("The music is nice here")
+            .end_section()
+            .finish_logging();
+
+        let actual = strip_control_codes(String::from_utf8_lossy(&reader.lock().unwrap()));
+        let expected = formatdoc! {"
+
+            # RCT
+
+            - Guest thoughs
+              - The scenery here is wonderful
+
+            ! It's too crowded here
+            ! I'm tired
+
+              - The jumping fountains are great
+              - The music is nice here
+            - Done (finished in < 0.1s)
+        "};
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn double_warning_step_padding() {
+        let writer = ReadYourWrite::writer(Vec::new());
+        let reader = writer.reader();
+
+        let mut logger = BuildLog::new(writer)
+            .buildpack_name("RCT")
+            .section("Guest thoughs")
+            .step("The scenery here is wonderful");
+
+        logger.warning("It's too crowded here");
+        logger.warning("I'm tired");
+
+        logger
+            .step("The jumping fountains are great")
+            .step("The music is nice here")
+            .end_section()
+            .finish_logging();
+
+        let actual = strip_control_codes(String::from_utf8_lossy(&reader.lock().unwrap()));
+        let expected = formatdoc! {"
+
+            # RCT
+
+            - Guest thoughs
+              - The scenery here is wonderful
+
+            ! It's too crowded here
+
+            ! I'm tired
+
+              - The jumping fountains are great
+              - The music is nice here
+            - Done (finished in < 0.1s)
+        "};
+
+        assert_eq!(expected, actual);
     }
 }

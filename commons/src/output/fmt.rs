@@ -141,7 +141,7 @@ pub(crate) fn important(contents: impl AsRef<str>) -> String {
 }
 
 #[must_use]
-pub(crate) fn warn(contents: impl AsRef<str>) -> String {
+pub(crate) fn warning(contents: impl AsRef<str>) -> String {
     colorize(WARNING_COLOR, bangify(contents))
 }
 

@@ -122,6 +122,16 @@ where
 
         writeln_now(&mut self.io, fmt::section(format!("Done {details}")));
     }
+
+    fn announce(mut self: Box<Self>) -> Box<dyn StartedAnnounceLogger> {
+        writeln_now(&mut self.io, "");
+
+        Box::new(AnnounceLogger {
+            io: self.io,
+            state: PhantomData::<state::Started>,
+            build_started: self.started,
+        })
+    }
 }
 impl<W> SectionLogger for BuildLog<state::InSection, W>
 where
@@ -179,29 +189,90 @@ where
             started: self.started,
         })
     }
-}
 
-impl<T, W> ErrorWarningImportantLogger for BuildLog<T, W>
-where
-    T: Debug,
-    W: Write + Debug,
-{
-    fn warning(&mut self, s: &str) {
-        writeln_now(&mut self.io, fmt::warn(s));
-    }
+    fn announce(mut self: Box<Self>) -> Box<dyn SectionAnnounceLogger> {
+        writeln_now(&mut self.io, "");
 
-    fn important(&mut self, s: &str) {
-        writeln_now(&mut self.io, fmt::important(s));
+        Box::new(AnnounceLogger {
+            io: self.io,
+            state: PhantomData::<state::InSection>,
+            build_started: self.started,
+        })
     }
 }
 
-impl<T, W> ErrorLogger for BuildLog<T, W>
+#[derive(Debug)]
+struct AnnounceLogger<T, W>
+where
+    W: Write + Send + Sync + Debug + 'static,
+{
+    pub(crate) io: W,
+    pub(crate) state: PhantomData<T>,
+    pub(crate) build_started: Instant,
+}
+
+impl<T, W> ErrorLogger for AnnounceLogger<T, W>
 where
     T: Debug,
-    W: Write + Debug,
+    W: Write + Send + Sync + Debug + 'static,
 {
-    fn error(&mut self, s: &str) {
-        writeln_now(&mut self.io, fmt::error(s));
+    fn error(mut self: Box<Self>, s: &str) {
+        writeln_now(&mut self.io, fmt::error(s.trim()));
+        writeln_now(&mut self.io, "");
+    }
+}
+
+impl<W> SectionAnnounceLogger for AnnounceLogger<state::InSection, W>
+where
+    W: Write + Send + Sync + Debug + 'static,
+{
+    fn warning(mut self: Box<Self>, s: &str) -> Box<dyn SectionAnnounceLogger> {
+        writeln_now(&mut self.io, fmt::warning(s.trim()));
+        writeln_now(&mut self.io, "");
+
+        self
+    }
+
+    fn important(mut self: Box<Self>, s: &str) -> Box<dyn SectionAnnounceLogger> {
+        writeln_now(&mut self.io, fmt::important(s.trim()));
+        writeln_now(&mut self.io, "");
+
+        self
+    }
+
+    fn end_announce(self: Box<Self>) -> Box<dyn SectionLogger> {
+        Box::new(BuildLog {
+            io: self.io,
+            state: PhantomData::<state::InSection>,
+            started: self.build_started,
+        })
+    }
+}
+
+impl<W> StartedAnnounceLogger for AnnounceLogger<state::Started, W>
+where
+    W: Write + Send + Sync + Debug + 'static,
+{
+    fn warning(mut self: Box<Self>, s: &str) -> Box<dyn StartedAnnounceLogger> {
+        writeln_now(&mut self.io, fmt::warning(s.trim()));
+        writeln_now(&mut self.io, "");
+
+        self
+    }
+
+    fn important(mut self: Box<Self>, s: &str) -> Box<dyn StartedAnnounceLogger> {
+        writeln_now(&mut self.io, fmt::important(s.trim()));
+        writeln_now(&mut self.io, "");
+
+        self
+    }
+
+    fn end_announce(self: Box<Self>) -> Box<dyn StartedLogger> {
+        Box::new(BuildLog {
+            io: self.io,
+            state: PhantomData::<state::Started>,
+            started: self.build_started,
+        })
     }
 }
 
@@ -439,14 +510,13 @@ mod test {
         let writer = ReadYourWrite::writer(Vec::new());
         let reader = writer.reader();
 
-        let mut logger = BuildLog::new(writer)
+        BuildLog::new(writer)
             .buildpack_name("RCT")
             .section("Guest thoughs")
-            .step("The scenery here is wonderful");
-
-        logger.warning("It's too crowded here\nI'm tired");
-
-        logger
+            .step("The scenery here is wonderful")
+            .announce()
+            .warning("It's too crowded here\nI'm tired")
+            .end_announce()
             .step("The jumping fountains are great")
             .step("The music is nice here")
             .end_section()
@@ -476,15 +546,16 @@ mod test {
         let writer = ReadYourWrite::writer(Vec::new());
         let reader = writer.reader();
 
-        let mut logger = BuildLog::new(writer)
+        let logger = BuildLog::new(writer)
             .buildpack_name("RCT")
             .section("Guest thoughs")
-            .step("The scenery here is wonderful");
-
-        logger.warning("It's too crowded here");
-        logger.warning("I'm tired");
+            .step("The scenery here is wonderful")
+            .announce();
 
         logger
+            .warning("It's too crowded here")
+            .warning("I'm tired")
+            .end_announce()
             .step("The jumping fountains are great")
             .step("The music is nice here")
             .end_section()

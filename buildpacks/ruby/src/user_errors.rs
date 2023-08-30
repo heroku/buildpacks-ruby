@@ -11,10 +11,10 @@ use commons::fun_run::{CmdError, CommandWithName};
 use indoc::formatdoc;
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
-    let mut log = BuildLog::new(std::io::stdout()).without_buildpack_name();
+    let log = BuildLog::new(std::io::stdout()).without_buildpack_name();
     match cause(err) {
         Cause::OurError(error) => log_our_error(log, error),
-        Cause::FrameworkError(_error) => log.error(&formatdoc! {"
+        Cause::FrameworkError(_error) => log.announce().error(&formatdoc! {"
                 Error: heroku/buildpack-ruby internal buildpack error
 
                 The framework used by this buildpack encountered an unexpected error.
@@ -59,7 +59,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
                 );
             }
 
-            log.error(&formatdoc! {"
+            log.announce().error(&formatdoc! {"
                 Error: `Gemfile.lock` not found
 
                 A `Gemfile.lock` file is required and was not found in the root of your application.
@@ -77,6 +77,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             // - In the future add a "did you mean" Levenshtein distance to see if they typoed like "3.6.0" when they meant "3.0.6"
             log.section(DEBUG_INFO)
                 .step(&error.to_string())
+                .announce()
                 .error(&formatdoc! {"
                     Error installing Ruby
 
@@ -95,7 +96,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
 
             log = debug_cmd(log.section(DEBUG_INFO), Command::new("gem").arg("env"));
 
-            log.error(&formatdoc! {"
+            log.announce().error(&formatdoc! {"
                 Error installing bundler
 
                 The ruby package managment tool, `bundler`, failed to install. Bundler is required
@@ -115,6 +116,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
                 .section(DEBUG_INFO)
                 .step(&error.to_string())
                 .end_section()
+                .announce()
                 .error(&formatdoc! {"
                     Error installing your applications's dependencies
 
@@ -146,7 +148,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
                 );
             }
 
-            log.error(&formatdoc! {"
+            log.announce().error(&formatdoc! {"
                 Error generating file digest
 
                 An error occurred while generating a file digest. To provide the fastest possible
@@ -171,7 +173,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
                 .step(&error.to_string())
                 .end_section();
 
-            log.error(&formatdoc! {"
+            log.announce().error(&formatdoc! {"
                 Error detecting rake tasks
 
                 The Ruby buildpack uses rake task information from your application to guide
@@ -189,7 +191,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
                 .step(&error.to_string())
                 .end_section();
 
-            log.error(&formatdoc! {"
+            log.announce().error(&formatdoc! {"
                 Error compiling assets
 
                 An error occured while compiling assets via rake command.
@@ -208,7 +210,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
                 .step(&error.to_string())
                 .end_section();
 
-            log.error(&formatdoc! {"
+            log.announce().error(&formatdoc! {"
                 Error caching frontend assets
 
                 An error occurred while attempting to cache frontend assets, and the Ruby buildpack
@@ -228,7 +230,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
 
             log = debug_cmd(log.section(DEBUG_INFO), Command::new("bundle").arg("env"));
 
-            log.error(&formatdoc! {"
+            log.announce().error(&formatdoc! {"
                 Error detecting dependencies
 
                 The Ruby buildpack requires information about your application’s dependencies to

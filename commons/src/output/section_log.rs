@@ -101,17 +101,17 @@ pub fn log_step_stream<T>(
 
 /// Print an error block to the output
 pub fn log_error(s: impl AsRef<str>) {
-    logger().error(s.as_ref());
+    logger().announce().error(s.as_ref());
 }
 
 /// Print an warning block to the output
 pub fn log_warning(s: impl AsRef<str>) {
-    logger().warning(s.as_ref());
+    logger().announce().warning(s.as_ref());
 }
 
 /// Print an important block to the output
 pub fn log_important(s: impl AsRef<str>) {
-    logger().important(s.as_ref());
+    logger().announce().important(s.as_ref());
 }
 
 fn logger() -> Box<dyn SectionLogger> {

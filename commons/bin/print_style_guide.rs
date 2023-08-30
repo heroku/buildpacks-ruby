@@ -121,33 +121,33 @@ fn main() {
             .step(&cmd_error.to_string())
             .end_section();
 
-        log.error(&formatdoc! {"
-            Error: This is an error header
+        log.announce()
+            .warning(&formatdoc! {"
+                Warning: This is a warning header
 
-            This is the error body. Use an error for when the build cannot continue.
-            An error should include a header with a short description of why it cannot continue.
+                This is a warning body. Warnings are for when we know for a fact a problem exists
+                but it's not bad enough to abort the build.
+            "})
+            .important(&formatdoc! {"
+                Important: This is important
 
-            The body should include what error state was observed, why that's a problem, and
-            what remediation steps an application owner using the buildpack to deploy can
-            take to solve the issue.
-        "});
+                Important is for when there's critical information that needs to be read
+                however it may or may not be a problem. If we know for a fact that there's
+                a problem then use a warning instead.
 
-        log.warning(&formatdoc! {"
-            Warning: This is a warning header
+                An example of something that is important but might not be a problem is
+                that an application owner upgraded to a new stack.
+            "})
+            .error(&formatdoc! {"
+                Error: This is an error header
 
-            Warnings are for when we know for a fact a problem exists
-            but it's not bad enough to abort the build.
-        "});
-        log.important(&formatdoc! {"
-            Important: This is important
+                This is the error body. Use an error for when the build cannot continue.
+                An error should include a header with a short description of why it cannot continue.
 
-            Important is for when there's critical information that needs to be read
-            however it may or may not be a problem. If we know for a fact that there's
-            a problem then use a warning instead.
-
-            An example of something that is important but might not be a problem is
-            that an application owner upgraded to a new stack.
-        "});
+                The body should include what error state was observed, why that's a problem, and
+                what remediation steps an application owner using the buildpack to deploy can
+                take to solve the issue.
+            "});
     }
 
     {

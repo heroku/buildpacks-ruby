@@ -1,9 +1,8 @@
-use crate::output::build_log::{state, BuildLog};
+use crate::output::build_log::{state, BuildData, BuildLog};
 #[allow(clippy::wildcard_imports)]
 pub use crate::output::interface::*;
 use std::io::Stdout;
 use std::marker::PhantomData;
-use std::time::Instant;
 
 /// Write to the build output in a `Box<dyn SectionLogger>` format with functions
 ///
@@ -117,7 +116,7 @@ pub fn log_important(s: impl AsRef<str>) {
 fn logger() -> Box<dyn SectionLogger> {
     Box::new(BuildLog::<state::InSection, Stdout> {
         io: std::io::stdout(),
+        data: BuildData::default(),
         state: PhantomData,
-        started: Instant::now(),
     })
 }

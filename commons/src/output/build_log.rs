@@ -36,8 +36,22 @@ pub use crate::output::interface::*;
 #[derive(Debug)]
 pub struct BuildLog<T, W: Debug> {
     pub(crate) io: W,
+    pub(crate) data: BuildData,
     pub(crate) state: PhantomData<T>,
+}
+
+/// A bag of data passed throughout the lifecycle of a `BuildLog`
+#[derive(Debug)]
+pub(crate) struct BuildData {
     pub(crate) started: Instant,
+}
+
+impl Default for BuildData {
+    fn default() -> Self {
+        Self {
+            started: Instant::now(),
+        }
+    }
 }
 
 /// Various states for `BuildLog` to contain
@@ -63,7 +77,7 @@ where
         Self {
             io,
             state: PhantomData::<state::NotStarted>,
-            started: Instant::now(),
+            data: BuildData::default(),
         }
     }
 }
@@ -77,27 +91,16 @@ where
 
         Box::new(BuildLog {
             io: self.io,
+            data: self.data,
             state: PhantomData::<state::Started>,
-            started: self.started,
         })
     }
 
     fn without_buildpack_name(self) -> Box<dyn StartedLogger> {
         Box::new(BuildLog {
             io: self.io,
+            data: self.data,
             state: PhantomData::<state::Started>,
-            started: self.started,
-        })
-    }
-}
-
-impl BuildLog<state::NotStarted, std::fs::File> {
-    #[allow(dead_code)]
-    fn to_file(path: &std::path::Path) -> Result<Self, std::io::Error> {
-        Ok(Self {
-            io: fs_err::File::create(path)?.into(),
-            state: PhantomData::<state::NotStarted>,
-            started: Instant::now(),
         })
     }
 }
@@ -111,13 +114,13 @@ where
 
         Box::new(BuildLog {
             io: self.io,
+            data: self.data,
             state: PhantomData::<state::InSection>,
-            started: self.started,
         })
     }
 
     fn finish_logging(mut self: Box<Self>) {
-        let elapsed = fmt::time::human(&self.started.elapsed());
+        let elapsed = fmt::time::human(&self.data.started.elapsed());
         let details = fmt::details(format!("finished in {elapsed}"));
 
         writeln_now(&mut self.io, fmt::section(format!("Done {details}")));
@@ -128,8 +131,8 @@ where
 
         Box::new(AnnounceLogger {
             io: self.io,
+            data: self.data,
             state: PhantomData::<state::Started>,
-            build_started: self.started,
         })
     }
 }
@@ -147,7 +150,7 @@ where
         Box::new(BuildLog {
             io: self.io,
             state: PhantomData::<state::InSection>,
-            started: self.started,
+            data: self.data,
         })
     }
 
@@ -162,7 +165,7 @@ where
         Box::new(FinishTimedStep {
             arc_io,
             background,
-            build_timer: self.started,
+            data: self.data,
         })
     }
 
@@ -170,12 +173,11 @@ where
         self.mut_step(s);
 
         let started = Instant::now();
-        let build_timer = self.started;
         let arc_io = Arc::new(Mutex::new(self.io));
         let mut stream = StreamTimed {
             arc_io,
+            data: self.data,
             started,
-            build_timer,
         };
         stream.start();
 
@@ -185,8 +187,8 @@ where
     fn end_section(self: Box<Self>) -> Box<dyn StartedLogger> {
         Box::new(BuildLog {
             io: self.io,
+            data: self.data,
             state: PhantomData::<state::Started>,
-            started: self.started,
         })
     }
 
@@ -195,8 +197,8 @@ where
 
         Box::new(AnnounceLogger {
             io: self.io,
+            data: self.data,
             state: PhantomData::<state::InSection>,
-            build_started: self.started,
         })
     }
 }
@@ -206,9 +208,9 @@ struct AnnounceLogger<T, W>
 where
     W: Write + Send + Sync + Debug + 'static,
 {
-    pub(crate) io: W,
-    pub(crate) state: PhantomData<T>,
-    pub(crate) build_started: Instant,
+    io: W,
+    data: BuildData,
+    state: PhantomData<T>,
 }
 
 impl<T, W> ErrorLogger for AnnounceLogger<T, W>
@@ -243,8 +245,8 @@ where
     fn end_announce(self: Box<Self>) -> Box<dyn SectionLogger> {
         Box::new(BuildLog {
             io: self.io,
+            data: self.data,
             state: PhantomData::<state::InSection>,
-            started: self.build_started,
         })
     }
 }
@@ -270,8 +272,8 @@ where
     fn end_announce(self: Box<Self>) -> Box<dyn StartedLogger> {
         Box::new(BuildLog {
             io: self.io,
+            data: self.data,
             state: PhantomData::<state::Started>,
-            started: self.build_started,
         })
     }
 }
@@ -308,9 +310,9 @@ where
 /// Mostly used for logging a running command
 #[derive(Debug)]
 struct StreamTimed<W> {
+    data: BuildData,
     arc_io: Arc<Mutex<W>>,
     started: Instant,
-    build_timer: Instant,
 }
 
 impl<W> StreamTimed<W>
@@ -360,7 +362,6 @@ where
 
     fn finish_timed_stream(self: Box<Self>) -> Box<dyn SectionLogger> {
         let duration = self.started.elapsed();
-        let started = self.build_timer;
         let mut io = try_unrwap_arc_io(self.arc_io);
 
         // // Newline after stream
@@ -368,8 +369,8 @@ where
 
         let mut section = BuildLog {
             io,
+            data: self.data,
             state: PhantomData::<state::InSection>,
-            started,
         };
 
         section.mut_step(&format!(
@@ -386,9 +387,9 @@ where
 /// Used to end a background inline timer i.e. Installing ...... (<0.1s)
 #[derive(Debug)]
 struct FinishTimedStep<W> {
+    data: BuildData,
     arc_io: Arc<Mutex<W>>,
     background: StopJoinGuard<StopTimer>,
-    build_timer: Instant,
 }
 
 impl<W> TimedStepLogger for FinishTimedStep<W>
@@ -398,15 +399,14 @@ where
     fn finish_timed_step(self: Box<Self>) -> Box<dyn SectionLogger> {
         // Must stop background writing thread before retrieving IO
         let duration = self.background.stop().elapsed();
-        let started = self.build_timer;
         let mut io = try_unrwap_arc_io(self.arc_io);
 
         writeln_now(&mut io, fmt::details(fmt::time::human(&duration)));
 
         Box::new(BuildLog {
             io,
+            data: self.data,
             state: PhantomData::<state::InSection>,
-            started,
         })
     }
 }

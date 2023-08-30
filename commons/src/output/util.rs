@@ -93,11 +93,16 @@ impl<'a> Iterator for LinesWithEndings<'a> {
     }
 }
 
+/// Removes trailing whitespace from lines
+///
+/// Useful because most editors strip trailing whitespace (in test fixtures)
+/// but commands <https://github.com/heroku/libcnb.rs/issues/582> emit newlines
+/// with leading spaces. These can be sanatized by removing trailing whitespace.
 #[allow(dead_code)]
 pub(crate) fn strip_trailing_whitespace(s: impl AsRef<str>) -> String {
     LinesWithEndings::from(s.as_ref())
         .map(|line| {
-            // Remove empty indented lines https://github.com/heroku/libcnb.rs/issues/582
+            // Remove empty indented lines
             TRAILING_WHITESPACE_RE.replace(line, "\n").to_string()
         })
         .collect::<String>()

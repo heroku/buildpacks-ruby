@@ -1,7 +1,5 @@
 /// Output logging within a section
 ///
-/// TODO: Example usage in a layer
-///
 /// ## Context
 ///
 /// The `impl Layer` has methods that are not mutible and `Box<dyn impl SectionLogger>`
@@ -11,6 +9,28 @@
 ///
 /// Instead of jumping through hoops implementing interior mutability this module exposes functions
 /// and assumes that they are called within a `SectionLogger` context.
+///
+/// ## Use
+///
+/// The main use case is logging inside of a layer:
+///
+/// ```no_run
+/// use commons::output::section_log;
+///
+/// // fn create(
+/// //     &self,
+/// //     context: &libcnb::build::BuildContext<Self::Buildpack>,
+/// //     layer_path: &std::path::Path,
+/// // ) -> Result<
+/// //     libcnb::layer::LayerResult<Self::Metadata>,
+/// //     <Self::Buildpack as libcnb::Buildpack>::Error,
+/// // > {
+///     section_log::step_timed("Installing", || {
+///         // Install logic here
+///         todo!()
+///     })
+/// // }
+/// ```
 
 #[allow(clippy::wildcard_imports)]
 use crate::output::interface::*;
@@ -18,6 +38,74 @@ use crate::output::log::{state, BuildLog};
 use std::io::Stdout;
 use std::marker::PhantomData;
 use std::time::Instant;
+
+/// Output a message as a single step, ideally a short message
+///
+/// ```
+/// use commons::output::section_log;
+///
+/// section_log::step("Clearing cache (ruby version changed)");
+/// ```
+pub fn step(s: impl AsRef<str>) {
+    logger().step(s.as_ref());
+}
+
+/// Will print the input string followed by a background timer
+/// that will emit to the UI until the passed in function ends
+///
+/// ```
+/// use commons::output::section_log;
+///
+/// section_log::step_timed("Installing", || {
+///     // Install logic here
+/// });
+/// ```
+///
+/// Timing information will be output at the end of the step.
+pub fn step_timed<T>(s: impl AsRef<str>, f: impl FnOnce() -> T) -> T {
+    let timer = logger().step_timed(s.as_ref());
+    let out = f();
+    timer.finish_timed_step();
+    out
+}
+
+/// Will print the input string and yield a `Box<dyn StreamLogger>` that can be used to print
+/// to the output. The main use case is running commands
+///
+/// ```no_run
+/// use commons::fun_run::CommandWithName;
+/// use commons::output::{section_log, fmt};
+///
+/// let mut cmd = std::process::Command::new("bundle");
+/// cmd.arg("install");
+///
+/// section_log::step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
+///     cmd.stream_output(stream.io(), stream.io()).unwrap()
+/// });
+/// ```
+///
+/// Timing information will be output at the end of the step.
+pub fn step_stream<T>(s: impl AsRef<str>, f: impl FnOnce(&mut Box<dyn StreamLogger>) -> T) -> T {
+    let mut stream = logger().step_timed_stream(s.as_ref());
+    let out = f(&mut stream);
+    stream.finish_timed_stream();
+    out
+}
+
+/// Print an error block to the output
+pub fn error(s: impl AsRef<str>) {
+    logger().error(s.as_ref());
+}
+
+/// Print an warning block to the output
+pub fn warning(s: impl AsRef<str>) {
+    logger().warning(s.as_ref());
+}
+
+/// Print an important block to the output
+pub fn important(s: impl AsRef<str>) {
+    logger().important(s.as_ref());
+}
 
 /// Write to the build output in a `Box<dyn SectionLogger>` format with functions
 ///
@@ -39,34 +127,4 @@ fn logger() -> Box<dyn SectionLogger> {
         state: PhantomData,
         started: Instant::now(),
     })
-}
-
-pub fn step(s: impl AsRef<str>) {
-    logger().step(s.as_ref());
-}
-
-pub fn step_timed<T>(s: impl AsRef<str>, f: impl FnOnce() -> T) -> T {
-    let timer = logger().step_timed(s.as_ref());
-    let out = f();
-    timer.finish_timed_step();
-    out
-}
-
-pub fn step_stream<T>(s: impl AsRef<str>, f: impl FnOnce(&mut Box<dyn StreamLogger>) -> T) -> T {
-    let mut stream = logger().step_timed_stream(s.as_ref());
-    let out = f(&mut stream);
-    stream.finish_timed_stream();
-    out
-}
-
-pub fn error(s: impl AsRef<str>) {
-    logger().error(s.as_ref());
-}
-
-pub fn warning(s: impl AsRef<str>) {
-    logger().warning(s.as_ref());
-}
-
-pub fn important(s: impl AsRef<str>) {
-    logger().important(s.as_ref());
 }

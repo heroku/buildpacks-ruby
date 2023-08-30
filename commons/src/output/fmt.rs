@@ -1,5 +1,39 @@
 use crate::output::util::LinesWithEndings;
 
+/// Helpers for formatting and colorizing your output
+
+/// Decorated str for prefixing "Help:"
+pub const HELP: &str = "\x1B[0;36m! Help:\x1B[0m"; // "{IMPORTANT_COLOR}! HELP{RESET}"
+
+/// Decorated str for prefixing "Debug info:"
+pub const DEBUG_INFO: &str = "\x1B[0;36mDebug info:\x1B[0m"; // "{IMPORTANT_COLOR}Debug info:{RESET}"
+
+/// Decorate a URL for the build output
+#[must_use]
+pub fn url(contents: impl AsRef<str>) -> String {
+    colorize(URL_COLOR, contents)
+}
+
+/// Decorate the name of a command being run i.e. `bundle install`
+#[must_use]
+pub fn command(contents: impl AsRef<str>) -> String {
+    value(colorize(COMMAND_COLOR, contents.as_ref()))
+}
+
+/// Decorate an important value i.e. `2.3.4`
+#[must_use]
+pub fn value(contents: impl AsRef<str>) -> String {
+    let contents = colorize(VALUE_COLOR, contents.as_ref());
+    format!("`{contents}`")
+}
+
+/// Decorate additional information at the end of a line
+#[must_use]
+pub fn details(contents: impl AsRef<str>) -> String {
+    let contents = contents.as_ref();
+    format!("({contents})")
+}
+
 pub(crate) const RED: &str = "\x1B[0;31m";
 pub(crate) const YELLOW: &str = "\x1B[0;33m";
 pub(crate) const CYAN: &str = "\x1B[0;36m";
@@ -35,37 +69,6 @@ pub(crate) const WARNING_COLOR: &str = YELLOW;
 const SECTION_PREFIX: &str = "- ";
 const STEP_PREFIX: &str = "  - ";
 const CMD_INDENT: &str = "      ";
-
-// "{IMPORTANT_COLOR}! HELP{RESET}"
-pub const HELP: &str = "\x1B[0;36m! Help:\x1B[0m";
-
-// "{IMPORTANT_COLOR}Debug info:{RESET}"
-pub const DEBUG_INFO: &str = "\x1B[0;36mDebug info:\x1B[0m";
-
-#[must_use]
-pub fn url(contents: impl AsRef<str>) -> String {
-    colorize(URL_COLOR, contents)
-}
-
-/// Used to decorate a command being run i.e. `bundle install`
-#[must_use]
-pub fn command(contents: impl AsRef<str>) -> String {
-    value(colorize(COMMAND_COLOR, contents.as_ref()))
-}
-
-/// Used to decorate a derived or user configured value
-#[must_use]
-pub fn value(contents: impl AsRef<str>) -> String {
-    let contents = colorize(VALUE_COLOR, contents.as_ref());
-    format!("`{contents}`")
-}
-
-/// Used to decorate additional information
-#[must_use]
-pub fn details(contents: impl AsRef<str>) -> String {
-    let contents = contents.as_ref();
-    format!("({contents})")
-}
 
 /// Used with libherokubuildpack linemapped command output
 ///

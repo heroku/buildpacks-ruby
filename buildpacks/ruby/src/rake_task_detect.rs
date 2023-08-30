@@ -1,6 +1,8 @@
+#[allow(clippy::wildcard_imports)]
+use commons::output::section_log::*;
+
 use commons::fun_run::{CmdError, CommandWithName};
 use commons::output::fmt;
-use commons::output::{interface::SectionLogger, section_log as log};
 use core::str::FromStr;
 use std::{ffi::OsStr, process::Command};
 
@@ -32,7 +34,7 @@ impl RakeDetect {
             .env_clear()
             .envs(envs);
 
-        log::step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
+        log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
             cmd.stream_output(stream.io(), stream.io())
         })
         .or_else(|error| {

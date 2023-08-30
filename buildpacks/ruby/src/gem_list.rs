@@ -1,7 +1,9 @@
+#[allow(clippy::wildcard_imports)]
+use commons::output::section_log::*;
+
 use commons::fun_run::{CmdError, CommandWithName};
 use commons::gem_version::GemVersion;
 use commons::output::fmt;
-use commons::output::{interface::SectionLogger, section_log as log};
 use core::str::FromStr;
 use regex::Regex;
 use std::collections::HashMap;
@@ -66,7 +68,7 @@ impl GemList {
         let mut cmd = Command::new("bundle");
         cmd.arg("list").env_clear().envs(envs);
 
-        log::step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
+        log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
             let output = cmd.stream_output(stream.io(), stream.io())?;
 
             GemList::from_str(&output.stdout_lossy())

@@ -90,17 +90,17 @@ fn main() {
 
         let section_log = log.section("Example:");
 
-        section_log::step("section_log::step()");
-        section_log::step_timed("section_log::step_timed()", || {
+        section_log::log_step("section_log::step()");
+        section_log::log_step_timed("section_log::step_timed()", || {
             // do work here
         });
-        section_log::step_stream("section_log::step_stream()", |stream| {
+        section_log::log_step_stream("section_log::step_stream()", |stream| {
             Command::new("bash")
                 .args(["-c", "ps | grep cargo"])
                 .output_and_write_streams(stream.io(), stream.io())
                 .unwrap()
         });
-        section_log::step(formatdoc! {"
+        section_log::log_step(formatdoc! {"
             If you want to help make sure you're within a section then you can require your layer
             takes a reference to `&'a dyn SectionLogger`
         "});

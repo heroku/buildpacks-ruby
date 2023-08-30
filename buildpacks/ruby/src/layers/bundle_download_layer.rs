@@ -75,7 +75,7 @@ impl<'a> Layer for BundleDownloadLayer<'a> {
             "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
         ]);
 
-        section_log::step_stream(format!("Running {}", fmt::command(short_name)), |stream| {
+        section_log::log_step_stream(format!("Running {}", fmt::command(short_name)), |stream| {
             cmd.stream_output(stream.io(), stream.io())
                 .map_err(|error| {
                     fun_run::map_which_problem(error, cmd.mut_cmd(), self.env.get("PATH").cloned())
@@ -113,12 +113,12 @@ impl<'a> Layer for BundleDownloadLayer<'a> {
         let now = self.metadata.clone();
         match cache_state(old.clone(), now) {
             State::NothingChanged(_version) => {
-                section_log::step("Using cached version");
+                section_log::log_step("Using cached version");
 
                 Ok(ExistingLayerStrategy::Keep)
             }
             State::BundlerVersionChanged(_old, _now) => {
-                section_log::step(format!(
+                section_log::log_step(format!(
                     "Clearing cache {}",
                     fmt::details("bundler version changed")
                 ));

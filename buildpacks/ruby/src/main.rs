@@ -27,7 +27,7 @@ use libcnb::{buildpack_main, Buildpack};
 use std::io::stdout;
 
 #[allow(clippy::wildcard_imports)]
-use commons::output::{interface::*, log::BuildLog};
+use commons::output::log::*;
 
 mod gem_list;
 mod layers;

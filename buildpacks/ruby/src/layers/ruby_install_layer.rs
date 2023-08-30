@@ -56,7 +56,7 @@ impl<'a> Layer for RubyInstallLayer<'a> {
         _context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        log::step_timed("Installing", || {
+        log::log_step_timed("Installing", || {
             let tmp_ruby_tgz = NamedTempFile::new()
                 .map_err(RubyInstallError::CouldNotCreateDestinationFile)
                 .map_err(RubyBuildpackError::RubyInstallError)?;
@@ -83,17 +83,17 @@ impl<'a> Layer for RubyInstallLayer<'a> {
 
         match cache_state(old.clone(), now) {
             Changed::Nothing(_version) => {
-                log::step("Using cached version");
+                log::log_step("Using cached version");
 
                 Ok(ExistingLayerStrategy::Keep)
             }
             Changed::Stack(_old, _now) => {
-                log::step(format!("Clearing cache {}", fmt::details("stack changed")));
+                log::log_step(format!("Clearing cache {}", fmt::details("stack changed")));
 
                 Ok(ExistingLayerStrategy::Recreate)
             }
             Changed::RubyVersion(_old, _now) => {
-                log::step(format!(
+                log::log_step(format!(
                     "Clearing cache {}",
                     fmt::details("ruby version changed")
                 ));

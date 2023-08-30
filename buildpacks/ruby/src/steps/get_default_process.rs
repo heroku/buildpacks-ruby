@@ -19,26 +19,26 @@ pub(crate) fn get_default_process(
     let railties = fmt::value("railties");
     match detect_web(gem_list, &context.app_dir) {
         WebProcess::Rails => {
-            log::step(format!("Detected rails app ({rails} gem)"));
+            log::log_step(format!("Detected rails app ({rails} gem)"));
 
             Some(default_rails())
         }
         WebProcess::RackWithConfigRU => {
-            log::step(format!(
+            log::log_step(format!(
                 "Detected rack app ({rack} gem and {config_ru} at root of application)"
             ));
 
             Some(default_rack())
         }
         WebProcess::RackMissingConfigRu => {
-            log::step(format!(
+            log::log_step(format!(
                 "Skipping default web process (detected {rack} gem but missing {config_ru} file"
             ));
 
             None
         }
         WebProcess::Missing => {
-            log::step(format!(
+            log::log_step(format!(
                 "Skipping default web process (no web gems detected: {rails}, {railties}, {rack}"
             ));
 

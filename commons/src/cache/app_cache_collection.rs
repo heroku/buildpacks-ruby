@@ -37,7 +37,7 @@ impl<'a> AppCacheCollection<'a> {
                 AppCache::new_and_load(context, config).map(|store| {
                     let path = store.path().display();
 
-                    log::step(match store.cache_state() {
+                    log::log_step(match store.cache_state() {
                         CacheState::NewEmpty => format!("Creating cache for {path}"),
                         CacheState::ExistsEmpty => format!("Loading (empty) cache for {path}"),
                         CacheState::ExistsWithContents => format!("Loading cache for {path}"),
@@ -63,7 +63,7 @@ impl<'a> AppCacheCollection<'a> {
         for store in &self.collection {
             let path = store.path().display();
 
-            log::step(match store.path_state() {
+            log::log_step(match store.path_state() {
                 PathState::Empty => format!("Storing cache for (empty) {path}"),
                 PathState::HasFiles => format!("Storing cache for {path}"),
             });
@@ -74,10 +74,10 @@ impl<'a> AppCacheCollection<'a> {
                 let removed_len = removed.files.len();
                 let removed_size = removed.adjusted_bytes();
 
-                log::step(format!(
+                log::log_step(format!(
                     "Detected cache size exceeded (over {limit} limit by {removed_size}) for {path}"
                 ));
-                log::step(format!(
+                log::log_step(format!(
                     "Removed {removed_len} files from the cache for {path}",
                 ));
             }

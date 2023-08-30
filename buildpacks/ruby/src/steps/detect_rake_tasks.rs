@@ -1,10 +1,12 @@
+#[allow(clippy::wildcard_imports)]
+use commons::output::section_log::*;
+
 use crate::gem_list::GemList;
 use crate::rake_status::{check_rake_ready, RakeStatus};
 use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use commons::output::fmt::{self, HELP};
-use commons::output::{interface::SectionLogger, section_log as log};
 use libcnb::build::BuildContext;
 use libcnb::Env;
 
@@ -24,12 +26,12 @@ pub(crate) fn detect_rake_tasks(
         [".sprockets-manifest-*.json", "manifest-*.json"],
     ) {
         RakeStatus::MissingRakeGem => {
-            log::step(format!(
+            log_step(format!(
                 "Cannot run rake tasks {}",
                 fmt::details(format!("no {rake} gem in {gemfile}"))
             ));
 
-            log::step(format!(
+            log_step(format!(
                 "{HELP} Add {gem} to your {gemfile} to enable",
                 gem = fmt::value("gem 'rake'")
             ));
@@ -37,11 +39,11 @@ pub(crate) fn detect_rake_tasks(
             Ok(None)
         }
         RakeStatus::MissingRakefile => {
-            log::step(format!(
+            log_step(format!(
                 "Cannot run rake tasks {}",
                 fmt::details(format!("no {rakefile}"))
             ));
-            log::step(format!("{HELP} Add {rakefile} to your project to enable",));
+            log_step(format!("{HELP} Add {rakefile} to your project to enable",));
 
             Ok(None)
         }
@@ -52,16 +54,16 @@ pub(crate) fn detect_rake_tasks(
                 .collect::<Vec<_>>()
                 .join(", ");
 
-            log::step(format!(
+            log_step(format!(
                 "Skipping rake tasks {}",
                 fmt::details(format!("Manifest files found {files}"))
             ));
-            log::step(format!("{HELP} Delete files to enable running rake tasks"));
+            log_step(format!("{HELP} Delete files to enable running rake tasks"));
 
             Ok(None)
         }
         RakeStatus::Ready(path) => {
-            log::step(format!(
+            log_step(format!(
                 "Rake detected {}",
                 fmt::details(format!(
                     "{rake} gem found, {rakefile} found ad {path}",

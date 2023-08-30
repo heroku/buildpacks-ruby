@@ -1,13 +1,13 @@
 use crate::output::background_timer::{start_timer, StopJoinGuard, StopTimer};
 use crate::output::fmt;
 use std::fmt::Debug;
-use std::io::{stdout, Stdout, Write};
+use std::io::Write;
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 #[allow(clippy::wildcard_imports)]
-use crate::output::interface::*;
+pub use crate::output::interface::*;
 
 /// # Build output logging
 ///
@@ -55,6 +55,19 @@ pub(crate) mod state {
     pub struct InSection;
 }
 
+impl<W> BuildLog<state::NotStarted, W>
+where
+    W: Write + Debug,
+{
+    pub fn new(io: W) -> Self {
+        Self {
+            io,
+            state: PhantomData::<state::NotStarted>,
+            started: Instant::now(),
+        }
+    }
+}
+
 impl<W> Logger for BuildLog<state::NotStarted, W>
 where
     W: Write + Send + Sync + Debug + 'static,
@@ -75,30 +88,6 @@ where
             state: PhantomData::<state::Started>,
             started: self.started,
         })
-    }
-}
-
-impl<W> BuildLog<state::NotStarted, W>
-where
-    W: Write + Debug,
-{
-    pub fn new(io: W) -> Self {
-        Self {
-            io,
-            state: PhantomData::<state::NotStarted>,
-            started: Instant::now(),
-        }
-    }
-}
-
-impl BuildLog<state::NotStarted, Stdout> {
-    #[allow(dead_code)]
-    fn to_stdout() -> Self {
-        Self {
-            io: stdout(),
-            state: PhantomData::<state::NotStarted>,
-            started: Instant::now(),
-        }
     }
 }
 

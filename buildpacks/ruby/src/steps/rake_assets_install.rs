@@ -3,8 +3,7 @@ use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use commons::cache::{mib, AppCacheCollection, CacheConfig, KeepPath};
 use commons::fun_run::{self, CmdError, CommandWithName};
-use commons::output::fmt;
-use commons::output::{interface::SectionLogger, section_log as log};
+use commons::output::{fmt, section_log::*};
 use libcnb::build::BuildContext;
 use libcnb::Env;
 use std::process::Command;
@@ -22,7 +21,7 @@ pub(crate) fn rake_assets_install(
 
     match cases {
         AssetCases::None => {
-            log::step(format!(
+            log_step(format!(
                 "Skipping {rake_assets_precompile} {}",
                 fmt::details(format!("task not found via {rake_detect_cmd}"))
             ));
@@ -30,7 +29,7 @@ pub(crate) fn rake_assets_install(
             // section.help("Enable compiling assets by ensuring that task is present when running the detect command locally");
         }
         AssetCases::PrecompileOnly => {
-            log::step(format!(
+            log_step(format!(
                 "Compiling assets without cache {}",
                 fmt::details(format!("Clean task not found via {rake_detect_cmd}"))
             ));
@@ -41,7 +40,7 @@ pub(crate) fn rake_assets_install(
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
         }
         AssetCases::PrecompileAndClean => {
-            log::step(format!("Compiling assets with cache {}", fmt::details(format!("detected {rake_assets_precompile} and {rake_assets_clean} via {rake_detect_cmd}"))));
+            log_step(format!("Compiling assets with cache {}", fmt::details(format!("detected {rake_assets_precompile} and {rake_assets_clean} via {rake_detect_cmd}"))));
 
             let cache_config = [
                 CacheConfig {
@@ -81,7 +80,7 @@ fn run_rake_assets_precompile(env: &Env) -> Result<(), CmdError> {
         .env_clear()
         .envs(env);
 
-    log::step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
+    log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
         cmd.stream_output(stream.io(), stream.io())
             .map_err(|error| fun_run::map_which_problem(error, &mut cmd, path_env))
     })?;
@@ -102,7 +101,7 @@ fn run_rake_assets_precompile_with_clean(env: &Env) -> Result<(), CmdError> {
     .env_clear()
     .envs(env);
 
-    log::step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
+    log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
         cmd.stream_output(stream.io(), stream.io())
     })
     .map_err(|error| fun_run::map_which_problem(error, &mut cmd, path_env))?;

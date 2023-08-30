@@ -1,6 +1,11 @@
+use lazy_static::lazy_static;
 use std::fmt::Debug;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
+
+lazy_static! {
+    static ref TRAILING_WHITESPACE_RE: regex::Regex = regex::Regex::new(r"\s+$").expect("clippy");
+}
 
 /// Threadsafe writer that can be read from
 ///
@@ -88,9 +93,28 @@ impl<'a> Iterator for LinesWithEndings<'a> {
     }
 }
 
+#[allow(dead_code)]
+pub(crate) fn strip_trailing_whitespace(s: impl AsRef<str>) -> String {
+    LinesWithEndings::from(s.as_ref())
+        .map(|line| {
+            // Remove empty indented lines https://github.com/heroku/libcnb.rs/issues/582
+            TRAILING_WHITESPACE_RE.replace(line, "\n").to_string()
+        })
+        .collect::<String>()
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_trailing_whitespace() {
+        let actual = strip_trailing_whitespace("hello \n");
+        assert_eq!("hello\n", &actual);
+
+        let actual = strip_trailing_whitespace("hello\n    \nworld\n");
+        assert_eq!("hello\n\nworld\n", &actual);
+    }
 
     #[test]
     fn test_lines_with_endings() {

@@ -363,8 +363,9 @@ fn writeln_now<D: Write>(destination: &mut D, msg: impl AsRef<str>) {
 mod test {
     use super::*;
     use crate::output::fmt;
-    use crate::output::util::{LinesWithEndings, ReadYourWrite};
+    use crate::output::util::{strip_trailing_whitespace, ReadYourWrite};
     use indoc::formatdoc;
+    use libcnb_test::assert_contains;
     use libherokubuildpack::command::CommandExt;
 
     #[test]
@@ -379,7 +380,42 @@ mod test {
             .finish_timed_step()
             .end_section()
             .section("Hello world")
-            .step_timed_stream("Running `echo 'hello world'`");
+            .step_timed_stream("Streaming stuff");
+
+        writeln!(stream.io(), "{}", "stuff").unwrap();
+
+        stream.finish_timed_stream().end_section().finish_logging();
+
+        let actual = strip_trailing_whitespace(fmt::strip_control_codes(String::from_utf8_lossy(
+            &reader.lock().unwrap(),
+        )));
+        let expected = formatdoc! {"
+
+            # Heroku Ruby Buildpack
+
+            - Ruby version `3.1.3` from `Gemfile.lock`
+              - Installing ... (< 0.1s)
+            - Hello world
+              - Streaming stuff
+
+                  stuff
+
+              - Done (< 0.1s)
+            - Done (finished in < 0.1s)
+        "};
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_streaming_a_command() {
+        let writer = ReadYourWrite::writer(Vec::new());
+        let reader = writer.reader();
+
+        let mut stream = BuildLog::new(writer)
+            .buildpack_name("Streaming buildpack demo")
+            .section("Command streaming")
+            .step_timed_stream("Streaming stuff");
 
         std::process::Command::new("echo")
             .arg("hello world")
@@ -388,33 +424,10 @@ mod test {
 
         stream.finish_timed_stream().end_section().finish_logging();
 
-        let actual = fmt::strip_control_codes(String::from_utf8_lossy(&reader.lock().unwrap()));
+        let actual = strip_trailing_whitespace(fmt::strip_control_codes(String::from_utf8_lossy(
+            &reader.lock().unwrap(),
+        )));
 
-        let actual = LinesWithEndings::from(&actual)
-            .map(|line| {
-                // Remove empty indented lines https://github.com/heroku/libcnb.rs/issues/582
-                regex::Regex::new(r"^\s+$")
-                    .expect("clippy")
-                    .replace(line, "\n")
-                    .to_string()
-            })
-            .collect::<String>();
-
-        let expected = formatdoc! {"
-
-            # Heroku Ruby Buildpack
-
-            - Ruby version `3.1.3` from `Gemfile.lock`
-              - Installing ... (< 0.1s)
-            - Hello world
-              - Running `echo 'hello world'`
-
-                  hello world
-
-              - Done (< 0.1s)
-            - Done (finished in < 0.1s)
-        "};
-
-        assert_eq!(expected, actual);
+        assert_contains!(actual, "      hello world\n");
     }
 }

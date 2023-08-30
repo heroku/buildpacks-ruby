@@ -76,7 +76,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             // Future:
             // - In the future use a manifest file to list if version is available on a different stack
             // - In the future add a "did you mean" Levenshtein distance to see if they typoed like "3.6.0" when they meant "3.0.6"
-            log.section(&DEBUG_INFO)
+            log.section(DEBUG_INFO)
                 .step(&error.to_string())
                 .error(&formatdoc! {"
                     Error installing Ruby
@@ -90,11 +90,11 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
         }
         RubyBuildpackError::GemInstallBundlerCommandError(error) => {
             log = log
-                .section(&DEBUG_INFO)
+                .section(DEBUG_INFO)
                 .step(&error.to_string())
                 .end_section();
 
-            log = debug_cmd(log.section(&DEBUG_INFO), Command::new("gem").arg("env"));
+            log = debug_cmd(log.section(DEBUG_INFO), Command::new("gem").arg("env"));
 
             log.error(&formatdoc! {"
                 Error installing bundler
@@ -113,7 +113,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             // - Grep error output for common things like using sqlite3, use classic buildpack
             let local_command = local_command_debug(&error);
             log
-                .section(&DEBUG_INFO)
+                .section(DEBUG_INFO)
                 .step(&error.to_string())
                 .end_section()
                 .error(&formatdoc! {"
@@ -133,7 +133,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
         }
         RubyBuildpackError::BundleInstallDigestError(path, error) => {
             log = log
-                .section(&DEBUG_INFO)
+                .section(DEBUG_INFO)
                 .step(&error.to_string())
                 .end_section();
 
@@ -168,7 +168,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             // - Annotate with information on requiring test or development only gems in the Rakefile
             let local_command = local_command_debug(&error);
             log = log
-                .section(&DEBUG_INFO)
+                .section(DEBUG_INFO)
                 .step(&error.to_string())
                 .end_section();
 
@@ -186,7 +186,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
         RubyBuildpackError::RakeAssetsPrecompileFailed(error) => {
             let local_command = local_command_debug(&error);
             log = log
-                .section(&DEBUG_INFO)
+                .section(DEBUG_INFO)
                 .step(&error.to_string())
                 .end_section();
 
@@ -205,7 +205,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             // - Separate between failures in layer dirs or in app dirs, if we can isolate to an app dir we could debug more
             // to determine if there's bad permissions or bad file symlink
             log = log
-                .section(&DEBUG_INFO)
+                .section(DEBUG_INFO)
                 .step(&error.to_string())
                 .end_section();
 
@@ -221,13 +221,13 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
         }
         RubyBuildpackError::GemListGetError(error) => {
             log = log
-                .section(&DEBUG_INFO)
+                .section(DEBUG_INFO)
                 .step(&error.to_string())
                 .end_section();
 
-            log = debug_cmd(log.section(&DEBUG_INFO), Command::new("gem").arg("env"));
+            log = debug_cmd(log.section(DEBUG_INFO), Command::new("gem").arg("env"));
 
-            log = debug_cmd(log.section(&DEBUG_INFO), Command::new("bundle").arg("env"));
+            log = debug_cmd(log.section(DEBUG_INFO), Command::new("bundle").arg("env"));
 
             log.error(&formatdoc! {"
                 Error detecting dependencies

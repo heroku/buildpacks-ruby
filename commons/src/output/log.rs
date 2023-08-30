@@ -382,7 +382,8 @@ mod test {
             .section("Hello world")
             .step_timed_stream("Streaming stuff");
 
-        writeln!(stream.io(), "{}", "stuff").unwrap();
+        let value = "stuff".to_string();
+        writeln!(stream.io(), "{value}").unwrap();
 
         stream.finish_timed_stream().end_section().finish_logging();
 

@@ -7,6 +7,7 @@ use commons::cache::CacheError;
 use commons::fun_run::CmdError;
 use commons::gemfile_lock::GemfileLock;
 use commons::metadata_digest::MetadataDigest;
+use commons::output::warn_later::WarnGuard;
 use core::str::FromStr;
 use layers::{
     bundle_download_layer::BundleDownloadLayer, bundle_download_layer::BundleDownloadLayerMetadata,
@@ -76,6 +77,7 @@ impl Buildpack for RubyBuildpack {
     #[allow(clippy::too_many_lines)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         let mut logger = BuildLog::new(stdout()).buildpack_name("Heroku Ruby Buildpack");
+        let warn_later = WarnGuard::new();
 
         // ## Set default environment
         let (mut env, store) =
@@ -206,6 +208,7 @@ impl Buildpack for RubyBuildpack {
             section.end_section()
         };
         logger.finish_logging();
+        warn_later.warn_now();
 
         if let Some(default_process) = default_process {
             BuildResultBuilder::new()

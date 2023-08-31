@@ -25,6 +25,7 @@ pub trait SectionLogger: Debug {
 
 pub trait StartedAnnounceLogger: ErrorLogger + Debug {
     fn warning(self: Box<Self>, s: &str) -> Box<dyn StartedAnnounceLogger>;
+    fn warn_later(self: Box<Self>, s: &str) -> Box<dyn StartedAnnounceLogger>;
     fn important(self: Box<Self>, s: &str) -> Box<dyn StartedAnnounceLogger>;
 
     fn end_announce(self: Box<Self>) -> Box<dyn StartedLogger>;
@@ -32,6 +33,7 @@ pub trait StartedAnnounceLogger: ErrorLogger + Debug {
 
 pub trait SectionAnnounceLogger: ErrorLogger + Debug {
     fn warning(self: Box<Self>, s: &str) -> Box<dyn SectionAnnounceLogger>;
+    fn warn_later(self: Box<Self>, s: &str) -> Box<dyn SectionAnnounceLogger>;
     fn important(self: Box<Self>, s: &str) -> Box<dyn SectionAnnounceLogger>;
 
     fn end_announce(self: Box<Self>) -> Box<dyn SectionLogger>;

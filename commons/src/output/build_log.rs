@@ -235,6 +235,11 @@ where
         self
     }
 
+    fn warn_later(self: Box<Self>, s: &str) -> Box<dyn SectionAnnounceLogger> {
+        crate::output::warn_later::push(fmt::warning(s.trim()));
+        self
+    }
+
     fn important(mut self: Box<Self>, s: &str) -> Box<dyn SectionAnnounceLogger> {
         writeln_now(&mut self.io, fmt::important(s.trim()));
         writeln_now(&mut self.io, "");
@@ -259,6 +264,11 @@ where
         writeln_now(&mut self.io, fmt::warning(s.trim()));
         writeln_now(&mut self.io, "");
 
+        self
+    }
+
+    fn warn_later(self: Box<Self>, s: &str) -> Box<dyn StartedAnnounceLogger> {
+        crate::output::warn_later::push(fmt::warning(s.trim()));
         self
     }
 

@@ -77,7 +77,7 @@ impl Buildpack for RubyBuildpack {
     #[allow(clippy::too_many_lines)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         let mut logger = BuildLog::new(stdout()).buildpack_name("Heroku Ruby Buildpack");
-        let warn_later = WarnGuard::new();
+        let warn_later = WarnGuard::new(stdout());
 
         // ## Set default environment
         let (mut env, store) =

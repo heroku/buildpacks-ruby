@@ -307,8 +307,7 @@ mod test {
         let warn_guard = WarnGuard::new(writer);
         drop(warn_guard);
 
-        let io = reader.lock().unwrap();
-        assert_eq!(String::new(), String::from_utf8_lossy(&io));
+        assert_eq!(String::new(), reader.read_lossy().unwrap());
 
         let writer = ReadYourWrite::writer(Vec::new());
         let reader = writer.reader();
@@ -319,8 +318,7 @@ mod test {
         try_push(message).unwrap();
         drop(warn_guard);
 
-        let io = reader.lock().unwrap();
-        assert_contains!(String::from_utf8_lossy(&io), message);
+        assert_contains!(reader.read_lossy().unwrap(), message);
 
         // Assert empty after calling drain
         assert!(take().is_none());
@@ -336,7 +334,6 @@ mod test {
         try_push(message).unwrap();
         drop(guard);
 
-        let io = reader.lock().unwrap();
-        assert_contains!(String::from_utf8_lossy(&io), message);
+        assert_contains!(reader.read_lossy().unwrap(), message);
     }
 }

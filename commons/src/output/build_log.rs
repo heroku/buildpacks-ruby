@@ -456,6 +456,7 @@ mod test {
     use super::*;
     use crate::output::fmt::{self, strip_control_codes};
     use crate::output::util::{strip_trailing_whitespace, ReadYourWrite};
+    use crate::output::warn_later::WarnGuard;
     use indoc::formatdoc;
     use libcnb_test::assert_contains;
     use libherokubuildpack::command::CommandExt;
@@ -480,9 +481,6 @@ mod test {
 
         stream.finish_timed_stream().end_section().finish_logging();
 
-        let actual = strip_trailing_whitespace(fmt::strip_control_codes(String::from_utf8_lossy(
-            &reader.lock().unwrap(),
-        )));
         let expected = formatdoc! {"
 
             # Heroku Ruby Buildpack
@@ -498,7 +496,10 @@ mod test {
             - Done (finished in < 0.1s)
         "};
 
-        assert_eq!(expected, actual);
+        assert_eq!(
+            expected,
+            strip_trailing_whitespace(fmt::strip_control_codes(reader.read_lossy().unwrap()))
+        );
     }
 
     #[test]
@@ -518,9 +519,8 @@ mod test {
 
         stream.finish_timed_stream().end_section().finish_logging();
 
-        let actual = strip_trailing_whitespace(fmt::strip_control_codes(String::from_utf8_lossy(
-            &reader.lock().unwrap(),
-        )));
+        let actual =
+            strip_trailing_whitespace(fmt::strip_control_codes(reader.read_lossy().unwrap()));
 
         assert_contains!(actual, "      hello world\n");
     }
@@ -542,7 +542,6 @@ mod test {
             .end_section()
             .finish_logging();
 
-        let actual = strip_control_codes(String::from_utf8_lossy(&reader.lock().unwrap()));
         let expected = formatdoc! {"
 
             # RCT
@@ -558,7 +557,7 @@ mod test {
             - Done (finished in < 0.1s)
         "};
 
-        assert_eq!(expected, actual);
+        assert_eq!(expected, strip_control_codes(reader.read_lossy().unwrap()));
     }
 
     #[test]
@@ -581,7 +580,6 @@ mod test {
             .end_section()
             .finish_logging();
 
-        let actual = strip_control_codes(String::from_utf8_lossy(&reader.lock().unwrap()));
         let expected = formatdoc! {"
 
             # RCT
@@ -598,6 +596,6 @@ mod test {
             - Done (finished in < 0.1s)
         "};
 
-        assert_eq!(expected, actual);
+        assert_eq!(expected, strip_control_codes(reader.read_lossy().unwrap()));
     }
 }

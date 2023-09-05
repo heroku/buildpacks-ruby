@@ -1,7 +1,8 @@
 use lazy_static::lazy_static;
 use std::fmt::Debug;
 use std::io::Write;
-use std::sync::{Arc, Mutex};
+use std::ops::Deref;
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 lazy_static! {
     static ref TRAILING_WHITESPACE_RE: regex::Regex = regex::Regex::new(r"\s+$").expect("clippy");
@@ -31,14 +32,46 @@ where
 
     #[must_use]
     #[allow(dead_code)]
-    pub(crate) fn reader(&self) -> Arc<Mutex<W>> {
-        self.arc.clone()
+    pub(crate) fn reader(&self) -> Reader<W> {
+        Reader {
+            arc: self.arc.clone(),
+        }
     }
 
     #[must_use]
     #[allow(dead_code)]
     pub(crate) fn arc_io(&self) -> Arc<Mutex<W>> {
         self.arc.clone()
+    }
+}
+
+pub(crate) struct Reader<W>
+where
+    W: Write + AsRef<[u8]>,
+{
+    arc: Arc<Mutex<W>>,
+}
+
+impl<W> Reader<W>
+where
+    W: Write + AsRef<[u8]>,
+{
+    #[allow(dead_code)]
+    pub(crate) fn read_lossy(&self) -> Result<String, PoisonError<MutexGuard<'_, W>>> {
+        let io = &self.arc.lock()?;
+
+        Ok(String::from_utf8_lossy(io.as_ref()).to_string())
+    }
+}
+
+impl<W> Deref for Reader<W>
+where
+    W: Write + AsRef<[u8]>,
+{
+    type Target = Arc<Mutex<W>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.arc
     }
 }
 

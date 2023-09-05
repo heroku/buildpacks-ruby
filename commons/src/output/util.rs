@@ -42,6 +42,17 @@ where
     }
 }
 
+impl<W> Clone for ReadYourWrite<W>
+where
+    W: Write + AsRef<[u8]> + Debug,
+{
+    fn clone(&self) -> Self {
+        Self {
+            arc: self.arc.clone(),
+        }
+    }
+}
+
 impl<W> Write for ReadYourWrite<W>
 where
     W: Write + AsRef<[u8]> + Debug,

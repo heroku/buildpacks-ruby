@@ -103,6 +103,6 @@ jobs:
         uses: Swatinem/rust-cache@v2.5.1
       - name: Build binary
         run: cargo build --bin print_style_guide
-      - name: "PRINT: Error output"
+      - name: "PRINT: Style guide"
         run: | # Use `script -e -c` to pretend to be a TTY for pack terminal color support
           script -e -c "cargo run --bin print_style_guide"

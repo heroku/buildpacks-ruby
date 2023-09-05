@@ -265,10 +265,9 @@ where
     fn drop(&mut self) {
         if let Some(warnings) = take() {
             if !warnings.is_empty() {
-                writeln!(&mut self.io).expect("warn guard IO is writeable");
                 for warning in &warnings {
-                    writeln!(&mut self.io, "{warning}").expect("warn guard IO is writeable");
                     writeln!(&mut self.io).expect("warn guard IO is writeable");
+                    write!(&mut self.io, "{warning}").expect("warn guard IO is writeable");
                 }
             }
         }
@@ -335,5 +334,19 @@ mod test {
         drop(guard);
 
         assert_contains!(reader.read_lossy().unwrap(), message);
+    }
+
+    #[test]
+    fn does_not_double_whitespace() {
+        let writer = ReadYourWrite::writer(Vec::new());
+        let reader = writer.reader();
+        let guard = WarnGuard::new(writer);
+
+        let message = "Caution: This test is hot\n";
+        try_push(message).unwrap();
+        drop(guard);
+
+        let expected = "\nCaution: This test is hot\n".to_string();
+        assert_eq!(expected, reader.read_lossy().unwrap());
     }
 }

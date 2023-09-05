@@ -236,7 +236,10 @@ where
     }
 
     fn warn_later(self: Box<Self>, s: &str) -> Box<dyn SectionAnnounceLogger> {
-        match crate::output::warn_later::try_push(fmt::warning(s.trim())) {
+        let mut formatted = fmt::warning(s.trim());
+        formatted.push('\n');
+
+        match crate::output::warn_later::try_push(formatted) {
             Ok(_) => self,
             Err(error) => {
                 eprintln!("[Buildpack Warning]: Cannot use the delayed warning feature due to error: {error}");
@@ -273,7 +276,10 @@ where
     }
 
     fn warn_later(self: Box<Self>, s: &str) -> Box<dyn StartedAnnounceLogger> {
-        match crate::output::warn_later::try_push(fmt::warning(s.trim())) {
+        let mut formatted = fmt::warning(s.trim());
+        formatted.push('\n');
+
+        match crate::output::warn_later::try_push(formatted) {
             Ok(_) => self,
             Err(error) => {
                 eprintln!("[Buildpack Warning]: Cannot use the delayed warning feature due to error: {error}");

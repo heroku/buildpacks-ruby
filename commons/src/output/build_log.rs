@@ -126,13 +126,12 @@ where
         writeln_now(&mut self.io, fmt::section(format!("Done {details}")));
     }
 
-    fn announce(mut self: Box<Self>) -> Box<dyn StartedAnnounceLogger> {
-        writeln_now(&mut self.io, "");
-
+    fn announce(self: Box<Self>) -> Box<dyn StartedAnnounceLogger> {
         Box::new(AnnounceLogger {
             io: self.io,
             data: self.data,
             state: PhantomData::<state::Started>,
+            leader: Some("\n".to_string()),
         })
     }
 }
@@ -192,17 +191,17 @@ where
         })
     }
 
-    fn announce(mut self: Box<Self>) -> Box<dyn SectionAnnounceLogger> {
-        writeln_now(&mut self.io, "");
-
+    fn announce(self: Box<Self>) -> Box<dyn SectionAnnounceLogger> {
         Box::new(AnnounceLogger {
             io: self.io,
             data: self.data,
             state: PhantomData::<state::InSection>,
+            leader: Some("\n".to_string()),
         })
     }
 }
 
+// Store internal state, print leading character exactly once on warning or important
 #[derive(Debug)]
 struct AnnounceLogger<T, W>
 where
@@ -211,6 +210,7 @@ where
     io: W,
     data: BuildData,
     state: PhantomData<T>,
+    leader: Option<String>,
 }
 
 impl<T, W> ErrorLogger for AnnounceLogger<T, W>
@@ -219,6 +219,9 @@ where
     W: Write + Send + Sync + Debug + 'static,
 {
     fn error(mut self: Box<Self>, s: &str) {
+        if let Some(leader) = self.leader.take() {
+            write_now(&mut self.io, leader);
+        }
         writeln_now(&mut self.io, fmt::error(s.trim()));
         writeln_now(&mut self.io, "");
     }
@@ -229,6 +232,10 @@ where
     W: Write + Send + Sync + Debug + 'static,
 {
     fn warning(mut self: Box<Self>, s: &str) -> Box<dyn SectionAnnounceLogger> {
+        if let Some(leader) = self.leader.take() {
+            write_now(&mut self.io, leader);
+        }
+
         writeln_now(&mut self.io, fmt::warning(s.trim()));
         writeln_now(&mut self.io, "");
 
@@ -249,6 +256,9 @@ where
     }
 
     fn important(mut self: Box<Self>, s: &str) -> Box<dyn SectionAnnounceLogger> {
+        if let Some(leader) = self.leader.take() {
+            write_now(&mut self.io, leader);
+        }
         writeln_now(&mut self.io, fmt::important(s.trim()));
         writeln_now(&mut self.io, "");
 
@@ -269,6 +279,9 @@ where
     W: Write + Send + Sync + Debug + 'static,
 {
     fn warning(mut self: Box<Self>, s: &str) -> Box<dyn StartedAnnounceLogger> {
+        if let Some(leader) = self.leader.take() {
+            write_now(&mut self.io, leader);
+        }
         writeln_now(&mut self.io, fmt::warning(s.trim()));
         writeln_now(&mut self.io, "");
 
@@ -289,6 +302,9 @@ where
     }
 
     fn important(mut self: Box<Self>, s: &str) -> Box<dyn StartedAnnounceLogger> {
+        if let Some(leader) = self.leader.take() {
+            write_now(&mut self.io, leader);
+        }
         writeln_now(&mut self.io, fmt::important(s.trim()));
         writeln_now(&mut self.io, "");
 
@@ -641,6 +657,32 @@ mod test {
             ! And all that glitters is gold
 
             ! Only shooting stars break the mold
+        "};
+
+        assert_eq!(expected, strip_control_codes(reader.read_lossy().unwrap()));
+    }
+
+    #[test]
+    fn announce_and_exit_makes_no_whitespace() {
+        let writer = ReadYourWrite::writer(Vec::new());
+        let reader = writer.reader();
+
+        BuildLog::new(writer)
+            .buildpack_name("Quick and simple")
+            .section("Start")
+            .step("Step")
+            .announce() // <== Here
+            .end_announce() // <== Here
+            .end_section()
+            .finish_logging();
+
+        let expected = formatdoc! {"
+
+            # Quick and simple
+
+            - Start
+              - Step
+            - Done (finished in < 0.1s)
         "};
 
         assert_eq!(expected, strip_control_codes(reader.read_lossy().unwrap()));

@@ -361,7 +361,7 @@ impl<T> WriteDebug for T where T: Write + Debug {}
 /// than a single reference don't panic, return the original IO instead.
 ///
 /// This prevents a runtime panic and allows us to continue logging
-fn try_unrwap_arc_io<W>(arc_io: Arc<Mutex<W>>) -> Box<dyn WriteDebug + Send + Sync + 'static>
+fn try_unwrap_arc_io<W>(arc_io: Arc<Mutex<W>>) -> Box<dyn WriteDebug + Send + Sync + 'static>
 where
     W: Write + Send + Sync + Debug + 'static,
 {
@@ -388,7 +388,7 @@ where
 
     fn finish_timed_stream(self: Box<Self>) -> Box<dyn SectionLogger> {
         let duration = self.started.elapsed();
-        let mut io = try_unrwap_arc_io(self.arc_io);
+        let mut io = try_unwrap_arc_io(self.arc_io);
 
         // // Newline after stream
         writeln_now(&mut io, "");
@@ -425,7 +425,7 @@ where
     fn finish_timed_step(self: Box<Self>) -> Box<dyn SectionLogger> {
         // Must stop background writing thread before retrieving IO
         let duration = self.background.stop().elapsed();
-        let mut io = try_unrwap_arc_io(self.arc_io);
+        let mut io = try_unwrap_arc_io(self.arc_io);
 
         writeln_now(&mut io, fmt::details(fmt::time::human(&duration)));
 

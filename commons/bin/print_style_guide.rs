@@ -5,7 +5,6 @@ use ascii_table::AsciiTable;
 use commons::fun_run::CommandWithName;
 use commons::output::fmt::{self, DEBUG_INFO, HELP};
 use indoc::formatdoc;
-use libherokubuildpack::command::CommandExt;
 use std::io::stdout;
 use std::process::Command;
 
@@ -96,8 +95,8 @@ fn main() {
         });
         log_step_stream("log_step_stream()", |stream| {
             Command::new("bash")
-                .args(["-c", "ps | grep cargo"])
-                .output_and_write_streams(stream.io(), stream.io())
+                .args(["-c", "ps aux | grep cargo"])
+                .stream_output(stream.io(), stream.io())
                 .unwrap()
         });
         log_step(formatdoc! {"

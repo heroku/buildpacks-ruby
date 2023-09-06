@@ -126,8 +126,8 @@ where
         writeln_now(&mut self.io, fmt::section(format!("Done {details}")));
     }
 
-    fn announce(self: Box<Self>) -> Box<dyn StartedAnnounceLogger> {
-        Box::new(AnnounceLogger {
+    fn announce(self: Box<Self>) -> Box<dyn AnnounceLogger<ReturnTo = Box<dyn StartedLogger>>> {
+        Box::new(AnnounceBuildLog {
             io: self.io,
             data: self.data,
             state: PhantomData::<state::Started>,
@@ -191,8 +191,8 @@ where
         })
     }
 
-    fn announce(self: Box<Self>) -> Box<dyn SectionAnnounceLogger> {
-        Box::new(AnnounceLogger {
+    fn announce(self: Box<Self>) -> Box<dyn AnnounceLogger<ReturnTo = Box<dyn SectionLogger>>> {
+        Box::new(AnnounceBuildLog {
             io: self.io,
             data: self.data,
             state: PhantomData::<state::InSection>,
@@ -203,7 +203,7 @@ where
 
 // Store internal state, print leading character exactly once on warning or important
 #[derive(Debug)]
-struct AnnounceLogger<T, W>
+struct AnnounceBuildLog<T, W>
 where
     W: Write + Send + Sync + Debug + 'static,
 {
@@ -213,7 +213,43 @@ where
     leader: Option<String>,
 }
 
-impl<T, W> ErrorLogger for AnnounceLogger<T, W>
+impl<T, W> AnnounceBuildLog<T, W>
+where
+    T: Debug,
+    W: Write + Send + Sync + Debug + 'static,
+{
+    fn log_warning_shared(&mut self, s: &str) {
+        if let Some(leader) = self.leader.take() {
+            write_now(&mut self.io, leader);
+        }
+
+        writeln_now(&mut self.io, fmt::warning(s.trim()));
+        writeln_now(&mut self.io, "");
+    }
+
+    fn log_important_shared(&mut self, s: &str) {
+        if let Some(leader) = self.leader.take() {
+            write_now(&mut self.io, leader);
+        }
+        writeln_now(&mut self.io, fmt::important(s.trim()));
+        writeln_now(&mut self.io, "");
+    }
+
+    fn log_warn_later_shared(&mut self, s: &str) {
+        let mut formatted = fmt::warning(s.trim());
+        formatted.push('\n');
+
+        match crate::output::warn_later::try_push(formatted) {
+            Ok(_) => {}
+            Err(error) => {
+                eprintln!("[Buildpack Warning]: Cannot use the delayed warning feature due to error: {error}");
+                self.log_warning_shared(s);
+            }
+        };
+    }
+}
+
+impl<T, W> ErrorLogger for AnnounceBuildLog<T, W>
 where
     T: Debug,
     W: Write + Send + Sync + Debug + 'static,
@@ -227,40 +263,32 @@ where
     }
 }
 
-impl<W> SectionAnnounceLogger for AnnounceLogger<state::InSection, W>
+impl<W> AnnounceLogger for AnnounceBuildLog<state::InSection, W>
 where
     W: Write + Send + Sync + Debug + 'static,
 {
-    fn warning(mut self: Box<Self>, s: &str) -> Box<dyn SectionAnnounceLogger> {
-        if let Some(leader) = self.leader.take() {
-            write_now(&mut self.io, leader);
-        }
+    type ReturnTo = Box<dyn SectionLogger>;
 
-        writeln_now(&mut self.io, fmt::warning(s.trim()));
-        writeln_now(&mut self.io, "");
+    fn warning(mut self: Box<Self>, s: &str) -> Box<dyn AnnounceLogger<ReturnTo = Self::ReturnTo>> {
+        self.log_warning_shared(s);
 
         self
     }
 
-    fn warn_later(self: Box<Self>, s: &str) -> Box<dyn SectionAnnounceLogger> {
-        let mut formatted = fmt::warning(s.trim());
-        formatted.push('\n');
+    fn warn_later(
+        mut self: Box<Self>,
+        s: &str,
+    ) -> Box<dyn AnnounceLogger<ReturnTo = Self::ReturnTo>> {
+        self.log_warn_later_shared(s);
 
-        match crate::output::warn_later::try_push(formatted) {
-            Ok(_) => self,
-            Err(error) => {
-                eprintln!("[Buildpack Warning]: Cannot use the delayed warning feature due to error: {error}");
-                self.warning(s)
-            }
-        }
+        self
     }
 
-    fn important(mut self: Box<Self>, s: &str) -> Box<dyn SectionAnnounceLogger> {
-        if let Some(leader) = self.leader.take() {
-            write_now(&mut self.io, leader);
-        }
-        writeln_now(&mut self.io, fmt::important(s.trim()));
-        writeln_now(&mut self.io, "");
+    fn important(
+        mut self: Box<Self>,
+        s: &str,
+    ) -> Box<dyn AnnounceLogger<ReturnTo = Self::ReturnTo>> {
+        self.log_important_shared(s);
 
         self
     }
@@ -274,40 +302,30 @@ where
     }
 }
 
-impl<W> StartedAnnounceLogger for AnnounceLogger<state::Started, W>
+impl<W> AnnounceLogger for AnnounceBuildLog<state::Started, W>
 where
     W: Write + Send + Sync + Debug + 'static,
 {
-    fn warning(mut self: Box<Self>, s: &str) -> Box<dyn StartedAnnounceLogger> {
-        if let Some(leader) = self.leader.take() {
-            write_now(&mut self.io, leader);
-        }
-        writeln_now(&mut self.io, fmt::warning(s.trim()));
-        writeln_now(&mut self.io, "");
+    type ReturnTo = Box<dyn StartedLogger>;
 
+    fn warning(mut self: Box<Self>, s: &str) -> Box<dyn AnnounceLogger<ReturnTo = Self::ReturnTo>> {
+        self.log_warning_shared(s);
         self
     }
 
-    fn warn_later(self: Box<Self>, s: &str) -> Box<dyn StartedAnnounceLogger> {
-        let mut formatted = fmt::warning(s.trim());
-        formatted.push('\n');
-
-        match crate::output::warn_later::try_push(formatted) {
-            Ok(_) => self,
-            Err(error) => {
-                eprintln!("[Buildpack Warning]: Cannot use the delayed warning feature due to error: {error}");
-                self.warning(s)
-            }
-        }
+    fn warn_later(
+        mut self: Box<Self>,
+        s: &str,
+    ) -> Box<dyn AnnounceLogger<ReturnTo = Self::ReturnTo>> {
+        self.log_warn_later_shared(s);
+        self
     }
 
-    fn important(mut self: Box<Self>, s: &str) -> Box<dyn StartedAnnounceLogger> {
-        if let Some(leader) = self.leader.take() {
-            write_now(&mut self.io, leader);
-        }
-        writeln_now(&mut self.io, fmt::important(s.trim()));
-        writeln_now(&mut self.io, "");
-
+    fn important(
+        mut self: Box<Self>,
+        s: &str,
+    ) -> Box<dyn AnnounceLogger<ReturnTo = Self::ReturnTo>> {
+        self.log_important_shared(s);
         self
     }
 

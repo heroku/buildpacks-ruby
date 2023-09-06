@@ -10,7 +10,7 @@ pub trait StartedLogger: Debug {
     fn section(self: Box<Self>, s: &str) -> Box<dyn SectionLogger>;
     fn finish_logging(self: Box<Self>);
 
-    fn announce(self: Box<Self>) -> Box<dyn StartedAnnounceLogger>;
+    fn announce(self: Box<Self>) -> Box<dyn AnnounceLogger<ReturnTo = Box<dyn StartedLogger>>>;
 }
 
 pub trait SectionLogger: Debug {
@@ -20,23 +20,17 @@ pub trait SectionLogger: Debug {
     fn step_timed_stream(self: Box<Self>, s: &str) -> Box<dyn StreamLogger>;
     fn end_section(self: Box<Self>) -> Box<dyn StartedLogger>;
 
-    fn announce(self: Box<Self>) -> Box<dyn SectionAnnounceLogger>;
+    fn announce(self: Box<Self>) -> Box<dyn AnnounceLogger<ReturnTo = Box<dyn SectionLogger>>>;
 }
 
-pub trait StartedAnnounceLogger: ErrorLogger + Debug {
-    fn warning(self: Box<Self>, s: &str) -> Box<dyn StartedAnnounceLogger>;
-    fn warn_later(self: Box<Self>, s: &str) -> Box<dyn StartedAnnounceLogger>;
-    fn important(self: Box<Self>, s: &str) -> Box<dyn StartedAnnounceLogger>;
+pub trait AnnounceLogger: ErrorLogger + Debug {
+    type ReturnTo;
 
-    fn end_announce(self: Box<Self>) -> Box<dyn StartedLogger>;
-}
+    fn warning(self: Box<Self>, s: &str) -> Box<dyn AnnounceLogger<ReturnTo = Self::ReturnTo>>;
+    fn warn_later(self: Box<Self>, s: &str) -> Box<dyn AnnounceLogger<ReturnTo = Self::ReturnTo>>;
+    fn important(self: Box<Self>, s: &str) -> Box<dyn AnnounceLogger<ReturnTo = Self::ReturnTo>>;
 
-pub trait SectionAnnounceLogger: ErrorLogger + Debug {
-    fn warning(self: Box<Self>, s: &str) -> Box<dyn SectionAnnounceLogger>;
-    fn warn_later(self: Box<Self>, s: &str) -> Box<dyn SectionAnnounceLogger>;
-    fn important(self: Box<Self>, s: &str) -> Box<dyn SectionAnnounceLogger>;
-
-    fn end_announce(self: Box<Self>) -> Box<dyn SectionLogger>;
+    fn end_announce(self: Box<Self>) -> Self::ReturnTo;
 }
 
 pub trait TimedStepLogger: Debug {

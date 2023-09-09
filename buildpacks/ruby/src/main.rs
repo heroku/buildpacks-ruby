@@ -1,7 +1,7 @@
 #![warn(unused_crate_dependencies)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
-use commons::cache::CacheError;
+use commons::cache::{toml_delta, CacheError, CachedLayer, CachedLayerData, MetadataDiff};
 use commons::fun_run::CmdError;
 use commons::gemfile_lock::GemfileLock;
 use commons::metadata_digest::MetadataDigest;
@@ -13,7 +13,7 @@ use layers::{
     bundle_download_layer::{BundleDownloadLayer, BundleDownloadLayerMetadata},
     bundle_install_layer::{BundleInstallLayer, BundleInstallLayerMetadata},
     metrics_agent_install::{MetricsAgentInstall, MetricsAgentInstallError},
-    ruby_install_layer::{RubyInstallError, RubyInstallLayer, RubyInstallLayerMetadata},
+    ruby_install_layer::{RubyInstallError, RubyInstallLayerMetadata},
 };
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
@@ -21,6 +21,7 @@ use libcnb::data::launch::LaunchBuilder;
 use libcnb::data::layer_name;
 use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
 use libcnb::generic::{GenericMetadata, GenericPlatform};
+use libcnb::layer::LayerResultBuilder;
 use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
@@ -118,24 +119,80 @@ impl Buildpack for RubyBuildpack {
 
         // ## Install executable ruby version
         (logger, env) = {
-            let section = logger.section(&format!(
-                "Ruby version {} from {}",
-                fmt::value(ruby_version.to_string()),
-                fmt::value(gemfile_lock.ruby_source())
+            let metadata = RubyInstallLayerMetadata {
+                stack: context.stack_id.clone(),
+                version: ruby_version.clone(),
+            };
+
+            let log_section = logger.section(&format!(
+                "Ruby version {value} from {source}",
+                value = fmt::value(metadata.version.to_string()),
+                source = fmt::value(gemfile_lock.ruby_source())
             ));
-            let ruby_layer = context //
-                .handle_layer(
-                    layer_name!("ruby"),
-                    RubyInstallLayer {
-                        _in_section: section.as_ref(),
-                        metadata: RubyInstallLayerMetadata {
-                            stack: context.stack_id.clone(),
-                            version: ruby_version.clone(),
-                        },
-                    },
-                )?;
-            let env = ruby_layer.env.apply(Scope::Build, &env);
-            (section.end_section(), env)
+
+            let cached_layer = CachedLayer {
+                name: layer_name!("ruby"),
+                build: true,
+                launch: true,
+                metadata,
+            }
+            .read(&context)?;
+
+            let (log_section, result) = match cached_layer.diff() {
+                MetadataDiff::Same(metadata) => (
+                    log_section.step("Using cache"),
+                    LayerResultBuilder::new(metadata.clone()).build_unwrapped(),
+                ),
+                MetadataDiff::Different { old, now } => {
+                    let reason = if old.version == now.version {
+                        format!(
+                            "{differences} changed",
+                            differences = commons::display::SentenceList::new(
+                                &toml_delta(&old, &now)
+                                    .into_iter()
+                                    .map(|diff| diff.key)
+                                    .collect::<Vec<_>>()
+                            )
+                        )
+                    } else {
+                        format!(
+                            "Ruby version changed from {old} to {now}",
+                            old = fmt::value(old.version.to_string()),
+                            now = fmt::value(now.version.to_string())
+                        )
+                    };
+
+                    crate::layers::ruby_install_layer::install(
+                        clear_cache_with_reason(log_section, &cached_layer, reason).unwrap(),
+                        &cached_layer.path,
+                        now.clone(),
+                    )?
+                }
+                MetadataDiff::CannotDeserialize { old: _old, now } => {
+                    crate::layers::ruby_install_layer::install(
+                        clear_cache_with_reason(
+                            log_section,
+                            &cached_layer,
+                            "cannot deserialize metadata",
+                        )
+                        .unwrap(),
+                        &cached_layer.path,
+                        now.clone(),
+                    )?
+                }
+                MetadataDiff::NoCache(metadata) => crate::layers::ruby_install_layer::install(
+                    log_section,
+                    &cached_layer.path,
+                    metadata.clone(),
+                )?,
+            };
+
+            let env = cached_layer
+                .write(&context, result)?
+                .env
+                .apply(Scope::Build, &env);
+
+            (log_section.end_section(), env)
         };
 
         // ## Setup bundler
@@ -238,6 +295,17 @@ impl Buildpack for RubyBuildpack {
 fn needs_java(gemfile_lock: &str) -> bool {
     let java_regex = regex::Regex::new(r"\(jruby ").expect("clippy");
     java_regex.is_match(gemfile_lock)
+}
+
+fn clear_cache_with_reason<B, M>(
+    log: Box<dyn SectionLogger>,
+    layer_data: &CachedLayerData<B, M>,
+    reason: impl AsRef<str>,
+) -> Result<Box<dyn SectionLogger>, std::io::Error> {
+    let log = log.step(&format!("Clearing cache ({})", reason.as_ref()));
+    layer_data.clear_path_contents()?;
+
+    Ok(log)
 }
 
 #[derive(Debug)]

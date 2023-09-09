@@ -5,6 +5,7 @@ mod clean;
 mod config;
 mod error;
 mod in_app_dir_cache_layer;
+mod read_write_layer;
 
 pub use self::app_cache::{build, PathState};
 pub use self::app_cache::{AppCache, CacheState};
@@ -13,3 +14,6 @@ pub use self::clean::FilesWithSize;
 pub use self::config::CacheConfig;
 pub use self::config::{mib, KeepPath};
 pub use self::error::CacheError;
+pub use self::read_write_layer::{
+    metadata_diff, toml_delta, CachedLayer, CachedLayerData, MetadataDiff,
+};

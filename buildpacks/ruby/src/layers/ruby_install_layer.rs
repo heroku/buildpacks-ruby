@@ -1,15 +1,9 @@
-use commons::output::{
-    fmt::{self},
-    section_log::{log_step, log_step_timed, SectionLogger},
-};
-
-use crate::{RubyBuildpack, RubyBuildpackError};
+use crate::RubyBuildpackError;
 use commons::gemfile_lock::ResolvedRubyVersion;
+use commons::output::section_log::SectionLogger;
 use flate2::read::GzDecoder;
-use libcnb::build::BuildContext;
 use libcnb::data::buildpack::StackId;
-use libcnb::data::layer_content_metadata::LayerTypes;
-use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
+use libcnb::layer::{LayerResult, LayerResultBuilder};
 use serde::{Deserialize, Serialize};
 use std::io;
 use std::path::Path;
@@ -30,99 +24,40 @@ use url::Url;
 ///
 /// When the Ruby version changes, invalidate and re-run.
 ///
-pub(crate) struct RubyInstallLayer<'a> {
-    pub _in_section: &'a dyn SectionLogger, // force the layer to be called within a Section logging context, not necessary but it's safer
-    pub metadata: RubyInstallLayerMetadata,
-}
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
 pub(crate) struct RubyInstallLayerMetadata {
     pub stack: StackId,
     pub version: ResolvedRubyVersion,
 }
 
-impl<'a> Layer for RubyInstallLayer<'a> {
-    type Buildpack = RubyBuildpack;
-    type Metadata = RubyInstallLayerMetadata;
+pub(crate) fn install(
+    log: Box<dyn SectionLogger>,
+    path: &Path,
+    metadata: RubyInstallLayerMetadata,
+) -> Result<
+    (
+        Box<dyn SectionLogger>,
+        LayerResult<RubyInstallLayerMetadata>,
+    ),
+    RubyBuildpackError,
+> {
+    let timer = log.step_timed("Installing");
+    let tmp_ruby_tgz = NamedTempFile::new()
+        .map_err(RubyInstallError::CouldNotCreateDestinationFile)
+        .map_err(RubyBuildpackError::RubyInstallError)?;
 
-    fn types(&self) -> LayerTypes {
-        LayerTypes {
-            build: true,
-            launch: true,
-            cache: true,
-        }
-    }
+    let url = download_url(&metadata.stack, &metadata.version)
+        .map_err(RubyBuildpackError::RubyInstallError)?;
 
-    fn create(
-        &self,
-        _context: &BuildContext<Self::Buildpack>,
-        layer_path: &Path,
-    ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        log_step_timed("Installing", || {
-            let tmp_ruby_tgz = NamedTempFile::new()
-                .map_err(RubyInstallError::CouldNotCreateDestinationFile)
-                .map_err(RubyBuildpackError::RubyInstallError)?;
+    download(url.as_ref(), tmp_ruby_tgz.path()).map_err(RubyBuildpackError::RubyInstallError)?;
 
-            let url = download_url(&self.metadata.stack, &self.metadata.version)
-                .map_err(RubyBuildpackError::RubyInstallError)?;
+    untar(tmp_ruby_tgz.path(), path).map_err(RubyBuildpackError::RubyInstallError)?;
+    let log = timer.finish_timed_step();
 
-            download(url.as_ref(), tmp_ruby_tgz.path())
-                .map_err(RubyBuildpackError::RubyInstallError)?;
-
-            untar(tmp_ruby_tgz.path(), layer_path).map_err(RubyBuildpackError::RubyInstallError)?;
-
-            LayerResultBuilder::new(self.metadata.clone()).build()
-        })
-    }
-
-    fn existing_layer_strategy(
-        &self,
-        _context: &BuildContext<Self::Buildpack>,
-        layer_data: &LayerData<Self::Metadata>,
-    ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
-        let old = &layer_data.content_metadata.metadata;
-        let now = self.metadata.clone();
-
-        match cache_state(old.clone(), now) {
-            Changed::Nothing(_version) => {
-                log_step("Using cached version");
-
-                Ok(ExistingLayerStrategy::Keep)
-            }
-            Changed::Stack(_old, _now) => {
-                log_step(format!("Clearing cache {}", fmt::details("stack changed")));
-
-                Ok(ExistingLayerStrategy::Recreate)
-            }
-            Changed::RubyVersion(_old, _now) => {
-                log_step(format!(
-                    "Clearing cache {}",
-                    fmt::details("ruby version changed")
-                ));
-
-                Ok(ExistingLayerStrategy::Recreate)
-            }
-        }
-    }
-}
-
-fn cache_state(old: RubyInstallLayerMetadata, now: RubyInstallLayerMetadata) -> Changed {
-    let RubyInstallLayerMetadata { stack, version } = now;
-
-    if old.stack != stack {
-        Changed::Stack(old.stack, stack)
-    } else if old.version != version {
-        Changed::RubyVersion(old.version, version)
-    } else {
-        Changed::Nothing(version)
-    }
-}
-
-#[derive(Debug)]
-enum Changed {
-    Nothing(ResolvedRubyVersion),
-    Stack(StackId, StackId),
-    RubyVersion(ResolvedRubyVersion, ResolvedRubyVersion),
+    LayerResultBuilder::new(metadata)
+        .build()
+        .map(|result| (log, result))
 }
 
 fn download_url(stack: &StackId, version: impl std::fmt::Display) -> Result<Url, RubyInstallError> {

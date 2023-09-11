@@ -25,14 +25,33 @@ struct Args {
     loop_path: PathBuf,
 }
 
-fn absolute_path_exists(s: &str) -> Result<PathBuf, String> {
-    fs_err::canonicalize(PathBuf::from(s))
-        .map_err(|e| format!("{s} is not a valid path. Details: {e}"))
-        .and_then(|path| match path.try_exists() {
-            Ok(true) => Ok(path),
-            Ok(false) => Err(format!("path {} does not exist", path.display())),
-            Err(e) => Err(format!("problem verifying {} exists {e}", path.display())),
-        })
+#[derive(Debug, thiserror::Error)]
+enum ParseAbsoluteError {
+    #[error("Cannot determine cannonical path for {0}. {1}")]
+    CannotCanonicalize(PathBuf, std::io::Error),
+
+    #[error("Path does not exist {0}")]
+    DoesNotExist(PathBuf),
+
+    #[error("Cannot read {0}. {1}")]
+    CannotRead(PathBuf, std::io::Error),
+}
+
+/// Used to validate a path pased to the CLI exists and is accessible
+fn absolute_path_exists(input: &str) -> Result<PathBuf, ParseAbsoluteError> {
+    let input = PathBuf::from(input);
+    let path = input
+        .canonicalize()
+        .map_err(|error| ParseAbsoluteError::CannotCanonicalize(input, error))?;
+
+    if path
+        .try_exists()
+        .map_err(|error| ParseAbsoluteError::CannotRead(path.clone(), error))?
+    {
+        Ok(path)
+    } else {
+        Err(ParseAbsoluteError::DoesNotExist(path))
+    }
 }
 
 fn main() {

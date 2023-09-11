@@ -7,7 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- buildpacks/ruby: Introduce heroku build metrics support (https://github.com/heroku/buildpacks-ruby/pull/172)
+- Introduce heroku build metrics support (https://github.com/heroku/buildpacks-ruby/pull/172)
+- Changelog moved to be per-crate rather than for the whole project (https://github.com/heroku/buildpacks-ruby/pull/154)
 
 ## [2.0.1] - 2023-07-25
 

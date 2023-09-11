@@ -34,29 +34,37 @@ struct Args {
 
 fn main() {
     let agentmon = Args::parse().path;
-    if !agentmon.exists() {
-        eprintln!("Path does not exist {}", agentmon.display());
-        exit(1);
-    }
-
-    let agentmon_args = match build_args(&std::env::vars().collect::<HashMap<String, String>>()) {
-        Ok(args) => args,
-        Err(e) => {
-            eprintln!("Cannot start agentmon: {e}");
+    let agentmon_args = build_args(&std::env::vars().collect::<HashMap<String, String>>())
+        .unwrap_or_else(|error| {
+            eprintln!("Cannot start agentmon. {error}");
             exit(1)
-        }
-    };
+        });
 
-    loop {
-        match run(&agentmon, &agentmon_args) {
-            Ok(status) => {
-                eprintln!("process completed with status=${status}, sleeping {SLEEP_FOR:?}");
-            }
-            Err(error) => {
-                eprintln!("process could not be run due to error: {error}, sleeping {SLEEP_FOR:?}");
-            }
-        };
-        sleep(SLEEP_FOR);
+    match agentmon.try_exists() {
+        Ok(true) => loop {
+            match run(&agentmon, &agentmon_args) {
+                Ok(status) => {
+                    eprintln!("Process completed with status={status}, sleeping {SLEEP_FOR:?}");
+                }
+                Err(error) => {
+                    eprintln!(
+                        "Process could not run due to error. {error}, sleeping {SLEEP_FOR:?}"
+                    );
+                }
+            };
+            sleep(SLEEP_FOR);
+        },
+        Ok(false) => {
+            eprintln!("Path does not exist {path}", path = agentmon.display());
+            exit(1);
+        }
+        Err(error) => {
+            eprintln!(
+                "Could not access {path}. {error}",
+                path = agentmon.display()
+            );
+            exit(1);
+        }
     }
 }
 

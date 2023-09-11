@@ -138,12 +138,13 @@ mod test {
 
     #[test]
     fn agentmon_args() {
-        let mut env = HashMap::new();
-        env.insert("PORT".to_string(), "90210".to_string());
-        env.insert(
-            "HEROKU_METRICS_URL".to_string(),
-            "https://example.com".to_string(),
-        );
+        let env = HashMap::from([
+            ("PORT".to_string(), "90210".to_string()),
+            (
+                "HEROKU_METRICS_URL".to_string(),
+                "https://example.com".to_string(),
+            ),
+        ]);
 
         let result = build_args(&env);
 
@@ -158,13 +159,14 @@ mod test {
 
     #[test]
     fn agentmon_debug_args() {
-        let mut env = HashMap::new();
-        env.insert("PORT".to_string(), "90210".to_string());
-        env.insert(
-            "HEROKU_METRICS_URL".to_string(),
-            "https://example.com".to_string(),
-        );
-        env.insert("AGENTMON_DEBUG".to_string(), "true".to_string());
+        let env = HashMap::from([
+            ("PORT".to_string(), "90210".to_string()),
+            (
+                "HEROKU_METRICS_URL".to_string(),
+                "https://example.com".to_string(),
+            ),
+            ("AGENTMON_DEBUG".to_string(), "true".to_string()),
+        ]);
 
         let result = build_args(&env);
 

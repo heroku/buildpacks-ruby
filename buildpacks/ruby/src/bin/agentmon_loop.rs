@@ -87,7 +87,7 @@ where
 
     eprintln!("Running: {}", commons::fun_run::display(&mut cmd));
 
-    cmd.spawn().and_then(|mut child| child.wait())
+    cmd.status()
 }
 
 #[derive(Debug, thiserror::Error, PartialEq)]

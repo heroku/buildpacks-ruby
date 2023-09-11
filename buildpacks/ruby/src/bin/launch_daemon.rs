@@ -102,14 +102,11 @@ fn main() {
         &agentmon.to_string_lossy(),
     ]);
 
-    command
-        .spawn()
-        .and_then(|mut child| child.wait())
-        .unwrap_or_else(|error| {
-            eprintln!(
-                "Command failed {}. Details: {error}",
-                commons::fun_run::display(&mut command)
-            );
-            exit(1)
-        });
+    command.status().unwrap_or_else(|error| {
+        eprintln!(
+            "Command failed {}. Details: {error}",
+            commons::fun_run::display(&mut command)
+        );
+        exit(1)
+    });
 }

@@ -91,7 +91,7 @@ where
 }
 
 #[derive(Debug, thiserror::Error, PartialEq)]
-enum Error {
+enum BuildArgsError {
     #[error("{PORT} environment variable is not set")]
     MissingPort,
 
@@ -108,16 +108,16 @@ enum Error {
 ///
 /// - Environment variables: PORT or `HEROKU_METRICS_URL` are not set
 /// - Environment variable DYNO starts with `run.`
-fn build_args(env: &HashMap<String, String>) -> Result<Vec<String>, Error> {
+fn build_args(env: &HashMap<String, String>) -> Result<Vec<String>, BuildArgsError> {
     let mut args = Vec::new();
     if env.get(DYNO).is_some_and(|value| value.starts_with("run.")) {
-        return Err(Error::RunDynoDetected);
+        return Err(BuildArgsError::RunDynoDetected);
     }
 
     if let Some(port) = env.get(PORT) {
         args.push(format!("-statsd-addr=:{port}"));
     } else {
-        return Err(Error::MissingPort);
+        return Err(BuildArgsError::MissingPort);
     };
 
     if env.get(AGENTMON_DEBUG).is_some_and(|value| value == "true") {
@@ -127,7 +127,7 @@ fn build_args(env: &HashMap<String, String>) -> Result<Vec<String>, Error> {
     if let Some(url) = env.get(HEROKU_METRICS_URL) {
         args.push(url.clone());
     } else {
-        return Err(Error::MissingMetricsUrl);
+        return Err(BuildArgsError::MissingMetricsUrl);
     };
 
     Ok(args)
@@ -141,21 +141,21 @@ mod test {
     fn missing_run_dyno() {
         let result = build_args(&HashMap::from([("DYNO".to_string(), "run.1".to_string())]));
 
-        assert_eq!(result, Err(Error::RunDynoDetected));
+        assert_eq!(result, Err(BuildArgsError::RunDynoDetected));
     }
 
     #[test]
     fn missing_metrics_url() {
         let result = build_args(&HashMap::from([("PORT".to_string(), "123".to_string())]));
 
-        assert_eq!(result, Err(Error::MissingMetricsUrl));
+        assert_eq!(result, Err(BuildArgsError::MissingMetricsUrl));
     }
 
     #[test]
     fn missing_port() {
         let result = build_args(&HashMap::new());
 
-        assert_eq!(result, Err(Error::MissingPort));
+        assert_eq!(result, Err(BuildArgsError::MissingPort));
     }
 
     #[test]

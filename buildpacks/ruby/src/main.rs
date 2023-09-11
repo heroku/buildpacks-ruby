@@ -81,13 +81,18 @@ impl Buildpack for RubyBuildpack {
         let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
 
         // ## Install metrics agent
+        let section = build_output::section("Metrics agent");
         if lockfile_contents.contains("barnes") {
-            let section = build_output::section("Metrics agent");
             context.handle_layer(
                 layer_name!("metrics_agent"),
                 MetricsAgentInstall { section },
             )?;
-        }
+        } else {
+            section.say_with_details(
+                "Skipping install",
+                "`gem 'barnes'` not found in Gemfile.lock",
+            );
+        };
 
         // ## Install executable ruby version
 

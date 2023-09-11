@@ -197,7 +197,7 @@ fn write_execd_script(
 }
 
 fn install_agentmon(dir: &Path) -> Result<PathBuf, MetricsAgentInstallError> {
-    let agentmon = download_untar(DOWNLOAD_URL, &dir).map(|_| dir.join("agentmon"))?;
+    let agentmon = download_untar(DOWNLOAD_URL, dir).map(|_| dir.join("agentmon"))?;
 
     chmod_plus_x(&agentmon).map_err(MetricsAgentInstallError::PermissionError)?;
     Ok(agentmon)

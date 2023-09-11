@@ -46,13 +46,12 @@ fn main() {
     if std::env::var_os("AGENTMON_DEBUG").is_some() {
         command.args(["--output", &log.to_string_lossy()]);
     } else {
-        match fs_err::write(&log, "To enable logging run with AGENTMON_DEBUG=1") {
-            Ok(_) => {}
-            Err(error) => eprintln!(
+        fs_err::write(&log, "To enable logging run with AGENTMON_DEBUG=1").unwrap_or_else(|error| {
+            eprintln!(
                 "Could not write to log file {}. Reason: {error}",
                 log.display()
-            ),
-        };
+            )
+        })
     }
     command.args([
         "--start",

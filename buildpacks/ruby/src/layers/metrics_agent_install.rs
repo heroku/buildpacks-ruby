@@ -82,8 +82,8 @@ impl Layer for MetricsAgentInstall {
         let bin_dir = layer_path.join("bin");
 
         let mut timer = self.section.say_with_inline_timer("Downloading");
-        let agentmon =
-            agentmon_download(&bin_dir).map_err(RubyBuildpackError::MetricsAgentError)?;
+        let agentmon = install_agentmon(&bin_dir).map_err(RubyBuildpackError::MetricsAgentError)?;
+
         timer.done();
 
         self.section.say("Writing scripts");
@@ -196,13 +196,14 @@ fn write_execd_script(
     Ok(execd)
 }
 
-fn agentmon_download(dir: &Path) -> Result<PathBuf, MetricsAgentInstallError> {
-    download_to_dir(DOWNLOAD_URL, dir)?;
+fn install_agentmon(dir: &Path) -> Result<PathBuf, MetricsAgentInstallError> {
+    let agentmon = download_untar(DOWNLOAD_URL, &dir).map(|_| dir.join("agentmon"))?;
 
-    Ok(dir.join("agentmon"))
+    chmod_plus_x(&agentmon).map_err(MetricsAgentInstallError::PermissionError)?;
+    Ok(agentmon)
 }
 
-fn download_to_dir(
+fn download_untar(
     url: impl AsRef<str>,
     destination: &Path,
 ) -> Result<(), MetricsAgentInstallError> {
@@ -212,9 +213,6 @@ fn download_to_dir(
     download(url, agentmon_tgz.path())?;
 
     untar(agentmon_tgz.path(), destination)?;
-
-    chmod_plus_x(&destination.join("agentmon"))
-        .map_err(MetricsAgentInstallError::PermissionError)?;
 
     Ok(())
 }

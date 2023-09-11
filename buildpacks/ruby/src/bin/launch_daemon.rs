@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use std::process::exit;
 use std::process::Command;
 
+static AGENTMON_DEBUG: &str = "AGENTMON_DEBUG";
+
 /// Schedules agentmon to run as a background daemon
 
 /// CLI argument parser
@@ -62,16 +64,34 @@ fn main() {
     } = Args::parse();
 
     let mut command = Command::new("start-stop-daemon");
-    if std::env::var_os("AGENTMON_DEBUG").is_some() {
-        command.args(["--output", &log.to_string_lossy()]);
-    } else {
-        fs_err::write(&log, "To enable logging run with AGENTMON_DEBUG=1").unwrap_or_else(|error| {
+    if let Some(value) = std::env::var_os(AGENTMON_DEBUG) {
+        fs_err::write(
+            &log,
+            format!(
+                "Logging enabled via `{AGENTMON_DEBUG}={value:?}`. To disable `unset {AGENTMON_DEBUG}`"
+            ),
+        )
+        .unwrap_or_else(|error| {
             eprintln!(
                 "Could not write to log file {}. Reason: {error}",
                 log.display()
             )
-        })
+        });
+
+        command.args(["--output", &log.to_string_lossy()]);
+    } else {
+        fs_err::write(
+            &log,
+            format!("To enable logging run with {AGENTMON_DEBUG}=1"),
+        )
+        .unwrap_or_else(|error| {
+            eprintln!(
+                "Could not write to log file {}. Reason: {error}",
+                log.display()
+            )
+        });
     }
+
     command.args([
         "--start",
         "--background",

@@ -12,6 +12,12 @@ use std::{
     thread::sleep,
     time::Duration,
 };
+
+static PORT: &str = "PORT";
+static DYNO: &str = "DYNO";
+static AGENTMON_DEBUG: &str = "AGENTMON_DEBUG";
+static HEROKU_METRICS_URL: &str = "HEROKU_METRICS_URL";
+
 const SLEEP_FOR: Duration = Duration::from_secs(1);
 
 /// Agentmon Loop
@@ -86,13 +92,13 @@ where
 
 #[derive(Debug, thiserror::Error, PartialEq)]
 enum Error {
-    #[error("PORT environment variable is not set")]
+    #[error("{PORT} environment variable is not set")]
     MissingPort,
 
-    #[error("HEROKU_METRICS_URL environment variable is not set")]
+    #[error("{HEROKU_METRICS_URL} environment variable is not set")]
     MissingMetricsUrl,
 
-    #[error("One off dyno detected i.e. DYNO=\"run.*\"")]
+    #[error("One off dyno detected i.e. {DYNO}=\"run.*\"")]
     RunDynoDetected,
 }
 
@@ -104,27 +110,21 @@ enum Error {
 /// - Environment variable DYNO starts with `run.`
 fn build_args(env: &HashMap<String, String>) -> Result<Vec<String>, Error> {
     let mut args = Vec::new();
-    if env
-        .get("DYNO")
-        .is_some_and(|value| value.starts_with("run."))
-    {
+    if env.get(DYNO).is_some_and(|value| value.starts_with("run.")) {
         return Err(Error::RunDynoDetected);
     }
 
-    if let Some(port) = env.get("PORT") {
+    if let Some(port) = env.get(PORT) {
         args.push(format!("-statsd-addr=:{port}"));
     } else {
         return Err(Error::MissingPort);
     };
 
-    if env
-        .get("AGENTMON_DEBUG")
-        .is_some_and(|value| value == "true")
-    {
+    if env.get(AGENTMON_DEBUG).is_some_and(|value| value == "true") {
         args.push("-debug".to_string());
     };
 
-    if let Some(url) = env.get("HEROKU_METRICS_URL") {
+    if let Some(url) = env.get(HEROKU_METRICS_URL) {
         args.push(url.clone());
     } else {
         return Err(Error::MissingMetricsUrl);
@@ -138,6 +138,20 @@ mod test {
     use super::*;
 
     #[test]
+    fn missing_run_dyno() {
+        let result = build_args(&HashMap::from([("DYNO".to_string(), "run.1".to_string())]));
+
+        assert_eq!(result, Err(Error::RunDynoDetected));
+    }
+
+    #[test]
+    fn missing_metrics_url() {
+        let result = build_args(&HashMap::from([("PORT".to_string(), "123".to_string())]));
+
+        assert_eq!(result, Err(Error::MissingMetricsUrl));
+    }
+
+    #[test]
     fn missing_port() {
         let result = build_args(&HashMap::new());
 
@@ -145,7 +159,7 @@ mod test {
     }
 
     #[test]
-    fn agentmon_args() {
+    fn agentmon_statsd_addr() {
         let env = HashMap::from([
             ("PORT".to_string(), "90210".to_string()),
             (

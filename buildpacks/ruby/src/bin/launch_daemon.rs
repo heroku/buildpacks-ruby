@@ -64,14 +64,14 @@ fn main() {
         &agentmon.to_string_lossy(),
     ]);
 
-    match command.spawn().map(|mut child| child.wait()) {
-        Ok(_) => {}
-        Err(error) => {
+    command
+        .spawn()
+        .and_then(|mut child| child.wait())
+        .unwrap_or_else(|error| {
             eprintln!(
                 "Command failed {}. Details: {error}",
                 commons::fun_run::display(&mut command)
             );
             exit(1)
-        }
-    };
+        });
 }

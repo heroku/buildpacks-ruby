@@ -27,7 +27,7 @@ const SLEEP_FOR: Duration = Duration::from_secs(1);
 /// Turn CLI arguments into a Rust struct
 #[derive(Parser, Debug)]
 struct Args {
-    /// Path to the agentmon executable e.g. --path <path/to/agenmon/binary>
+    /// Path to the agentmon executable e.g. --path <path/to/agentmon/binary>
     #[arg(short, long)]
     path: PathBuf,
 }

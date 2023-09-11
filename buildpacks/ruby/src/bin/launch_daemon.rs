@@ -10,7 +10,7 @@ use std::process::Command;
 /// ```shell
 /// $ cargo run --bin launch_daemon \
 ///   --log <path/to/log.txt> \
-///   --agentmon <path/to/agentmon>
+///   --agentmon <path/to/agentmon> \
 ///   --loop-path <path/to/agentmon_loop>
 /// ```
 #[derive(Parser, Debug)]

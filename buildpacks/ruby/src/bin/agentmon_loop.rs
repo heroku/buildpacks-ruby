@@ -47,19 +47,22 @@ fn main() {
         });
 
     match agentmon.try_exists() {
-        Ok(true) => loop {
-            match run(&agentmon, &agentmon_args) {
-                Ok(status) => {
-                    eprintln!("Process completed with status={status}, sleeping {SLEEP_FOR:?}");
-                }
-                Err(error) => {
-                    eprintln!(
-                        "Process could not run due to error. {error}, sleeping {SLEEP_FOR:?}"
-                    );
-                }
-            };
-            sleep(SLEEP_FOR);
-        },
+        Ok(true) => {
+            eprintln!("Booting agentmon_loop");
+            loop {
+                match run(&agentmon, &agentmon_args) {
+                    Ok(status) => {
+                        eprintln!("Process completed with status={status}, sleeping {SLEEP_FOR:?}");
+                    }
+                    Err(error) => {
+                        eprintln!(
+                            "Process could not run due to error. {error}, sleeping {SLEEP_FOR:?}"
+                        );
+                    }
+                };
+                sleep(SLEEP_FOR);
+            }
+        }
         Ok(false) => {
             eprintln!("Path does not exist {path}", path = agentmon.display());
             exit(1);

@@ -5,7 +5,7 @@ use libcnb_test::{
     ContainerContext, TestRunner,
 };
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use thiserror::__private::DisplayAsDisplay;
 use ureq::Response;
 
@@ -125,17 +125,33 @@ fn test_barnes_app() {
                 ContainerConfig::new()
                     .entrypoint("launcher")
                     .envs(vec![
-                        ("HEROKU_METRICS_URL", "example.com"),
                         ("DYNO", "web.1"),
                         ("PORT", "1234"),
+                        ("AGENTMON_DEBUG", "1"),
+                        ("HEROKU_METRICS_URL", "example.com"),
                     ])
-                    .command(["ps x"]),
+                    .command(["while true; do sleep 1; done"]),
                 |container| {
-                    let log_output = container.logs_wait();
+                    let boot_message = "Booting agentmon_loop";
+                    let mut agentmon_log = String::new();
+
+                    let started = Instant::now();
+                    while started.elapsed() < Duration::from_secs(20) {
+                        if agentmon_log.contains(boot_message) {
+                            break;
+                        }
+
+                        std::thread::sleep(frac_seconds(0.1));
+                        agentmon_log = container
+                            .shell_exec("cat /layers/heroku_ruby/metrics_agent/output.log")
+                            .stdout;
+                    }
+
+                    let log_output = container.logs_now();
                     println!("{}", log_output.stdout);
                     println!("{}", log_output.stderr);
 
-                    assert_contains!(log_output.stdout, "agentmon_loop --path");
+                    assert_contains!(agentmon_log, boot_message);
                 },
             );
         },

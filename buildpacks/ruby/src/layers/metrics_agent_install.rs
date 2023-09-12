@@ -22,10 +22,10 @@ use tempfile::NamedTempFile;
 /// To get the latest s3 url:
 ///
 /// ```shell
-/// $ curl https://agentmon-releases.s3.amazonaws.com/latest
+/// $ curl https://agentmon-releases.s3.us-east-1.amazonaws.com/latest
 /// ```
 const DOWNLOAD_URL: &str =
-    "https://agentmon-releases.s3.amazonaws.com/agentmon-0.3.1-linux-amd64.tar.gz";
+    "https://agentmon-releases.s3.us-east-1.amazonaws.com/agentmon-0.3.1-linux-amd64.tar.gz";
 
 #[derive(Debug)]
 pub(crate) struct MetricsAgentInstall {

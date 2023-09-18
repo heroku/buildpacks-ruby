@@ -9,6 +9,7 @@ use libcnb::{
     layer::{Layer, LayerResultBuilder},
 };
 use serde::{Deserialize, Serialize};
+use sha2::Digest;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use tar::Archive;
@@ -26,6 +27,7 @@ use tempfile::NamedTempFile;
 /// ```
 const DOWNLOAD_URL: &str =
     "https://agentmon-releases.s3.us-east-1.amazonaws.com/agentmon-0.3.1-linux-amd64.tar.gz";
+const DOWNLOAD_SHA: &str = "f9bf9f33c949e15ffed77046ca38f8dae9307b6a0181c6af29a25dec46eb2dac";
 
 #[derive(Debug)]
 pub(crate) struct MetricsAgentInstall {
@@ -57,6 +59,9 @@ pub(crate) enum MetricsAgentInstallError {
 
     #[error("Could not write file: {0}")]
     CouldNotWriteDestinationFile(std::io::Error),
+
+    #[error("Checksum of download failed. Expected {DOWNLOAD_SHA} got {0}")]
+    ChecksumFailed(String),
 }
 
 impl Layer for MetricsAgentInstall {
@@ -153,6 +158,15 @@ impl Layer for MetricsAgentInstall {
     }
 }
 
+// Check integrity of download, `sha_some` is awesome.
+fn sha_some(path: &Path) -> Result<String, std::io::Error> {
+    let mut hasher = sha2::Sha256::new();
+    let contents = fs_err::read(path)?;
+    hasher.update(&contents);
+
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
 fn write_execd_script(
     agentmon: &Path,
     layer_path: &Path,
@@ -211,6 +225,16 @@ fn download_untar(
         NamedTempFile::new().map_err(MetricsAgentInstallError::CouldNotCreateDestinationFile)?;
 
     download(url, agentmon_tgz.path())?;
+
+    sha_some(agentmon_tgz.path())
+        .map_err(MetricsAgentInstallError::CouldNotOpenFile)
+        .and_then(|checksum| {
+            if DOWNLOAD_SHA == checksum {
+                Ok(())
+            } else {
+                Err(MetricsAgentInstallError::ChecksumFailed(checksum))
+            }
+        })?;
 
     untar(agentmon_tgz.path(), destination)?;
 

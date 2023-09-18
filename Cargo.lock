@@ -493,6 +493,7 @@ dependencies = [
  "rand",
  "regex",
  "serde",
+ "sha2",
  "tar",
  "tempfile",
  "thiserror",

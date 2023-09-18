@@ -8,8 +8,8 @@ use libcnb::{
     generic::GenericMetadata,
     layer::{Layer, LayerResultBuilder},
 };
+use libherokubuildpack::digest::sha256;
 use serde::{Deserialize, Serialize};
-use sha2::Digest;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use tar::Archive;
@@ -158,15 +158,6 @@ impl Layer for MetricsAgentInstall {
     }
 }
 
-// Check integrity of download, `sha_some` is awesome.
-fn sha_some(path: &Path) -> Result<String, std::io::Error> {
-    let mut hasher = sha2::Sha256::new();
-    let contents = fs_err::read(path)?;
-    hasher.update(&contents);
-
-    Ok(format!("{:x}", hasher.finalize()))
-}
-
 fn write_execd_script(
     agentmon: &Path,
     layer_path: &Path,
@@ -226,7 +217,7 @@ fn download_untar(
 
     download(url, agentmon_tgz.path())?;
 
-    sha_some(agentmon_tgz.path())
+    sha256(agentmon_tgz.path())
         .map_err(MetricsAgentInstallError::CouldNotOpenFile)
         .and_then(|checksum| {
             if DOWNLOAD_SHA == checksum {

@@ -454,13 +454,13 @@ fn annotate_io_error(source: std::io::Error, annotation: String) -> std::io::Err
 #[derive(Debug, thiserror::Error)]
 #[allow(clippy::module_name_repetitions)]
 pub enum CmdError {
-    #[error("Could not run command {0}. {1}")]
+    #[error("Could not run command `{0}`. {1}")]
     SystemError(String, std::io::Error),
 
-    #[error("Command failed: {0:?}\nexit status: {}\nstdout: {}\nstderr: {}", .0.output.status.code().unwrap_or_else(|| 1),  display_out_or_empty(&.0.output.stdout), display_out_or_empty(&.0.output.stderr))]
+    #[error("Command failed: `{cmd}`\nexit status: {status}\nstdout: {stdout}\nstderr: {stderr}", cmd = .0.name, status = .0.output.status.code().unwrap_or_else(|| 1),  stdout = display_out_or_empty(&.0.output.stdout), stderr = display_out_or_empty(&.0.output.stderr))]
     NonZeroExitNotStreamed(NamedOutput),
 
-    #[error("Command failed: {0:?}\nexit status: {}\nstdout: <see above>\nstderr: <see above>", .0.output.status.code().unwrap_or_else(|| 1))]
+    #[error("Command failed: `{cmd}`\nexit status: {status}\nstdout: <see above>\nstderr: <see above>", cmd = .0.name, status = .0.output.status.code().unwrap_or_else(|| 1))]
     NonZeroExitAlreadyStreamed(NamedOutput),
 }
 

@@ -1,6 +1,3 @@
 [workspace]
 resolver = "2"
-members = [
-    "buildpacks/ruby",
-    "commons"
-]
+members = ["buildpacks/ruby", "commons"]

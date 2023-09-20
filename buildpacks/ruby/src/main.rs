@@ -1,6 +1,7 @@
 #![warn(unused_crate_dependencies)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
+use crate::layers::metrics_agent_install::{MetricsAgentInstall, MetricsAgentInstallError};
 use crate::layers::{RubyInstallError, RubyInstallLayer};
 use crate::rake_task_detect::RakeError;
 use commons::build_output;
@@ -29,6 +30,8 @@ mod user_errors;
 
 #[cfg(test)]
 use libcnb_test as _;
+
+use clap as _;
 
 pub(crate) struct RubyBuildpack;
 
@@ -76,6 +79,20 @@ impl Buildpack for RubyBuildpack {
         let gemfile_lock = GemfileLock::from_str(&lockfile_contents).expect("Infallible");
         let bundler_version = gemfile_lock.resolve_bundler("2.4.5");
         let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
+
+        // ## Install metrics agent
+        let section = build_output::section("Metrics agent");
+        if lockfile_contents.contains("barnes") {
+            context.handle_layer(
+                layer_name!("metrics_agent"),
+                MetricsAgentInstall { section },
+            )?;
+        } else {
+            section.say_with_details(
+                "Skipping install",
+                "`gem 'barnes'` not found in Gemfile.lock",
+            );
+        };
 
         // ## Install executable ruby version
 
@@ -179,6 +196,7 @@ pub(crate) enum RubyBuildpackError {
     RakeDetectError(RakeError),
     GemListGetError(gem_list::ListError),
     RubyInstallError(RubyInstallError),
+    MetricsAgentError(MetricsAgentInstallError),
     MissingGemfileLock(std::io::Error),
     InAppDirCacheError(CacheError),
     BundleInstallDigestError(commons::metadata_digest::DigestError),

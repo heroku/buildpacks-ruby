@@ -65,8 +65,19 @@ fn log_our_error(error: RubyBuildpackError) {
         RubyBuildpackError::InAppDirCacheError(error) => ErrorInfo::header_body_details(
             "Internal cache error",
             formatdoc! {"
-            An internal error occured while caching files.
+            An internal error occurred while caching files.
             "},
+            error,
+        )
+        .print(),
+        RubyBuildpackError::MetricsAgentError(error) => ErrorInfo::header_body_details(
+            formatdoc! {
+                "Could not install Statsd agent"
+            },
+            formatdoc! {
+                "An error occured while downloading and installing the metrics agent
+                the buildpack cannot continue"
+            },
             error,
         )
         .print(),
@@ -95,7 +106,7 @@ fn log_our_error(error: RubyBuildpackError) {
         RubyBuildpackError::RakeAssetsPrecompileFailed(error) => ErrorInfo::header_body_details(
             "Asset compilation failed",
             formatdoc! {"
-            An error occured while compiling assets via rake command.
+            An error occurred while compiling assets via rake command.
             "},
             error,
         )

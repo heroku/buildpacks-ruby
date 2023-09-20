@@ -15,6 +15,7 @@ indoc = "2"
 # libcnb has a much bigger impact on buildpack behaviour than any other dependencies,
 # so it's pinned to an exact version to isolate it from lockfile refreshes.
 libcnb = "=0.14.0"
+libherokubuildpack = "=0.14.0"
 rand = "0.8"
 regex = "1"
 serde = "1"
@@ -23,6 +24,7 @@ tempfile = "3"
 thiserror = "1"
 ureq = "2"
 url = "2"
+clap = { version = "4", features = ["derive"] }
 
 [dev-dependencies]
 libcnb-test = "=0.14.0"

@@ -5,7 +5,7 @@ use libcnb_test::{
     ContainerContext, TestRunner,
 };
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use thiserror::__private::DisplayAsDisplay;
 use ureq::Response;
 
@@ -13,8 +13,7 @@ use ureq::Response;
 #[ignore = "integration test"]
 fn test_default_app() {
     TestRunner::default().build(
-        BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby")
-        .buildpacks(vec![BuildpackReference::Crate]),
+        BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby"),
         |context| {
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
             assert_contains!(
@@ -110,6 +109,51 @@ fn test_ruby_app_with_yarn_app() {
                 r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
             }
         );
+}
+
+#[test]
+#[ignore = "integration test"]
+fn test_barnes_app() {
+    TestRunner::default().build(
+        BuildConfig::new("heroku/builder:22", "tests/fixtures/barnes_app"),
+        |context| {
+            assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
+
+            context.start_container(
+                ContainerConfig::new()
+                    .entrypoint("launcher")
+                    .envs(vec![
+                        ("DYNO", "web.1"),
+                        ("PORT", "1234"),
+                        ("AGENTMON_DEBUG", "1"),
+                        ("HEROKU_METRICS_URL", "example.com"),
+                    ])
+                    .command(["while true; do sleep 1; done"]),
+                |container| {
+                    let boot_message = "Booting agentmon_loop";
+                    let mut agentmon_log = String::new();
+
+                    let started = Instant::now();
+                    while started.elapsed() < Duration::from_secs(20) {
+                        if agentmon_log.contains(boot_message) {
+                            break;
+                        }
+
+                        std::thread::sleep(frac_seconds(0.1));
+                        agentmon_log = container
+                            .shell_exec("cat /layers/heroku_ruby/metrics_agent/output.log")
+                            .stdout;
+                    }
+
+                    let log_output = container.logs_now();
+                    println!("{}", log_output.stdout);
+                    println!("{}", log_output.stderr);
+
+                    assert_contains!(agentmon_log, boot_message);
+                },
+            );
+        },
+    );
 }
 
 fn request_container(

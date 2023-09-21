@@ -115,7 +115,6 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Install executable ruby version
-
         (logger, env) = {
             let section = logger.section(&format!(
                 "Ruby version {} from {}",

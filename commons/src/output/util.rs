@@ -19,6 +19,32 @@ where
     arc: Arc<Mutex<W>>,
 }
 
+impl<W> Clone for ReadYourWrite<W>
+where
+    W: Write + AsRef<[u8]> + Debug,
+{
+    fn clone(&self) -> Self {
+        Self {
+            arc: self.arc.clone(),
+        }
+    }
+}
+
+impl<W> Write for ReadYourWrite<W>
+where
+    W: Write + AsRef<[u8]> + Debug,
+{
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let mut writer = self.arc.lock().expect("Internal error");
+        writer.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        let mut writer = self.arc.lock().expect("Internal error");
+        writer.flush()
+    }
+}
+
 impl<W> ReadYourWrite<W>
 where
     W: Write + AsRef<[u8]>,
@@ -72,32 +98,6 @@ where
 
     fn deref(&self) -> &Self::Target {
         &self.arc
-    }
-}
-
-impl<W> Clone for ReadYourWrite<W>
-where
-    W: Write + AsRef<[u8]> + Debug,
-{
-    fn clone(&self) -> Self {
-        Self {
-            arc: self.arc.clone(),
-        }
-    }
-}
-
-impl<W> Write for ReadYourWrite<W>
-where
-    W: Write + AsRef<[u8]> + Debug,
-{
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let mut writer = self.arc.lock().expect("Internal error");
-        writer.write(buf)
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        let mut writer = self.arc.lock().expect("Internal error");
-        writer.flush()
     }
 }
 

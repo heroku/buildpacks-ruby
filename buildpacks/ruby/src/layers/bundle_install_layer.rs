@@ -134,17 +134,16 @@ impl Layer for BundleInstallLayer<'_> {
                 bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
             }
             UpdateState::Skip(checked) => {
-                let checked = SentenceList::new(&checked).join_str("or");
                 let bundle_install = fmt::value("bundle install");
-                let env_var = fmt::value(format!("{HEROKU_SKIP_BUNDLE_DIGEST}=1"));
 
                 log_step(format!(
-                    "Skipping {bundle_install} {}",
-                    fmt::details(format!("no changes found in {checked}"))
+                    "Skipping {bundle_install} (no changes found in {sources})",
+                    sources = SentenceList::new(&checked).join_str("or")
                 ));
 
                 log_step(format!(
-                    "{HELP} To force run {bundle_install} set {env_var}",
+                    "{HELP} To force run {bundle_install} set {}",
+                    fmt::value(format!("{HEROKU_SKIP_BUNDLE_DIGEST}=1"))
                 ));
             }
         }

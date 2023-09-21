@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Update build logging style (https://github.com/heroku/buildpacks-ruby/pull/198)
+
 ## [2.1.1] - 2023-10-24
 
 ### Fixed

@@ -65,12 +65,12 @@ impl<'a> Layer for BundleDownloadLayer<'a> {
         let short_name = fun_run::display(&mut cmd);
 
         // Arguments we don't need in the output
-        cmd.mut_cmd().args([
+        cmd.args([
             "--install-dir", // Directory where bundler's contents will live
             &layer_path.to_string_lossy(),
             "--bindir", // Directory where `bundle` executable lives
             &bin_dir.to_string_lossy(),
-            "--force",
+            "--force",       // Overwrite if it already exists
             "--no-document", // Don't install ri or rdoc documentation, which takes extra time
             "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
         ]);

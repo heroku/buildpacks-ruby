@@ -118,7 +118,7 @@ impl<'a> Layer for MetricsAgentInstall<'a> {
         LayerResultBuilder::new(Metadata {
             download_url: Some(DOWNLOAD_URL.to_string()),
         })
-        .exec_d_program("spawn agentmon", execd)
+        .exec_d_program("spawn_metrics_agent", execd)
         .build()
     }
 

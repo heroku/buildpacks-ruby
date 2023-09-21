@@ -1,12 +1,13 @@
 use crate::output::util::LinesWithEndings;
+use const_format::formatcp;
 
 /// Helpers for formatting and colorizing your output
 
 /// Decorated str for prefixing "Help:"
-pub const HELP: &str = "\x1B[0;36m! Help:\x1B[0m"; // "{IMPORTANT_COLOR}! HELP{RESET}"
+pub const HELP: &str = formatcp!("{IMPORTANT_COLOR}! HELP{RESET}");
 
 /// Decorated str for prefixing "Debug info:"
-pub const DEBUG_INFO: &str = "\x1B[0;36mDebug info:\x1B[0m"; // "{IMPORTANT_COLOR}Debug info:{RESET}"
+pub const DEBUG_INFO: &str = formatcp!("{IMPORTANT_COLOR}Debug info{RESET}");
 
 /// Decorate a URL for the build output
 #[must_use]
@@ -175,21 +176,6 @@ pub(crate) fn prepend_each_line(
         })
         .collect::<String>();
     lines
-
-    // if body.trim().is_empty() {
-    //     format!("{prepend}\n")
-    // } else {
-    //     body.split('\n')
-    //         .map(|section| {
-    //             if section.trim().is_empty() {
-    //                 prepend.to_string()
-    //             } else {
-    //                 format!("{prepend}{separator}{section}")
-    //             }
-    //         })
-    //         .collect::<Vec<String>>()
-    //         .join("\n")
-    // }
 }
 
 /// Colorizes a body while preserving existing color/reset combinations and clearing before newlines

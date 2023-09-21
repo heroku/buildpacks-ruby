@@ -29,7 +29,7 @@ thread_local!(static WARN_LATER: RefCell<Option<Vec<String>>> = RefCell::new(Non
 ///     let warn_later = WarnGuard::new(std::io::stdout());
 ///     // ...
 ///
-///     // Warnings will be emitted if the warn guard is dropped
+///     // Warnings will be emitted when the warn guard is dropped
 ///     drop(warn_later);
 /// // }
 /// ```
@@ -105,7 +105,7 @@ pub(crate) fn try_push(s: impl AsRef<str>) -> Result<(), WarnLaterError> {
 ///
 /// Should only ever be used within a `WarnGuard`.
 ///
-/// The state where the warnings are taken but a warn guard is still present
+/// The state where the warnings are taken, but a warn guard is still present
 /// can happen when more than one warn guard is created in the same thread
 fn force_push(s: impl AsRef<str>) {
     WARN_LATER.with(|cell| {

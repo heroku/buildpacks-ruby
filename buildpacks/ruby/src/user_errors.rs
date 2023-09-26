@@ -239,6 +239,18 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
                 Use the information above to debug further.
             "});
         }
+        RubyBuildpackError::MetricsAgentError(error) => {
+            log.section(DEBUG_INFO)
+                .step(&error.to_string())
+                .end_section()
+                .announce()
+                .error(&formatdoc! {"
+                    Error: Could not install Statsd agent
+
+                    An error occured while downloading and installing the metrics agent
+                    the buildpack cannot continue.
+            "});
+        }
     }
 }
 

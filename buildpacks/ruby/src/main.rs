@@ -1,8 +1,6 @@
 #![warn(unused_crate_dependencies)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
-use crate::layers::metrics_agent_install::{MetricsAgentInstall, MetricsAgentInstallError};
-use crate::layers::{RubyInstallError, RubyInstallLayer};
 use commons::cache::CacheError;
 use commons::fun_run::CmdError;
 use commons::gemfile_lock::GemfileLock;
@@ -10,10 +8,10 @@ use commons::metadata_digest::MetadataDigest;
 use commons::output::warn_later::WarnGuard;
 use core::str::FromStr;
 use layers::{
-    bundle_download_layer::BundleDownloadLayer, bundle_download_layer::BundleDownloadLayerMetadata,
-    bundle_install_layer::BundleInstallLayer, bundle_install_layer::BundleInstallLayerMetadata,
-    ruby_install_layer::RubyInstallError, ruby_install_layer::RubyInstallLayer,
-    ruby_install_layer::RubyInstallLayerMetadata,
+    bundle_download_layer::{BundleDownloadLayer, BundleDownloadLayerMetadata},
+    bundle_install_layer::{BundleInstallLayer, BundleInstallLayerMetadata},
+    metrics_agent_install::{MetricsAgentInstall, MetricsAgentInstallError},
+    ruby_install_layer::{RubyInstallError, RubyInstallLayer, RubyInstallLayerMetadata},
 };
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
@@ -92,17 +90,28 @@ impl Buildpack for RubyBuildpack {
         let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
 
         // ## Install metrics agent
-        let section = build_output::section("Metrics agent");
-        if lockfile_contents.contains("barnes") {
-            context.handle_layer(
-                layer_name!("metrics_agent"),
-                MetricsAgentInstall { section },
-            )?;
-        } else {
-            section.say_with_details(
-                "Skipping install",
-                "`gem 'barnes'` not found in Gemfile.lock",
-            );
+        (logger, env) = {
+            let section = logger.section("Metrics agent");
+            if lockfile_contents.contains("barnes") {
+                let layer_data = context.handle_layer(
+                    layer_name!("metrics_agent"),
+                    MetricsAgentInstall {
+                        _in_section: section.as_ref(),
+                    },
+                )?;
+
+                (
+                    section.end_section(),
+                    layer_data.env.apply(Scope::Build, &env),
+                )
+            } else {
+                (
+                    section
+                        .step("Skipping install (`gem 'barnes'` not found in Gemfile.lock)")
+                        .end_section(),
+                    env,
+                )
+            }
         };
 
         // ## Install executable ruby version

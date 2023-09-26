@@ -6,7 +6,6 @@ use libcnb_test::{
 };
 use std::thread;
 use std::time::{Duration, Instant};
-use thiserror::__private::AsDisplay;
 use ureq::Response;
 
 #[test]
@@ -174,21 +173,17 @@ fn call_root_until_boot(
 ) -> Result<Response, Box<ureq::Error>> {
     let mut count = 0;
     let max_time = 10.0_f64; // Seconds
-    let sleep = 0.1_f64;
+    let sleep_for = 0.1_f64;
 
     #[allow(clippy::cast_possible_truncation)]
-    let max_count = (max_time / sleep).floor() as i64;
+    let max_count = (max_time / sleep_for).floor() as i64;
     let mut response = request_container(container, port, "");
     while count < max_count {
         count += 1;
         match response {
             Err(ref box_e) => match box_e.as_ref() {
-                ureq::Error::Transport(e) => {
-                    println!(
-                        "Waiting for connection {}, retrying in {}",
-                        e.as_display(),
-                        sleep
-                    );
+                ureq::Error::Transport(error) => {
+                    println!("Waiting for connection {error}, retrying in {sleep_for}");
                     response = request_container(container, port, "");
                 }
                 ureq::Error::Status(..) => break,
@@ -196,7 +191,7 @@ fn call_root_until_boot(
             _ => break,
         }
 
-        thread::sleep(frac_seconds(sleep));
+        thread::sleep(frac_seconds(sleep_for));
     }
 
     println!(

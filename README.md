@@ -45,7 +45,7 @@ Previous image with name "my-image" not found
 # ...
 ```
 
-The buildpack is released to Heroku's [heroku/builder images](https://github.com/heroku/builder). This buildpack is currently released on:
+The buildpack is released to Heroku's [heroku/builder images](https://github.com/heroku/cnb-builder-images). This buildpack is currently released on:
 
 - `heroku/builder:22`
 

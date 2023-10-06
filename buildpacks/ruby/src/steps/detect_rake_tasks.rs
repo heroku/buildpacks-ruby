@@ -29,7 +29,7 @@ pub(crate) fn detect_rake_tasks(
     ) {
         RakeStatus::MissingRakeGem => {
             log_step(format!(
-                "Cannot run rake tasks {}",
+                "Skipping rake tasks {}",
                 fmt::details(format!("no {rake} gem in {gemfile}"))
             ));
 
@@ -42,7 +42,7 @@ pub(crate) fn detect_rake_tasks(
         }
         RakeStatus::MissingRakefile => {
             log_step(format!(
-                "Cannot run rake tasks {}",
+                "Skipping rake tasks {}",
                 fmt::details(format!("no {rakefile}"))
             ));
             log_step(format!("{HELP} Add {rakefile} to your project to enable",));
@@ -66,11 +66,8 @@ pub(crate) fn detect_rake_tasks(
         }
         RakeStatus::Ready(path) => {
             log_step(format!(
-                "Rake detected {}",
-                fmt::details(format!(
-                    "{rake} gem found, {rakefile} found ad {path}",
-                    path = fmt::value(path.to_string_lossy())
-                ))
+                "Detected rake ({rake} gem found, {rakefile} found at {path})",
+                path = fmt::value(path.to_string_lossy())
             ));
 
             let rake_detect = RakeDetect::from_rake_command(logger, env, true)

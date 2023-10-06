@@ -1,5 +1,6 @@
 use crate::output::util::LinesWithEndings;
 use const_format::formatcp;
+use std::fmt::Write;
 
 /// Helpers for formatting and colorizing your output
 
@@ -119,7 +120,7 @@ pub(crate) fn prefix_indent(prefix: impl AsRef<str>, contents: impl AsRef<str>) 
     let prefix = prefix.as_ref();
     let contents = contents.as_ref();
     let non_whitespace_re = regex::Regex::new("\\S").expect("Clippy");
-    let clean_prefix = strip_control_codes(prefix.clone());
+    let clean_prefix = strip_control_codes(prefix);
 
     let indent_str = non_whitespace_re.replace_all(&clean_prefix, " "); // Preserve whitespace characters like tab and space, replace all characters with spaces
     let lines = LinesWithEndings::from(contents).collect::<Vec<_>>();
@@ -127,9 +128,10 @@ pub(crate) fn prefix_indent(prefix: impl AsRef<str>, contents: impl AsRef<str>) 
     if let Some((first, rest)) = lines.split_first() {
         format!(
             "{prefix}{first}{}",
-            rest.iter()
-                .map(|line| format!("{indent_str}{line}"))
-                .collect::<String>()
+            rest.iter().fold(String::new(), |mut output, line| {
+                let _ = write!(output, "{indent_str}{line}");
+                output
+            })
         )
     } else {
         prefix.to_string()

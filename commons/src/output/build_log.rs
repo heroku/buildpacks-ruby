@@ -240,7 +240,7 @@ where
         formatted.push('\n');
 
         match crate::output::warn_later::try_push(formatted) {
-            Ok(_) => {}
+            Ok(()) => {}
             Err(error) => {
                 eprintln!("[Buildpack Warning]: Cannot use the delayed warning feature due to error: {error}");
                 self.log_warning_shared(s);

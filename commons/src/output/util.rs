@@ -155,6 +155,7 @@ pub(crate) fn strip_trailing_whitespace(s: impl AsRef<str>) -> String {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::fmt::Write;
 
     #[test]
     fn test_trailing_whitespace() {
@@ -167,15 +168,18 @@ mod test {
 
     #[test]
     fn test_lines_with_endings() {
-        let actual = LinesWithEndings::from("foo\nbar")
-            .map(|line| format!("z{line}"))
-            .collect::<String>();
+        let actual = LinesWithEndings::from("foo\nbar").fold(String::new(), |mut output, line| {
+            let _ = write!(output, "z{line}");
+            output
+        });
 
         assert_eq!("zfoo\nzbar", actual);
 
-        let actual = LinesWithEndings::from("foo\nbar\n")
-            .map(|line| format!("z{line}"))
-            .collect::<String>();
+        let actual =
+            LinesWithEndings::from("foo\nbar\n").fold(String::new(), |mut output, line| {
+                let _ = write!(output, "z{line}");
+                output
+            });
 
         assert_eq!("zfoo\nzbar\n", actual);
     }

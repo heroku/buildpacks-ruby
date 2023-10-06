@@ -33,8 +33,8 @@ impl RakeDetect {
             .env_clear()
             .envs(envs);
 
-        log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
-            cmd.stream_output(stream.io(), stream.io())
+        log_step_timed(format!("Running {}", fmt::command(cmd.name())), || {
+            cmd.named_output()
         })
         .or_else(|error| {
             if error_on_failure {

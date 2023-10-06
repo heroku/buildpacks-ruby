@@ -67,11 +67,11 @@ impl GemList {
         let mut cmd = Command::new("bundle");
         cmd.arg("list").env_clear().envs(envs);
 
-        log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
-            let output = cmd.stream_output(stream.io(), stream.io())?;
+        let output = log_step_timed(format!("Running {}", fmt::command(cmd.name())), || {
+            cmd.named_output()
+        })?;
 
-            GemList::from_str(&output.stdout_lossy())
-        })
+        GemList::from_str(&output.stdout_lossy())
     }
 
     #[must_use]

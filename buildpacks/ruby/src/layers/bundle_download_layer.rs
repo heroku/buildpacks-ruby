@@ -75,11 +75,10 @@ impl<'a> Layer for BundleDownloadLayer<'a> {
             "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
         ]);
 
-        log_step_stream(format!("Running {}", fmt::command(short_name)), |stream| {
-            cmd.stream_output(stream.io(), stream.io())
-                .map_err(|error| {
-                    fun_run::map_which_problem(error, cmd.mut_cmd(), self.env.get("PATH").cloned())
-                })
+        log_step_timed(format!("Running {}", fmt::command(short_name)), || {
+            cmd.named_output().map_err(|error| {
+                fun_run::map_which_problem(error, cmd.mut_cmd(), self.env.get("PATH").cloned())
+            })
         })
         .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
 

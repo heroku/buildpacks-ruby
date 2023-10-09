@@ -412,7 +412,7 @@ mod test {
         let env = layer_env.apply(Scope::All, &Env::new());
 
         let actual = commons::display::env_to_sorted_string(&env);
-        let expected = r#"
+        let expected = r"
 BUNDLE_BIN=layer_path/bin
 BUNDLE_CLEAN=1
 BUNDLE_DEPLOYMENT=1
@@ -420,7 +420,7 @@ BUNDLE_GEMFILE=app_path/Gemfile
 BUNDLE_PATH=layer_path
 BUNDLE_WITHOUT=development:test
 GEM_PATH=layer_path
-        "#;
+        ";
         assert_eq!(expected.trim(), actual.trim());
     }
 

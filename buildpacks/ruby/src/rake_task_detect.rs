@@ -82,7 +82,7 @@ mod tests {
     #[test]
     fn test_parsing_rake_dash_p() {
         let rake_detect = RakeDetect::from_str(
-            r#"
+            r"
 rake about
     environment
 rake action_mailbox:ingress:environment
@@ -123,7 +123,7 @@ rake assets:environment
 rake assets:precompile
     environment
     yarn:install
-        "#,
+        ",
         )
         .unwrap();
 

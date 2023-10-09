@@ -153,7 +153,7 @@ mod tests {
     #[test]
     fn test_parse_gemfile_lock() {
         let info = GemfileLock::from_str(
-            r#"
+            r"
 GEM
   remote: https://rubygems.org/
   specs:
@@ -172,7 +172,7 @@ RUBY VERSION
 
 BUNDLED WITH
    2.3.4
-"#,
+",
         )
         .unwrap();
 
@@ -196,7 +196,7 @@ BUNDLED WITH
     #[test]
     fn test_jruby() {
         let info = GemfileLock::from_str(
-            r#"
+            r"
 GEM
   remote: https://rubygems.org/
   specs:
@@ -205,7 +205,7 @@ PLATFORMS
 RUBY VERSION
    ruby 2.5.7p001 (jruby 9.2.13.0)
 DEPENDENCIES
-"#,
+",
         )
         .unwrap();
 

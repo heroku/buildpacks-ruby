@@ -87,6 +87,9 @@ jobs:
       - name: "PRINT: Getting started guide output"
         run: | # Use `script -e -c` to pretend to be a TTY for pack terminal color support
           script -e -c "pack build my-image --builder heroku/builder:22 --buildpack heroku/nodejs-engine --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never"
+      - name: "PRINT: Cached getting started guide output"
+        run: | # Use `script -e -c` to pretend to be a TTY for pack terminal color support
+          script -e -c "pack build my-image --builder heroku/builder:22 --buildpack heroku/nodejs-engine --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never"
 
   print-style-guide:
     runs-on: ubuntu-22.04

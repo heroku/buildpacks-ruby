@@ -123,7 +123,7 @@ mod tests {
     #[test]
     fn test_parsing_gem_list() {
         let gem_list = GemList::from_str(
-            r#"
+            r"
 Gems included by the bundle:
   * actioncable (6.1.4.1)
   * actionmailbox (6.1.4.1)
@@ -140,7 +140,7 @@ Gems included by the bundle:
   * ast (2.4.2)
   * railties (6.1.4.1)
 Use `bundle info` to print more detailed information about a gem
-            "#,
+            ",
         )
         .unwrap();
 

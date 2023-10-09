@@ -231,13 +231,13 @@ mod test {
 
     #[test]
     fn test_needs_java() {
-        let gemfile_lock = r#""#;
+        let gemfile_lock = r"";
         assert!(!needs_java(gemfile_lock));
 
-        let gemfile_lock = r#"
+        let gemfile_lock = r"
 RUBY VERSION
    ruby 2.5.7p001 (jruby 9.2.13.0)
-"#;
+";
         assert!(needs_java(gemfile_lock));
     }
 }

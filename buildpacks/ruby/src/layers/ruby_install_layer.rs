@@ -135,7 +135,7 @@ fn download_url(stack: &StackId, version: impl std::fmt::Display) -> Result<Url,
     let mut url = Url::parse(base).map_err(RubyInstallError::UrlParseError)?;
 
     url.path_segments_mut()
-        .map_err(|_| RubyInstallError::InvalidBaseUrl(String::from(base)))?
+        .map_err(|()| RubyInstallError::InvalidBaseUrl(String::from(base)))?
         .push(stack)
         .push(&filename);
     Ok(url)

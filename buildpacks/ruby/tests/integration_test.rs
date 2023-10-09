@@ -63,7 +63,7 @@ fn test_jruby_app() {
 
     fs_err::write(
         app_dir.path().join("Gemfile.lock"),
-        r#"
+        r"
 GEM
   remote: https://rubygems.org/
   specs:
@@ -72,7 +72,7 @@ PLATFORMS
 RUBY VERSION
    ruby 2.6.8p001 (jruby 9.3.6.0)
 DEPENDENCIES
-"#,
+",
     )
     .unwrap();
 

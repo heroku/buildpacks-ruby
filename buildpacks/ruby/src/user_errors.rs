@@ -14,7 +14,12 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
     let log = BuildLog::new(std::io::stdout()).without_buildpack_name();
     match cause(err) {
         Cause::OurError(error) => log_our_error(log, error),
-        Cause::FrameworkError(_error) => log.announce().error(&formatdoc! {"
+        Cause::FrameworkError(error) =>
+            log
+            .section(DEBUG_INFO)
+            .step(&error.to_string())
+            .announce()
+            .error(&formatdoc! {"
                 Error: heroku/buildpack-ruby internal buildpack error
 
                 The framework used by this buildpack encountered an unexpected error.

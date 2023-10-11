@@ -27,8 +27,8 @@ tempfile = "3"
 thiserror = "1"
 walkdir = "2"
 which_problem = "0.1"
-ascii_table = { version = "4.0.2", features = ["color_codes"] }
-const_format = "0.2.31"
+ascii_table = { version = "4", features = ["color_codes"] }
+const_format = "0.2"
 
 [dev-dependencies]
 indoc = "2"

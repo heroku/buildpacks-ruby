@@ -50,7 +50,7 @@ thread_local!(static WARN_LATER: RefCell<Option<Vec<String>>> = RefCell::new(Non
 ///
 /// ## Use - Issue a delayed warning
 ///
-/// Once a warn guard is in place you can queue a warning using `section_log::*` or `build_log::*`:
+/// Once a warn guard is in place you can queue a warning using `section_log::log_warning_later` or `build_log::*`:
 ///
 /// ```
 /// use commons::output::warn_later::WarnGuard;
@@ -67,7 +67,7 @@ thread_local!(static WARN_LATER: RefCell<Option<Vec<String>>> = RefCell::new(Non
 ///
 /// ```
 /// use commons::output::warn_later::WarnGuard;
-/// use commons::output::section_log::*;
+/// use commons::output::section_log::log_warning_later;
 ///
 /// // src/main.rs
 /// let warn_later = WarnGuard::new(std::io::stdout());

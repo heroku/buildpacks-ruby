@@ -1,9 +1,10 @@
-#[allow(clippy::wildcard_imports)]
-use commons::output::{build_log::*, section_log::*};
-
 use ascii_table::AsciiTable;
 use commons::fun_run::CommandWithName;
 use commons::output::fmt::{self, DEBUG_INFO, HELP};
+use commons::output::{
+    build_log::*,
+    section_log::{log_step, log_step_stream, log_step_timed},
+};
 use indoc::formatdoc;
 use std::io::stdout;
 use std::process::Command;

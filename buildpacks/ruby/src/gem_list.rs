@@ -1,8 +1,9 @@
-#[allow(clippy::wildcard_imports)]
-use commons::output::{fmt, section_log::*};
-
 use commons::fun_run::{CmdError, CommandWithName};
 use commons::gem_version::GemVersion;
+use commons::output::{
+    fmt,
+    section_log::{log_step_timed, SectionLogger},
+};
 use core::str::FromStr;
 use regex::Regex;
 use std::collections::HashMap;

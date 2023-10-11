@@ -1,8 +1,9 @@
-#[allow(clippy::wildcard_imports)]
-use commons::output::{fmt, section_log::*};
-
 use crate::gem_list::GemList;
 use crate::RubyBuildpack;
+use commons::output::{
+    fmt,
+    section_log::{log_step, SectionLogger},
+};
 use libcnb::build::BuildContext;
 use libcnb::data::launch::Process;
 use libcnb::data::launch::ProcessBuilder;

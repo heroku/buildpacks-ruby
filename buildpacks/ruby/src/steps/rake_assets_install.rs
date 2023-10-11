@@ -1,11 +1,12 @@
-#[allow(clippy::wildcard_imports)]
-use commons::output::{fmt, section_log::*};
-
 use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use commons::cache::{mib, AppCacheCollection, CacheConfig, KeepPath};
 use commons::fun_run::{self, CmdError, CommandWithName};
+use commons::output::{
+    fmt,
+    section_log::{log_step, log_step_stream, SectionLogger},
+};
 use libcnb::build::BuildContext;
 use libcnb::Env;
 use std::process::Command;

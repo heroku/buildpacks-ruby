@@ -24,7 +24,7 @@ use std::marker::PhantomData;
 /// The main use case is logging inside of a layer:
 ///
 /// ```no_run
-/// use commons::output::section_log::*;
+/// use commons::output::section_log::log_step_timed;
 ///
 /// // fn create(
 /// //     &self,
@@ -44,7 +44,7 @@ use std::marker::PhantomData;
 /// Output a message as a single step, ideally a short message
 ///
 /// ```
-/// use commons::output::section_log::*;
+/// use commons::output::section_log::log_step;
 ///
 /// log_step("Clearing cache (ruby version changed)");
 /// ```
@@ -56,7 +56,7 @@ pub fn log_step(s: impl AsRef<str>) {
 /// that will emit to the UI until the passed in function ends
 ///
 /// ```
-/// use commons::output::section_log::*;
+/// use commons::output::section_log::log_step_timed;
 ///
 /// log_step_timed("Installing", || {
 ///     // Install logic here
@@ -76,7 +76,7 @@ pub fn log_step_timed<T>(s: impl AsRef<str>, f: impl FnOnce() -> T) -> T {
 ///
 /// ```no_run
 /// use commons::fun_run::CommandWithName;
-/// use commons::output::section_log::*;
+/// use commons::output::section_log::log_step_stream;
 /// use commons::output::fmt;
 ///
 /// let mut cmd = std::process::Command::new("bundle");

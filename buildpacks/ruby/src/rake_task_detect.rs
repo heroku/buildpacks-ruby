@@ -1,5 +1,7 @@
-#[allow(clippy::wildcard_imports)]
-use commons::output::{fmt, section_log::*};
+use commons::output::{
+    fmt,
+    section_log::{log_step_timed, SectionLogger},
+};
 
 use commons::fun_run::{CmdError, CommandWithName};
 use core::str::FromStr;

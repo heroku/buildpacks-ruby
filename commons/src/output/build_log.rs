@@ -1,13 +1,12 @@
 use crate::output::background_timer::{start_timer, StopJoinGuard, StopTimer};
 use crate::output::fmt;
+#[allow(clippy::wildcard_imports)]
+pub use crate::output::interface::*;
 use std::fmt::Debug;
 use std::io::Write;
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-
-#[allow(clippy::wildcard_imports)]
-pub use crate::output::interface::*;
 
 /// # Build output logging
 ///

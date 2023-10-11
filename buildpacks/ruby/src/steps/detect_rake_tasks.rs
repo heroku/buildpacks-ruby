@@ -1,7 +1,6 @@
-#[allow(clippy::wildcard_imports)]
 use commons::output::{
     fmt::{self, HELP},
-    section_log::*,
+    section_log::{log_step, SectionLogger},
 };
 
 use crate::gem_list::GemList;

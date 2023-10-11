@@ -1,7 +1,6 @@
-#[allow(clippy::wildcard_imports)]
 use commons::output::{
     fmt::{self, HELP},
-    section_log::*,
+    section_log::{log_step, log_step_stream, SectionLogger},
 };
 
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};

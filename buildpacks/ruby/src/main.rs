@@ -6,6 +6,8 @@ use commons::fun_run::CmdError;
 use commons::gemfile_lock::GemfileLock;
 use commons::metadata_digest::MetadataDigest;
 use commons::output::warn_later::WarnGuard;
+#[allow(clippy::wildcard_imports)]
+use commons::output::{build_log::*, fmt};
 use core::str::FromStr;
 use layers::{
     bundle_download_layer::{BundleDownloadLayer, BundleDownloadLayerMetadata},
@@ -23,9 +25,6 @@ use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 use std::io::stdout;
-
-#[allow(clippy::wildcard_imports)]
-use commons::output::{build_log::*, fmt};
 
 mod gem_list;
 mod layers;

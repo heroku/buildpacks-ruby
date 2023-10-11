@@ -31,8 +31,8 @@ ascii_table = { version = "4.0.2", features = ["color_codes"] }
 const_format = "0.2.31"
 
 [dev-dependencies]
-indoc = "2.0.1"
+indoc = "2"
 filetime = "0.2"
 toml = "0.8"
 libcnb-test = "0.15.0"
-pretty_assertions = "1.4.0"
+pretty_assertions = "1"

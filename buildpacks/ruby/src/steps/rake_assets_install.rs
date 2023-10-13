@@ -4,7 +4,7 @@ use crate::RubyBuildpackError;
 use commons::cache::{mib, AppCacheCollection, CacheConfig, KeepPath};
 use commons::fun_run::{self, CmdError, CommandWithName};
 use commons::output::{
-    fmt,
+    fmt::{self, HELP},
     section_log::{log_step, log_step_stream, SectionLogger},
 };
 use libcnb::build::BuildContext;
@@ -28,16 +28,14 @@ pub(crate) fn rake_assets_install(
                 "Skipping {rake_assets_precompile} {}",
                 fmt::details(format!("task not found via {rake_detect_cmd}"))
             ));
-
-            // section.help("Enable compiling assets by ensuring that task is present when running the detect command locally");
+            log_step(format!("{HELP} Enable compiling assets by ensuring {rake_assets_precompile} is present when running the detect command locally"));
         }
         AssetCases::PrecompileOnly => {
             log_step(format!(
                 "Compiling assets without cache {}",
                 fmt::details(format!("Clean task not found via {rake_detect_cmd}"))
             ));
-
-            // section.help(format!("Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
+            log_step(format!("{HELP} Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
 
             run_rake_assets_precompile(env)
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;

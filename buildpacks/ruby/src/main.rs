@@ -193,7 +193,7 @@ impl Buildpack for RubyBuildpack {
 
         // ## Detect gems
         let (mut logger, gem_list, default_process) = {
-            let section = logger.section("Setting default processes(es)");
+            let section = logger.section("Setting default processes");
 
             let gem_list = gem_list::GemList::from_bundle_list(&env, section.as_ref())
                 .map_err(RubyBuildpackError::GemListGetError)?;

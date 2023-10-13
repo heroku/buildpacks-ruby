@@ -106,7 +106,10 @@ impl Buildpack for RubyBuildpack {
             } else {
                 (
                     section
-                        .step("Skipping install (`gem 'barnes'` not found in Gemfile.lock)")
+                        .step(&format!(
+                            "Skipping install ({barnes} gem not found)",
+                            barnes = fmt::value("barnes")
+                        ))
                         .end_section(),
                     env,
                 )

@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
+### Fixed
 
 - Updated buildpack display name, description and keywords. ([#223](https://github.com/heroku/buildpack-ruby/pull/223))
 

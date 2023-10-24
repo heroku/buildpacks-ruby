@@ -28,4 +28,4 @@ clap = { version = "4", features = ["derive"] }
 
 [dev-dependencies]
 libcnb-test = "=0.14.0"
-toml = "0.7"
+toml = "0.8"

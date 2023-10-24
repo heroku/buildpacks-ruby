@@ -114,6 +114,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bstr"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c79ad7fb2dd38f3dabd76b09c6a5a20c038fc0213ef1e9afd30eb777f120f019"
+dependencies = [
+ "memchr",
+ "serde",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -149,9 +159,9 @@ dependencies = [
 
 [[package]]
 name = "cargo_metadata"
-version = "0.17.0"
+version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7daec1a2a2129eeba1644b220b4647ec537b0b5d4bfd6876fcc5a540056b592"
+checksum = "2d886547e41f740c616ae73108f6eb70afe6d940c7bc697cb30f13daec073037"
 dependencies = [
  "camino",
  "cargo-platform",
@@ -241,7 +251,7 @@ dependencies = [
  "sha2",
  "tempfile",
  "thiserror",
- "toml 0.8.4",
+ "toml",
  "walkdir",
  "which_problem",
 ]
@@ -439,6 +449,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
+name = "globset"
+version = "0.4.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "759c97c1e17c55525b57192c06a267cda0ac5210b222d6b82189a2338fa1c13d"
+dependencies = [
+ "aho-corasick",
+ "bstr",
+ "fnv",
+ "log",
+ "regex",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -469,7 +492,7 @@ dependencies = [
  "tar",
  "tempfile",
  "thiserror",
- "toml 0.8.4",
+ "toml",
  "ureq",
  "url",
 ]
@@ -491,6 +514,23 @@ checksum = "7d20d6b07bfbc108882d88ed8e37d39636dcc260e15e30c45e6ba089610b917c"
 dependencies = [
  "unicode-bidi",
  "unicode-normalization",
+]
+
+[[package]]
+name = "ignore"
+version = "0.4.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dbe7873dab538a9a44ad79ede1faf5f30d49f9a5c883ddbab48bce81b64b7492"
+dependencies = [
+ "globset",
+ "lazy_static",
+ "log",
+ "memchr",
+ "regex",
+ "same-file",
+ "thread_local",
+ "walkdir",
+ "winapi-util",
 ]
 
 [[package]]
@@ -556,49 +596,64 @@ checksum = "a08173bc88b7955d1b3145aa561539096c421ac8debde8cbc3612ec635fee29b"
 
 [[package]]
 name = "libcnb"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5132851c82d808e6b42edd1cc9e7cb9b16b0274c325b25fdb42660fae9b2e88b"
+checksum = "460e3b9d5b51eee9b9eb154e8bece15b77fff8b287457c09699a609c977003c9"
 dependencies = [
+ "libcnb-common",
  "libcnb-data",
  "libcnb-proc-macros",
  "serde",
  "thiserror",
- "toml 0.7.8",
+ "toml",
+]
+
+[[package]]
+name = "libcnb-common"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53c4c77089f294316c1d8a285d0ed9973e796a2653c676b22b3f7703d73aa828"
+dependencies = [
+ "serde",
+ "thiserror",
+ "toml",
 ]
 
 [[package]]
 name = "libcnb-data"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4bed8b0f2676aebeb216a7f7872151fbf74ff3706c7027449573c03c9d7f3393"
+checksum = "7f35c4af3b47b67257263f0504897cf4db263b407b3e367971fc0b60ada69ce2"
 dependencies = [
  "fancy-regex",
  "libcnb-proc-macros",
  "serde",
  "thiserror",
- "toml 0.7.8",
+ "toml",
  "uriparse",
 ]
 
 [[package]]
 name = "libcnb-package"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "412f8c3ee7e2fcaff1acd1926a238cac271e86d7258c51038053fac17d85d144"
+checksum = "d5ee4c1ac95fc5f71b0f8901d62644f9d39dad0be9d1a5bf23fae173aaf2a46c"
 dependencies = [
  "cargo_metadata",
+ "ignore",
+ "libcnb-common",
  "libcnb-data",
  "petgraph",
- "toml 0.7.8",
+ "thiserror",
+ "uriparse",
  "which",
 ]
 
 [[package]]
 name = "libcnb-proc-macros"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c715cec438b3a02c3564e9b9c20a78c54b9c71874249bec1e3d45fcd2537cfcf"
+checksum = "5effc8c71a7401899ea2885681b213b779449dc0f581663ea850d9de0718434c"
 dependencies = [
  "cargo_metadata",
  "fancy-regex",
@@ -608,13 +663,13 @@ dependencies = [
 
 [[package]]
 name = "libcnb-test"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92ee152780ab4ad6e4aca8ec12767c090677294b7aa4ffc1a90633d38b429c9e"
+checksum = "b88d0682a1abd6261f406f52214272c09738ddae239cc5d38159dfa7a53e2e63"
 dependencies = [
- "cargo_metadata",
  "fastrand",
  "fs_extra",
+ "libcnb-common",
  "libcnb-data",
  "libcnb-package",
  "tempfile",
@@ -622,9 +677,9 @@ dependencies = [
 
 [[package]]
 name = "libherokubuildpack"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "999689d1a9f8cbea478ae7c4ce6136601e7abe9512ccfc0409f5525949a41457"
+checksum = "2c01b437767257854de9a8011c6f7e265dc6ebc344cc122ffef2464f3e10bfc8"
 dependencies = [
  "crossbeam-utils",
  "flate2",
@@ -634,7 +689,7 @@ dependencies = [
  "tar",
  "termcolor",
  "thiserror",
- "toml 0.7.8",
+ "toml",
  "ureq",
 ]
 
@@ -1067,6 +1122,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "thread_local"
+version = "1.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fdd6f064ccff2d6567adcb3873ca630700f00b5ad3f060c25b5dcfd9a4ce152"
+dependencies = [
+ "cfg-if",
+ "once_cell",
+]
+
+[[package]]
 name = "tinyvec"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1083,18 +1148,6 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "toml"
-version = "0.7.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd79e69d3b627db300ff956027cc6c3798cef26d22526befdfcd12feeb6d2257"
-dependencies = [
- "serde",
- "serde_spanned",
- "toml_datetime",
- "toml_edit 0.19.15",
-]
-
-[[package]]
-name = "toml"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ef75d881185fd2df4a040793927c153d863651108a93c7e17a9e591baa95cc6"
@@ -1102,7 +1155,7 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "toml_edit 0.20.4",
+ "toml_edit",
 ]
 
 [[package]]
@@ -1112,19 +1165,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3550f4e9685620ac18a50ed434eb3aec30db8ba93b0287467bca5826ea25baf1"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "toml_edit"
-version = "0.19.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
-dependencies = [
- "indexmap",
- "serde",
- "serde_spanned",
- "toml_datetime",
- "winnow",
 ]
 
 [[package]]

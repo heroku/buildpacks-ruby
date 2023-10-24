@@ -78,9 +78,9 @@ DEPENDENCIES
 
     TestRunner::default().build(
         BuildConfig::new("heroku/builder:22", app_dir.path())
-        .buildpacks(vec![
+        .buildpacks([
             BuildpackReference::Other(String::from("heroku/jvm")),
-            BuildpackReference::Crate,
+            BuildpackReference::CurrentCrate,
         ]),
         |context| {
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
@@ -97,10 +97,10 @@ DEPENDENCIES
 fn test_ruby_app_with_yarn_app() {
     TestRunner::default().build(
         BuildConfig::new("heroku/builder:22", "tests/fixtures/yarn-ruby-app")
-        .buildpacks(vec![
+        .buildpacks([
             BuildpackReference::Other(String::from("heroku/nodejs-engine")),
             BuildpackReference::Other(String::from("heroku/nodejs-yarn")),
-            BuildpackReference::Crate,
+            BuildpackReference::CurrentCrate,
         ]),
         |context| {
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
@@ -122,7 +122,7 @@ fn test_barnes_app() {
             context.start_container(
                 ContainerConfig::new()
                     .entrypoint("launcher")
-                    .envs(vec![
+                    .envs([
                         ("DYNO", "web.1"),
                         ("PORT", "1234"),
                         ("AGENTMON_DEBUG", "1"),

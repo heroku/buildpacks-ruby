@@ -6,7 +6,7 @@ use libcnb_test::{
 };
 use std::thread;
 use std::time::{Duration, Instant};
-use thiserror::__private::DisplayAsDisplay;
+use thiserror::__private::AsDisplay;
 use ureq::Response;
 
 #[test]

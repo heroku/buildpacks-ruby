@@ -80,7 +80,7 @@ DEPENDENCIES
         BuildConfig::new("heroku/builder:22", app_dir.path())
         .buildpacks(vec![
             BuildpackReference::Other(String::from("heroku/jvm")),
-            BuildpackReference::Crate,
+            BuildpackReference::CurrentCrate,
         ]),
         |context| {
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
@@ -100,7 +100,7 @@ fn test_ruby_app_with_yarn_app() {
         .buildpacks(vec![
             BuildpackReference::Other(String::from("heroku/nodejs-engine")),
             BuildpackReference::Other(String::from("heroku/nodejs-yarn")),
-            BuildpackReference::Crate,
+            BuildpackReference::CurrentCrate,
         ]),
         |context| {
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");

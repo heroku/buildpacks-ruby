@@ -1,11 +1,17 @@
 use lazy_static::lazy_static;
+use libherokubuildpack::command::CommandExt;
 use std::ffi::OsString;
+use std::io::Write;
+use std::os::unix::process::ExitStatusExt;
 use std::process::Command;
+use std::process::ExitStatus;
 use std::process::Output;
 use which_problem::Which;
 
 #[cfg(test)]
 use libherokubuildpack as _;
+
+use crate::fun_run;
 
 /// The `fun_run` module is designed to make running commands more fun for you
 /// and your users.
@@ -31,30 +37,86 @@ use libherokubuildpack as _;
 ///
 /// - Fun(ctional)
 ///
-/// The main interface is the `cmd_map` method, provided by the `CmdMapExt` trait extension.
-/// Use this along with other fun methods to compose the command run of your dreams.
+/// While the pieces can be composed functionally the real magic comes when you start mixing in the helper structs `NamedCommand`, `NamedOutput` and `CmdError`.
+/// Together these will return a Result type that contains the associated name of the command just called: `Result<NamedOutput, CmdError>`.
 ///
 /// Example:
 ///
 /// ```no_run
-/// use commons::fun_run::{self, CmdMapExt};
-/// use libherokubuildpack::command::CommandExt;
+/// use commons::fun_run::CommandWithName;
 /// use std::process::Command;
 /// use libcnb::Env;
 ///
 /// let env = Env::new();
 ///
-/// Command::new("bundle")
+/// let result = Command::new("bundle")
 ///     .args(["install"])
 ///     .envs(&env)
-///     .cmd_map(|cmd| {
-///         let name = fun_run::display(cmd);
-///         eprintln!("\nRunning command:\n$ {name}");
+///     .stream_output(std::io::stdout(), std::io::stderr());
 ///
-///         cmd.output_and_write_streams(std::io::stdout(), std::io::stderr())
-///             .map_err(|error| fun_run::on_system_error(name.clone(), error))
-///             .and_then(|output| fun_run::nonzero_streamed(name.clone(), output))
-///     }).unwrap();
+/// match result {
+///     Ok(output) => {
+///         assert_eq!("bundle install", &output.name())
+///     },
+///     Err(varient) => {
+///         assert_eq!("bundle install", &varient.name())
+///     }
+/// }
+/// ```
+///
+/// Change names as you see fit:
+///
+/// ```no_run
+/// use commons::fun_run::CommandWithName;
+/// use std::process::Command;
+/// use libcnb::Env;
+///
+/// let env = Env::new();
+///
+/// let result = Command::new("gem")
+///     .args(["install", "bundler", "-v", "2.4.1.7"])
+///     .envs(&env)
+///     // Overwrites default command name which would include extra arguments
+///     .named("gem install")
+///     .stream_output(std::io::stdout(), std::io::stderr());
+///
+/// match result {
+///     Ok(output) => {
+///         assert_eq!("bundle install", &output.name())
+///     },
+///     Err(varient) => {
+///         assert_eq!("bundle install", &varient.name())
+///     }
+/// }
+/// ```
+///
+/// Or include env vars:
+///
+/// ```no_run
+/// use commons::fun_run::{self, CommandWithName};
+/// use std::process::Command;
+/// use libcnb::Env;
+///
+/// let env = Env::new();
+///
+/// let result = Command::new("gem")
+///     .args(["install", "bundler", "-v", "2.4.1.7"])
+///     .envs(&env)
+///     // Overwrites default command name
+///     .named_fn(|cmd| {
+///         // Annotate command with GEM_HOME env var
+///         fun_run::display_with_env_keys(cmd, &env, ["GEM_HOME"])
+///     })
+///     .stream_output(std::io::stdout(), std::io::stderr());
+///
+/// match result {
+///     Ok(output) => {
+///         assert_eq!("GEM_HOME=\"/usr/bin/local/.gems\" gem install bundler -v 2.4.1.7", &output.name())
+///     },
+///     Err(varient) => {
+///         assert_eq!("GEM_HOME=\"/usr/bin/local/.gems\" gem install bundler -v 2.4.1.7", &varient.name())
+///     }
+/// }
 /// ```
 
 /// Allows for a functional-style flow when running a `Command` via
@@ -75,6 +137,169 @@ where
     /// Yields its self and returns whatever output the block returns.
     fn cmd_map(&mut self, f: F) -> O {
         f(self)
+    }
+}
+
+/// Easilly convert command output into a result with names
+///
+/// Associated function name is experimental and may change
+pub trait ResultNameExt {
+    /// # Errors
+    ///
+    /// Returns a `CmdError::SystemError` if the original Result was `Err`.
+    fn with_name(self, name: impl AsRef<str>) -> Result<NamedOutput, CmdError>;
+}
+
+/// Convert the value of `Command::output()` into `Result<Output, std::io::Error>`
+impl ResultNameExt for Result<Output, std::io::Error> {
+    /// # Errors
+    ///
+    /// Returns a `CmdError::SystemError` if the original Result was `Err`.
+    fn with_name(self, name: impl AsRef<str>) -> Result<NamedOutput, CmdError> {
+        let name = name.as_ref();
+        self.map_err(|io_error| CmdError::SystemError(name.to_string(), io_error))
+            .map(|output| NamedOutput {
+                name: name.to_string(),
+                output,
+            })
+    }
+}
+
+pub trait CommandWithName {
+    fn name(&mut self) -> String;
+    fn mut_cmd(&mut self) -> &mut Command;
+
+    fn named(&mut self, s: impl AsRef<str>) -> NamedCommand<'_> {
+        let name = s.as_ref().to_string();
+        let command = self.mut_cmd();
+        NamedCommand { name, command }
+    }
+
+    #[allow(clippy::needless_lifetimes)]
+    fn named_fn<'a>(&'a mut self, f: impl FnOnce(&mut Command) -> String) -> NamedCommand<'a> {
+        let cmd = self.mut_cmd();
+        let name = f(cmd);
+        self.named(name)
+    }
+
+    /// Runs the command without streaming
+    ///
+    /// # Errors
+    ///
+    /// Returns `CmdError::SystemError` if the system is unable to run the command.
+    /// Returns `CmdError::NonZeroExitNotStreamed` if the exit code is not zero.
+    fn named_output(&mut self) -> Result<NamedOutput, CmdError> {
+        let name = self.name();
+        self.mut_cmd()
+            .output()
+            .with_name(name)
+            .and_then(NamedOutput::nonzero_captured)
+    }
+
+    /// Runs the command and streams to the given writers
+    ///
+    /// # Errors
+    ///
+    /// Returns `CmdError::SystemError` if the system is unable to run the command
+    /// Returns `CmdError::NonZeroExitAlreadyStreamed` if the exit code is not zero.
+    fn stream_output<OW, EW>(
+        &mut self,
+        stdout_write: OW,
+        stderr_write: EW,
+    ) -> Result<NamedOutput, CmdError>
+    where
+        OW: Write + Send,
+        EW: Write + Send,
+    {
+        let name = &self.name();
+        self.mut_cmd()
+            .output_and_write_streams(stdout_write, stderr_write)
+            .with_name(name)
+            .and_then(NamedOutput::nonzero_streamed)
+    }
+}
+
+impl CommandWithName for Command {
+    fn name(&mut self) -> String {
+        fun_run::display(self)
+    }
+
+    fn mut_cmd(&mut self) -> &mut Command {
+        self
+    }
+}
+
+/// It's a command, with a name
+pub struct NamedCommand<'a> {
+    name: String,
+    command: &'a mut Command,
+}
+
+impl CommandWithName for NamedCommand<'_> {
+    fn name(&mut self) -> String {
+        self.name.to_string()
+    }
+
+    fn mut_cmd(&mut self) -> &mut Command {
+        self.command
+    }
+}
+
+/// Holds a the `Output` of a command's execution along with it's "name"
+///
+/// When paired with `CmdError` a `Result<NamedOutput, CmdError>` will retain the
+/// "name" of the command regardless of succss or failure.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NamedOutput {
+    name: String,
+    output: Output,
+}
+
+impl NamedOutput {
+    /// # Errors
+    ///
+    /// Returns an error if the status is not zero
+    pub fn nonzero_captured(self) -> Result<NamedOutput, CmdError> {
+        nonzero_captured(self.name, self.output)
+    }
+
+    /// # Errors
+    ///
+    /// Returns an error if the status is not zero
+    pub fn nonzero_streamed(self) -> Result<NamedOutput, CmdError> {
+        nonzero_streamed(self.name, self.output)
+    }
+
+    #[must_use]
+    pub fn status(&self) -> &ExitStatus {
+        &self.output.status
+    }
+
+    #[must_use]
+    pub fn stdout_lossy(&self) -> String {
+        String::from_utf8_lossy(&self.output.stdout).to_string()
+    }
+
+    #[must_use]
+    pub fn stderr_lossy(&self) -> String {
+        String::from_utf8_lossy(&self.output.stderr).to_string()
+    }
+
+    #[must_use]
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+}
+
+impl AsRef<Output> for NamedOutput {
+    fn as_ref(&self) -> &Output {
+        &self.output
+    }
+}
+
+impl From<NamedOutput> for Output {
+    fn from(value: NamedOutput) -> Self {
+        value.output
     }
 }
 
@@ -174,9 +399,7 @@ pub fn map_which_problem(
         CmdError::SystemError(name, error) => {
             CmdError::SystemError(name, annotate_which_problem(error, cmd, path_env))
         }
-        CmdError::NonZeroExitNotStreamed(_, _) | CmdError::NonZeroExitAlreadyStreamed(_, _) => {
-            error
-        }
+        CmdError::NonZeroExitNotStreamed(_) | CmdError::NonZeroExitAlreadyStreamed(_) => error,
     }
 }
 
@@ -231,14 +454,69 @@ fn annotate_io_error(source: std::io::Error, annotation: String) -> std::io::Err
 #[derive(Debug, thiserror::Error)]
 #[allow(clippy::module_name_repetitions)]
 pub enum CmdError {
-    #[error("Could not run command command {0:?}. Details: {1}")]
+    #[error("Could not run command `{0}`. {1}")]
     SystemError(String, std::io::Error),
 
-    #[error("Command failed {0:?}.\nstatus: {}\nstdout: {}\nstderr: {}", .1.status,  String::from_utf8_lossy(&.1.stdout), String::from_utf8_lossy(&.1.stderr))]
-    NonZeroExitNotStreamed(String, Output),
+    #[error("Command failed: `{cmd}`\nexit status: {status}\nstdout: {stdout}\nstderr: {stderr}", cmd = .0.name, status = .0.output.status.code().unwrap_or_else(|| 1),  stdout = display_out_or_empty(&.0.output.stdout), stderr = display_out_or_empty(&.0.output.stderr))]
+    NonZeroExitNotStreamed(NamedOutput),
 
-    #[error("Command failed {0:?}.\nstatus: {}\nstdout: see above\nstderr: see above", .1.status)]
-    NonZeroExitAlreadyStreamed(String, Output),
+    #[error("Command failed: `{cmd}`\nexit status: {status}\nstdout: <see above>\nstderr: <see above>", cmd = .0.name, status = .0.output.status.code().unwrap_or_else(|| 1))]
+    NonZeroExitAlreadyStreamed(NamedOutput),
+}
+
+impl CmdError {
+    /// Returns a display representation of the command that failed
+    ///
+    /// Example:
+    ///
+    /// ```no_run
+    /// use commons::fun_run::{self, CmdMapExt, ResultNameExt};
+    /// use std::process::Command;
+    ///
+    /// let result = Command::new("cat")
+    ///     .arg("mouse.txt")
+    ///     .cmd_map(|cmd| cmd.output().with_name(fun_run::display(cmd)));
+    ///
+    /// match result {
+    ///     Ok(_) => todo!(),
+    ///     Err(error) => assert_eq!(error.name().to_string(), "cat mouse.txt")
+    /// }
+    /// ```
+    #[must_use]
+    pub fn name(&self) -> std::borrow::Cow<'_, str> {
+        match self {
+            CmdError::SystemError(name, _) => name.into(),
+            CmdError::NonZeroExitNotStreamed(out) | CmdError::NonZeroExitAlreadyStreamed(out) => {
+                out.name.as_str().into()
+            }
+        }
+    }
+}
+
+impl From<CmdError> for NamedOutput {
+    fn from(value: CmdError) -> Self {
+        match value {
+            CmdError::SystemError(name, error) => NamedOutput {
+                name,
+                output: Output {
+                    status: ExitStatus::from_raw(error.raw_os_error().unwrap_or(-1)),
+                    stdout: Vec::new(),
+                    stderr: error.to_string().into_bytes(),
+                },
+            },
+            CmdError::NonZeroExitNotStreamed(named)
+            | CmdError::NonZeroExitAlreadyStreamed(named) => named,
+        }
+    }
+}
+
+fn display_out_or_empty(contents: &[u8]) -> String {
+    let contents = String::from_utf8_lossy(contents);
+    if contents.trim().is_empty() {
+        "<empty>".to_string()
+    } else {
+        contents.to_string()
+    }
 }
 
 /// Converts a `std::io::Error` into a `CmdError` which includes the formatted command name
@@ -261,11 +539,15 @@ pub fn on_system_error(name: String, error: std::io::Error) -> CmdError {
 /// # Errors
 ///
 /// Returns Err when the `Output` status is non-zero
-pub fn nonzero_streamed(name: String, output: Output) -> Result<Output, CmdError> {
+pub fn nonzero_streamed(name: String, output: impl Into<Output>) -> Result<NamedOutput, CmdError> {
+    let output = output.into();
     if output.status.success() {
-        Ok(output)
+        Ok(NamedOutput { name, output })
     } else {
-        Err(CmdError::NonZeroExitAlreadyStreamed(name, output))
+        Err(CmdError::NonZeroExitAlreadyStreamed(NamedOutput {
+            name,
+            output,
+        }))
     }
 }
 
@@ -279,10 +561,14 @@ pub fn nonzero_streamed(name: String, output: Output) -> Result<Output, CmdError
 /// # Errors
 ///
 /// Returns Err when the `Output` status is non-zero
-pub fn nonzero_captured(name: String, output: Output) -> Result<Output, CmdError> {
+pub fn nonzero_captured(name: String, output: impl Into<Output>) -> Result<NamedOutput, CmdError> {
+    let output = output.into();
     if output.status.success() {
-        Ok(output)
+        Ok(NamedOutput { name, output })
     } else {
-        Err(CmdError::NonZeroExitNotStreamed(name, output))
+        Err(CmdError::NonZeroExitNotStreamed(NamedOutput {
+            name,
+            output,
+        }))
     }
 }

@@ -1,10 +1,13 @@
-use crate::{
-    build_output::{self, RunCommand, Section},
-    BundleWithout, RubyBuildpack, RubyBuildpackError,
+use commons::output::{
+    fmt::{self, HELP},
+    section_log::{log_step, log_step_stream, SectionLogger},
 };
+
+use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
+use commons::fun_run::CommandWithName;
 use commons::{
     display::SentenceList,
-    fun_run::{self, CmdError, CmdMapExt},
+    fun_run::{self, CmdError},
     gemfile_lock::ResolvedRubyVersion,
     metadata_digest::MetadataDigest,
 };
@@ -19,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use std::{path::Path, process::Command};
 
 const HEROKU_SKIP_BUNDLE_DIGEST: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
-const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
+pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
 
 /// Mostly runs 'bundle install'
 ///
@@ -29,18 +32,18 @@ const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
 /// To help achieve this the logic inside of `BundleInstallLayer::update` and
 /// `BundleInstallLayer::create` are the same.
 #[derive(Debug)]
-pub(crate) struct BundleInstallLayer {
+pub(crate) struct BundleInstallLayer<'a> {
     pub env: Env,
     pub without: BundleWithout,
-    pub ruby_version: ResolvedRubyVersion,
-    pub build_output: Section,
+    pub _section_log: &'a dyn SectionLogger,
+    pub metadata: BundleInstallLayerMetadata,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
 pub(crate) struct BundleInstallLayerMetadata {
-    stack: StackId,
-    ruby_version: ResolvedRubyVersion,
-    force_bundle_install_key: String,
+    pub stack: StackId,
+    pub ruby_version: ResolvedRubyVersion,
+    pub force_bundle_install_key: String,
 
     /// A struct that holds the cryptographic hash of components that can
     /// affect the result of `bundle install`. When these values do not
@@ -53,36 +56,10 @@ pub(crate) struct BundleInstallLayerMetadata {
     /// This value is cached with metadata, so changing the struct
     /// may cause metadata to be invalidated (and the cache cleared).
     ///
-    digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
+    pub digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
 
-impl BundleInstallLayer {
-    fn build_metadata(
-        &self,
-        context: &BuildContext<RubyBuildpack>,
-        _layer_path: &Path,
-    ) -> Result<BundleInstallLayerMetadata, RubyBuildpackError> {
-        let digest = MetadataDigest::new_env_files(
-            &context.platform,
-            &[
-                &context.app_dir.join("Gemfile"),
-                &context.app_dir.join("Gemfile.lock"),
-            ],
-        )
-        .map_err(RubyBuildpackError::BundleInstallDigestError)?;
-
-        let stack = context.stack_id.clone();
-        let ruby_version = self.ruby_version.clone();
-        let force_bundle_install_key = String::from(FORCE_BUNDLE_INSTALL_CACHE_KEY);
-
-        Ok(BundleInstallLayerMetadata {
-            stack,
-            ruby_version,
-            force_bundle_install_key,
-            digest,
-        })
-    }
-
+impl<'a> BundleInstallLayer<'a> {
     #[allow(clippy::unnecessary_wraps)]
     fn build_layer_env(
         &self,
@@ -128,7 +105,7 @@ fn update_state(old: &BundleInstallLayerMetadata, now: &BundleInstallLayerMetada
     }
 }
 
-impl Layer for BundleInstallLayer {
+impl Layer for BundleInstallLayer<'_> {
     type Buildpack = RubyBuildpack;
     type Metadata = BundleInstallLayerMetadata;
 
@@ -145,28 +122,28 @@ impl Layer for BundleInstallLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let metadata = self.build_metadata(context, &layer_data.path)?;
+        let metadata = self.metadata.clone();
         let layer_env = self.build_layer_env(context, &layer_data.path)?;
         let env = layer_env.apply(Scope::Build, &self.env);
 
         match update_state(&layer_data.content_metadata.metadata, &metadata) {
             UpdateState::Run(reason) => {
-                self.build_output.say(reason);
+                log_step(reason);
 
-                bundle_install(&env, &self.build_output)
-                    .map_err(RubyBuildpackError::BundleInstallCommandError)?;
+                bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
             }
             UpdateState::Skip(checked) => {
-                let checked = SentenceList::new(&checked).join_str("or");
-                let bundle_install = build_output::fmt::value("bundle install");
-                let env_var = build_output::fmt::value(format!("{HEROKU_SKIP_BUNDLE_DIGEST}=1"));
+                let bundle_install = fmt::value("bundle install");
 
-                self.build_output.say_with_details(
-                    format!("Skipping {bundle_install}"),
-                    format!("no changes found in {checked}"),
-                );
-                self.build_output
-                    .help(format!("To force run {bundle_install} set {env_var}"));
+                log_step(format!(
+                    "Skipping {bundle_install} (no changes found in {sources})",
+                    sources = SentenceList::new(&checked).join_str("or")
+                ));
+
+                log_step(format!(
+                    "{HELP} To force run {bundle_install} set {}",
+                    fmt::value(format!("{HEROKU_SKIP_BUNDLE_DIGEST}=1"))
+                ));
             }
         }
 
@@ -179,14 +156,14 @@ impl Layer for BundleInstallLayer {
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let metadata = self.build_metadata(context, layer_path)?;
         let layer_env = self.build_layer_env(context, layer_path)?;
         let env = layer_env.apply(Scope::Build, &self.env);
 
-        bundle_install(&env, &self.build_output)
-            .map_err(RubyBuildpackError::BundleInstallCommandError)?;
+        bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
 
-        LayerResultBuilder::new(metadata).env(layer_env).build()
+        LayerResultBuilder::new(self.metadata.clone())
+            .env(layer_env)
+            .build()
     }
 
     /// When there is a cache determines if we will run:
@@ -198,30 +175,31 @@ impl Layer for BundleInstallLayer {
     /// create is run.
     fn existing_layer_strategy(
         &self,
-        context: &BuildContext<Self::Buildpack>,
+        _context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
         let old = &layer_data.content_metadata.metadata;
-        let now = self.build_metadata(context, &layer_data.path)?;
+        let now = self.metadata.clone();
 
         let clear_and_run = Ok(ExistingLayerStrategy::Recreate);
         let keep_and_run = Ok(ExistingLayerStrategy::Update);
 
         match cache_state(old.clone(), now) {
             Changed::Nothing => {
-                self.build_output.say("Loading cache");
+                log_step("Loading cache");
 
                 keep_and_run
             }
             Changed::Stack(_old, _now) => {
-                self.build_output
-                    .say_with_details("Clearing cache", "stack changed");
+                log_step(format!("Clearing cache {}", fmt::details("stack changed")));
 
                 clear_and_run
             }
             Changed::RubyVersion(_old, _now) => {
-                self.build_output
-                    .say_with_details("Clearing cache", "ruby version changed");
+                log_step(format!(
+                    "Clearing cache {}",
+                    fmt::details("ruby version changed")
+                ));
 
                 clear_and_run
             }
@@ -328,7 +306,8 @@ fn layer_env(layer_path: &Path, app_dir: &Path, without_default: &BundleWithout)
 ///
 /// When the 'bundle install' command fails this function returns an error.
 ///
-fn bundle_install(env: &Env, section: &Section) -> Result<(), CmdError> {
+fn bundle_install(env: &Env) -> Result<(), CmdError> {
+    let path_env = env.get("PATH").cloned();
     let display_with_env = |cmd: &'_ mut Command| {
         fun_run::display_with_env_keys(
             cmd,
@@ -345,18 +324,17 @@ fn bundle_install(env: &Env, section: &Section) -> Result<(), CmdError> {
     };
 
     // ## Run `$ bundle install`
-    Command::new("bundle")
-        .env_clear() // Current process env vars already merged into env
+    let mut cmd = Command::new("bundle");
+    cmd.env_clear() // Current process env vars already merged into env
         .args(["install"])
-        .envs(env)
-        .cmd_map(|cmd| {
-            let name = display_with_env(cmd);
-            let path_env = env.get("PATH").cloned();
+        .envs(env);
 
-            section
-                .run(RunCommand::stream(cmd).with_name(name))
-                .map_err(|error| fun_run::map_which_problem(error, cmd, path_env))
-        })?;
+    let mut cmd = cmd.named_fn(display_with_env);
+
+    log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
+        cmd.stream_output(stream.io(), stream.io())
+    })
+    .map_err(|error| fun_run::map_which_problem(error, cmd.mut_cmd(), path_env))?;
 
     Ok(())
 }

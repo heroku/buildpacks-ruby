@@ -59,7 +59,7 @@ jobs:
         # Runs only tests annotated with the `ignore` attribute (which in this repo, are the integration tests).
         run: cargo test --locked -- --ignored
 
-  pack-getting-started-output:
+  print-pack-getting-started-output:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
@@ -84,6 +84,28 @@ jobs:
         run: cargo install libcnb-cargo
       - name: Compile ruby buildpack
         run: cargo libcnb package
-      - name: Getting started guide output
+      - name: "PRINT: Getting started guide output"
         run: | # Use `script -e -c` to pretend to be a TTY for pack terminal color support
           script -e -c "pack build my-image --builder heroku/builder:22 --buildpack heroku/nodejs-engine --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never"
+      - name: "PRINT: Cached getting started guide output"
+        run: | # Use `script -e -c` to pretend to be a TTY for pack terminal color support
+          script -e -c "pack build my-image --builder heroku/builder:22 --buildpack heroku/nodejs-engine --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never"
+
+  print-style-guide:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install musl-tools
+        run: sudo apt-get install musl-tools --no-install-recommends
+      - name: Update Rust toolchain
+        run: rustup update
+      - name: Install Rust linux-musl target
+        run: rustup target add x86_64-unknown-linux-musl
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.6.2
+      - name: Build binary
+        run: cargo build --bin print_style_guide
+      - name: "PRINT: Style guide"
+        run: | # Use `script -e -c` to pretend to be a TTY for pack terminal color support
+          script -e -c "cargo run --bin print_style_guide"

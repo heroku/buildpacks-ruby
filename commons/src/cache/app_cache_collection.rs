@@ -1,5 +1,7 @@
-use crate::cache::{AppCache, CacheConfig, CacheError, CacheState, FilesWithSize, PathState};
+use crate::cache::{AppCache, CacheConfig, CacheError, CacheState, PathState};
+use crate::output::{interface::SectionLogger, section_log as log};
 use libcnb::{build::BuildContext, Buildpack};
+use std::fmt::Debug;
 
 /// App Cache Collection
 ///
@@ -10,63 +12,13 @@ use libcnb::{build::BuildContext, Buildpack};
 ///
 /// Default logging is provided for each operation.
 ///
-/// ```rust
-///# use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
-///# use libcnb::data::launch::{LaunchBuilder, ProcessBuilder};
-///# use libcnb::data::process_type;
-///# use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
-///# use libcnb::generic::{GenericError, GenericMetadata, GenericPlatform};
-///# use libcnb::{buildpack_main, Buildpack};
-///# use libcnb::data::layer_name;
-///# use libcnb::data::layer::LayerName;
-///
-///# pub(crate) struct HelloWorldBuildpack;
-///
-/// use commons::cache::{AppCacheCollection, CacheConfig, KeepPath, mib};
-///
-///# impl Buildpack for HelloWorldBuildpack {
-///#     type Platform = GenericPlatform;
-///#     type Metadata = GenericMetadata;
-///#     type Error = GenericError;
-///
-///#     fn detect(&self, _context: DetectContext<Self>) -> libcnb::Result<DetectResult, Self::Error> {
-///#         todo!()
-///#     }
-///
-///#     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
-///         let cache = AppCacheCollection::new_and_load(
-///             &context,
-///             [
-///                 CacheConfig {
-///                     path: context.app_dir.join("public").join("assets"),
-///                     limit: mib(100),
-///                     keep_path: KeepPath::Runtime,
-///                 },
-///                 CacheConfig {
-///                     path: context.app_dir.join("tmp").join("cache").join("assets"),
-///                     limit: mib(100),
-///                     keep_path: KeepPath::BuildOnly,
-///                 },
-///             ],
-///             |log| println!("{log}"),
-///         ).unwrap();
-///
-///         // Do something worth caching here
-///
-///         cache.save_and_clean().unwrap();
-///
-///#        todo!()
-///#     }
-///# }
-///
-/// ```
 #[derive(Debug)]
-pub struct AppCacheCollection {
+pub struct AppCacheCollection<'a> {
+    _log: &'a dyn SectionLogger,
     collection: Vec<AppCache>,
-    log_func: LogFunc,
 }
 
-impl AppCacheCollection {
+impl<'a> AppCacheCollection<'a> {
     /// Store multiple application paths in the cache
     ///
     /// # Errors
@@ -77,15 +29,19 @@ impl AppCacheCollection {
     pub fn new_and_load<B: Buildpack>(
         context: &BuildContext<B>,
         config: impl IntoIterator<Item = CacheConfig>,
-        logger: impl Fn(&str) + 'static,
+        log: &'a dyn SectionLogger,
     ) -> Result<Self, CacheError> {
-        let log_func = LogFunc(Box::new(logger));
-
         let caches = config
             .into_iter()
             .map(|config| {
                 AppCache::new_and_load(context, config).map(|store| {
-                    log_load(&log_func, &store);
+                    let path = store.path().display();
+
+                    log::log_step(match store.cache_state() {
+                        CacheState::NewEmpty => format!("Creating cache for {path}"),
+                        CacheState::ExistsEmpty => format!("Loading (empty) cache for {path}"),
+                        CacheState::ExistsWithContents => format!("Loading cache for {path}"),
+                    });
                     store
                 })
             })
@@ -93,7 +49,7 @@ impl AppCacheCollection {
 
         Ok(Self {
             collection: caches,
-            log_func,
+            _log: log,
         })
     }
 
@@ -105,63 +61,28 @@ impl AppCacheCollection {
     /// be completed. For example due to file permissions.
     pub fn save_and_clean(&self) -> Result<(), CacheError> {
         for store in &self.collection {
-            self.log_save(store);
+            let path = store.path().display();
+
+            log::log_step(match store.path_state() {
+                PathState::Empty => format!("Storing cache for (empty) {path}"),
+                PathState::HasFiles => format!("Storing cache for {path}"),
+            });
 
             if let Some(removed) = store.save_and_clean()? {
-                self.log_clean(store, &removed);
+                let path = store.path().display();
+                let limit = store.limit();
+                let removed_len = removed.files.len();
+                let removed_size = removed.adjusted_bytes();
+
+                log::log_step(format!(
+                    "Detected cache size exceeded (over {limit} limit by {removed_size}) for {path}"
+                ));
+                log::log_step(format!(
+                    "Removed {removed_len} files from the cache for {path}",
+                ));
             }
         }
 
         Ok(())
-    }
-
-    fn log_save(&self, store: &AppCache) {
-        let path = store.path().display();
-
-        self.log_func.log(&match store.path_state() {
-            PathState::Empty => format!("Storing cache for (empty) {path}"),
-            PathState::HasFiles => format!("Storing cache for {path}"),
-        });
-    }
-
-    fn log_clean(&self, store: &AppCache, removed: &FilesWithSize) {
-        let path = store.path().display();
-        let limit = store.limit();
-        let removed_len = removed.files.len();
-        let removed_size = removed.adjusted_bytes();
-
-        self.log_func.log(&format!(
-            "Detected cache size exceeded (over {limit} limit by {removed_size}) for {path}"
-        ));
-        self.log_func.log(&format!(
-            "Removed {removed_len} files from the cache for {path}",
-        ));
-    }
-}
-
-fn log_load(log_func: &LogFunc, store: &AppCache) {
-    let path = store.path().display();
-
-    log_func.log(&match store.cache_state() {
-        CacheState::NewEmpty => format!("Creating cache for {path}"),
-        CacheState::ExistsEmpty => format!("Loading (empty) cache for {path}"),
-        CacheState::ExistsWithContents => format!("Loading cache for {path}"),
-    });
-}
-
-/// Small wrapper for storing a logging function
-///
-/// Implements: Debug. Does not implement Clone or Eq
-struct LogFunc(Box<dyn Fn(&str)>);
-
-impl LogFunc {
-    fn log(&self, s: &str) {
-        (self).0(s);
-    }
-}
-
-impl std::fmt::Debug for LogFunc {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("LogFunc").field(&"Fn(&str)").finish()
     }
 }

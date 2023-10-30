@@ -1,5 +1,5 @@
-use crate::build_output;
 use crate::{RubyBuildpack, RubyBuildpackError};
+use commons::output::section_log::{log_step, log_step_timed, SectionLogger};
 use flate2::read::GzDecoder;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::ExistingLayerStrategy;
@@ -30,8 +30,8 @@ const DOWNLOAD_URL: &str =
 const DOWNLOAD_SHA: &str = "f9bf9f33c949e15ffed77046ca38f8dae9307b6a0181c6af29a25dec46eb2dac";
 
 #[derive(Debug)]
-pub(crate) struct MetricsAgentInstall {
-    pub(crate) section: build_output::Section,
+pub(crate) struct MetricsAgentInstall<'a> {
+    pub _in_section: &'a dyn SectionLogger, // force the layer to be called within a Section logging context, not necessary but it's safer
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -64,7 +64,7 @@ pub(crate) enum MetricsAgentInstallError {
     ChecksumFailed(String),
 }
 
-impl Layer for MetricsAgentInstall {
+impl<'a> Layer for MetricsAgentInstall<'a> {
     type Buildpack = RubyBuildpack;
     type Metadata = Metadata;
 
@@ -86,12 +86,11 @@ impl Layer for MetricsAgentInstall {
     > {
         let bin_dir = layer_path.join("bin");
 
-        let mut timer = self.section.say_with_inline_timer("Downloading");
-        let agentmon = install_agentmon(&bin_dir).map_err(RubyBuildpackError::MetricsAgentError)?;
+        let agentmon = log_step_timed("Downloading", || {
+            install_agentmon(&bin_dir).map_err(RubyBuildpackError::MetricsAgentError)
+        })?;
 
-        timer.done();
-
-        self.section.say("Writing scripts");
+        log_step("Writing scripts");
         let execd = write_execd_script(&agentmon, layer_path)
             .map_err(RubyBuildpackError::MetricsAgentError)?;
 
@@ -112,14 +111,14 @@ impl Layer for MetricsAgentInstall {
     > {
         let layer_path = &layer_data.path;
 
-        self.section.say("Writing scripts");
+        log_step("Writing scripts");
         let execd = write_execd_script(&layer_path.join("bin").join("agentmon"), layer_path)
             .map_err(RubyBuildpackError::MetricsAgentError)?;
 
         LayerResultBuilder::new(Metadata {
             download_url: Some(DOWNLOAD_URL.to_string()),
         })
-        .exec_d_program("spawn agentmon", execd)
+        .exec_d_program("spawn_metrics_agent", execd)
         .build()
     }
 
@@ -131,12 +130,13 @@ impl Layer for MetricsAgentInstall {
     {
         match &layer_data.content_metadata.metadata.download_url {
             Some(url) if url == DOWNLOAD_URL => {
-                self.section.say("Using cached metrics agent");
+                log_step("Using cached metrics agent");
                 Ok(ExistingLayerStrategy::Update)
             }
             Some(url) => {
-                self.section
-                    .say_with_details("Updating metrics agent", format!("{url} to {DOWNLOAD_URL}"));
+                log_step(format!(
+                    "Using cached metrics agent ({url} to {DOWNLOAD_URL}"
+                ));
                 Ok(ExistingLayerStrategy::Recreate)
             }
             None => Ok(ExistingLayerStrategy::Recreate),
@@ -151,8 +151,7 @@ impl Layer for MetricsAgentInstall {
         libcnb::layer::MetadataMigration<Self::Metadata>,
         <Self::Buildpack as libcnb::Buildpack>::Error,
     > {
-        self.section
-            .say_with_details("Clearing cache", "invalid metadata");
+        log_step("Clearing cache (invalid metadata)");
 
         Ok(libcnb::layer::MetadataMigration::RecreateLayer)
     }

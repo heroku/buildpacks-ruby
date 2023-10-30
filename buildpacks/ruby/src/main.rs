@@ -1,15 +1,20 @@
 #![warn(unused_crate_dependencies)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
-use crate::layers::metrics_agent_install::{MetricsAgentInstall, MetricsAgentInstallError};
-use crate::layers::{RubyInstallError, RubyInstallLayer};
-use crate::rake_task_detect::RakeError;
-use commons::build_output;
 use commons::cache::CacheError;
 use commons::fun_run::CmdError;
 use commons::gemfile_lock::GemfileLock;
+use commons::metadata_digest::MetadataDigest;
+use commons::output::warn_later::WarnGuard;
+#[allow(clippy::wildcard_imports)]
+use commons::output::{build_log::*, fmt};
 use core::str::FromStr;
-use layers::{BundleDownloadLayer, BundleInstallLayer};
+use layers::{
+    bundle_download_layer::{BundleDownloadLayer, BundleDownloadLayerMetadata},
+    bundle_install_layer::{BundleInstallLayer, BundleInstallLayerMetadata},
+    metrics_agent_install::{MetricsAgentInstall, MetricsAgentInstallError},
+    ruby_install_layer::{RubyInstallError, RubyInstallLayer, RubyInstallLayerMetadata},
+};
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
 use libcnb::data::launch::LaunchBuilder;
@@ -19,7 +24,7 @@ use libcnb::generic::{GenericMetadata, GenericPlatform};
 use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
-use regex::Regex;
+use std::io::stdout;
 
 mod gem_list;
 mod layers;
@@ -66,110 +71,154 @@ impl Buildpack for RubyBuildpack {
             .build()
     }
 
+    #[allow(clippy::too_many_lines)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
-        let build_duration = build_output::buildpack_name("Heroku Ruby Buildpack");
+        let mut logger = BuildLog::new(stdout()).buildpack_name("Heroku Ruby Buildpack");
+        let warn_later = WarnGuard::new(stdout());
 
         // ## Set default environment
         let (mut env, store) =
             crate::steps::default_env(&context, &context.platform.env().clone())?;
 
         // Gather static information about project
-        let lockfile_contents = fs_err::read_to_string(context.app_dir.join("Gemfile.lock"))
-            .map_err(RubyBuildpackError::MissingGemfileLock)?;
+        let lockfile = context.app_dir.join("Gemfile.lock");
+        let lockfile_contents = fs_err::read_to_string(&lockfile)
+            .map_err(|error| RubyBuildpackError::MissingGemfileLock(lockfile, error))?;
         let gemfile_lock = GemfileLock::from_str(&lockfile_contents).expect("Infallible");
         let bundler_version = gemfile_lock.resolve_bundler("2.4.5");
         let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
 
         // ## Install metrics agent
-        let section = build_output::section("Metrics agent");
-        if lockfile_contents.contains("barnes") {
-            context.handle_layer(
-                layer_name!("metrics_agent"),
-                MetricsAgentInstall { section },
-            )?;
-        } else {
-            section.say_with_details(
-                "Skipping install",
-                "`gem 'barnes'` not found in Gemfile.lock",
-            );
+        (logger, env) = {
+            let section = logger.section("Metrics agent");
+            if lockfile_contents.contains("barnes") {
+                let layer_data = context.handle_layer(
+                    layer_name!("metrics_agent"),
+                    MetricsAgentInstall {
+                        _in_section: section.as_ref(),
+                    },
+                )?;
+
+                (
+                    section.end_section(),
+                    layer_data.env.apply(Scope::Build, &env),
+                )
+            } else {
+                (
+                    section
+                        .step(&format!(
+                            "Skipping install ({barnes} gem not found)",
+                            barnes = fmt::value("barnes")
+                        ))
+                        .end_section(),
+                    env,
+                )
+            }
         };
 
         // ## Install executable ruby version
-
-        env = {
-            let section = build_output::section(format!(
+        (logger, env) = {
+            let section = logger.section(&format!(
                 "Ruby version {} from {}",
-                build_output::fmt::value(ruby_version.to_string()),
-                build_output::fmt::value(gemfile_lock.ruby_source())
+                fmt::value(ruby_version.to_string()),
+                fmt::value(gemfile_lock.ruby_source())
             ));
             let ruby_layer = context //
                 .handle_layer(
                     layer_name!("ruby"),
                     RubyInstallLayer {
-                        build_output: section,
-                        version: ruby_version.clone(),
+                        _in_section: section.as_ref(),
+                        metadata: RubyInstallLayerMetadata {
+                            stack: context.stack_id.clone(),
+                            version: ruby_version.clone(),
+                        },
                     },
                 )?;
-            ruby_layer.env.apply(Scope::Build, &env)
+            let env = ruby_layer.env.apply(Scope::Build, &env);
+            (section.end_section(), env)
         };
 
         // ## Setup bundler
-        env = {
-            let section = build_output::section(format!(
+        (logger, env) = {
+            let section = logger.section(&format!(
                 "Bundler version {} from {}",
-                build_output::fmt::value(bundler_version.to_string()),
-                build_output::fmt::value(gemfile_lock.bundler_source())
+                fmt::value(bundler_version.to_string()),
+                fmt::value(gemfile_lock.bundler_source())
             ));
             let download_bundler_layer = context.handle_layer(
                 layer_name!("bundler"),
                 BundleDownloadLayer {
                     env: env.clone(),
-                    version: bundler_version,
-                    build_output: section,
+                    metadata: BundleDownloadLayerMetadata {
+                        version: bundler_version,
+                    },
+                    _section_logger: section.as_ref(),
                 },
             )?;
-            download_bundler_layer.env.apply(Scope::Build, &env)
+            let env = download_bundler_layer.env.apply(Scope::Build, &env);
+
+            (section.end_section(), env)
         };
 
         // ## Bundle install
-        env = {
-            let section = build_output::section("Bundle install");
-
+        (logger, env) = {
+            let section = logger.section("Bundle install");
             let bundle_install_layer = context.handle_layer(
                 layer_name!("gems"),
                 BundleInstallLayer {
                     env: env.clone(),
                     without: BundleWithout::new("development:test"),
-                    ruby_version,
-                    build_output: section,
+                    _section_log: section.as_ref(),
+                    metadata: BundleInstallLayerMetadata {
+                        stack: context.stack_id.clone(),
+                        ruby_version: ruby_version.clone(),
+                        force_bundle_install_key: String::from(
+                            crate::layers::bundle_install_layer::FORCE_BUNDLE_INSTALL_CACHE_KEY,
+                        ),
+                        digest: MetadataDigest::new_env_files(
+                            &context.platform,
+                            &[
+                                &context.app_dir.join("Gemfile"),
+                                &context.app_dir.join("Gemfile.lock"),
+                            ],
+                        )
+                        .map_err(|error| match error {
+                            commons::metadata_digest::DigestError::CannotReadFile(path, error) => {
+                                RubyBuildpackError::BundleInstallDigestError(path, error)
+                            }
+                        })?,
+                    },
                 },
             )?;
-            bundle_install_layer.env.apply(Scope::Build, &env)
+            let env = bundle_install_layer.env.apply(Scope::Build, &env);
+            (section.end_section(), env)
         };
 
         // ## Detect gems
-        let (gem_list, default_process) = {
-            let section = build_output::section("Setting default processes(es)");
-            section.say("Detecting gems");
+        let (mut logger, gem_list, default_process) = {
+            let section = logger.section("Setting default processes");
 
-            let gem_list = gem_list::GemList::from_bundle_list(&env, &section)
+            let gem_list = gem_list::GemList::from_bundle_list(&env, section.as_ref())
                 .map_err(RubyBuildpackError::GemListGetError)?;
-            let default_process = steps::get_default_process(&section, &context, &gem_list);
+            let default_process = steps::get_default_process(section.as_ref(), &context, &gem_list);
 
-            (gem_list, default_process)
+            (section.end_section(), gem_list, default_process)
         };
 
         // ## Assets install
-
-        {
-            let section = build_output::section("Rake assets install");
-            let rake_detect = crate::steps::detect_rake_tasks(&section, &gem_list, &context, &env)?;
+        logger = {
+            let section = logger.section("Rake assets install");
+            let rake_detect =
+                crate::steps::detect_rake_tasks(section.as_ref(), &gem_list, &context, &env)?;
 
             if let Some(rake_detect) = rake_detect {
-                crate::steps::rake_assets_install(&section, &context, &env, &rake_detect)?;
+                crate::steps::rake_assets_install(section.as_ref(), &context, &env, &rake_detect)?;
             }
+
+            section.end_section()
         };
-        build_duration.done_timed();
+        logger.finish_logging();
+        warn_later.warn_now();
 
         if let Some(default_process) = default_process {
             BuildResultBuilder::new()
@@ -187,19 +236,19 @@ impl Buildpack for RubyBuildpack {
 }
 
 fn needs_java(gemfile_lock: &str) -> bool {
-    let java_regex = Regex::new(r"\(jruby ").expect("Internal Error: Invalid regex");
+    let java_regex = regex::Regex::new(r"\(jruby ").expect("clippy");
     java_regex.is_match(gemfile_lock)
 }
 
 #[derive(Debug)]
 pub(crate) enum RubyBuildpackError {
-    RakeDetectError(RakeError),
-    GemListGetError(gem_list::ListError),
+    RakeDetectError(CmdError),
+    GemListGetError(CmdError),
     RubyInstallError(RubyInstallError),
     MetricsAgentError(MetricsAgentInstallError),
-    MissingGemfileLock(std::io::Error),
+    MissingGemfileLock(std::path::PathBuf, std::io::Error),
     InAppDirCacheError(CacheError),
-    BundleInstallDigestError(commons::metadata_digest::DigestError),
+    BundleInstallDigestError(std::path::PathBuf, std::io::Error),
     BundleInstallCommandError(CmdError),
     RakeAssetsPrecompileFailed(CmdError),
     GemInstallBundlerCommandError(CmdError),

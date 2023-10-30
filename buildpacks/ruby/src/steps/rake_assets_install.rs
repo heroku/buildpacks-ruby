@@ -1,49 +1,47 @@
-use crate::build_output::{self, RunCommand, Section};
 use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use commons::cache::{mib, AppCacheCollection, CacheConfig, KeepPath};
-use commons::fun_run::{self, CmdError, CmdMapExt};
+use commons::fun_run::{self, CmdError, CommandWithName};
+use commons::output::{
+    fmt::{self, HELP},
+    section_log::{log_step, log_step_stream, SectionLogger},
+};
 use libcnb::build::BuildContext;
 use libcnb::Env;
 use std::process::Command;
 
 pub(crate) fn rake_assets_install(
-    section: &Section,
+    logger: &dyn SectionLogger,
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
     rake_detect: &RakeDetect,
 ) -> Result<(), RubyBuildpackError> {
     let cases = asset_cases(rake_detect);
-    let rake_assets_precompile = build_output::fmt::value("rake assets:precompile");
-    let rake_assets_clean = build_output::fmt::value("rake assets:clean");
-    let rake_detect_cmd = build_output::fmt::value("bundle exec rake -P");
+    let rake_assets_precompile = fmt::value("rake assets:precompile");
+    let rake_assets_clean = fmt::value("rake assets:clean");
+    let rake_detect_cmd = fmt::value("bundle exec rake -P");
 
     match cases {
         AssetCases::None => {
-            section.say_with_details(
-                format!("Skipping {rake_assets_precompile}"),
-                format!("task not found via {rake_detect_cmd}"),
-            );
-            section.help("Enable compiling assets by ensuring that task is present when running the detect command locally");
+            log_step(format!(
+                "Skipping {rake_assets_precompile} {}",
+                fmt::details(format!("task not found via {rake_detect_cmd}"))
+            ));
+            log_step(format!("{HELP} Enable compiling assets by ensuring {rake_assets_precompile} is present when running the detect command locally"));
         }
         AssetCases::PrecompileOnly => {
-            section.say_with_details(
-                "Compiling assets without cache",
-                format!("clean task not found via {rake_detect_cmd}"),
-            );
-            section.help(format!("Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
+            log_step(format!(
+                "Compiling assets without cache {}",
+                fmt::details(format!("Clean task not found via {rake_detect_cmd}"))
+            ));
+            log_step(format!("{HELP} Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
 
-            run_rake_assets_precompile(section, env)
+            run_rake_assets_precompile(env)
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
         }
         AssetCases::PrecompileAndClean => {
-            section.say_with_details(
-                "Compiling assets with cache",
-                format!(
-                "detected {rake_assets_precompile} and {rake_assets_clean} via {rake_detect_cmd}"
-                ),
-            );
+            log_step(format!("Compiling assets with cache {}", fmt::details(format!("detected {rake_assets_precompile} and {rake_assets_clean} via {rake_detect_cmd}"))));
 
             let cache_config = [
                 CacheConfig {
@@ -59,12 +57,11 @@ pub(crate) fn rake_assets_install(
             ];
 
             let cache = {
-                let section = section.clone();
-                AppCacheCollection::new_and_load(context, cache_config, move |log| section.say(log))
+                AppCacheCollection::new_and_load(context, cache_config, logger)
                     .map_err(RubyBuildpackError::InAppDirCacheError)?
             };
 
-            run_rake_assets_precompile_with_clean(section, env)
+            run_rake_assets_precompile_with_clean(env)
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
 
             cache
@@ -76,38 +73,39 @@ pub(crate) fn rake_assets_install(
     Ok(())
 }
 
-fn run_rake_assets_precompile(section: &Section, env: &Env) -> Result<(), CmdError> {
-    Command::new("bundle")
-        .args(["exec", "rake", "assets:precompile", "--trace"])
+fn run_rake_assets_precompile(env: &Env) -> Result<(), CmdError> {
+    let path_env = env.get("PATH").cloned();
+    let mut cmd = Command::new("bundle");
+
+    cmd.args(["exec", "rake", "assets:precompile", "--trace"])
         .env_clear()
-        .envs(env)
-        .cmd_map(|cmd| {
-            let path_env = env.get("PATH").cloned();
-            section
-                .run(RunCommand::stream(cmd))
-                .map_err(|error| fun_run::map_which_problem(error, cmd, path_env))
-        })?;
+        .envs(env);
+
+    log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
+        cmd.stream_output(stream.io(), stream.io())
+            .map_err(|error| fun_run::map_which_problem(error, &mut cmd, path_env))
+    })?;
 
     Ok(())
 }
 
-fn run_rake_assets_precompile_with_clean(section: &Section, env: &Env) -> Result<(), CmdError> {
-    Command::new("bundle")
-        .args([
-            "exec",
-            "rake",
-            "assets:precompile",
-            "assets:clean",
-            "--trace",
-        ])
-        .env_clear()
-        .envs(env)
-        .cmd_map(|cmd| {
-            let path_env = env.get("PATH").cloned();
-            section
-                .run(RunCommand::stream(cmd))
-                .map_err(|error| fun_run::map_which_problem(error, cmd, path_env))
-        })?;
+fn run_rake_assets_precompile_with_clean(env: &Env) -> Result<(), CmdError> {
+    let path_env = env.get("PATH").cloned();
+    let mut cmd = Command::new("bundle");
+    cmd.args([
+        "exec",
+        "rake",
+        "assets:precompile",
+        "assets:clean",
+        "--trace",
+    ])
+    .env_clear()
+    .envs(env);
+
+    log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
+        cmd.stream_output(stream.io(), stream.io())
+    })
+    .map_err(|error| fun_run::map_which_problem(error, &mut cmd, path_env))?;
 
     Ok(())
 }

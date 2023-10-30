@@ -1,6 +1,9 @@
-use crate::build_output::{self, Section};
 use crate::gem_list::GemList;
 use crate::RubyBuildpack;
+use commons::output::{
+    fmt,
+    section_log::{log_step, SectionLogger},
+};
 use libcnb::build::BuildContext;
 use libcnb::data::launch::Process;
 use libcnb::data::launch::ProcessBuilder;
@@ -8,37 +11,37 @@ use libcnb::data::process_type;
 use std::path::Path;
 
 pub(crate) fn get_default_process(
-    section: &Section,
+    _logger: &dyn SectionLogger,
     context: &BuildContext<RubyBuildpack>,
     gem_list: &GemList,
 ) -> Option<Process> {
-    let config_ru = build_output::fmt::value("config.ru");
-    let rails = build_output::fmt::value("rails");
-    let rack = build_output::fmt::value("rack");
-    let railties = build_output::fmt::value("railties");
+    let config_ru = fmt::value("config.ru");
+    let rails = fmt::value("rails");
+    let rack = fmt::value("rack");
+    let railties = fmt::value("railties");
     match detect_web(gem_list, &context.app_dir) {
         WebProcess::Rails => {
-            section.say(format!("Detected rails app ({rails} gem)"));
+            log_step(format!("Detected rails app ({rails} gem found)"));
 
             Some(default_rails())
         }
         WebProcess::RackWithConfigRU => {
-            section.say(format!(
-                "Detected rack app ({rack} gem and {config_ru} at root of application)"
+            log_step(format!(
+                "Detected rack app ({rack} gem found and {config_ru} at root of application)"
             ));
 
             Some(default_rack())
         }
         WebProcess::RackMissingConfigRu => {
-            section.say(format!(
-                "Skipping default web process (detected {rack} gem but missing {config_ru} file"
+            log_step(format!(
+                "Skipping default web process ({rack} gem found but missing {config_ru} file)"
             ));
 
             None
         }
         WebProcess::Missing => {
-            section.say(format!(
-                "Skipping default web process (no web gems detected: {rails}, {railties}, {rack}"
+            log_step(format!(
+                "Skipping default web process ({rails}, {railties}, and {rack} not found)"
             ));
 
             None

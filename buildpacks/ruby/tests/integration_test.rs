@@ -6,7 +6,6 @@ use libcnb_test::{
 };
 use std::thread;
 use std::time::{Duration, Instant};
-use thiserror::__private::AsDisplay;
 use ureq::Response;
 
 #[test]
@@ -168,36 +167,28 @@ fn request_container(
     req.call().map_err(Box::new)
 }
 
+fn time_bounded_retry<T, E, F>(max_time: Duration, sleep_for: Duration, f: F) -> Result<T, E>
+where
+    F: Fn() -> Result<T, E>,
+{
+    let start = Instant::now();
+
+    loop {
+        let result = f();
+        if result.is_ok() || max_time <= (start.elapsed() + sleep_for) {
+            return result;
+        }
+        thread::sleep(sleep_for);
+    }
+}
+
 fn call_root_until_boot(
     container: &ContainerContext,
     port: u16,
 ) -> Result<Response, Box<ureq::Error>> {
-    let mut count = 0;
-    let max_time = 10.0_f64; // Seconds
-    let sleep = 0.1_f64;
-
-    #[allow(clippy::cast_possible_truncation)]
-    let max_count = (max_time / sleep).floor() as i64;
-    let mut response = request_container(container, port, "");
-    while count < max_count {
-        count += 1;
-        match response {
-            Err(ref box_e) => match box_e.as_ref() {
-                ureq::Error::Transport(e) => {
-                    println!(
-                        "Waiting for connection {}, retrying in {}",
-                        e.as_display(),
-                        sleep
-                    );
-                    response = request_container(container, port, "");
-                }
-                ureq::Error::Status(..) => break,
-            },
-            _ => break,
-        }
-
-        thread::sleep(frac_seconds(sleep));
-    }
+    let response = time_bounded_retry(Duration::from_secs(10), frac_seconds(0.1_f64), || {
+        request_container(container, port, "")
+    });
 
     println!(
         "{}\n{}",

@@ -1,7 +1,11 @@
-use crate::build_output::{RunCommand, Section};
+use commons::output::{
+    fmt,
+    section_log::{log_step, log_step_timed, SectionLogger},
+};
+
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
-use commons::fun_run::{self, CmdMapExt};
+use commons::fun_run::{self, CommandWithName};
 use commons::gemfile_lock::ResolvedBundlerVersion;
 use libcnb::build::BuildContext;
 use libcnb::data::layer_content_metadata::LayerTypes;
@@ -14,7 +18,7 @@ use std::process::Command;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct BundleDownloadLayerMetadata {
-    version: ResolvedBundlerVersion,
+    pub version: ResolvedBundlerVersion,
 }
 
 /// # Install the bundler gem
@@ -23,13 +27,13 @@ pub(crate) struct BundleDownloadLayerMetadata {
 ///
 /// Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
 /// `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
-pub(crate) struct BundleDownloadLayer {
+pub(crate) struct BundleDownloadLayer<'a> {
     pub env: Env,
-    pub version: ResolvedBundlerVersion,
-    pub build_output: Section,
+    pub metadata: BundleDownloadLayerMetadata,
+    pub _section_logger: &'a dyn SectionLogger,
 }
 
-impl Layer for BundleDownloadLayer {
+impl<'a> Layer for BundleDownloadLayer<'a> {
     type Buildpack = RubyBuildpack;
     type Metadata = BundleDownloadLayerMetadata;
 
@@ -40,6 +44,7 @@ impl Layer for BundleDownloadLayer {
             cache: true,
         }
     }
+
     fn create(
         &self,
         _context: &BuildContext<Self::Buildpack>,
@@ -48,57 +53,56 @@ impl Layer for BundleDownloadLayer {
         let bin_dir = layer_path.join("bin");
         let gem_path = layer_path;
 
-        Command::new("gem")
-            .args([
-                "install",
-                "bundler",
-                "--version", // Specify exact version to install
-                &self.version.to_string(),
-            ])
-            .env_clear()
-            .envs(&self.env)
-            .cmd_map(|cmd| {
-                // Format `gem install --version <version>` without other content for display
-                let name = fun_run::display(cmd);
-                // Arguments we don't need in the output
-                cmd.args([
-                    "--install-dir", // Directory where bundler's contents will live
-                    &layer_path.to_string_lossy(),
-                    "--bindir", // Directory where `bundle` executable lives
-                    &bin_dir.to_string_lossy(),
-                    "--force",
-                    "--no-document", // Don't install ri or rdoc documentation, which takes extra time
-                    "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
-                ]);
-                self.build_output
-                    .run(RunCommand::inline_progress(cmd).with_name(name))
-                    .map_err(|error| {
-                        fun_run::map_which_problem(error, cmd, self.env.get("PATH").cloned())
-                    })
-            })
-            .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
+        let mut cmd = Command::new("gem");
+        cmd.args([
+            "install",
+            "bundler",
+            "--version", // Specify exact version to install
+            &self.metadata.version.to_string(),
+        ])
+        .env_clear()
+        .envs(&self.env);
 
-        LayerResultBuilder::new(BundleDownloadLayerMetadata {
-            version: self.version.clone(),
+        // Format `gem install --version <version>` without other content for display
+        let short_name = fun_run::display(&mut cmd);
+
+        // Arguments we don't need in the output
+        cmd.args([
+            "--install-dir", // Directory where bundler's contents will live
+            &layer_path.to_string_lossy(),
+            "--bindir", // Directory where `bundle` executable lives
+            &bin_dir.to_string_lossy(),
+            "--force",       // Overwrite if it already exists
+            "--no-document", // Don't install ri or rdoc documentation, which takes extra time
+            "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
+        ]);
+
+        log_step_timed(format!("Running {}", fmt::command(short_name)), || {
+            cmd.named_output().map_err(|error| {
+                fun_run::map_which_problem(error, cmd.mut_cmd(), self.env.get("PATH").cloned())
+            })
         })
-        .env(
-            LayerEnv::new()
-                .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
-                .chainable_insert(
-                    Scope::All,
-                    ModificationBehavior::Prepend,
-                    "PATH", // Ensure this path comes before default bundler that ships with ruby, don't rely on the lifecycle
-                    bin_dir,
-                )
-                .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
-                .chainable_insert(
-                    Scope::All,
-                    ModificationBehavior::Prepend,
-                    "GEM_PATH", // Bundler is a gem too, allow it to be required
-                    gem_path,
-                ),
-        )
-        .build()
+        .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
+
+        LayerResultBuilder::new(self.metadata.clone())
+            .env(
+                LayerEnv::new()
+                    .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
+                    .chainable_insert(
+                        Scope::All,
+                        ModificationBehavior::Prepend,
+                        "PATH", // Ensure this path comes before default bundler that ships with ruby, don't rely on the lifecycle
+                        bin_dir,
+                    )
+                    .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
+                    .chainable_insert(
+                        Scope::All,
+                        ModificationBehavior::Prepend,
+                        "GEM_PATH", // Bundler is a gem too, allow it to be required
+                        gem_path,
+                    ),
+            )
+            .build()
     }
 
     fn existing_layer_strategy(
@@ -107,18 +111,18 @@ impl Layer for BundleDownloadLayer {
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
         let old = &layer_data.content_metadata.metadata;
-        let now = BundleDownloadLayerMetadata {
-            version: self.version.clone(),
-        };
+        let now = self.metadata.clone();
         match cache_state(old.clone(), now) {
             State::NothingChanged(_version) => {
-                self.build_output.say("Using cached version");
+                log_step("Using cached version");
 
                 Ok(ExistingLayerStrategy::Keep)
             }
             State::BundlerVersionChanged(_old, _now) => {
-                self.build_output
-                    .say_with_details("Clearing cache", "bundler version changed");
+                log_step(format!(
+                    "Clearing cache {}",
+                    fmt::details("bundler version changed")
+                ));
 
                 Ok(ExistingLayerStrategy::Recreate)
             }

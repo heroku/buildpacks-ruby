@@ -1,9 +1,11 @@
-use commons::fun_run::{self, CmdError, CmdMapExt};
-use core::str::FromStr;
-use regex::Regex;
-use std::{ffi::OsStr, process::Command};
+use commons::output::{
+    fmt,
+    section_log::{log_step_timed, SectionLogger},
+};
 
-use crate::build_output::{RunCommand, Section};
+use commons::fun_run::{CmdError, CommandWithName};
+use core::str::FromStr;
+use std::{ffi::OsStr, process::Command};
 
 /// Run `rake -P` and parse output to show what rake tasks an application has
 ///
@@ -19,54 +21,46 @@ pub struct RakeDetect {
     output: String,
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum RakeError {
-    #[error("Regex error: {0}")]
-    RegexError(#[from] regex::Error),
-
-    #[error("Error detecting rake tasks: {0}")]
-    DashpCommandError(fun_run::CmdError),
-}
-
 impl RakeDetect {
     /// # Errors
     ///
     /// Will return `Err` if `bundle exec rake -p` command cannot be invoked by the operating system.
     pub fn from_rake_command<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsStr>>(
-        section: &Section,
+        _logger: &dyn SectionLogger,
         envs: T,
         error_on_failure: bool,
-    ) -> Result<Self, RakeError> {
-        Command::new("bundle")
-            .args(["exec", "rake", "-P", "--trace"])
+    ) -> Result<Self, CmdError> {
+        let mut cmd = Command::new("bundle");
+        cmd.args(["exec", "rake", "-P", "--trace"])
             .env_clear()
-            .envs(envs)
-            .cmd_map(|cmd| {
-                section.run(RunCommand::silent(cmd)).or_else(|error| {
-                    if error_on_failure {
-                        Err(error)
-                    } else {
-                        match error {
-                            CmdError::SystemError(_, _) => Err(error),
-                            CmdError::NonZeroExitNotStreamed(_, output)
-                            | CmdError::NonZeroExitAlreadyStreamed(_, output) => Ok(output),
-                        }
-                    }
-                })
-            })
-            .map_err(RakeError::DashpCommandError)
-            .and_then(|output| RakeDetect::from_str(&String::from_utf8_lossy(&output.stdout)))
+            .envs(envs);
+
+        log_step_timed(format!("Running {}", fmt::command(cmd.name())), || {
+            cmd.named_output()
+        })
+        .or_else(|error| {
+            if error_on_failure {
+                Err(error)
+            } else {
+                match error {
+                    CmdError::SystemError(_, _) => Err(error),
+                    CmdError::NonZeroExitNotStreamed(output)
+                    | CmdError::NonZeroExitAlreadyStreamed(output) => Ok(output),
+                }
+            }
+        })
+        .and_then(|output| RakeDetect::from_str(&output.stdout_lossy()))
     }
 
     #[must_use]
     pub fn has_task(&self, string: &str) -> bool {
-        let task_re = Regex::new(&format!("\\s{string}")).expect("Internal error with regex");
+        let task_re = regex::Regex::new(&format!("\\s{string}")).expect("clippy");
         task_re.is_match(&self.output)
     }
 }
 
 impl FromStr for RakeDetect {
-    type Err = RakeError;
+    type Err = CmdError;
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         Ok(RakeDetect {

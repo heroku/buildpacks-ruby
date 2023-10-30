@@ -1,6 +1,9 @@
-use crate::build_output::{RunCommand, Section};
-use commons::fun_run::{self, CmdMapExt};
+use commons::fun_run::{CmdError, CommandWithName};
 use commons::gem_version::GemVersion;
+use commons::output::{
+    fmt,
+    section_log::{log_step_timed, SectionLogger},
+};
 use core::str::FromStr;
 use regex::Regex;
 use std::collections::HashMap;
@@ -13,12 +16,6 @@ use std::process::Command;
 #[derive(Debug)]
 pub struct GemList {
     pub gems: HashMap<String, GemVersion>,
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum ListError {
-    #[error("Error determining dependencies: \n{0}")]
-    BundleListShellCommandError(fun_run::CmdError),
 }
 
 /// Converts the output of `$ gem list` into a data structure that can be inspected and compared
@@ -62,19 +59,20 @@ impl GemList {
     /// # Errors
     ///
     /// Errors if the command `bundle list` is unsuccessful.
-    pub fn from_bundle_list<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsStr>>(
-        envs: T,
-        build_output: &Section,
-    ) -> Result<Self, ListError> {
-        let output = Command::new("bundle")
-            .arg("list")
-            .env_clear()
-            .envs(envs)
-            .cmd_map(|cmd| build_output.run(RunCommand::inline_progress(cmd)))
-            .map_err(ListError::BundleListShellCommandError)?;
+    pub fn from_bundle_list<T, K, V>(envs: T, _logger: &dyn SectionLogger) -> Result<Self, CmdError>
+    where
+        T: IntoIterator<Item = (K, V)>,
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
+    {
+        let mut cmd = Command::new("bundle");
+        cmd.arg("list").env_clear().envs(envs);
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        GemList::from_str(&stdout)
+        let output = log_step_timed(format!("Running {}", fmt::command(cmd.name())), || {
+            cmd.named_output()
+        })?;
+
+        GemList::from_str(&output.stdout_lossy())
     }
 
     #[must_use]
@@ -84,7 +82,7 @@ impl GemList {
 }
 
 impl FromStr for GemList {
-    type Err = ListError;
+    type Err = CmdError;
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         // https://regex101.com/r/EIJe5G/1

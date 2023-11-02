@@ -3,8 +3,8 @@ use commons::output::{
     section_log::{log_step_timed, SectionLogger},
 };
 
-use commons::fun_run::{CmdError, CommandWithName};
 use core::str::FromStr;
+use fun_run::{CmdError, CommandWithName};
 use std::{ffi::OsStr, process::Command};
 
 /// Run `rake -P` and parse output to show what rake tasks an application has

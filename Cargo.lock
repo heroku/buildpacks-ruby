@@ -238,7 +238,7 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
 name = "commons"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "ascii_table",
  "byte-unit",
@@ -247,6 +247,7 @@ dependencies = [
  "filetime",
  "fs-err",
  "fs_extra",
+ "fun_run",
  "glob",
  "indoc",
  "lazy_static",
@@ -261,7 +262,6 @@ dependencies = [
  "thiserror",
  "toml",
  "walkdir",
- "which_problem",
 ]
 
 [[package]]
@@ -456,6 +456,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 
 [[package]]
+name = "fun_run"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69cc80678e5122e242f9b98be01db39d7fe16cbc03e3cc30ff36442a46f0cd1a"
+dependencies = [
+ "lazy_static",
+ "regex",
+ "which_problem",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -515,6 +526,7 @@ dependencies = [
  "commons",
  "flate2",
  "fs-err",
+ "fun_run",
  "glob",
  "indoc",
  "libcnb",

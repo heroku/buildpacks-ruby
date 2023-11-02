@@ -7,7 +7,7 @@ use commons::output::{
 };
 
 use crate::RubyBuildpackError;
-use commons::fun_run::{CmdError, CommandWithName};
+use fun_run::{CmdError, CommandWithName};
 use indoc::formatdoc;
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {

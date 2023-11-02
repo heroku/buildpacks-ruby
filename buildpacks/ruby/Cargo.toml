@@ -25,6 +25,7 @@ thiserror = "1"
 ureq = "2"
 url = "2"
 clap = { version = "4", features = ["derive"] }
+fun_run = { version = "0.1", features = ["which_problem"] }
 
 [dev-dependencies]
 libcnb-test = "=0.15.0"

@@ -1,6 +1,6 @@
 [package]
 name = "commons"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 publish = false
 
@@ -26,9 +26,9 @@ sha2 = "0.10"
 tempfile = "3"
 thiserror = "1"
 walkdir = "2"
-which_problem = "0.1"
 ascii_table = { version = "4", features = ["color_codes"] }
 const_format = "0.2"
+fun_run = "0.1"
 
 [dev-dependencies]
 indoc = "2"

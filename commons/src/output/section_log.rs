@@ -75,7 +75,7 @@ pub fn log_step_timed<T>(s: impl AsRef<str>, f: impl FnOnce() -> T) -> T {
 /// to the output. The main use case is running commands
 ///
 /// ```no_run
-/// use commons::fun_run::CommandWithName;
+/// use fun_run::CommandWithName;
 /// use commons::output::section_log::log_step_stream;
 /// use commons::output::fmt;
 ///

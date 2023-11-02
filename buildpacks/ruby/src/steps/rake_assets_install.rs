@@ -2,11 +2,11 @@ use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use commons::cache::{mib, AppCacheCollection, CacheConfig, KeepPath};
-use commons::fun_run::{self, CmdError, CommandWithName};
 use commons::output::{
     fmt::{self, HELP},
     section_log::{log_step, log_step_stream, SectionLogger},
 };
+use fun_run::{self, CmdError, CommandWithName};
 use libcnb::build::BuildContext;
 use libcnb::Env;
 use std::process::Command;

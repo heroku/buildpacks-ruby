@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The `fun_run` commons library was moved to it's own crate ()
+- The `fun_run` commons library was moved to it's own crate ([#232](https://github.com/heroku/buildpacks-ruby/pull/232))
 
 ## [2.1.2] - 2023-10-31
 

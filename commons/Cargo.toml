@@ -28,7 +28,7 @@ thiserror = "1"
 walkdir = "2"
 ascii_table = { version = "4", features = ["color_codes"] }
 const_format = "0.2"
-fun_run = "0.1"
+fun_run = "0.1.1"
 
 [dev-dependencies]
 indoc = "2"

@@ -2,13 +2,13 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 use commons::cache::CacheError;
-use commons::fun_run::CmdError;
 use commons::gemfile_lock::GemfileLock;
 use commons::metadata_digest::MetadataDigest;
 use commons::output::warn_later::WarnGuard;
 #[allow(clippy::wildcard_imports)]
 use commons::output::{build_log::*, fmt};
 use core::str::FromStr;
+use fun_run::CmdError;
 use layers::{
     bundle_download_layer::{BundleDownloadLayer, BundleDownloadLayerMetadata},
     bundle_install_layer::{BundleInstallLayer, BundleInstallLayerMetadata},

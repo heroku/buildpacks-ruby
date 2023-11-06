@@ -105,7 +105,7 @@ fn main() {
     command.status().unwrap_or_else(|error| {
         eprintln!(
             "Command failed {}. Details: {error}",
-            commons::fun_run::display(&mut command)
+            fun_run::display(&mut command)
         );
         exit(1)
     });

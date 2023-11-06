@@ -88,7 +88,7 @@ where
     let mut cmd = Command::new(path);
     cmd.args(args);
 
-    eprintln!("Running: {}", commons::fun_run::display(&mut cmd));
+    eprintln!("Running: {}", fun_run::display(&mut cmd));
 
     cmd.status()
 }

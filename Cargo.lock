@@ -192,9 +192,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "clap"
-version = "4.4.7"
+version = "4.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac495e00dcec98c83465d5ad66c5c4fabd652fd6686e7c6269b117e729a6f17b"
+checksum = "2275f18819641850fa26c89acc84d465c1bf91ce57bc2748b28c420473352f64"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -202,9 +202,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.4.7"
+version = "4.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c77ed9a32a62e6ca27175d00d29d05ca32e396ea1eb5fb01d8256b669cec7663"
+checksum = "07cdf1b148b25c1e1f7a42225e30a0d99a615cd4637eae7365548dd4529b95bc"
 dependencies = [
  "anstream",
  "anstyle",
@@ -243,7 +243,7 @@ dependencies = [
  "ascii_table",
  "byte-unit",
  "const_format",
- "fancy-regex",
+ "fancy-regex 0.12.0",
  "filetime",
  "fs-err",
  "fs_extra",
@@ -394,6 +394,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "fancy-regex"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7493d4c459da9f84325ad297371a6b2b8a162800873a22e3b6b6512e61d18c05"
+dependencies = [
+ "bit-set",
+ "regex",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -445,9 +455,12 @@ dependencies = [
 
 [[package]]
 name = "fs-err"
-version = "2.9.0"
+version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0845fa252299212f0389d64ba26f34fa32cfe41588355f21ed507c59a0f64541"
+checksum = "fb5fd9bcbe8b1087cbd395b51498c01bc997cef73e778a80b77a811af5e2d29f"
+dependencies = [
+ "autocfg",
+]
 
 [[package]]
 name = "fs_extra"
@@ -457,9 +470,9 @@ checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 
 [[package]]
 name = "fun_run"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f11c68c819a628c5ecdf4f96fd5c0f98702ee4ed617481ff1d7b74945212ced7"
+checksum = "0f1c09c4db8c8f60b5ab97bddf2e93a458ee43d65c6e02f9a4643b07159d4962"
 dependencies = [
  "lazy_static",
  "regex",
@@ -662,7 +675,7 @@ version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f35c4af3b47b67257263f0504897cf4db263b407b3e367971fc0b60ada69ce2"
 dependencies = [
- "fancy-regex",
+ "fancy-regex 0.11.0",
  "libcnb-proc-macros",
  "serde",
  "thiserror",
@@ -693,7 +706,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5effc8c71a7401899ea2885681b213b779449dc0f581663ea850d9de0718434c"
 dependencies = [
  "cargo_metadata",
- "fancy-regex",
+ "fancy-regex 0.11.0",
  "quote",
  "syn",
 ]

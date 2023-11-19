@@ -1,3 +1,6 @@
+// Required due to: https://github.com/rust-lang/rust/issues/95513
+#![allow(unused_crate_dependencies)]
+
 use clap::Parser;
 use std::path::PathBuf;
 use std::process::exit;
@@ -75,7 +78,7 @@ fn main() {
             eprintln!(
                 "Could not write to log file {}. Reason: {error}",
                 log.display()
-            )
+            );
         });
 
         command.args(["--output", &log.to_string_lossy()]);
@@ -88,7 +91,7 @@ fn main() {
             eprintln!(
                 "Could not write to log file {}. Reason: {error}",
                 log.display()
-            )
+            );
         });
     }
 

@@ -1,4 +1,5 @@
-#![warn(clippy::pedantic)]
+// Required due to: https://github.com/rust-lang/rust/issues/95513
+#![allow(unused_crate_dependencies)]
 
 use libcnb_test::{
     assert_contains, assert_empty, BuildConfig, BuildpackReference, ContainerConfig,

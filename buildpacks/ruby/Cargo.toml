@@ -3,8 +3,11 @@ name = "heroku-ruby-buildpack"
 # This crate is not published, so the only version that is used is the one in buildpack.toml.
 version = "0.0.0"
 publish = false
-edition = "2021"
-rust-version = "1.66"
+edition.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 commons = { path = "../../commons" }

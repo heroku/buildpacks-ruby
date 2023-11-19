@@ -1,12 +1,16 @@
 [package]
 name = "commons"
 version = "1.0.0"
-edition = "2021"
 publish = false
+edition.workspace = true
+rust-version.workspace = true
 
 [[bin]]
 name = "print_style_guide"
 path = "bin/print_style_guide.rs"
+
+[lints]
+workspace = true
 
 [dependencies]
 byte-unit = "4"

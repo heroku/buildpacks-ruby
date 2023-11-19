@@ -1,5 +1,9 @@
+// Required due to: https://github.com/rust-lang/rust/issues/95513
+#![allow(unused_crate_dependencies)]
+
 use ascii_table::AsciiTable;
 use commons::output::fmt::{self, DEBUG_INFO, HELP};
+#[allow(clippy::wildcard_imports)]
 use commons::output::{
     build_log::*,
     section_log::{log_step, log_step_stream, log_step_timed},
@@ -9,6 +13,7 @@ use indoc::formatdoc;
 use std::io::stdout;
 use std::process::Command;
 
+#[allow(clippy::too_many_lines)]
 fn main() {
     println!(
         "{}",

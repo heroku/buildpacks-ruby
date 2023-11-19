@@ -1,4 +1,3 @@
-#![allow(clippy::module_name_repetitions)]
 mod app_cache;
 mod app_cache_collection;
 mod clean;

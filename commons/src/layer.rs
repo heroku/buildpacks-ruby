@@ -1,4 +1,3 @@
-#![allow(clippy::module_name_repetitions)]
 mod configure_env_layer;
 mod default_env_layer;
 

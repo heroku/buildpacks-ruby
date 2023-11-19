@@ -2,7 +2,6 @@ use byte_unit::{n_mib_bytes, Byte};
 use std::path::PathBuf;
 
 /// Configure behavior of a cached path
-#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CacheConfig {
     /// Path to the directory you want to cache

@@ -1,6 +1,3 @@
-#![warn(unused_crate_dependencies)]
-#![warn(clippy::pedantic)]
-
 // Used in both testing and printing the style guide
 use indoc as _;
 

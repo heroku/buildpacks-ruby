@@ -31,7 +31,6 @@ use std::time::{Duration, Instant};
 ///
 /// For usage details run `cargo run --bin print_style_guide`
 
-#[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub struct BuildLog<T, W: Debug> {
     pub(crate) io: W,

@@ -31,14 +31,14 @@ use url::Url;
 /// When the Ruby version changes, invalidate and re-run.
 ///
 pub(crate) struct RubyInstallLayer<'a> {
-    pub _in_section: &'a dyn SectionLogger, // force the layer to be called within a Section logging context, not necessary but it's safer
-    pub metadata: RubyInstallLayerMetadata,
+    pub(crate) _in_section: &'a dyn SectionLogger, // force the layer to be called within a Section logging context, not necessary but it's safer
+    pub(crate) metadata: RubyInstallLayerMetadata,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct RubyInstallLayerMetadata {
-    pub stack: StackId,
-    pub version: ResolvedRubyVersion,
+    pub(crate) stack: StackId,
+    pub(crate) version: ResolvedRubyVersion,
 }
 
 impl<'a> Layer for RubyInstallLayer<'a> {

@@ -31,7 +31,7 @@ const DOWNLOAD_SHA: &str = "f9bf9f33c949e15ffed77046ca38f8dae9307b6a0181c6af29a2
 
 #[derive(Debug)]
 pub(crate) struct MetricsAgentInstall<'a> {
-    pub _in_section: &'a dyn SectionLogger, // force the layer to be called within a Section logging context, not necessary but it's safer
+    pub(crate) _in_section: &'a dyn SectionLogger, // force the layer to be called within a Section logging context, not necessary but it's safer
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

@@ -128,7 +128,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn test_grabs_files() {
+    fn test_grabs_files() {
         // FWIW This action must be done on two lines as the tmpdir gets cleaned
         // as soon as the variable goes out of scope and a path
         // reference does not retain it's caller
@@ -146,7 +146,7 @@ mod tests {
 
     use byte_unit::n_mib_bytes;
 
-    pub fn touch_file(path: &PathBuf, f: impl FnOnce(&PathBuf)) {
+    fn touch_file(path: &PathBuf, f: impl FnOnce(&PathBuf)) {
         if let Some(parent) = path.parent() {
             if !parent.exists() {
                 fs_err::create_dir_all(parent).unwrap();

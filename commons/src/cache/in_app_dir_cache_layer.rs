@@ -23,7 +23,7 @@ use std::path::PathBuf;
 ///  asset.
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct InAppDirCacheLayer<B> {
-    pub app_dir_path: PathBuf,
+    pub(crate) app_dir_path: PathBuf,
     buildpack: PhantomData<B>,
 }
 
@@ -33,7 +33,7 @@ pub(crate) struct InAppDirCacheLayerMetadata {
 }
 
 impl<B> InAppDirCacheLayer<B> {
-    pub fn new(app_dir_path: PathBuf) -> Self {
+    pub(crate) fn new(app_dir_path: PathBuf) -> Self {
         Self {
             app_dir_path,
             buildpack: PhantomData,

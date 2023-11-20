@@ -116,7 +116,7 @@ pub(crate) struct LinesWithEndings<'a> {
 }
 
 impl<'a> LinesWithEndings<'a> {
-    pub fn from(input: &'a str) -> LinesWithEndings<'a> {
+    pub(crate) fn from(input: &'a str) -> LinesWithEndings<'a> {
         LinesWithEndings { input }
     }
 }

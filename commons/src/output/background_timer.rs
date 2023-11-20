@@ -37,6 +37,8 @@ where
 
     let arc_io = arc_io.clone();
     let handle = std::thread::spawn(move || {
+        // TODO: Remove usage of unwrap(): https://github.com/heroku/buildpacks-ruby/issues/238
+        #[allow(clippy::unwrap_used)]
         let mut io = arc_io.lock().unwrap();
         write!(&mut io, "{start}").expect("Internal error");
         io.flush().expect("Internal error");

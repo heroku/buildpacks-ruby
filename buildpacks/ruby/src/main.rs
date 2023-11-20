@@ -35,7 +35,7 @@ use libcnb_test as _;
 
 use clap as _;
 
-pub(crate) struct RubyBuildpack;
+struct RubyBuildpack;
 
 impl Buildpack for RubyBuildpack {
     type Platform = GenericPlatform;
@@ -238,7 +238,7 @@ fn needs_java(gemfile_lock: &str) -> bool {
 }
 
 #[derive(Debug)]
-pub(crate) enum RubyBuildpackError {
+enum RubyBuildpackError {
     RakeDetectError(CmdError),
     GemListGetError(CmdError),
     RubyInstallError(RubyInstallError),
@@ -260,7 +260,7 @@ impl From<RubyBuildpackError> for libcnb::Error<RubyBuildpackError> {
 buildpack_main!(RubyBuildpack);
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq, Eq)]
-pub(crate) struct BundleWithout(String);
+struct BundleWithout(String);
 
 impl BundleWithout {
     fn new(without: impl AsRef<str>) -> Self {

@@ -1,6 +1,3 @@
-#![warn(unused_crate_dependencies)]
-#![warn(clippy::pedantic)]
-#![allow(clippy::module_name_repetitions)]
 use commons::cache::CacheError;
 use commons::gemfile_lock::GemfileLock;
 use commons::metadata_digest::MetadataDigest;

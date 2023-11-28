@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The `fun_run` commons library was moved to it's own crate ([#232](https://github.com/heroku/buildpacks-ruby/pull/232))
 
+### Added
+
+- Raise a helpful error when a file cannot be accessed at the time of buildpack detection ([#243](https://github.com/heroku/buildpacks-ruby/pull/243))
+
+
 ## [2.1.2] - 2023-10-31
 
 ### Fixed

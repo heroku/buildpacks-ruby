@@ -13,7 +13,7 @@ path = "bin/print_style_guide.rs"
 workspace = true
 
 [dependencies]
-byte-unit = "4"
+byte-unit = "5"
 fancy-regex = "0.12"
 fs_extra = "1"
 fs-err = "2"

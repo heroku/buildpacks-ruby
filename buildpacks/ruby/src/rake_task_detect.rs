@@ -17,7 +17,7 @@ use std::{ffi::OsStr, process::Command};
 /// assert!(!rake_detect.has_task("assets:precompile"));
 /// ```
 #[derive(Default)]
-pub struct RakeDetect {
+pub(crate) struct RakeDetect {
     output: String,
 }
 
@@ -25,7 +25,11 @@ impl RakeDetect {
     /// # Errors
     ///
     /// Will return `Err` if `bundle exec rake -p` command cannot be invoked by the operating system.
-    pub fn from_rake_command<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsStr>>(
+    pub(crate) fn from_rake_command<
+        T: IntoIterator<Item = (K, V)>,
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
+    >(
         _logger: &dyn SectionLogger,
         envs: T,
         error_on_failure: bool,
@@ -53,7 +57,7 @@ impl RakeDetect {
     }
 
     #[must_use]
-    pub fn has_task(&self, string: &str) -> bool {
+    pub(crate) fn has_task(&self, string: &str) -> bool {
         let task_re = regex::Regex::new(&format!("\\s{string}")).expect("clippy");
         task_re.is_match(&self.output)
     }

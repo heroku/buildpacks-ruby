@@ -31,17 +31,17 @@ pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
 /// `BundleInstallLayer::create` are the same.
 #[derive(Debug)]
 pub(crate) struct BundleInstallLayer<'a> {
-    pub env: Env,
-    pub without: BundleWithout,
-    pub _section_log: &'a dyn SectionLogger,
-    pub metadata: BundleInstallLayerMetadata,
+    pub(crate) env: Env,
+    pub(crate) without: BundleWithout,
+    pub(crate) _section_log: &'a dyn SectionLogger,
+    pub(crate) metadata: BundleInstallLayerMetadata,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
 pub(crate) struct BundleInstallLayerMetadata {
-    pub stack: StackId,
-    pub ruby_version: ResolvedRubyVersion,
-    pub force_bundle_install_key: String,
+    pub(crate) stack: StackId,
+    pub(crate) ruby_version: ResolvedRubyVersion,
+    pub(crate) force_bundle_install_key: String,
 
     /// A struct that holds the cryptographic hash of components that can
     /// affect the result of `bundle install`. When these values do not
@@ -54,7 +54,7 @@ pub(crate) struct BundleInstallLayerMetadata {
     /// This value is cached with metadata, so changing the struct
     /// may cause metadata to be invalidated (and the cache cleared).
     ///
-    pub digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
+    pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
 
 impl<'a> BundleInstallLayer<'a> {

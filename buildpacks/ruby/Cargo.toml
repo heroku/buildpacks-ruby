@@ -3,8 +3,11 @@ name = "heroku-ruby-buildpack"
 # This crate is not published, so the only version that is used is the one in buildpack.toml.
 version = "0.0.0"
 publish = false
-edition = "2021"
-rust-version = "1.66"
+edition.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 commons = { path = "../../commons" }
@@ -14,8 +17,8 @@ glob = "0.3"
 indoc = "2"
 # libcnb has a much bigger impact on buildpack behaviour than any other dependencies,
 # so it's pinned to an exact version to isolate it from lockfile refreshes.
-libcnb = "=0.15.0"
-libherokubuildpack = "=0.15.0"
+libcnb = "=0.16.0"
+libherokubuildpack = "=0.16.0"
 rand = "0.8"
 regex = "1"
 serde = "1"
@@ -28,5 +31,5 @@ clap = { version = "4", features = ["derive"] }
 fun_run = { version = "0.1", features = ["which_problem"] }
 
 [dev-dependencies]
-libcnb-test = "=0.15.0"
+libcnb-test = "=0.16.0"
 toml = "0.8"

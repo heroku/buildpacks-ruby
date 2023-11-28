@@ -18,7 +18,7 @@ use std::process::Command;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct BundleDownloadLayerMetadata {
-    pub version: ResolvedBundlerVersion,
+    pub(crate) version: ResolvedBundlerVersion,
 }
 
 /// # Install the bundler gem
@@ -28,9 +28,9 @@ pub(crate) struct BundleDownloadLayerMetadata {
 /// Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
 /// `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
 pub(crate) struct BundleDownloadLayer<'a> {
-    pub env: Env,
-    pub metadata: BundleDownloadLayerMetadata,
-    pub _section_logger: &'a dyn SectionLogger,
+    pub(crate) env: Env,
+    pub(crate) metadata: BundleDownloadLayerMetadata,
+    pub(crate) _section_logger: &'a dyn SectionLogger,
 }
 
 impl<'a> Layer for BundleDownloadLayer<'a> {

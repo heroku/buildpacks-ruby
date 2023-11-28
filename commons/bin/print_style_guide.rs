@@ -1,5 +1,9 @@
+// Required due to: https://github.com/rust-lang/rust/issues/95513
+#![allow(unused_crate_dependencies)]
+
 use ascii_table::AsciiTable;
 use commons::output::fmt::{self, DEBUG_INFO, HELP};
+#[allow(clippy::wildcard_imports)]
 use commons::output::{
     build_log::*,
     section_log::{log_step, log_step_stream, log_step_timed},
@@ -9,6 +13,7 @@ use indoc::formatdoc;
 use std::io::stdout;
 use std::process::Command;
 
+#[allow(clippy::too_many_lines)]
 fn main() {
     println!(
         "{}",
@@ -58,6 +63,8 @@ fn main() {
         .step("Output can be streamed. Mostly from commands. Example:")
         .step_timed_stream(&format!("Running {}", fmt::command(command.name())));
 
+        // TODO: Remove usage of unwrap(): https://github.com/heroku/buildpacks-ruby/issues/238
+        #[allow(clippy::unwrap_used)]
         command.stream_output(stream.io(), stream.io()).unwrap();
         log = stream.finish_timed_stream().end_section();
         drop(log);
@@ -95,6 +102,8 @@ fn main() {
             // do work here
         });
         log_step_stream("log_step_stream()", |stream| {
+            // TODO: Remove usage of unwrap(): https://github.com/heroku/buildpacks-ruby/issues/238
+            #[allow(clippy::unwrap_used)]
             Command::new("bash")
                 .args(["-c", "ps aux | grep cargo"])
                 .stream_output(stream.io(), stream.io())
@@ -108,6 +117,8 @@ fn main() {
     }
 
     {
+        // TODO: Remove usage of unwrap(): https://github.com/heroku/buildpacks-ruby/issues/238
+        #[allow(clippy::unwrap_used)]
         let cmd_error = Command::new("iDoNotExist").named_output().err().unwrap();
 
         let mut log = BuildLog::new(stdout()).buildpack_name("Error and warnings");

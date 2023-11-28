@@ -1,3 +1,18 @@
 [workspace]
 resolver = "2"
 members = ["buildpacks/ruby", "commons"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.74"
+
+[workspace.lints.rust]
+unreachable_pub = "warn"
+unsafe_code = "warn"
+unused_crate_dependencies = "warn"
+
+[workspace.lints.clippy]
+panic_in_result_fn = "warn"
+pedantic = "warn"
+unwrap_used = "warn"
+module_name_repetitions = "allow"

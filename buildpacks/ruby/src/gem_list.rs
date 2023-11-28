@@ -14,8 +14,8 @@ use std::process::Command;
 ///
 /// Requires `ruby` and `bundle` to be installed and on the PATH
 #[derive(Debug)]
-pub struct GemList {
-    pub gems: HashMap<String, GemVersion>,
+pub(crate) struct GemList {
+    pub(crate) gems: HashMap<String, GemVersion>,
 }
 
 /// Converts the output of `$ gem list` into a data structure that can be inspected and compared
@@ -59,7 +59,10 @@ impl GemList {
     /// # Errors
     ///
     /// Errors if the command `bundle list` is unsuccessful.
-    pub fn from_bundle_list<T, K, V>(envs: T, _logger: &dyn SectionLogger) -> Result<Self, CmdError>
+    pub(crate) fn from_bundle_list<T, K, V>(
+        envs: T,
+        _logger: &dyn SectionLogger,
+    ) -> Result<Self, CmdError>
     where
         T: IntoIterator<Item = (K, V)>,
         K: AsRef<OsStr>,

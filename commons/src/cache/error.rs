@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-#[allow(clippy::module_name_repetitions)]
 #[derive(thiserror::Error, Debug)]
 pub enum CacheError {
     #[error("Cached path not in application directory: {0}")]

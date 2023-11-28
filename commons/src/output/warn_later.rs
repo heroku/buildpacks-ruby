@@ -123,7 +123,6 @@ fn take() -> Option<Vec<String>> {
     WARN_LATER.with(|cell| cell.replace(None))
 }
 
-#[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub enum WarnLaterError {
     MissingGuardForThread(ThreadId),

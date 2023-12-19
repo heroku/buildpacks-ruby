@@ -33,10 +33,10 @@ walkdir = "2"
 ascii_table = { version = "4", features = ["color_codes"] }
 const_format = "0.2"
 fun_run = "0.1"
+toml = "0.8"
 
 [dev-dependencies]
 indoc = "2"
 filetime = "0.2"
-toml = "0.8"
 libcnb-test = "0.17.0"
 pretty_assertions = "1"

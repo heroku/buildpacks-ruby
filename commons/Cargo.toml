@@ -14,7 +14,7 @@ workspace = true
 
 [dependencies]
 byte-unit = "4"
-fancy-regex = "0.12"
+fancy-regex = "0.13"
 fs_extra = "1"
 fs-err = "2"
 glob = "0.3"

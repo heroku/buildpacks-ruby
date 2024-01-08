@@ -49,8 +49,8 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             log.announce().error(&formatdoc! {"
                 Error: `Gemfile` found with error
 
-                There was an error trying to read the contents of the application's Gemfile.
-                The buildpack cannot continue if the Gemfile is unreadable.
+              There was an error trying to read the contents of the application's Gemfile. \
+              The buildpack cannot continue if the Gemfile is unreadable.
 
                 {error}
 
@@ -61,15 +61,15 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             log.announce().error(&formatdoc! {"
                 Error: `package.json` found with error
 
-                The Ruby buildpack detected a package.json file but it is not readable
+                The Ruby buildpack detected a package.json file but it is not readable \
                 due to the following errors:
 
                 {error}
 
-                If your application does not need any node dependencies installed,
+                If your application does not need any node dependencies installed, \
                 you may delete this file and try again.
 
-                If you are expecting node dependencies to be installed, please
+                If you are expecting node dependencies to be installed, please \
                 debug using the above information and try again.
             "});
         }
@@ -77,7 +77,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             log.announce().error(&formatdoc! {"
                 Error: `Gemfile.lock` found with error
 
-                There was an error trying to read the contents of the application's Gemfile.lock.
+                There was an error trying to read the contents of the application's Gemfile.lock. \
                 The buildpack cannot continue if the Gemfile is unreadable.
 
                 {error}
@@ -89,15 +89,15 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             log.announce().error(&formatdoc! {"
                 Error: `yarn.lock` found with error
 
-                The Ruby buildpack detected a yarn.lock file but it is not readable
+                The Ruby buildpack detected a yarn.lock file but it is not readable \
                 due to the following errors:
 
                 {error}
 
-                If your application does not need yarn installed, you
+                If your application does not need yarn installed, you \
                 may delete this file and try again.
 
-                If you are expecting yarn to be installed, please
+                If you are expecting yarn to be installed, please \
                 debug using the above information and try again.
             "});
         }

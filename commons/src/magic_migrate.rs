@@ -173,6 +173,17 @@ where
     }
 }
 
+/// Implement `TryMigrateToml` for all structs that infailably
+/// can `MigrateToml`.
+impl<T> TryMigrateToml for T
+where
+    T: MigrateToml,
+{
+    type TryFrom = <Self as MigrateToml>::From;
+
+    type Error = std::convert::Infallible;
+}
+
 #[cfg(test)]
 mod tests {
     use std::convert::Infallible;

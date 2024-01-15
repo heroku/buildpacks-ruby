@@ -5,6 +5,7 @@ use commons::output::warn_later::WarnGuard;
 #[allow(clippy::wildcard_imports)]
 use commons::output::{build_log::*, fmt};
 use core::str::FromStr;
+use fs_err::PathExt;
 use fun_run::CmdError;
 use layers::{
     bundle_download_layer::{BundleDownloadLayer, BundleDownloadLayerMetadata},
@@ -37,6 +38,21 @@ use clap as _;
 
 struct RubyBuildpack;
 
+#[derive(Debug, thiserror::Error)]
+enum DetectError {
+    #[error("Cannot read Gemfile {0}")]
+    Gemfile(std::io::Error),
+
+    #[error("Cannot read Gemfile.lock {0}")]
+    GemfileLock(std::io::Error),
+
+    #[error("Cannot read package.json {0}")]
+    PackageJson(std::io::Error),
+
+    #[error("Cannot read yarn.lock {0}")]
+    YarnLock(std::io::Error),
+}
+
 impl Buildpack for RubyBuildpack {
     type Platform = GenericPlatform;
     type Metadata = GenericMetadata;
@@ -45,21 +61,49 @@ impl Buildpack for RubyBuildpack {
     fn detect(&self, context: DetectContext<Self>) -> libcnb::Result<DetectResult, Self::Error> {
         let mut plan_builder = BuildPlanBuilder::new().provides("ruby");
 
-        if let Ok(lockfile) = fs_err::read_to_string(context.app_dir.join("Gemfile.lock")) {
+        let lockfile = context.app_dir.join("Gemfile.lock");
+
+        if lockfile
+            .fs_err_try_exists()
+            .map_err(DetectError::GemfileLock)
+            .map_err(RubyBuildpackError::BuildpackDetectionError)?
+        {
             plan_builder = plan_builder.requires("ruby");
 
-            if context.app_dir.join("package.json").exists() {
+            if context
+                .app_dir
+                .join("package.json")
+                .fs_err_try_exists()
+                .map_err(DetectError::PackageJson)
+                .map_err(RubyBuildpackError::BuildpackDetectionError)?
+            {
                 plan_builder = plan_builder.requires("node");
             }
 
-            if context.app_dir.join("yarn.lock").exists() {
+            if context
+                .app_dir
+                .join("yarn.lock")
+                .fs_err_try_exists()
+                .map_err(DetectError::YarnLock)
+                .map_err(RubyBuildpackError::BuildpackDetectionError)?
+            {
                 plan_builder = plan_builder.requires("yarn");
             }
 
-            if needs_java(&lockfile) {
+            if fs_err::read_to_string(lockfile)
+                .map_err(DetectError::GemfileLock)
+                .map_err(RubyBuildpackError::BuildpackDetectionError)
+                .map(needs_java)?
+            {
                 plan_builder = plan_builder.requires("jdk");
             }
-        } else if context.app_dir.join("Gemfile").exists() {
+        } else if context
+            .app_dir
+            .join("Gemfile")
+            .fs_err_try_exists()
+            .map_err(DetectError::Gemfile)
+            .map_err(RubyBuildpackError::BuildpackDetectionError)?
+        {
             plan_builder = plan_builder.requires("ruby");
         }
 
@@ -232,13 +276,14 @@ impl Buildpack for RubyBuildpack {
     }
 }
 
-fn needs_java(gemfile_lock: &str) -> bool {
+fn needs_java(gemfile_lock: impl AsRef<str>) -> bool {
     let java_regex = regex::Regex::new(r"\(jruby ").expect("clippy");
-    java_regex.is_match(gemfile_lock)
+    java_regex.is_match(gemfile_lock.as_ref())
 }
 
 #[derive(Debug)]
-enum RubyBuildpackError {
+pub(crate) enum RubyBuildpackError {
+    BuildpackDetectionError(DetectError),
     RakeDetectError(CmdError),
     GemListGetError(CmdError),
     RubyInstallError(RubyInstallError),

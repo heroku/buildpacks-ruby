@@ -7,9 +7,11 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+clap = { version = "4", features = ["derive"] }
 commons = { path = "../../commons" }
 flate2 = "1"
 fs-err = "2"
+fun_run = { version = "0.1", features = ["which_problem"] }
 glob = "0.3"
 indoc = "2"
 # libcnb has a much bigger impact on buildpack behaviour than any other dependencies,
@@ -24,8 +26,6 @@ tempfile = "3"
 thiserror = "1"
 ureq = "2"
 url = "2"
-clap = { version = "4", features = ["derive"] }
-fun_run = { version = "0.1", features = ["which_problem"] }
 
 [dev-dependencies]
 libcnb-test = "=0.17.0"

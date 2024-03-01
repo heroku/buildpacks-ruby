@@ -11,10 +11,13 @@ path = "bin/print_style_guide.rs"
 workspace = true
 
 [dependencies]
+ascii_table = { version = "4", features = ["color_codes"] }
 byte-unit = "4"
+const_format = "0.2"
 fancy-regex = "0.13"
 fs_extra = "1"
 fs-err = "2"
+fun_run = "0.1"
 glob = "0.3"
 indoc = "2"
 lazy_static = "1"
@@ -28,13 +31,10 @@ sha2 = "0.10"
 tempfile = "3"
 thiserror = "1"
 walkdir = "2"
-ascii_table = { version = "4", features = ["color_codes"] }
-const_format = "0.2"
-fun_run = "0.1"
 
 [dev-dependencies]
-indoc = "2"
 filetime = "0.2"
-toml = "0.8"
+indoc = "2"
 libcnb-test = "0.17.0"
 pretty_assertions = "1"
+toml = "0.8"

@@ -1,6 +1,3 @@
-// Used in both testing and printing the style guide
-use indoc as _;
-
 // Used in the style guide
 use ascii_table as _;
 use fun_run as _;

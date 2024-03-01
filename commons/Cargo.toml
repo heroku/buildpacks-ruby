@@ -24,7 +24,7 @@ lazy_static = "1"
 # libcnb has a much bigger impact on buildpack behaviour than any other dependencies,
 # so it's pinned to an exact version to isolate it from lockfile refreshes.
 libcnb = "=0.17.0"
-libherokubuildpack = "=0.17.0"
+libherokubuildpack = { version = "=0.17.0", default-features = false, features = ["command"] }
 regex = "1"
 serde = "1"
 sha2 = "0.10"

@@ -19,6 +19,7 @@ indoc = "2"
 libcnb = "=0.17.0"
 libherokubuildpack = { version = "=0.17.0", default-features = false, features = ["digest"] }
 rand = "0.8"
+# TODO: Consolidate on either the regex crate or the fancy-regex crate, since this repo currently uses both.
 regex = "1"
 serde = "1"
 tar = { version = "0.4", default-features = false }

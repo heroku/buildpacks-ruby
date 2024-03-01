@@ -9,7 +9,7 @@ workspace = true
 [dependencies]
 clap = { version = "4", default-features = false, features = ["derive", "error-context", "help", "std", "usage"] }
 commons = { path = "../../commons" }
-flate2 = "1"
+flate2 = { version = "1", default-features = false, features = ["zlib"] }
 fs-err = "2"
 fun_run = { version = "0.1", features = ["which_problem"] }
 glob = "0.3"

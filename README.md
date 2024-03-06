@@ -1,53 +1,33 @@
-# Heroku Ruby cloud native buildpack (CNB)
+# Heroku Cloud Native Buildpack: Ruby
 
-[![CI](https://github.com/heroku/buildpacks-ruby/actions/workflows/ci.yml/badge.svg)](https://github.com/heroku/buildpacks-ruby/actions/workflows/ci.yml)
+[![Cloud Native Buildpacks Registry: heroku/ruby][registry-badge]][registry-url]
+[![CI on Github Actions: heroku/ruby][ci-badge]][ci-url]
 
-Heroku's official [Cloud Native Buildpacks](https://buildpacks.io/) for the Ruby ecosystem.
+![Heroku Cloud Native Buildpack: heroku/ruby][cnb-banner]
 
-## Classic Heroku Buildpack
+`heroku/ruby` is the [Heroku Cloud Native Buildpack][heroku-buildpacks]
+for Ruby applications. It builds Ruby application source code into application images with
+minimal configuration.
 
-If you're looking for the repositories of the classic Ruby Heroku buildpack for usage on the Heroku platform, please see [heroku/ruby](https://github.com/heroku/heroku-buildpack-ruby).
+> [!IMPORTANT]
+> This is a [Cloud Native Buildpack][cnb], and is a component of the [Heroku Cloud Native Buildpacks][heroku-buildpacks] project, which is in beta. If you are instead looking for the Heroku Classic Buildpack for Ruby (for use on the Heroku platform), you may find it [here][classic-buildpack].
 
-If you're migrating from the classic buildpack, known differences are documented below.
+## Usage
 
-## What is a buildpack?
+> [!NOTE]
+> Before getting started, ensure you have the `pack` CLI installed. Installation instructions are available [here][pack-install].
 
-Buildpacks take in an application's code and prepare it to run, usually in production. Unlike a declarative system like Dockerfile, buildpacks are designed to be low or no configuration required. They can inspect the application and make dynamic adjustments using common community standards.
+To build a Ruby application codebase into a production image:
 
-This buildpack is a Cloud Native Buildpack (CNB). CNB is a specification for building [OCI images](https://opencontainers.org/) (like docker). Some services natively support CNBs while other services might require you to generate an image locally and deploy that image through a container registry service.
-
-You can find out more about the CNB project at https://buildpacks.io/.
-
-## Use `heroku/ruby` CNB locally with `pack`
-
-To use the currently deployed `heroku/ruby` buildpack locally, you'll need a copy of `pack` installed. On a mac you can run:
-
-```
-$ brew install pack
+```bash
+$ cd ~/workdir/sample-ruby-app
+$ pack build sample-app --builder heroku/builder:22
 ```
 
-You'll also need to run [docker desktop](https://www.docker.com/products/docker-desktop/). With docker running, run the buildpack against a Ruby application by running:
-
+Then run the image:
+```bash
+docker run --rm -it -e "PORT=8080" -p 8080:8080 sample-app
 ```
-$ pack build <image-name-to-build> --builder heroku/builder:22 --path <path-to-ruby-app>
-```
-
-For example:
-
-```
-$ cd /tmp
-$ git clone https://github.com/heroku/ruby-getting-started
-$ cd ruby-getting-started
-$ pack build my-image --builder heroku/builder:22 --path ./ruby-getting-started
-===> ANALYZING
-Previous image with name "my-image" not found
-===> DETECTING
-# ...
-```
-
-The buildpack is released to Heroku's [heroku/builder images](https://github.com/heroku/cnb-builder-images). This buildpack is currently released on:
-
-- `heroku/builder:22`
 
 ## Application contract
 
@@ -175,85 +155,19 @@ This buildpack does not port all behaviors of the [original buildpack for Ruby ]
 - Caching of `public/assets` is gated on the presence of `rake assets:clean`. Previously this behavior was gated on the existence of a certain version of the Rails framework.
 - Caching of `tmp/cache/assets` (fragments) is gated on the presence of `rake assets:clean`. Previously this behavior was gated on the existence of a certain version of the Rails framework.
 
-## Development
 
-### Setup the project
+## Contributing
 
-- Follow setup instructions on https://github.com/Malax/libcnb.rs
-
-### Compile the buildpack
-
-To build a debug release (faster to compile) run:
-
-```
-$(set -pipefail; cd buildpacks/ruby && cargo libcnb package; cd -)
-```
-
-To build a production release (faster to run, slower to compile) run this command:
-
-```
-$(set -pipefail; cd buildpacks/ruby && cargo libcnb package --release; cd -)
-```
-
-### Use that compiled buildpack on an application
-
-To build the application vendored in `buildpacks/ruby/tests/fixtures/default_ruby` you can run:
-
-```
-pack build my-image --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby --path buildpacks/ruby/tests/fixtures/default_ruby --verbose
-```
-
-The deployed buildpack ships with a builder that tells the `pack` CLI what other builpacks it needs. In development you must specify them via the `--buildpack` flag before this buildpack. For example to build an app that needs nodejs can run like this:
-
-```
-pack build my-image --buildpack heroku/nodejs-engine --buildpack heroku/procfile --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby --path <path/to/application> --verbose
-```
-
-List of buildpacks this buildpack depends on:
-
-```
---buildpack heroku/nodejs-engine
---buildpack heroku/nodejs-yarn
---buildpack heroku/jvm
-```
-
-### Run the image
-
-Run a command and exit:
-
-```
-$ docker run -it --rm --entrypoint='/cnb/lifecycle/launcher' my-image 'which ruby'
-/layers/heroku_ruby/ruby/bin
-$ docker run -it --rm --entrypoint='/cnb/lifecycle/launcher' my-image 'ruby -v'
-ruby 2.7.4p191 (2021-07-07 revision a21a3b7d23) [x86_64-linux]
-```
-
-Make sure it doesn't say `/usr/bin/ruby` or another system ruby location
-
-As a oneliner:
-
-```
-cargo libcnb package &&
-docker rmi my-image --force  &&
-pack build my-image --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby --path buildpacks/ruby/tests/fixtures/default_ruby --verbose &&
-docker run -it --rm --entrypoint='/cnb/lifecycle/launcher' my-image 'which bundle'
-```
-
-Run it interactively:
-
-```
-docker run -it --rm --entrypoint='/cnb/lifecycle/launcher' my-image bash
-```
-
-Run the webserver:
-
-```
-docker run -it --rm --env PORT=9292 -p 9292:9292 my-image
-```
+Issues and pull requests are welcome. See our [contributing guidelines](./CONTRIBUTING.md) if you would like to help.
 
 
-Inspect the image:
+[ci-badge]: https://github.com/heroku/buildpacks-ruby/actions/workflows/ci.yml/badge.svg
+[ci-url]: https://github.com/heroku/buildpacks-ruby/actions/workflows/ci.yml
+[cnb]: https://buildpacks.io
+[cnb-banner]: https://cloud.githubusercontent.com/assets/51578/13712725/3c6b3368-e793-11e5-83c1-728440111358.png
+[classic-buildpack]: https://github.com/heroku/heroku-buildpack-ruby
+[heroku-buildpacks]: https://github.com/heroku/buildpacks
+[pack-install]: https://buildpacks.io/docs/for-platform-operators/how-to/integrate-ci/pack/
+[registry-badge]: https://img.shields.io/badge/dynamic/json?url=https://registry.buildpacks.io/api/v1/buildpacks/heroku/ruby&label=version&query=$.latest.version&color=DF0A6B&logo=data:image/png;base64,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&labelColor=white
+[registry-url]: https://registry.buildpacks.io/buildpacks/heroku/ruby
 
-```
-pack inspect my-image
-```

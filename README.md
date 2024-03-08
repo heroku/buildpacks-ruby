@@ -86,6 +86,7 @@ The `heroku/ruby` buildpack is a standalone buildpack. This is in contrast to so
 Issues and pull requests are welcome. See our [contributing guidelines](CONTRIBUTING.md) if you would like to help.
 
 
+[cnb]: https://buildpacks.io
 [pack-install]: https://buildpacks.io/docs/for-platform-operators/how-to/integrate-ci/pack/
 [classic-buildpack]: https://github.com/heroku/heroku-buildpack-ruby
 [heroku-buildpacks]: https://github.com/heroku/buildpacks

@@ -133,7 +133,7 @@ Please follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 By contributing your code, you agree to license your contribution under the terms of our project [LICENSE](LICENSE) and to sign the [Salesforce CLA](https://cla.salesforce.com/sign-cla).
 
-
+[cnb]: https://buildpacks.io
 [discussions]: https://github.com/heroku/buildpacks/discussions
 [issues]: https://github.com/heroku/buildpacks-ruby/issues
 [libcnb]: https://github.com/heroku/libcnb.rs

@@ -32,9 +32,8 @@ Fixes, improvements, and patches all happen via [GitHub Pull Requests on this re
 
 This buildpack relies on [heroku/libcnb.rs][libcnb] to compile buildpacks. All [libcnb.rs dependencies][libcnb-deps] will need to be setup prior to building or testing this buildpack.
 
-1. Install [rust by following instructions on their site](https://www.rust-lang.org/tools/install)
-1. Follow the setup instructions on [heroku/libcnb](https://github.com/heroku/libcnb.rs)
-1. Install the [pack cli](https://buildpacks.io/docs/for-platform-operators/how-to/integrate-ci/pack/)
+1. Install [rust by following instructions on their site][install-rust]
+1. Follow the setup instructions on [heroku/libcnb][libcnb-deps]
 
 ### Building the buildpack locally
 
@@ -103,21 +102,6 @@ docker run -it --rm --env PORT=9292 -p 9292:9292 my-image
 pack inspect my-image
 ```
 
-Depending on the development situation you may need to manually instruct docker to use the CNB entrypoint. You can do that by passing `--entrypoint='/cnb/lifecycle/launcher` to your docker command.
-
-Here is a command for building and running an image in one step with a clean cache:
-
-```
-export IMAGE_NAME=ruby-buildpack-example &&
-cargo libcnb package &&
-docker rmi "$IMAGE_NAME" --force  &&
-pack build "$IMAGE_NAME" \
-  --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby \
-  --path buildpacks/ruby/tests/fixtures/default_ruby \
-  --verbose &&
-docker run -it --rm --entrypoint='/cnb/lifecycle/launcher' "$IMAGE_NAME" 'which bundle'
-```
-
 ### Testing
 
 - `cargo test` performs Rust unit tests.
@@ -135,6 +119,7 @@ By contributing your code, you agree to license your contribution under the term
 
 [cnb]: https://buildpacks.io
 [discussions]: https://github.com/heroku/buildpacks/discussions
+[install-rust]: https://www.rust-lang.org/tools/install
 [issues]: https://github.com/heroku/buildpacks-ruby/issues
 [libcnb]: https://github.com/heroku/libcnb.rs
 [libcnb-deps]: https://github.com/heroku/libcnb.rs#development-environment-setup

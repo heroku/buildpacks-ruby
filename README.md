@@ -5,7 +5,7 @@
 
 ![Heroku Cloud Native Buildpack: heroku/ruby](https://cloud.githubusercontent.com/assets/51578/13712725/3c6b3368-e793-11e5-83c1-728440111358.png)
 
-Build your Ruby and Rails application source code into an [OCI images](https://opencontainers.org/) with minimal configuration using the project, no `Dockerfile` required. To learn more about what a CNB is, how they work, and how to use one to build your application, see the [Heroku CNB documentation][heroku-buildpacks].
+Build your Ruby and Rails application source code into an [OCI image](https://opencontainers.org/) with minimal configuration, no `Dockerfile` required. To learn more about what a CNB is, how they work, and how to use one to build your application, see the [Heroku CNB documentation][heroku-buildpacks].
 
 > [!IMPORTANT]
 > This is a collection of [Cloud Native Buildpacks][cnb], and is a component of the [Heroku Cloud Native Buildpacks][heroku-buildpacks] project, which is in beta. If you are instead looking for the Heroku Classic Buildpack for Ruby (for use on the Heroku platform), you may find it [here][classic-buildpack]. To read about differences between the buildpacks see [docs/upgrading.md](docs/upgrading.md).

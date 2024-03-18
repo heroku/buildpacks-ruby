@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.3] - 2024-03-18
+
 ### Changed
 
 - The `fun_run` commons library was moved to it's own crate ([#232](https://github.com/heroku/buildpacks-ruby/pull/232))
@@ -14,7 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Raise a helpful error when a file cannot be accessed at the time of buildpack detection ([#243](https://github.com/heroku/buildpacks-ruby/pull/243))
-
 
 ## [2.1.2] - 2023-10-31
 
@@ -46,7 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial version of Ruby buildpack in Rust (https://github.com/heroku/buildpacks-ruby/pull/93)
 - Version 2.0.0 for the first release is not a typo. There was an issue in pack where a builder with the same name and version number would reuse artifacts left on image from [prior runs which caused issues](https://github.com/buildpacks/pack/issues/1322#issuecomment-1038241038). There were prior releases of `heroku/ruby` CNB from different sources that triggered this problem. To ensure no one would encounter that issue we developed and released using a version we know has not been used before. Version 2.0 was the first major version without a prior release of `heroku/ruby` CNB from any source.
 
-[unreleased]: https://github.com/heroku/buildpacks-ruby/compare/v2.1.2...HEAD
+[unreleased]: https://github.com/heroku/buildpacks-ruby/compare/v2.1.3...HEAD
+[2.1.3]: https://github.com/heroku/buildpacks-ruby/compare/v2.1.2...v2.1.3
 [2.1.2]: https://github.com/heroku/buildpacks-ruby/compare/v2.1.1...v2.1.2
 [2.1.1]: https://github.com/heroku/buildpacks-ruby/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/heroku/buildpacks-ruby/compare/v2.0.1...v2.1.0

@@ -8,7 +8,7 @@ use std::thread::ThreadId;
 
 pub type PhantomUnsync = PhantomData<Rc<()>>;
 
-thread_local!(static WARN_LATER: RefCell<Option<Vec<String>>> = RefCell::new(None));
+thread_local!(static WARN_LATER: RefCell<Option<Vec<String>>> = const { RefCell::new(None) });
 
 /// Queue a warning for later
 ///

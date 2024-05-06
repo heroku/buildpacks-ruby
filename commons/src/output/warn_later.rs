@@ -206,11 +206,11 @@ where
 {
     // Private inner to force public construction through `new()` which tracks creation state per thread.
     io: W,
-    /// The use of WarnGuard is directly tied to the thread where it was created
+    /// The use of `WarnGuard` is directly tied to the thread where it was created
     /// This forces the struct to not be send or sync
     ///
     /// To move warn later data between threads, drain quietly, send the data to another
-    /// thread, and re-apply those warnings to a WarnGuard in the other thread.
+    /// thread, and re-apply those warnings to a `WarnGuard` in the other thread.
     unsync: PhantomUnsync,
 }
 

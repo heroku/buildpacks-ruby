@@ -80,7 +80,7 @@ impl GemList {
 
     #[must_use]
     pub(crate) fn has(&self, str: &str) -> bool {
-        self.gems.get(&str.trim().to_lowercase()).is_some()
+        self.gems.contains_key(&str.trim().to_lowercase())
     }
 }
 

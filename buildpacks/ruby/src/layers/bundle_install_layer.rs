@@ -210,7 +210,7 @@ impl Layer for BundleInstallLayer<'_> {
 enum Changed {
     Nothing,
 
-    /// The stack changed i.e. from heroku_20 to heroku_22
+    /// The stack changed i.e. from `heroku-20` to `heroku-22`
     /// When that happens we must invalidate native dependency gems
     /// because they're compiled against system dependencies
     /// i.e. <https://devcenter.heroku.com/articles/stack-packages>

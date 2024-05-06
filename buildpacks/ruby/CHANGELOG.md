@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added support for `heroku-24` / `heroku/builder:24`. ([#280](https://github.com/heroku/buildpacks-ruby/pull/280))
+
 ## [2.1.3] - 2024-03-18
 
 ### Changed

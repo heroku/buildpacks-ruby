@@ -17,5 +17,8 @@ id = "heroku-20"
 [[stacks]]
 id = "heroku-22"
 
+[[stacks]]
+id = "heroku-24"
+
 [metadata.release]
 image = { repository = "docker.io/heroku/buildpack-ruby" }

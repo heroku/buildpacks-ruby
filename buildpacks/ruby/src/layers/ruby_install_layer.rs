@@ -2,6 +2,7 @@ use commons::output::{
     fmt::{self},
     section_log::{log_step, log_step_timed, SectionLogger},
 };
+use libcnb::data::stack_id;
 
 use crate::{RubyBuildpack, RubyBuildpackError};
 use commons::gemfile_lock::ResolvedRubyVersion;
@@ -130,10 +131,18 @@ fn download_url(stack: &StackId, version: impl std::fmt::Display) -> Result<Url,
     let base = "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com";
     let mut url = Url::parse(base).map_err(RubyInstallError::UrlParseError)?;
 
-    url.path_segments_mut()
-        .map_err(|()| RubyInstallError::InvalidBaseUrl(String::from(base)))?
-        .push(stack)
-        .push(&filename);
+    if stack == &stack_id!("heroku-24") {
+        url.path_segments_mut()
+            .map_err(|()| RubyInstallError::InvalidBaseUrl(String::from(base)))?
+            .push(stack)
+            .push("amd64")
+            .push(&filename);
+    } else {
+        url.path_segments_mut()
+            .map_err(|()| RubyInstallError::InvalidBaseUrl(String::from(base)))?
+            .push(stack)
+            .push(&filename);
+    }
     Ok(url)
 }
 
@@ -220,6 +229,15 @@ version = "3.1.3"
         assert_eq!(
             out.as_ref(),
             "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com/heroku-20/ruby-2.7.4.tgz",
+        );
+    }
+
+    #[test]
+    fn test_heroku24_ruby_url() {
+        let out = download_url(&stack_id!("heroku-24"), "3.1.4").unwrap();
+        assert_eq!(
+            out.as_ref(),
+            "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com/heroku-24/amd64/ruby-3.1.4.tgz",
         );
     }
 }

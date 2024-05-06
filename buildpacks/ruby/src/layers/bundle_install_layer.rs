@@ -213,7 +213,7 @@ enum Changed {
     /// The stack changed i.e. from heroku_20 to heroku_22
     /// When that happens we must invalidate native dependency gems
     /// because they're compiled against system dependencies
-    /// i.e. https://devcenter.heroku.com/articles/stack-packages
+    /// i.e. <https://devcenter.heroku.com/articles/stack-packages>
     /// TODO: Only clear native dependencies instead of the whole cache
     Stack(StackId, StackId), // (old, now)
 

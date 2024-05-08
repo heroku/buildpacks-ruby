@@ -254,4 +254,12 @@ version = "3.1.3"
             format!("https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com/heroku-24/{}/ruby-3.1.4.tgz", ruby_arch().unwrap()),
         );
     }
+
+    #[test]
+    fn test_ruby_arch() {
+        #[cfg(target_arch = "aarch64")]
+        assert_eq!("arm64", ruby_arch().unwrap());
+        #[cfg(target_arch = "x86_64")]
+        assert_eq!("amd64", ruby_arch().unwrap());
+    }
 }

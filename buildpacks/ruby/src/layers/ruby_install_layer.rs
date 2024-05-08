@@ -12,6 +12,7 @@ use libcnb::data::buildpack::StackId;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use serde::{Deserialize, Serialize};
+use std::env::consts;
 use std::io;
 use std::path::Path;
 use tar::Archive;
@@ -135,7 +136,7 @@ fn download_url(stack: &StackId, version: impl std::fmt::Display) -> Result<Url,
         url.path_segments_mut()
             .map_err(|()| RubyInstallError::InvalidBaseUrl(String::from(base)))?
             .push(stack)
-            .push("amd64")
+            .push(&ruby_arch()?)
             .push(&filename);
     } else {
         url.path_segments_mut()
@@ -144,6 +145,15 @@ fn download_url(stack: &StackId, version: impl std::fmt::Display) -> Result<Url,
             .push(&filename);
     }
     Ok(url)
+}
+
+fn ruby_arch() -> Result<String, RubyInstallError> {
+    match consts::ARCH {
+        "x86_64" => Ok(String::from("amd64")),
+        _ => Err(RubyInstallError::UnsupportedArchitecture(String::from(
+            consts::ARCH,
+        ))),
+    }
 }
 
 pub(crate) fn download(
@@ -182,6 +192,9 @@ pub(crate) enum RubyInstallError {
 
     #[error("Invalid base url {0}")]
     InvalidBaseUrl(String),
+
+    #[error("Unsupported architecture: {0}")]
+    UnsupportedArchitecture(String),
 
     #[error("Could not open file: {0}")]
     CouldNotOpenFile(std::io::Error),
@@ -237,7 +250,7 @@ version = "3.1.3"
         let out = download_url(&stack_id!("heroku-24"), "3.1.4").unwrap();
         assert_eq!(
             out.as_ref(),
-            "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com/heroku-24/amd64/ruby-3.1.4.tgz",
+            format!("https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com/heroku-24/{}/ruby-3.1.4.tgz", ruby_arch().unwrap()),
         );
     }
 }

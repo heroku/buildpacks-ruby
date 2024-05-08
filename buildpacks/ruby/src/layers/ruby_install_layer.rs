@@ -149,6 +149,7 @@ fn download_url(stack: &StackId, version: impl std::fmt::Display) -> Result<Url,
 
 fn ruby_arch() -> Result<String, RubyInstallError> {
     match consts::ARCH {
+        "aarch64" => Ok(String::from("arm64")),
         "x86_64" => Ok(String::from("amd64")),
         _ => Err(RubyInstallError::UnsupportedArchitecture(String::from(
             consts::ARCH,

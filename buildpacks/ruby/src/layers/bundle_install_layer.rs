@@ -114,9 +114,10 @@ impl Layer for BundleInstallLayer<'_> {
             cache: true,
         }
     }
+
     /// Runs with gems cache from last execution
     fn update(
-        &self,
+        &mut self,
         context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
@@ -150,7 +151,7 @@ impl Layer for BundleInstallLayer<'_> {
 
     /// Runs when with empty cache
     fn create(
-        &self,
+        &mut self,
         context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
@@ -172,7 +173,7 @@ impl Layer for BundleInstallLayer<'_> {
     /// if a coder updates env vars they won't be set unless update or
     /// create is run.
     fn existing_layer_strategy(
-        &self,
+        &mut self,
         _context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {

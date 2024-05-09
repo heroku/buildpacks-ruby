@@ -101,7 +101,7 @@ const PLATFORM_ENV_VAR: &str = "user configured environment variables";
 /// #     }
 /// #
 ///       fn update(
-///           &self,
+///           &mut self,
 ///           context: &BuildContext<Self::Buildpack>,
 ///           layer_data: &LayerData<Self::Metadata>,
 ///       ) -> Result<LayerResult<Self::Metadata>, <Self::Buildpack as Buildpack>::Error> {
@@ -124,7 +124,7 @@ const PLATFORM_ENV_VAR: &str = "user configured environment variables";
 ///       }
 /// #
 /// #     fn create(
-/// #         &self,
+/// #         &mut self,
 /// #         context: &BuildContext<Self::Buildpack>,
 /// #         layer_path: &Path,
 /// #     ) -> Result<LayerResult<Self::Metadata>, <Self::Buildpack as libcnb::Buildpack>::Error> {

@@ -18,11 +18,9 @@ const PLATFORM_ENV_VAR: &str = "user configured environment variables";
 /// ```rust
 /// use serde::{Deserialize, Serialize};
 /// use commons::metadata_digest::MetadataDigest;
-/// use libcnb::data::buildpack::StackId;
 ///
 /// #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
 /// pub(crate) struct BundleInstallLayerMetadata {
-///     stack: StackId,
 ///     ruby_version: String,
 ///     force_bundle_install_key: String,
 ///

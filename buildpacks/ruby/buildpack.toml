@@ -1,4 +1,4 @@
-api = "0.9"
+api = "0.10"
 
 [buildpack]
 id = "heroku/ruby"
@@ -12,10 +12,23 @@ keywords = ["ruby", "rails", "heroku"]
 type = "BSD-3-Clause"
 
 [[stacks]]
-id = "heroku-20"
-
-[[stacks]]
-id = "heroku-22"
+id = "*"
 
 [metadata.release]
 image = { repository = "docker.io/heroku/buildpack-ruby" }
+
+[[targets]]
+os = "linux"
+arch = "arm64"
+
+[[targets]]
+os = "linux"
+arch = "amd64"
+
+[[targets.distros]]
+name = "ubuntu"
+version = "20.04"
+
+[[targets.distros]]
+name = "ubuntu"
+version = "22.04"

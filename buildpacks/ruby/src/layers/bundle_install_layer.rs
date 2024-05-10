@@ -11,13 +11,17 @@ use fun_run::CommandWithName;
 use fun_run::{self, CmdError};
 use libcnb::{
     build::BuildContext,
-    data::{buildpack::StackId, layer_content_metadata::LayerTypes},
+    data::layer_content_metadata::LayerTypes,
     layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder},
     layer_env::{LayerEnv, ModificationBehavior, Scope},
     Env,
 };
-use serde::{Deserialize, Serialize};
+use magic_migrate::{try_migrate_link, TryMigrate};
+use serde::{Deserialize, Deserializer, Serialize};
+use std::convert::Infallible;
 use std::{path::Path, process::Command};
+
+use crate::target_id::{TargetId, TargetIdError};
 
 const HEROKU_SKIP_BUNDLE_DIGEST: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
 pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
@@ -38,8 +42,16 @@ pub(crate) struct BundleInstallLayer<'a> {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
-pub(crate) struct BundleInstallLayerMetadata {
-    pub(crate) stack: StackId,
+pub(crate) struct BundleInstallLayerMetadataV1 {
+    pub(crate) stack: String,
+    pub(crate) ruby_version: ResolvedRubyVersion,
+    pub(crate) force_bundle_install_key: String,
+    pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+pub(crate) struct BundleInstallLayerMetadataV2 {
+    pub(crate) target_id: TargetId,
     pub(crate) ruby_version: ResolvedRubyVersion,
     pub(crate) force_bundle_install_key: String,
 
@@ -55,6 +67,45 @@ pub(crate) struct BundleInstallLayerMetadata {
     /// may cause metadata to be invalidated (and the cache cleared).
     ///
     pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
+}
+try_migrate_link!(BundleInstallLayerMetadataV1, BundleInstallLayerMetadataV2);
+pub(crate) type BundleInstallLayerMetadata = BundleInstallLayerMetadataV2;
+
+#[derive(thiserror::Error, Debug)]
+pub(crate) enum MigrateMetadataError {
+    #[error("Could not migrate metadata {0}")]
+    UnsupportedStack(TargetIdError),
+}
+
+// CNB spec moved from the concept of "stacks" (i.e. "heroku-22" which represented an OS and system dependencies) to finer
+// grained "target" which includes the OS, OS version, and architecture. This function converts the old stack id to the new target id.
+impl TryFrom<BundleInstallLayerMetadataV1> for BundleInstallLayerMetadataV2 {
+    type Error = MigrateMetadataError;
+
+    fn try_from(v1: BundleInstallLayerMetadataV1) -> Result<Self, Self::Error> {
+        Ok(Self {
+            target_id: TargetId::from_stack(&v1.stack)
+                .map_err(MigrateMetadataError::UnsupportedStack)?,
+            ruby_version: v1.ruby_version,
+            force_bundle_install_key: v1.force_bundle_install_key,
+            digest: v1.digest,
+        })
+    }
+}
+
+impl From<Infallible> for MigrateMetadataError {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
+    }
+}
+
+impl TryMigrate for BundleInstallLayerMetadataV1 {
+    type TryFrom = Self;
+    type Error = MigrateMetadataError;
+
+    fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
+        toml::Deserializer::new(input)
+    }
 }
 
 impl<'a> BundleInstallLayer<'a> {
@@ -189,7 +240,7 @@ impl Layer for BundleInstallLayer<'_> {
 
                 keep_and_run
             }
-            Changed::Stack(_old, _now) => {
+            Changed::Target(_old, _now) => {
                 log_step(format!("Clearing cache {}", fmt::details("stack changed")));
 
                 clear_and_run
@@ -201,6 +252,29 @@ impl Layer for BundleInstallLayer<'_> {
                 ));
 
                 clear_and_run
+            }
+        }
+    }
+
+    fn migrate_incompatible_metadata(
+        &mut self,
+        _context: &BuildContext<Self::Buildpack>,
+        metadata: &libcnb::generic::GenericMetadata,
+    ) -> Result<
+        libcnb::layer::MetadataMigration<Self::Metadata>,
+        <Self::Buildpack as libcnb::Buildpack>::Error,
+    > {
+        match Self::Metadata::try_from_str_migrations(
+            &toml::to_string(&metadata).expect("TOML deserialization of GenericMetadata"),
+        ) {
+            Some(Ok(metadata)) => Ok(libcnb::layer::MetadataMigration::ReplaceMetadata(metadata)),
+            Some(Err(e)) => {
+                log_step(format!("Clearing cache (metadata migration error {e})"));
+                Ok(libcnb::layer::MetadataMigration::RecreateLayer)
+            }
+            None => {
+                log_step("Clearing cache (invalid metadata)");
+                Ok(libcnb::layer::MetadataMigration::RecreateLayer)
             }
         }
     }
@@ -216,7 +290,7 @@ enum Changed {
     /// because they're compiled against system dependencies
     /// i.e. <https://devcenter.heroku.com/articles/stack-packages>
     /// TODO: Only clear native dependencies instead of the whole cache
-    Stack(StackId, StackId), // (old, now)
+    Target(TargetId, TargetId), // (old, now)
 
     /// Ruby version changed i.e. 3.0.2 to 3.1.2
     /// When that happens we must invalidate native dependency gems
@@ -229,14 +303,14 @@ enum Changed {
 // cache. Based on that state, we can log and determine `ExistingLayerStrategy`
 fn cache_state(old: BundleInstallLayerMetadata, now: BundleInstallLayerMetadata) -> Changed {
     let BundleInstallLayerMetadata {
-        stack,
+        target_id,
         ruby_version,
         force_bundle_install_key: _,
         digest: _, // digest state handled elsewhere
     } = now; // ensure all values are handled or we get a clippy warning
 
-    if old.stack != stack {
-        Changed::Stack(old.stack, stack)
+    if old.target_id != target_id {
+        Changed::Target(old.target_id, target_id)
     } else if old.ruby_version != ruby_version {
         Changed::RubyVersion(old.ruby_version, ruby_version)
     } else {
@@ -348,7 +422,6 @@ pub(crate) struct BundleDigest {
 #[cfg(test)]
 mod test {
     use super::*;
-    use libcnb::data::stack_id;
     use std::path::PathBuf;
 
     #[cfg(test)]
@@ -401,8 +474,9 @@ GEM_PATH=layer_path
         assert_eq!(expected.trim(), actual.trim());
     }
 
-    /// If this test fails due to a change you'll need to implement
-    /// `migrate_incompatible_metadata` for the Layer trait
+    /// Guards the current metadata deserialization
+    /// If this fails you need to implement a migration from the last format
+    /// to the current format.
     #[test]
     fn metadata_guard() {
         let tmpdir = tempfile::tempdir().unwrap();
@@ -419,7 +493,61 @@ GEM_PATH=layer_path
         std::fs::write(&gemfile, "iamagemfile").unwrap();
 
         let metadata = BundleInstallLayerMetadata {
-            stack: stack_id!("heroku-22"),
+            target_id: TargetId::from_stack("heroku-24").unwrap(),
+            ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
+            force_bundle_install_key: String::from("v1"),
+            digest: MetadataDigest::new_env_files(
+                &context.platform,
+                &[&context.app_path.join("Gemfile")],
+            )
+            .unwrap(),
+        };
+
+        let actual = toml::to_string(&metadata).unwrap();
+        let gemfile_path = gemfile.display();
+        let toml_string = format!(
+            r#"
+ruby_version = "3.1.3"
+force_bundle_install_key = "v1"
+
+[target_id]
+arch = "amd64"
+distro_name = "ubuntu"
+distro_version = "24.04"
+
+[digest]
+platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3"
+
+[digest.files]
+"{gemfile_path}" = "32b27d2934db61b105fea7c2cb6159092fed6e121f8c72a948f341ab5afaa1ab"
+"#
+        )
+        .trim()
+        .to_string();
+        assert_eq!(toml_string, actual.trim());
+
+        let deserialized: BundleInstallLayerMetadata = toml::from_str(&toml_string).unwrap();
+
+        assert_eq!(metadata, deserialized);
+    }
+
+    #[test]
+    fn metadata_migrate_v1_to_v2() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let app_path = tmpdir.path().to_path_buf();
+        let gemfile = app_path.join("Gemfile");
+
+        let mut env = Env::new();
+        env.insert("SECRET_KEY_BASE", "abcdgoldfish");
+
+        let context = FakeContext {
+            platform: FakePlatform { env },
+            app_path,
+        };
+        std::fs::write(&gemfile, "iamagemfile").unwrap();
+
+        let metadata = BundleInstallLayerMetadataV1 {
+            stack: String::from("heroku-22"),
             ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
             force_bundle_install_key: String::from("v1"),
             digest: MetadataDigest::new_env_files(
@@ -448,8 +576,17 @@ platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3
         .to_string();
         assert_eq!(toml_string, actual.trim());
 
-        let deserialized: BundleInstallLayerMetadata = toml::from_str(&toml_string).unwrap();
+        let deserialized: BundleInstallLayerMetadataV2 =
+            BundleInstallLayerMetadataV2::try_from_str_migrations(&toml_string)
+                .unwrap()
+                .unwrap();
 
-        assert_eq!(metadata, deserialized);
+        let expected = BundleInstallLayerMetadataV2 {
+            target_id: TargetId::from_stack(&metadata.stack).unwrap(),
+            ruby_version: metadata.ruby_version,
+            force_bundle_install_key: metadata.force_bundle_install_key,
+            digest: metadata.digest,
+        };
+        assert_eq!(expected, deserialized);
     }
 }

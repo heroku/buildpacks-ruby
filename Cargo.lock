@@ -335,9 +335,9 @@ dependencies = [
 
 [[package]]
 name = "fastrand"
-version = "2.0.1"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25cbce373ec4653f1a01a31e8a5e5ec0c622dc27ff9c4e6606eefef5cbbed4a5"
+checksum = "9fc0510504f03c51ada170672ac806f1f105a88aa97a5281117e1ddc3368e51a"
 
 [[package]]
 name = "filetime"
@@ -475,6 +475,7 @@ dependencies = [
  "libcnb",
  "libcnb-test",
  "libherokubuildpack",
+ "magic_migrate",
  "rand",
  "regex",
  "serde",
@@ -575,9 +576,9 @@ checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 
 [[package]]
 name = "libcnb"
-version = "0.19.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7db217651ab45597152c94ad849defb079fc7ced7d72de2fcc2e9c3dec6e990e"
+checksum = "aacc89bfeaef5f43cdee664798e3c0aa36e052a412ab1391f0750aee4df1f407"
 dependencies = [
  "libcnb-common",
  "libcnb-data",
@@ -589,9 +590,9 @@ dependencies = [
 
 [[package]]
 name = "libcnb-common"
-version = "0.19.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3abf2056162dd76ade12884e002ba88f068a26594b2eb9579ef8af40cfbca1b"
+checksum = "a356bd77381b51f1ca42450694f4c7d1c7533a57c5f6a49553a96af96963b6e3"
 dependencies = [
  "serde",
  "thiserror",
@@ -600,9 +601,9 @@ dependencies = [
 
 [[package]]
 name = "libcnb-data"
-version = "0.19.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afc6b01af8b624193ca6b247667ef82f36dd85d62b90f5a7e8d047b46642ce7c"
+checksum = "dfcd102bfb1bf98ee4c18da0b29be6f23a19681937924bf758e9ea8499668b18"
 dependencies = [
  "fancy-regex",
  "libcnb-proc-macros",
@@ -614,9 +615,9 @@ dependencies = [
 
 [[package]]
 name = "libcnb-package"
-version = "0.19.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2678c2e0882c622a01d415e64625258849e533aeba8531110a5b3db9593d97d5"
+checksum = "3b8d9b42112212a875c07fb3acf19504cf330edaa63cddd1823e9d03a5e2b934"
 dependencies = [
  "cargo_metadata",
  "ignore",
@@ -631,9 +632,9 @@ dependencies = [
 
 [[package]]
 name = "libcnb-proc-macros"
-version = "0.19.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0308e3b554dd8b0b969ab42d19b50b02bdb712dc72652849fa1e33bd1d16709"
+checksum = "f83bba477c3a6cd69b29f77a6591411bac15ab7b341ad3d3cd38943bfbbd412f"
 dependencies = [
  "cargo_metadata",
  "fancy-regex",
@@ -643,9 +644,9 @@ dependencies = [
 
 [[package]]
 name = "libcnb-test"
-version = "0.19.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f094d9c229c481fb868d36231dcc4b7596491503d0a297eb239b08e942eb483c"
+checksum = "9471152703833b74d565c7f7c910b4d5e084f955c327eba2bdb6658e86bd6dd6"
 dependencies = [
  "fastrand",
  "fs_extra",
@@ -688,6 +689,15 @@ name = "log"
 version = "0.4.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
+
+[[package]]
+name = "magic_migrate"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6398143367a78d596246f39b67e7ea09eea13318bdaa3ec9e0c4042517d2b44c"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "memchr"
@@ -768,18 +778,18 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.78"
+version = "1.0.82"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2422ad645d89c99f8f3e6b88a9fdeca7fabeac836b1002371c4367c8f984aae"
+checksum = "8ad3d49ab951a01fbaafe34f2ec74122942fe18a3f9814c3268f1bb72042131b"
 dependencies = [
  "unicode-ident",
 ]
 
 [[package]]
 name = "quote"
-version = "1.0.35"
+version = "1.0.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "291ec9ab5efd934aaf503a6466c5d5251535d108ee747472c3977cc5acc868ef"
+checksum = "0fa76aaf39101c457836aec0ce2316dbdc3ab723cdda1c6bd4e6ad4208acaca7"
 dependencies = [
  "proc-macro2",
 ]
@@ -1026,9 +1036,9 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "syn"
-version = "2.0.52"
+version = "2.0.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b699d15b36d1f02c3e7c69f8ffef53de37aefae075d8488d4ba1a7788d574a07"
+checksum = "c993ed8ccba56ae856363b1845da7266a7cb78e1d146c8a32d54b45a8b831fc9"
 dependencies = [
  "proc-macro2",
  "quote",

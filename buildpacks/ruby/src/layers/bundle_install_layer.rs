@@ -51,7 +51,9 @@ pub(crate) struct BundleInstallLayerMetadataV1 {
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
 pub(crate) struct BundleInstallLayerMetadataV2 {
-    pub(crate) target_id: TargetId,
+    pub(crate) distro_name: String,
+    pub(crate) distro_version: String,
+    pub(crate) cpu_architecture: String,
     pub(crate) ruby_version: ResolvedRubyVersion,
     pub(crate) force_bundle_install_key: String,
 
@@ -83,9 +85,13 @@ impl TryFrom<BundleInstallLayerMetadataV1> for BundleInstallLayerMetadataV2 {
     type Error = MigrateMetadataError;
 
     fn try_from(v1: BundleInstallLayerMetadataV1) -> Result<Self, Self::Error> {
+        let target_id =
+            TargetId::from_stack(&v1.stack).map_err(MigrateMetadataError::UnsupportedStack)?;
+
         Ok(Self {
-            target_id: TargetId::from_stack(&v1.stack)
-                .map_err(MigrateMetadataError::UnsupportedStack)?,
+            distro_name: target_id.distro_name.clone(),
+            distro_version: target_id.distro_version.clone(),
+            cpu_architecture: target_id.cpu_architecture.clone(),
             ruby_version: v1.ruby_version,
             force_bundle_install_key: v1.force_bundle_install_key,
             digest: v1.digest,
@@ -240,15 +246,34 @@ impl Layer for BundleInstallLayer<'_> {
 
                 keep_and_run
             }
-            Changed::Target(_old, _now) => {
-                log_step(format!("Clearing cache {}", fmt::details("stack changed")));
+            Changed::DistroName(old, now) => {
+                log_step(format!(
+                    "Clearing cache {}",
+                    fmt::details(format!("distro name changed from {old} to {now}"))
+                ));
 
                 clear_and_run
             }
-            Changed::RubyVersion(_old, _now) => {
+            Changed::DistroVersion(old, now) => {
                 log_step(format!(
                     "Clearing cache {}",
-                    fmt::details("ruby version changed")
+                    fmt::details(format!("distro version changed from {old} to {now}"))
+                ));
+
+                clear_and_run
+            }
+            Changed::CpuArchitecture(old, now) => {
+                log_step(format!(
+                    "Clearing cache {}",
+                    fmt::details(format!("cpu architecture changed from {old} to {now}"))
+                ));
+
+                clear_and_run
+            }
+            Changed::RubyVersion(old, now) => {
+                log_step(format!(
+                    "Clearing cache {}",
+                    fmt::details(format!("ruby version changed: {old} to {now}"))
                 ));
 
                 clear_and_run
@@ -284,33 +309,30 @@ impl Layer for BundleInstallLayer<'_> {
 #[derive(Debug)]
 enum Changed {
     Nothing,
-
-    /// The stack changed i.e. from `heroku-20` to `heroku-22`
-    /// When that happens we must invalidate native dependency gems
-    /// because they're compiled against system dependencies
-    /// i.e. <https://devcenter.heroku.com/articles/stack-packages>
-    /// TODO: Only clear native dependencies instead of the whole cache
-    Target(TargetId, TargetId), // (old, now)
-
-    /// Ruby version changed i.e. 3.0.2 to 3.1.2
-    /// When that happens we must invalidate native dependency gems
-    /// because they're linked to a specific compiled version of Ruby.
-    /// TODO: Only clear native dependencies instead of the whole cache
-    RubyVersion(ResolvedRubyVersion, ResolvedRubyVersion), // (old, now)
+    DistroName(String, String),
+    DistroVersion(String, String),
+    CpuArchitecture(String, String),
+    RubyVersion(ResolvedRubyVersion, ResolvedRubyVersion),
 }
 
 // Compare the old metadata to current metadata to determine the state of the
 // cache. Based on that state, we can log and determine `ExistingLayerStrategy`
 fn cache_state(old: BundleInstallLayerMetadata, now: BundleInstallLayerMetadata) -> Changed {
     let BundleInstallLayerMetadata {
-        target_id,
+        distro_name,
+        distro_version,
+        cpu_architecture,
         ruby_version,
         force_bundle_install_key: _,
         digest: _, // digest state handled elsewhere
     } = now; // ensure all values are handled or we get a clippy warning
 
-    if old.target_id != target_id {
-        Changed::Target(old.target_id, target_id)
+    if old.distro_name != distro_name {
+        Changed::DistroName(old.distro_name, distro_name)
+    } else if old.distro_version != distro_version {
+        Changed::DistroVersion(old.distro_version, distro_version)
+    } else if old.cpu_architecture != cpu_architecture {
+        Changed::CpuArchitecture(old.cpu_architecture, cpu_architecture)
     } else if old.ruby_version != ruby_version {
         Changed::RubyVersion(old.ruby_version, ruby_version)
     } else {
@@ -492,8 +514,11 @@ GEM_PATH=layer_path
         };
         std::fs::write(&gemfile, "iamagemfile").unwrap();
 
+        let target_id = TargetId::from_stack("heroku-24").unwrap();
         let metadata = BundleInstallLayerMetadata {
-            target_id: TargetId::from_stack("heroku-24").unwrap(),
+            distro_name: target_id.distro_name,
+            distro_version: target_id.distro_version,
+            cpu_architecture: target_id.cpu_architecture,
             ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
             force_bundle_install_key: String::from("v1"),
             digest: MetadataDigest::new_env_files(
@@ -507,13 +532,11 @@ GEM_PATH=layer_path
         let gemfile_path = gemfile.display();
         let toml_string = format!(
             r#"
-ruby_version = "3.1.3"
-force_bundle_install_key = "v1"
-
-[target_id]
-arch = "amd64"
 distro_name = "ubuntu"
 distro_version = "24.04"
+cpu_architecture = "amd64"
+ruby_version = "3.1.3"
+force_bundle_install_key = "v1"
 
 [digest]
 platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3"
@@ -581,8 +604,11 @@ platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3
                 .unwrap()
                 .unwrap();
 
+        let target_id = TargetId::from_stack(&metadata.stack).unwrap();
         let expected = BundleInstallLayerMetadataV2 {
-            target_id: TargetId::from_stack(&metadata.stack).unwrap(),
+            distro_name: target_id.distro_name,
+            distro_version: target_id.distro_version,
+            cpu_architecture: target_id.cpu_architecture,
             ruby_version: metadata.ruby_version,
             force_bundle_install_key: metadata.force_bundle_install_key,
             digest: metadata.digest,

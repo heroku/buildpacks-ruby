@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct TargetId {
-    pub(crate) arch: String,
     pub(crate) distro_name: String,
     pub(crate) distro_version: String,
+    pub(crate) cpu_architecture: String,
 }
 
 const DISTRO_VERSION_STACK: &[(&str, &str, &str)] = &[
@@ -41,7 +41,7 @@ impl TargetId {
             .iter()
             .find(|&&(_, _, stack)| stack == stack_id)
             .map(|&(name, version, _)| TargetId {
-                arch: String::from("amd64"),
+                cpu_architecture: String::from("amd64"),
                 distro_name: name.to_owned(),
                 distro_version: version.to_owned(),
             })
@@ -58,7 +58,7 @@ mod test {
         assert_eq!(
             String::from("heroku-22"),
             TargetId {
-                arch: String::from("amd64"),
+                cpu_architecture: String::from("amd64"),
                 distro_name: String::from("ubuntu"),
                 distro_version: String::from("22.04"),
             }
@@ -69,7 +69,7 @@ mod test {
         assert_eq!(
             String::from("heroku-24"),
             TargetId {
-                arch: String::from("amd64"),
+                cpu_architecture: String::from("amd64"),
                 distro_name: String::from("ubuntu"),
                 distro_version: String::from("24.04"),
             }
@@ -83,7 +83,7 @@ mod test {
         assert_eq!(
             TargetId::from_stack("heroku-22").unwrap(),
             TargetId {
-                arch: String::from("amd64"),
+                cpu_architecture: String::from("amd64"),
                 distro_name: String::from("ubuntu"),
                 distro_version: String::from("22.04"),
             }
@@ -92,7 +92,7 @@ mod test {
         assert_eq!(
             TargetId::from_stack("heroku-24").unwrap(),
             TargetId {
-                arch: String::from("amd64"),
+                cpu_architecture: String::from("amd64"),
                 distro_name: String::from("ubuntu"),
                 distro_version: String::from("24.04"),
             }

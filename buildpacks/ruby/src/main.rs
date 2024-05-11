@@ -23,7 +23,6 @@ use libcnb::layer_env::Scope;
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 use std::io::stdout;
-use target_id::TargetId;
 
 mod gem_list;
 mod layers;
@@ -119,12 +118,6 @@ impl Buildpack for RubyBuildpack {
         let mut logger = BuildLog::new(stdout()).buildpack_name("Heroku Ruby Buildpack");
         let warn_later = WarnGuard::new(stdout());
 
-        let target_id = TargetId {
-            arch: context.target.arch.clone(),
-            distro_name: context.target.distro_name.clone(),
-            distro_version: context.target.distro_version.clone(),
-        };
-
         // ## Set default environment
         let (mut env, store) =
             crate::steps::default_env(&context, &context.platform.env().clone())?;
@@ -178,8 +171,10 @@ impl Buildpack for RubyBuildpack {
                     RubyInstallLayer {
                         _in_section: section.as_ref(),
                         metadata: RubyInstallLayerMetadata {
-                            target_id: target_id.clone(),
-                            version: ruby_version.clone(),
+                            distro_name: context.target.distro_name.clone(),
+                            distro_version: context.target.distro_version.clone(),
+                            cpu_architecture: context.target.arch.clone(),
+                            ruby_version: ruby_version.clone(),
                         },
                     },
                 )?;
@@ -219,7 +214,9 @@ impl Buildpack for RubyBuildpack {
                     without: BundleWithout::new("development:test"),
                     _section_log: section.as_ref(),
                     metadata: BundleInstallLayerMetadata {
-                        target_id: target_id.clone(),
+                        distro_name: context.target.distro_name.clone(),
+                        distro_version: context.target.distro_version.clone(),
+                        cpu_architecture: context.target.arch.clone(),
                         ruby_version: ruby_version.clone(),
                         force_bundle_install_key: String::from(
                             crate::layers::bundle_install_layer::FORCE_BUNDLE_INSTALL_CACHE_KEY,

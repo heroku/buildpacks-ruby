@@ -47,9 +47,22 @@ pub(crate) struct RubyInstallLayerMetadataV1 {
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
 pub(crate) struct RubyInstallLayerMetadataV2 {
-    pub(crate) target_id: TargetId,
-    pub(crate) version: ResolvedRubyVersion,
+    pub(crate) distro_name: String,
+    pub(crate) distro_version: String,
+    pub(crate) cpu_architecture: String,
+    pub(crate) ruby_version: ResolvedRubyVersion,
 }
+
+impl RubyInstallLayerMetadataV2 {
+    pub(crate) fn target_id(&self) -> TargetId {
+        TargetId {
+            cpu_architecture: self.cpu_architecture.clone(),
+            distro_name: self.distro_name.clone(),
+            distro_version: self.distro_version.clone(),
+        }
+    }
+}
+
 try_migrate_link!(RubyInstallLayerMetadataV1, RubyInstallLayerMetadataV2);
 pub(crate) type RubyInstallLayerMetadata = RubyInstallLayerMetadataV2;
 
@@ -63,10 +76,14 @@ impl TryFrom<RubyInstallLayerMetadataV1> for RubyInstallLayerMetadataV2 {
     type Error = MetadataMigrateError;
 
     fn try_from(v1: RubyInstallLayerMetadataV1) -> Result<Self, Self::Error> {
+        let target_id =
+            TargetId::from_stack(&v1.stack).map_err(MetadataMigrateError::TargetIdError)?;
+
         Ok(Self {
-            target_id: TargetId::from_stack(&v1.stack)
-                .map_err(MetadataMigrateError::TargetIdError)?,
-            version: v1.version,
+            distro_name: target_id.distro_name,
+            distro_version: target_id.distro_version,
+            cpu_architecture: target_id.cpu_architecture,
+            ruby_version: v1.version,
         })
     }
 }
@@ -108,7 +125,7 @@ impl<'a> Layer for RubyInstallLayer<'a> {
                 .map_err(RubyInstallError::CouldNotCreateDestinationFile)
                 .map_err(RubyBuildpackError::RubyInstallError)?;
 
-            let url = download_url(&self.metadata.target_id, &self.metadata.version)
+            let url = download_url(&self.metadata.target_id(), &self.metadata.ruby_version)
                 .map_err(RubyBuildpackError::RubyInstallError)?;
 
             download(url.as_ref(), tmp_ruby_tgz.path())
@@ -152,20 +169,39 @@ impl<'a> Layer for RubyInstallLayer<'a> {
         let now = self.metadata.clone();
 
         match cache_state(old.clone(), now) {
-            Changed::Nothing(_version) => {
+            Changed::Nothing => {
                 log_step("Using cached version");
 
                 Ok(ExistingLayerStrategy::Keep)
             }
-            Changed::Target(_old, _now) => {
-                log_step(format!("Clearing cache {}", fmt::details("OS changed")));
+            Changed::CpuArchitecture(old, now) => {
+                log_step(format!(
+                    "Clearing cache {}",
+                    fmt::details(format!("CPU architecture changed: {old} to {now}"))
+                ));
 
                 Ok(ExistingLayerStrategy::Recreate)
             }
-            Changed::RubyVersion(_old, _now) => {
+            Changed::DistroVersion(old, now) => {
                 log_step(format!(
                     "Clearing cache {}",
-                    fmt::details("ruby version changed")
+                    fmt::details(format!("OS version changed: {old} to {now}"))
+                ));
+
+                Ok(ExistingLayerStrategy::Recreate)
+            }
+            Changed::DistroName(old, now) => {
+                log_step(format!(
+                    "Clearing cache {}",
+                    fmt::details(format!("OS distribution changed: {old} to {now}"))
+                ));
+
+                Ok(ExistingLayerStrategy::Recreate)
+            }
+            Changed::RubyVersion(old, now) => {
+                log_step(format!(
+                    "Clearing cache {}",
+                    fmt::details(format!("Ruby version changed: {old} to {now}"))
                 ));
 
                 Ok(ExistingLayerStrategy::Recreate)
@@ -175,21 +211,32 @@ impl<'a> Layer for RubyInstallLayer<'a> {
 }
 
 fn cache_state(old: RubyInstallLayerMetadata, now: RubyInstallLayerMetadata) -> Changed {
-    let RubyInstallLayerMetadata { target_id, version } = now;
+    let RubyInstallLayerMetadata {
+        distro_name,
+        distro_version,
+        cpu_architecture,
+        ruby_version,
+    } = now;
 
-    if old.target_id != target_id {
-        Changed::Target(old.target_id, target_id)
-    } else if old.version != version {
-        Changed::RubyVersion(old.version, version)
+    if old.distro_name != distro_name {
+        Changed::DistroName(old.distro_name, distro_name)
+    } else if old.distro_version != distro_version {
+        Changed::DistroVersion(old.distro_version, distro_version)
+    } else if old.cpu_architecture != cpu_architecture {
+        Changed::CpuArchitecture(old.cpu_architecture, cpu_architecture)
+    } else if old.ruby_version != ruby_version {
+        Changed::RubyVersion(old.ruby_version, ruby_version)
     } else {
-        Changed::Nothing(version)
+        Changed::Nothing
     }
 }
 
 #[derive(Debug)]
 enum Changed {
-    Nothing(ResolvedRubyVersion),
-    Target(TargetId, TargetId),
+    Nothing,
+    DistroName(String, String),
+    DistroVersion(String, String),
+    CpuArchitecture(String, String),
     RubyVersion(ResolvedRubyVersion, ResolvedRubyVersion),
 }
 
@@ -276,22 +323,18 @@ mod tests {
     #[test]
     fn metadata_guard() {
         let metadata = RubyInstallLayerMetadata {
-            target_id: TargetId {
-                arch: String::from("amd64"),
-                distro_name: String::from("ubuntu"),
-                distro_version: String::from("22.04"),
-            },
-            version: ResolvedRubyVersion(String::from("3.1.3")),
+            distro_name: String::from("ubuntu"),
+            distro_version: String::from("22.04"),
+            cpu_architecture: String::from("amd64"),
+            ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
         };
 
         let actual = toml::to_string(&metadata).unwrap();
         let expected = r#"
-version = "3.1.3"
-
-[target_id]
-arch = "amd64"
 distro_name = "ubuntu"
 distro_version = "22.04"
+cpu_architecture = "amd64"
+ruby_version = "3.1.3"
 "#
         .trim();
         assert_eq!(expected, actual.trim());
@@ -317,9 +360,12 @@ version = "3.1.3"
                 .unwrap()
                 .unwrap();
 
+        let target_id = TargetId::from_stack(&metadata.stack).unwrap();
         let expected = RubyInstallLayerMetadataV2 {
-            target_id: TargetId::from_stack(&metadata.stack).expect("Valid stack"),
-            version: metadata.version,
+            distro_name: target_id.distro_name,
+            distro_version: target_id.distro_version,
+            cpu_architecture: target_id.cpu_architecture,
+            ruby_version: metadata.version,
         };
         assert_eq!(expected, deserialized);
     }
@@ -328,7 +374,7 @@ version = "3.1.3"
     fn test_ruby_url() {
         let out = download_url(
             &TargetId {
-                arch: String::from("amd64"),
+                cpu_architecture: String::from("amd64"),
                 distro_name: String::from("ubuntu"),
                 distro_version: String::from("22.04"),
             },

@@ -1,11 +1,10 @@
+use crate::RubyBuildpack;
+use crate::RubyBuildpackError;
+use commons::gemfile_lock::ResolvedBundlerVersion;
 use commons::output::{
     fmt,
     section_log::{log_step, log_step_timed, SectionLogger},
 };
-
-use crate::RubyBuildpack;
-use crate::RubyBuildpackError;
-use commons::gemfile_lock::ResolvedBundlerVersion;
 use fun_run::{self, CommandWithName};
 use libcnb::build::BuildContext;
 use libcnb::data::layer_content_metadata::LayerTypes;

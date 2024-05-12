@@ -27,7 +27,7 @@ tempfile = "3"
 thiserror = "1"
 ureq = { version = "2", default-features = false, features = ["tls"] }
 url = "2"
-magic_migrate = "0.1"
+magic_migrate = "0.2"
 toml = "0.8"
 
 [dev-dependencies]

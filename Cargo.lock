@@ -692,9 +692,9 @@ checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
 
 [[package]]
 name = "magic_migrate"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6398143367a78d596246f39b67e7ea09eea13318bdaa3ec9e0c4042517d2b44c"
+checksum = "9c05b570dc24563cf1720263bbeeb78822c8d3ce75debe510ca6bae90dd0cccf"
 dependencies = [
  "serde",
 ]

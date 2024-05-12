@@ -2,7 +2,7 @@ use commons::output::{
     fmt::{self},
     section_log::{log_step, log_step_timed, SectionLogger},
 };
-use magic_migrate::{try_migrate_link, TryMigrate};
+use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
 
 use crate::{
     target_id::{TargetId, TargetIdError},
@@ -63,21 +63,25 @@ impl RubyInstallLayerMetadataV2 {
     }
 }
 
-try_migrate_link!(RubyInstallLayerMetadataV1, RubyInstallLayerMetadataV2);
+try_migrate_deserializer_chain!(
+    chain: [RubyInstallLayerMetadataV1, RubyInstallLayerMetadataV2],
+    error: MigrateMetadataError,
+    deserializer: toml::Deserializer::new,
+);
 pub(crate) type RubyInstallLayerMetadata = RubyInstallLayerMetadataV2;
 
 #[derive(thiserror::Error, Debug)]
-pub(crate) enum MetadataMigrateError {
+pub(crate) enum MigrateMetadataError {
     #[error("Cannot migrate metadata due to target id error: {0}")]
     TargetIdError(TargetIdError),
 }
 
 impl TryFrom<RubyInstallLayerMetadataV1> for RubyInstallLayerMetadataV2 {
-    type Error = MetadataMigrateError;
+    type Error = MigrateMetadataError;
 
     fn try_from(v1: RubyInstallLayerMetadataV1) -> Result<Self, Self::Error> {
         let target_id =
-            TargetId::from_stack(&v1.stack).map_err(MetadataMigrateError::TargetIdError)?;
+            TargetId::from_stack(&v1.stack).map_err(MigrateMetadataError::TargetIdError)?;
 
         Ok(Self {
             distro_name: target_id.distro_name,
@@ -85,21 +89,6 @@ impl TryFrom<RubyInstallLayerMetadataV1> for RubyInstallLayerMetadataV2 {
             cpu_architecture: target_id.cpu_architecture,
             ruby_version: v1.version,
         })
-    }
-}
-
-impl From<Infallible> for MetadataMigrateError {
-    fn from(_: Infallible) -> Self {
-        unreachable!()
-    }
-}
-
-impl TryMigrate for RubyInstallLayerMetadataV1 {
-    type TryFrom = Self;
-    type Error = MetadataMigrateError;
-
-    fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
-        toml::Deserializer::new(input)
     }
 }
 

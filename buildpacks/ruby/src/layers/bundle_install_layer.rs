@@ -1,9 +1,8 @@
+use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use commons::output::{
     fmt::{self, HELP},
     section_log::{log_step, log_step_stream, SectionLogger},
 };
-
-use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use commons::{
     display::SentenceList, gemfile_lock::ResolvedRubyVersion, metadata_digest::MetadataDigest,
 };
@@ -16,7 +15,7 @@ use libcnb::{
     layer_env::{LayerEnv, ModificationBehavior, Scope},
     Env,
 };
-use magic_migrate::{try_migrate_link, TryMigrate};
+use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::convert::Infallible;
 use std::{path::Path, process::Command};
@@ -70,11 +69,16 @@ pub(crate) struct BundleInstallLayerMetadataV2 {
     ///
     pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
-try_migrate_link!(BundleInstallLayerMetadataV1, BundleInstallLayerMetadataV2);
+
+try_migrate_deserializer_chain!(
+    chain: [BundleInstallLayerMetadataV1, BundleInstallLayerMetadataV2],
+    error: MetadataMigrateError,
+    deserializer: toml::Deserializer::new,
+);
 pub(crate) type BundleInstallLayerMetadata = BundleInstallLayerMetadataV2;
 
 #[derive(thiserror::Error, Debug)]
-pub(crate) enum MigrateMetadataError {
+pub(crate) enum MetadataMigrateError {
     #[error("Could not migrate metadata {0}")]
     UnsupportedStack(TargetIdError),
 }
@@ -82,11 +86,11 @@ pub(crate) enum MigrateMetadataError {
 // CNB spec moved from the concept of "stacks" (i.e. "heroku-22" which represented an OS and system dependencies) to finer
 // grained "target" which includes the OS, OS version, and architecture. This function converts the old stack id to the new target id.
 impl TryFrom<BundleInstallLayerMetadataV1> for BundleInstallLayerMetadataV2 {
-    type Error = MigrateMetadataError;
+    type Error = MetadataMigrateError;
 
     fn try_from(v1: BundleInstallLayerMetadataV1) -> Result<Self, Self::Error> {
         let target_id =
-            TargetId::from_stack(&v1.stack).map_err(MigrateMetadataError::UnsupportedStack)?;
+            TargetId::from_stack(&v1.stack).map_err(MetadataMigrateError::UnsupportedStack)?;
 
         Ok(Self {
             distro_name: target_id.distro_name.clone(),
@@ -96,21 +100,6 @@ impl TryFrom<BundleInstallLayerMetadataV1> for BundleInstallLayerMetadataV2 {
             force_bundle_install_key: v1.force_bundle_install_key,
             digest: v1.digest,
         })
-    }
-}
-
-impl From<Infallible> for MigrateMetadataError {
-    fn from(_: Infallible) -> Self {
-        unreachable!()
-    }
-}
-
-impl TryMigrate for BundleInstallLayerMetadataV1 {
-    type TryFrom = Self;
-    type Error = MigrateMetadataError;
-
-    fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
-        toml::Deserializer::new(input)
     }
 }
 

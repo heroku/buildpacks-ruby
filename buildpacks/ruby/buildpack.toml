@@ -11,11 +11,10 @@ keywords = ["ruby", "rails", "heroku"]
 [[buildpack.licenses]]
 type = "BSD-3-Clause"
 
+# This workaround can be removed once a new Pack release ships that includes:
+# https://github.com/buildpacks/pack/pull/2081
 [[stacks]]
 id = "*"
-
-[metadata.release]
-image = { repository = "docker.io/heroku/buildpack-ruby" }
 
 [[targets]]
 os = "linux"
@@ -28,3 +27,6 @@ version = "20.04"
 [[targets.distros]]
 name = "ubuntu"
 version = "22.04"
+
+[metadata.release]
+image = { repository = "docker.io/heroku/buildpack-ruby" }

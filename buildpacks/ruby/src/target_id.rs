@@ -9,8 +9,8 @@ pub(crate) struct TargetId {
 }
 
 const DISTRO_VERSION_STACK: &[(&str, &str, &str)] = &[
+    ("ubuntu", "20.04", "heroku-20"),
     ("ubuntu", "22.04", "heroku-22"),
-    ("ubuntu", "24.04", "heroku-24"),
 ];
 
 #[derive(Debug, thiserror::Error)]
@@ -56,6 +56,17 @@ mod test {
     #[test]
     fn test_stack_name() {
         assert_eq!(
+            String::from("heroku-20"),
+            TargetId {
+                cpu_architecture: String::from("amd64"),
+                distro_name: String::from("ubuntu"),
+                distro_version: String::from("20.04"),
+            }
+            .stack_name()
+            .unwrap()
+        );
+
+        assert_eq!(
             String::from("heroku-22"),
             TargetId {
                 cpu_architecture: String::from("amd64"),
@@ -65,36 +76,25 @@ mod test {
             .stack_name()
             .unwrap()
         );
-
-        assert_eq!(
-            String::from("heroku-24"),
-            TargetId {
-                cpu_architecture: String::from("amd64"),
-                distro_name: String::from("ubuntu"),
-                distro_version: String::from("24.04"),
-            }
-            .stack_name()
-            .unwrap()
-        );
     }
 
     #[test]
     fn test_from_stack() {
+        assert_eq!(
+            TargetId::from_stack("heroku-20").unwrap(),
+            TargetId {
+                cpu_architecture: String::from("amd64"),
+                distro_name: String::from("ubuntu"),
+                distro_version: String::from("20.04"),
+            }
+        );
+
         assert_eq!(
             TargetId::from_stack("heroku-22").unwrap(),
             TargetId {
                 cpu_architecture: String::from("amd64"),
                 distro_name: String::from("ubuntu"),
                 distro_version: String::from("22.04"),
-            }
-        );
-
-        assert_eq!(
-            TargetId::from_stack("heroku-24").unwrap(),
-            TargetId {
-                cpu_architecture: String::from("amd64"),
-                distro_name: String::from("ubuntu"),
-                distro_version: String::from("24.04"),
             }
         );
     }

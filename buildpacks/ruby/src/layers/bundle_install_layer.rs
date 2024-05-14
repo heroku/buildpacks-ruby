@@ -503,7 +503,7 @@ GEM_PATH=layer_path
         };
         std::fs::write(&gemfile, "iamagemfile").unwrap();
 
-        let target_id = TargetId::from_stack("heroku-24").unwrap();
+        let target_id = TargetId::from_stack("heroku-22").unwrap();
         let metadata = BundleInstallLayerMetadata {
             distro_name: target_id.distro_name,
             distro_version: target_id.distro_version,
@@ -522,7 +522,7 @@ GEM_PATH=layer_path
         let toml_string = format!(
             r#"
 distro_name = "ubuntu"
-distro_version = "24.04"
+distro_version = "22.04"
 cpu_architecture = "amd64"
 ruby_version = "3.1.3"
 force_bundle_install_key = "v1"

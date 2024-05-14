@@ -40,7 +40,24 @@ fn test_migrating_metadata() {
 
 #[test]
 #[ignore = "integration test"]
-fn test_default_app() {
+fn test_default_app_ubuntu20() {
+    TestRunner::default().build(
+        BuildConfig::new("heroku/builder:20", "tests/fixtures/default_ruby"),
+        |context| {
+            assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
+            assert_contains!(
+                context.pack_stdout,
+                r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
+
+            println!("{}", context.pack_stdout); // Needed to get full failure as `rebuild` truncates stdout
+            assert_contains!(context.pack_stdout, "Installing webrick");
+        },
+    );
+}
+
+#[test]
+#[ignore = "integration test"]
+fn test_default_app_latest_distro() {
     TestRunner::default().build(
         BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby"),
         |context| {

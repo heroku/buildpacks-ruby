@@ -65,23 +65,23 @@ impl RubyInstallLayerMetadataV2 {
 
 try_migrate_deserializer_chain!(
     chain: [RubyInstallLayerMetadataV1, RubyInstallLayerMetadataV2],
-    error: MigrateMetadataError,
+    error: MetadataMigrateError,
     deserializer: toml::Deserializer::new,
 );
 pub(crate) type RubyInstallLayerMetadata = RubyInstallLayerMetadataV2;
 
 #[derive(thiserror::Error, Debug)]
-pub(crate) enum MigrateMetadataError {
+pub(crate) enum MetadataMigrateError {
     #[error("Cannot migrate metadata due to target id error: {0}")]
     TargetIdError(TargetIdError),
 }
 
 impl TryFrom<RubyInstallLayerMetadataV1> for RubyInstallLayerMetadataV2 {
-    type Error = MigrateMetadataError;
+    type Error = MetadataMigrateError;
 
     fn try_from(v1: RubyInstallLayerMetadataV1) -> Result<Self, Self::Error> {
         let target_id =
-            TargetId::from_stack(&v1.stack).map_err(MigrateMetadataError::TargetIdError)?;
+            TargetId::from_stack(&v1.stack).map_err(MetadataMigrateError::TargetIdError)?;
 
         Ok(Self {
             distro_name: target_id.distro_name,
@@ -174,7 +174,7 @@ impl<'a> Layer for RubyInstallLayer<'a> {
             Changed::DistroVersion(old, now) => {
                 log_step(format!(
                     "Clearing cache {}",
-                    fmt::details(format!("OS version changed: {old} to {now}"))
+                    fmt::details(format!("distro version changed: {old} to {now}"))
                 ));
 
                 Ok(ExistingLayerStrategy::Recreate)
@@ -182,7 +182,7 @@ impl<'a> Layer for RubyInstallLayer<'a> {
             Changed::DistroName(old, now) => {
                 log_step(format!(
                     "Clearing cache {}",
-                    fmt::details(format!("OS distribution changed: {old} to {now}"))
+                    fmt::details(format!("distro name changed: {old} to {now}"))
                 ));
 
                 Ok(ExistingLayerStrategy::Recreate)

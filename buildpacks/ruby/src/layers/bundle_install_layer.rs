@@ -231,7 +231,7 @@ impl Layer for BundleInstallLayer<'_> {
 
         match cache_state(old.clone(), now) {
             Changed::Nothing => {
-                log_step("Loading cache");
+                log_step("Loading cached gems");
 
                 keep_and_run
             }

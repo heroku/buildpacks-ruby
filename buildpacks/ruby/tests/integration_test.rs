@@ -11,6 +11,33 @@ use std::thread;
 use std::time::{Duration, Instant};
 use ureq::Response;
 
+// Test that:
+// - Cached data "stack" is preserved and will be successfully migrated to "targets"
+#[test]
+#[ignore = "integration test"]
+fn test_migrating_metadata() {
+    let builder = "heroku/builder:22";
+    let app_dir = "tests/fixtures/default_ruby";
+
+    TestRunner::default().build(
+        BuildConfig::new(builder, app_dir).buildpacks([BuildpackReference::Other(
+            "docker://docker.io/heroku/buildpack-ruby:2.1.2".to_string(),
+        )]),
+        |context| {
+            println!("{}", context.pack_stdout);
+            context.rebuild(
+                BuildConfig::new(builder, app_dir).buildpacks([BuildpackReference::CurrentCrate]),
+                |rebuild_context| {
+                    println!("{}", rebuild_context.pack_stdout); // Needed to get full failure as `rebuild` truncates stdout
+
+                    assert_contains!(rebuild_context.pack_stdout, "Using cached Ruby version");
+                    assert_contains!(rebuild_context.pack_stdout, "Loading cached gems");
+                },
+            );
+        },
+    );
+}
+
 #[test]
 #[ignore = "integration test"]
 fn test_default_app() {

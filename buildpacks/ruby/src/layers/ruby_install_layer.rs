@@ -159,7 +159,7 @@ impl<'a> Layer for RubyInstallLayer<'a> {
 
         match cache_state(old.clone(), now) {
             Changed::Nothing => {
-                log_step("Using cached version");
+                log_step("Using cached Ruby version");
 
                 Ok(ExistingLayerStrategy::Keep)
             }

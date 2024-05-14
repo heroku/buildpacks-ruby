@@ -19,10 +19,6 @@ image = { repository = "docker.io/heroku/buildpack-ruby" }
 
 [[targets]]
 os = "linux"
-arch = "arm64"
-
-[[targets]]
-os = "linux"
 arch = "amd64"
 
 [[targets.distros]]

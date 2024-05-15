@@ -246,7 +246,7 @@ impl Layer for BundleInstallLayer<'_> {
             Changed::DistroVersion(old, now) => {
                 log_step(format!(
                     "Clearing cache {}",
-                    fmt::details(format!("distro version: {old} to {now}"))
+                    fmt::details(format!("distro version changed: {old} to {now}"))
                 ));
 
                 clear_and_run
@@ -254,7 +254,7 @@ impl Layer for BundleInstallLayer<'_> {
             Changed::CpuArchitecture(old, now) => {
                 log_step(format!(
                     "Clearing cache {}",
-                    fmt::details(format!("cpu architecture: {old} to {now}"))
+                    fmt::details(format!("cpu architecture changed: {old} to {now}"))
                 ));
 
                 clear_and_run

@@ -25,7 +25,8 @@ Once an application has passed the detect phase, the build phase will execute to
   - Given a `Gemfile.lock` with an explicit Ruby version, we will install that Ruby version.
   - Given a `Gemfile.lock` without an explicit Ruby version, we will install a default Ruby version.
     - When the default value changes, applications without an explicit Ruby version will receive the updated version on their next deployment.
-  - We will reinstall Ruby if your stack (operating system) changes.
+  - We will reinstall Ruby if your distribution name or version (operating system) changes.
+  - We will reinstall Ruby if your CPU architecture (i.e. amd64) changes.
 - Bundler version:
   - Given a `Gemfile.lock` with an explicit Bundler version we will install that bundler version.
   - Given a `Gemfile.lock` without an explicit Bundler version we will install a default Ruby version.
@@ -39,7 +40,8 @@ Once an application has passed the detect phase, the build phase will execute to
     -To always run `bundle install` even if there are changes if the environment variable `HEROKU_SKIP_BUNDLE_DIGEST=1` is found.
   - We will always run `bundle clean` after a successful `bundle install` via setting `BUNDLE_CLEAN=1` environment variable.
   - We will always cache the contents of your gem dependencies.
-      - We will always invalidate the dependency cache if your stack (operating system) changes.
+      - We will always invalidate the dependency cache if your distribution name or version (operating system) changes.
+      - We will always invalidate the dependency cache if your CPU architecture (i.e. amd64) changes.
       - We will always invalidate the dependency cache if your Ruby version changes.
       - We may invalidate the dependency cache if there was a bug in a prior buildpack version that needs to be fixed.
 - Gem specific behavior - We will parse your `Gemfile.lock` to determine what dependencies your app need for use in specializing your install behavior (i.e. Rails 5 versus Rails 4). The inclusion of these gems may trigger different behavior:

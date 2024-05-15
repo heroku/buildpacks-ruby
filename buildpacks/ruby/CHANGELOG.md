@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- The buildpack now implements Buildpack API 0.10 instead of 0.9, and so requires `lifecycle` 0.17.x or newer. ([#283](https://github.com/heroku/buildpacks-ruby/pull/283/files#commit-suggestions))
+
 ## [2.1.3] - 2024-03-18
 
 ### Changed

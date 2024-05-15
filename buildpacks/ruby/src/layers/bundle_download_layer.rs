@@ -1,11 +1,10 @@
+use crate::RubyBuildpack;
+use crate::RubyBuildpackError;
+use commons::gemfile_lock::ResolvedBundlerVersion;
 use commons::output::{
     fmt,
     section_log::{log_step, log_step_timed, SectionLogger},
 };
-
-use crate::RubyBuildpack;
-use crate::RubyBuildpackError;
-use commons::gemfile_lock::ResolvedBundlerVersion;
 use fun_run::{self, CommandWithName};
 use libcnb::build::BuildContext;
 use libcnb::data::layer_content_metadata::LayerTypes;
@@ -46,7 +45,7 @@ impl<'a> Layer for BundleDownloadLayer<'a> {
     }
 
     fn create(
-        &self,
+        &mut self,
         _context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
@@ -106,7 +105,7 @@ impl<'a> Layer for BundleDownloadLayer<'a> {
     }
 
     fn existing_layer_strategy(
-        &self,
+        &mut self,
         _context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {

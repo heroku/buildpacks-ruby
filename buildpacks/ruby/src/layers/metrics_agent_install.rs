@@ -77,7 +77,7 @@ impl<'a> Layer for MetricsAgentInstall<'a> {
     }
 
     fn create(
-        &self,
+        &mut self,
         _context: &libcnb::build::BuildContext<Self::Buildpack>,
         layer_path: &std::path::Path,
     ) -> Result<
@@ -102,7 +102,7 @@ impl<'a> Layer for MetricsAgentInstall<'a> {
     }
 
     fn update(
-        &self,
+        &mut self,
         _context: &libcnb::build::BuildContext<Self::Buildpack>,
         layer_data: &libcnb::layer::LayerData<Self::Metadata>,
     ) -> Result<
@@ -123,7 +123,7 @@ impl<'a> Layer for MetricsAgentInstall<'a> {
     }
 
     fn existing_layer_strategy(
-        &self,
+        &mut self,
         _context: &libcnb::build::BuildContext<Self::Buildpack>,
         layer_data: &libcnb::layer::LayerData<Self::Metadata>,
     ) -> Result<libcnb::layer::ExistingLayerStrategy, <Self::Buildpack as libcnb::Buildpack>::Error>
@@ -144,7 +144,7 @@ impl<'a> Layer for MetricsAgentInstall<'a> {
     }
 
     fn migrate_incompatible_metadata(
-        &self,
+        &mut self,
         _context: &libcnb::build::BuildContext<Self::Buildpack>,
         _metadata: &GenericMetadata,
     ) -> Result<

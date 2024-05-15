@@ -18,11 +18,9 @@ const PLATFORM_ENV_VAR: &str = "user configured environment variables";
 /// ```rust
 /// use serde::{Deserialize, Serialize};
 /// use commons::metadata_digest::MetadataDigest;
-/// use libcnb::data::buildpack::StackId;
 ///
 /// #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
 /// pub(crate) struct BundleInstallLayerMetadata {
-///     stack: StackId,
 ///     ruby_version: String,
 ///     force_bundle_install_key: String,
 ///
@@ -101,7 +99,7 @@ const PLATFORM_ENV_VAR: &str = "user configured environment variables";
 /// #     }
 /// #
 ///       fn update(
-///           &self,
+///           &mut self,
 ///           context: &BuildContext<Self::Buildpack>,
 ///           layer_data: &LayerData<Self::Metadata>,
 ///       ) -> Result<LayerResult<Self::Metadata>, <Self::Buildpack as Buildpack>::Error> {
@@ -124,7 +122,7 @@ const PLATFORM_ENV_VAR: &str = "user configured environment variables";
 ///       }
 /// #
 /// #     fn create(
-/// #         &self,
+/// #         &mut self,
 /// #         context: &BuildContext<Self::Buildpack>,
 /// #         layer_path: &Path,
 /// #     ) -> Result<LayerResult<Self::Metadata>, <Self::Buildpack as libcnb::Buildpack>::Error> {

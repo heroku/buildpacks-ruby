@@ -16,8 +16,8 @@ glob = "0.3"
 indoc = "2"
 # libcnb has a much bigger impact on buildpack behaviour than any other dependencies,
 # so it's pinned to an exact version to isolate it from lockfile refreshes.
-libcnb = "=0.17.0"
-libherokubuildpack = { version = "=0.17.0", default-features = false, features = ["digest"] }
+libcnb = "=0.21.0"
+libherokubuildpack = { version = "=0.21.0", default-features = false, features = ["digest"] }
 rand = "0.8"
 # TODO: Consolidate on either the regex crate or the fancy-regex crate, since this repo currently uses both.
 regex = "1"
@@ -27,7 +27,8 @@ tempfile = "3"
 thiserror = "1"
 ureq = { version = "2", default-features = false, features = ["tls"] }
 url = "2"
+magic_migrate = "0.2"
+toml = "0.8"
 
 [dev-dependencies]
-libcnb-test = "=0.17.0"
-toml = "0.8"
+libcnb-test = "=0.21.0"

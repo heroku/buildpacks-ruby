@@ -57,7 +57,7 @@ where
     }
 
     fn create(
-        &self,
+        &mut self,
         _context: &BuildContext<Self::Buildpack>,
         _layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, B::Error> {
@@ -68,7 +68,7 @@ where
     }
 
     fn existing_layer_strategy(
-        &self,
+        &mut self,
         _context: &BuildContext<Self::Buildpack>,
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, B::Error> {

@@ -28,7 +28,7 @@ fn test_migrating_metadata() {
             context.rebuild(
                 BuildConfig::new(builder, app_dir).buildpacks([BuildpackReference::CurrentCrate]),
                 |rebuild_context| {
-                    println!("{}", rebuild_context.pack_stdout); // Needed to get full failure as `rebuild` truncates stdout
+                    println!("{}", rebuild_context.pack_stdout);
 
                     assert_contains!(rebuild_context.pack_stdout, "Using cached Ruby version");
                     assert_contains!(rebuild_context.pack_stdout, "Loading cached gems");
@@ -44,12 +44,12 @@ fn test_default_app_ubuntu20() {
     TestRunner::default().build(
         BuildConfig::new("heroku/builder:20", "tests/fixtures/default_ruby"),
         |context| {
+            println!("{}", context.pack_stdout);
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
             assert_contains!(
                 context.pack_stdout,
                 r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
 
-            println!("{}", context.pack_stdout); // Needed to get full failure as `rebuild` truncates stdout
             assert_contains!(context.pack_stdout, "Installing webrick");
         },
     );
@@ -61,16 +61,17 @@ fn test_default_app_latest_distro() {
     TestRunner::default().build(
         BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby"),
         |context| {
+            println!("{}", context.pack_stdout);
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
             assert_contains!(
                 context.pack_stdout,
                 r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
 
-            println!("{}", context.pack_stdout); // Needed to get full failure as `rebuild` truncates stdout
             assert_contains!(context.pack_stdout, "Installing webrick");
 
             let config = context.config.clone();
             context.rebuild(config, |rebuild_context| {
+                println!("{}", rebuild_context.pack_stdout);
                 assert_contains!(rebuild_context.pack_stdout, "Skipping `bundle install` (no changes found in /workspace/Gemfile, /workspace/Gemfile.lock, or user configured environment variables)");
 
                 rebuild_context.start_container(
@@ -129,6 +130,7 @@ DEPENDENCIES
             BuildpackReference::CurrentCrate,
         ]),
         |context| {
+            println!("{}", context.pack_stdout);
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
             assert_contains!(
                 context.pack_stdout,
@@ -149,6 +151,7 @@ fn test_ruby_app_with_yarn_app() {
             BuildpackReference::CurrentCrate,
         ]),
         |context| {
+            println!("{}", context.pack_stdout);
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
             assert_contains!(
                 context.pack_stdout,
@@ -163,8 +166,9 @@ fn test_barnes_app() {
     TestRunner::default().build(
         BuildConfig::new("heroku/builder:22", "tests/fixtures/barnes_app"),
         |context| {
-            assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
+            println!("{}", context.pack_stdout);
 
+            assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
             context.start_container(
                 ContainerConfig::new()
                     .entrypoint("launcher")

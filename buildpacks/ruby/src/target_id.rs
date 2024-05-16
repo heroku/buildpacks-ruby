@@ -1,28 +1,30 @@
-use serde::{Deserialize, Serialize};
-
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TargetId {
     pub(crate) distro_name: String,
     pub(crate) distro_version: String,
     pub(crate) cpu_architecture: String,
 }
-
+const ARCH_AWARE_VERSIONS: &[&str] = &["24.04"];
 const DISTRO_VERSION_STACK: &[(&str, &str, &str)] = &[
     ("ubuntu", "20.04", "heroku-20"),
     ("ubuntu", "22.04", "heroku-22"),
+    ("ubuntu", "24.04", "heroku-24"),
 ];
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum TargetIdError {
-    #[error("Distro name and version {0}-{1} is not supported. Must be one of: {}", DISTRO_VERSION_STACK.iter().map(|&(name, version, _)| format!("{name}-{version}")).collect::<Vec<_>>().join(", "))]
+    #[error("Distro name and version '{0}-{1}' is not supported. Must be one of: {}", DISTRO_VERSION_STACK.iter().map(|&(name, version, _)| format!("'{name}-{version}'")).collect::<Vec<_>>().join(", "))]
     UnknownDistroNameVersionCombo(String, String),
 
-    #[error("Cannot convert stack name {0} into a target OS. Must be one of: {}", DISTRO_VERSION_STACK.iter().map(|&(_, _, stack)| String::from(stack)).collect::<Vec<_>>().join(", "))]
+    #[error("Cannot convert stack name '{0}' into a target OS. Must be one of: {}", DISTRO_VERSION_STACK.iter().map(|&(_, _, stack)| format!("'{stack}'")).collect::<Vec<_>>().join(", "))]
     UnknownStack(String),
 }
 
 impl TargetId {
+    pub(crate) fn is_arch_aware(&self) -> bool {
+        ARCH_AWARE_VERSIONS.contains(&self.distro_version.as_str())
+    }
+
     pub(crate) fn stack_name(&self) -> Result<String, TargetIdError> {
         DISTRO_VERSION_STACK
             .iter()
@@ -52,6 +54,13 @@ impl TargetId {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_arch_aware_versions_are_also_known_as_a_stack() {
+        for version in ARCH_AWARE_VERSIONS {
+            assert!(DISTRO_VERSION_STACK.iter().any(|&(_, v, _)| &v == version));
+        }
+    }
 
     #[test]
     fn test_stack_name() {

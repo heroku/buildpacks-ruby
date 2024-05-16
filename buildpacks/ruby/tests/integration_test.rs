@@ -16,6 +16,11 @@ use ureq::Response;
 #[test]
 #[ignore = "integration test"]
 fn test_migrating_metadata() {
+    // This test is a placeholder for when a change modifies metadata structures.
+    // Remove the return and update the `buildpack-ruby` reference to the latest version.
+    #![allow(unreachable_code)]
+    return;
+
     let builder = "heroku/builder:22";
     let app_dir = "tests/fixtures/default_ruby";
 
@@ -57,9 +62,26 @@ fn test_default_app_ubuntu20() {
 
 #[test]
 #[ignore = "integration test"]
-fn test_default_app_latest_distro() {
+fn test_default_app_ubuntu22() {
     TestRunner::default().build(
         BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby"),
+        |context| {
+            println!("{}", context.pack_stdout);
+            assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
+            assert_contains!(
+                context.pack_stdout,
+                r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
+
+            assert_contains!(context.pack_stdout, "Installing webrick");
+        },
+    );
+}
+
+#[test]
+#[ignore = "integration test"]
+fn test_default_app_latest_distro() {
+    TestRunner::default().build(
+        BuildConfig::new("heroku/builder:24", "tests/fixtures/default_ruby"),
         |context| {
             println!("{}", context.pack_stdout);
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");

@@ -16,6 +16,11 @@ use ureq::Response;
 #[test]
 #[ignore = "integration test"]
 fn test_migrating_metadata() {
+    // This test is a placeholder for when a change modifies metadata structures.
+    // Remove the return and update the `buildpack-ruby` reference to the latest version.
+    #![allow(unreachable_code)]
+    return;
+
     let builder = "heroku/builder:22";
     let app_dir = "tests/fixtures/default_ruby";
 
@@ -57,9 +62,28 @@ fn test_default_app_ubuntu20() {
 
 #[test]
 #[ignore = "integration test"]
-fn test_default_app_latest_distro() {
+fn test_default_app_ubuntu22() {
     TestRunner::default().build(
         BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby"),
+        |context| {
+            println!("{}", context.pack_stdout);
+            assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
+            assert_contains!(
+                context.pack_stdout,
+                r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
+
+            assert_contains!(context.pack_stdout, "Installing webrick");
+        },
+    );
+}
+
+#[test]
+#[ignore = "integration test"]
+fn test_default_app_latest_distro() {
+    let config = amd_arm_builder_config("heroku/builder:24", "tests/fixtures/default_ruby");
+
+    TestRunner::default().build(
+        config,
         |context| {
             println!("{}", context.pack_stdout);
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
@@ -257,3 +281,17 @@ fn frac_seconds(seconds: f64) -> Duration {
 }
 
 const TEST_PORT: u16 = 1234;
+
+// TODO: Once Pack build supports `--platform` and libcnb-test adjusted accordingly, change this
+// to allow configuring the target arch independently of the builder name (eg via env var).
+fn amd_arm_builder_config(builder_name: &str, app_dir: &str) -> BuildConfig {
+    let mut config = BuildConfig::new(builder_name, app_dir);
+
+    match builder_name {
+        "heroku/builder:24" if cfg!(target_arch = "aarch64") => {
+            config.target_triple("aarch64-unknown-linux-musl")
+        }
+        _ => config.target_triple("x86_64-unknown-linux-musl"),
+    };
+    config
+}

@@ -236,11 +236,18 @@ fn download_url(
     let filename = format!("ruby-{version}.tgz");
     let base = "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com";
     let mut url = Url::parse(base).map_err(RubyInstallError::UrlParseError)?;
+    {
+        let mut segments = url
+            .path_segments_mut()
+            .map_err(|()| RubyInstallError::InvalidBaseUrl(String::from(base)))?;
 
-    url.path_segments_mut()
-        .map_err(|()| RubyInstallError::InvalidBaseUrl(String::from(base)))?
-        .push(&target.stack_name().map_err(RubyInstallError::TargetError)?)
-        .push(&filename);
+        segments.push(&target.stack_name().map_err(RubyInstallError::TargetError)?);
+        if target.is_arch_aware() {
+            segments.push(&target.cpu_architecture);
+        }
+        segments.push(&filename);
+    }
+
     Ok(url)
 }
 

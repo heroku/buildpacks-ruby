@@ -285,7 +285,7 @@ const TEST_PORT: u16 = 1234;
 // TODO: Once Pack build supports `--platform` and libcnb-test adjusted accordingly, change this
 // to allow configuring the target arch independently of the builder name (eg via env var).
 fn amd_arm_builder_config(builder_name: &str, app_dir: &str) -> BuildConfig {
-    let mut builder = BuildConfig::new(builder_name, app_dir);
+    let mut config = BuildConfig::new(builder_name, app_dir);
 
     match builder_name {
         "heroku/builder:24" if cfg!(target_arch = "aarch64") => {
@@ -293,5 +293,5 @@ fn amd_arm_builder_config(builder_name: &str, app_dir: &str) -> BuildConfig {
         }
         _ => builder.target_triple("x86_64-unknown-linux-musl"),
     };
-    builder
+    config
 }

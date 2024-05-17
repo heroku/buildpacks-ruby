@@ -289,9 +289,9 @@ fn amd_arm_builder_config(builder_name: &str, app_dir: &str) -> BuildConfig {
 
     match builder_name {
         "heroku/builder:24" if cfg!(target_arch = "aarch64") => {
-            builder.target_triple("aarch64-unknown-linux-musl")
+            config.target_triple("aarch64-unknown-linux-musl")
         }
-        _ => builder.target_triple("x86_64-unknown-linux-musl"),
+        _ => config.target_triple("x86_64-unknown-linux-musl"),
     };
     config
 }

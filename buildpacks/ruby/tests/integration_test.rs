@@ -80,8 +80,10 @@ fn test_default_app_ubuntu22() {
 #[test]
 #[ignore = "integration test"]
 fn test_default_app_latest_distro() {
+    let config = amd_arm_builder_config("heroku/builder:24", "tests/fixtures/default_ruby");
+
     TestRunner::default().build(
-        BuildConfig::new("heroku/builder:24", "tests/fixtures/default_ruby"),
+        config,
         |context| {
             println!("{}", context.pack_stdout);
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
@@ -279,3 +281,17 @@ fn frac_seconds(seconds: f64) -> Duration {
 }
 
 const TEST_PORT: u16 = 1234;
+
+// TODO: Once Pack build supports `--platform` and libcnb-test adjusted accordingly, change this
+// to allow configuring the target arch independently of the builder name (eg via env var).
+fn amd_arm_builder_config(builder_name: &str, app_dir: &str) -> BuildConfig {
+    let mut builder = BuildConfig::new(builder_name, app_dir);
+
+    match builder_name {
+        "heroku/builder:24" if cfg!(target_arch = "aarch64") => {
+            builder.target_triple("aarch64-unknown-linux-musl")
+        }
+        _ => builder.target_triple("x86_64-unknown-linux-musl"),
+    };
+    builder
+}

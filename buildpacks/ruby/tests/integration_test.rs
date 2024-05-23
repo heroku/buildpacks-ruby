@@ -147,8 +147,10 @@ DEPENDENCIES
     )
     .unwrap();
 
+    let mut config = amd_arm_builder_config("heroku/builder:24", &app_dir.path().to_string_lossy());
+
     TestRunner::default().build(
-        BuildConfig::new("heroku/builder:22", app_dir.path())
+        config
         .buildpacks([
             BuildpackReference::Other(String::from("heroku/jvm")),
             BuildpackReference::CurrentCrate,

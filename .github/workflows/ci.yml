@@ -54,7 +54,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.7.3
       - name: Install Pack CLI
-        uses: buildpacks/github-actions/setup-pack@v5.6.0
+        uses: buildpacks/github-actions/setup-pack@v5.7.0
       - name: Run integration tests
         # Runs only tests annotated with the `ignore` attribute (which in this repo, are the integration tests).
         run: cargo test --locked -- --ignored
@@ -73,7 +73,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.7.3
       - name: Install Pack CLI
-        uses: buildpacks/github-actions/setup-pack@v5.6.0
+        uses: buildpacks/github-actions/setup-pack@v5.7.0
       - name: Pull builder and run images
         run: |
           docker pull "heroku/builder:22"

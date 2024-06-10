@@ -88,9 +88,9 @@ jobs:
       - name: Compile ruby buildpack
         run: cargo libcnb package
       - name: "PRINT: Getting started guide output"
-        run: pack build my-image --force-color --builder heroku/builder:22 --buildpack heroku/nodejs-engine --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
+        run: pack build my-image --force-color --builder heroku/builder:24 --buildpack heroku/nodejs-engine --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
       - name: "PRINT: Cached getting started guide output"
-        run: pack build my-image --force-color --builder heroku/builder:22 --buildpack heroku/nodejs-engine --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
+        run: pack build my-image --force-color --builder heroku/builder:24 --buildpack heroku/nodejs-engine --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
 
   print-style-guide:
     runs-on: ubuntu-22.04

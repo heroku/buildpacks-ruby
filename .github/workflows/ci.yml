@@ -76,8 +76,8 @@ jobs:
         uses: buildpacks/github-actions/setup-pack@v5.7.1
       - name: Pull builder and run images
         run: |
-          docker pull "heroku/builder:22"
-          docker pull "heroku/heroku:22-cnb"
+          docker pull "heroku/builder:24"
+          docker pull "heroku/heroku:24-cnb"
       - name: Clone ruby getting started guide
         uses: actions/checkout@v4
         with:

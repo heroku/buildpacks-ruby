@@ -24,7 +24,8 @@ indoc = "2"
 lazy_static = "1"
 # libcnb has a much bigger impact on buildpack behaviour than any other dependencies,
 # so it's pinned to an exact version to isolate it from lockfile refreshes.
-libcnb = "=0.21.0"
+
+libcnb = { git = "https://github.com/heroku/libcnb.rs", branch = "malax/layer-api" }
 libherokubuildpack = { version = "=0.21.0", default-features = false, features = ["command"] }
 regex = "1"
 serde = "1"

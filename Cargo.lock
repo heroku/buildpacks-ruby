@@ -577,12 +577,11 @@ checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 [[package]]
 name = "libcnb"
 version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aacc89bfeaef5f43cdee664798e3c0aa36e052a412ab1391f0750aee4df1f407"
+source = "git+https://github.com/heroku/libcnb.rs?branch=malax/layer-api#c900b88f8e3cfbeb65031f892201f10e772f416e"
 dependencies = [
- "libcnb-common",
- "libcnb-data",
- "libcnb-proc-macros",
+ "libcnb-common 0.21.0 (git+https://github.com/heroku/libcnb.rs?branch=malax/layer-api)",
+ "libcnb-data 0.21.0 (git+https://github.com/heroku/libcnb.rs?branch=malax/layer-api)",
+ "libcnb-proc-macros 0.21.0 (git+https://github.com/heroku/libcnb.rs?branch=malax/layer-api)",
  "serde",
  "thiserror",
  "toml",
@@ -600,13 +599,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "libcnb-common"
+version = "0.21.0"
+source = "git+https://github.com/heroku/libcnb.rs?branch=malax/layer-api#c900b88f8e3cfbeb65031f892201f10e772f416e"
+dependencies = [
+ "serde",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
 name = "libcnb-data"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfcd102bfb1bf98ee4c18da0b29be6f23a19681937924bf758e9ea8499668b18"
 dependencies = [
  "fancy-regex",
- "libcnb-proc-macros",
+ "libcnb-proc-macros 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "thiserror",
+ "toml",
+ "uriparse",
+]
+
+[[package]]
+name = "libcnb-data"
+version = "0.21.0"
+source = "git+https://github.com/heroku/libcnb.rs?branch=malax/layer-api#c900b88f8e3cfbeb65031f892201f10e772f416e"
+dependencies = [
+ "fancy-regex",
+ "libcnb-proc-macros 0.21.0 (git+https://github.com/heroku/libcnb.rs?branch=malax/layer-api)",
  "serde",
  "thiserror",
  "toml",
@@ -622,8 +644,8 @@ dependencies = [
  "cargo_metadata",
  "ignore",
  "indoc",
- "libcnb-common",
- "libcnb-data",
+ "libcnb-common 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libcnb-data 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "petgraph",
  "thiserror",
  "uriparse",
@@ -643,6 +665,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "libcnb-proc-macros"
+version = "0.21.0"
+source = "git+https://github.com/heroku/libcnb.rs?branch=malax/layer-api#c900b88f8e3cfbeb65031f892201f10e772f416e"
+dependencies = [
+ "cargo_metadata",
+ "fancy-regex",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "libcnb-test"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -650,8 +683,8 @@ checksum = "9471152703833b74d565c7f7c910b4d5e084f955c327eba2bdb6658e86bd6dd6"
 dependencies = [
  "fastrand",
  "fs_extra",
- "libcnb-common",
- "libcnb-data",
+ "libcnb-common 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libcnb-data 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libcnb-package",
  "tempfile",
  "thiserror",

@@ -19,7 +19,8 @@ use libcnb::data::launch::LaunchBuilder;
 use libcnb::data::layer_name;
 use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
 use libcnb::generic::{GenericMetadata, GenericPlatform};
-use libcnb::layer_env::Scope;
+use libcnb::layer::{CachedLayerDefinition, InspectRestoredAction, InvalidMetadataAction};
+use libcnb::layer_env::{LayerEnv, Scope};
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 use std::io::stdout;
@@ -132,18 +133,81 @@ impl Buildpack for RubyBuildpack {
 
         // ## Install metrics agent
         (logger, env) = {
-            let section = logger.section("Metrics agent");
+            let mut section = logger.section("Metrics agent");
             if lockfile_contents.contains("barnes") {
-                let layer_data = context.handle_layer(
+                let metrics_layer = context.cached_layer(
                     layer_name!("metrics_agent"),
-                    MetricsAgentInstall {
-                        _in_section: section.as_ref(),
+                    CachedLayerDefinition {
+                        build: true,
+                        launch: true,
+                        invalid_metadata: &|_| {
+                            // TODO, cannot log here
+                            // section = section.step("Clearing invalid metadata");
+                            InvalidMetadataAction::DeleteLayer
+                        },
+                        inspect_restored: &|old: &layers::metrics_agent_install::Metadata, _| {
+                            match &old.download_url.as_ref() {
+                                &Some(old_url) => {
+                                    if old_url == layers::metrics_agent_install::DOWNLOAD_URL {
+                                        InspectRestoredAction::KeepLayer
+                                    } else {
+                                        // TODO, cannot log here
+                                        // section = section.step(&format!(
+                                        //     "Download URL changed from {old} to {now}",
+                                        //     old = fmt::value(&old_url),
+                                        //     now = fmt::value(
+                                        //         layers::metrics_agent_install::DOWNLOAD_URL
+                                        //     )
+                                        // ));
+                                        InspectRestoredAction::DeleteLayer
+                                    }
+                                }
+                                None => InspectRestoredAction::DeleteLayer,
+                            }
+                        },
                     },
                 )?;
 
+                match metrics_layer.state {
+                    libcnb::layer::LayerState::Restored { .. } => {
+                        section = section.step("Using cached metrics agent");
+                    }
+                    libcnb::layer::LayerState::Empty { .. } => {
+                        let bin_dir = metrics_layer.path().join("bin");
+
+                        let timer = section.step_timed("Downloading");
+                        let agentmon_path =
+                            layers::metrics_agent_install::install_agentmon(&bin_dir)
+                                .map_err(RubyBuildpackError::MetricsAgentError)?;
+                        section = timer.finish_timed_step();
+
+                        section = section.step("Writing scripts");
+                        let execd = layers::metrics_agent_install::write_execd_script(
+                            &agentmon_path,
+                            &metrics_layer.path(),
+                        )
+                        .map_err(RubyBuildpackError::MetricsAgentError)?;
+
+                        metrics_layer.replace_metadata(
+                            layers::metrics_agent_install::Metadata {
+                                download_url: Some(
+                                    layers::metrics_agent_install::DOWNLOAD_URL.to_string(),
+                                ),
+                            },
+                        )?;
+
+                        metrics_layer
+                            .replace_exec_d_programs(vec![("spawn_metrics_agent", execd)])?;
+                    }
+                };
+
+                // Get the new PATH/env from the layer?
+
                 (
                     section.end_section(),
-                    layer_data.env.apply(Scope::Build, &env),
+                    LayerEnv::read_from_layer_dir(metrics_layer.path())
+                        .expect("read env from a layer")
+                        .apply(Scope::Build, &env),
                 )
             } else {
                 (

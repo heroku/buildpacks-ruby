@@ -173,35 +173,28 @@ impl Buildpack for RubyBuildpack {
                         section = section.step("Using cached metrics agent");
                     }
                     libcnb::layer::LayerState::Empty { .. } => {
-                        let bin_dir = metrics_layer.path().join("bin");
-
-                        let timer = section.step_timed("Downloading");
-                        let agentmon_path =
-                            layers::metrics_agent_install::install_agentmon(&bin_dir)
-                                .map_err(RubyBuildpackError::MetricsAgentError)?;
-                        section = timer.finish_timed_step();
-
-                        section = section.step("Writing scripts");
-                        let execd = layers::metrics_agent_install::write_execd_script(
-                            &agentmon_path,
-                            &metrics_layer.path(),
+                        let timer = section.step_timed("Downloading metrics agent");
+                        layers::metrics_agent_install::install_agentmon(
+                            &metrics_layer.path().join("bin"),
                         )
                         .map_err(RubyBuildpackError::MetricsAgentError)?;
-
-                        metrics_layer.replace_metadata(
-                            layers::metrics_agent_install::Metadata {
-                                download_url: Some(
-                                    layers::metrics_agent_install::DOWNLOAD_URL.to_string(),
-                                ),
-                            },
-                        )?;
-
-                        metrics_layer
-                            .replace_exec_d_programs(vec![("spawn_metrics_agent", execd)])?;
+                        section = timer.finish_timed_step();
                     }
                 };
 
-                // Get the new PATH/env from the layer?
+                let agentmon_path = metrics_layer.path().join("bin").join("agentmon");
+                section = section.step("Writing scripts");
+                let execd = layers::metrics_agent_install::write_execd_script(
+                    &agentmon_path,
+                    &metrics_layer.path(),
+                )
+                .map_err(RubyBuildpackError::MetricsAgentError)?;
+
+                metrics_layer.replace_metadata(layers::metrics_agent_install::Metadata {
+                    download_url: Some(layers::metrics_agent_install::DOWNLOAD_URL.to_string()),
+                })?;
+
+                metrics_layer.replace_exec_d_programs(vec![("spawn_metrics_agent", execd)])?;
 
                 (
                     section.end_section(),

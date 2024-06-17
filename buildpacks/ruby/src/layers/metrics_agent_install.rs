@@ -25,7 +25,7 @@ use tempfile::NamedTempFile;
 /// ```shell
 /// $ curl https://agentmon-releases.s3.us-east-1.amazonaws.com/latest
 /// ```
-const DOWNLOAD_URL: &str =
+pub(crate) const DOWNLOAD_URL: &str =
     "https://agentmon-releases.s3.us-east-1.amazonaws.com/agentmon-0.3.1-linux-amd64.tar.gz";
 const DOWNLOAD_SHA: &str = "f9bf9f33c949e15ffed77046ca38f8dae9307b6a0181c6af29a25dec46eb2dac";
 
@@ -36,7 +36,7 @@ pub(crate) struct MetricsAgentInstall<'a> {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct Metadata {
-    download_url: Option<String>,
+    pub(crate) download_url: Option<String>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -64,100 +64,7 @@ pub(crate) enum MetricsAgentInstallError {
     ChecksumFailed(String),
 }
 
-impl<'a> Layer for MetricsAgentInstall<'a> {
-    type Buildpack = RubyBuildpack;
-    type Metadata = Metadata;
-
-    fn types(&self) -> libcnb::data::layer_content_metadata::LayerTypes {
-        LayerTypes {
-            build: true,
-            launch: true,
-            cache: true,
-        }
-    }
-
-    fn create(
-        &mut self,
-        _context: &libcnb::build::BuildContext<Self::Buildpack>,
-        layer_path: &std::path::Path,
-    ) -> Result<
-        libcnb::layer::LayerResult<Self::Metadata>,
-        <Self::Buildpack as libcnb::Buildpack>::Error,
-    > {
-        let bin_dir = layer_path.join("bin");
-
-        let agentmon = log_step_timed("Downloading", || {
-            install_agentmon(&bin_dir).map_err(RubyBuildpackError::MetricsAgentError)
-        })?;
-
-        log_step("Writing scripts");
-        let execd = write_execd_script(&agentmon, layer_path)
-            .map_err(RubyBuildpackError::MetricsAgentError)?;
-
-        LayerResultBuilder::new(Metadata {
-            download_url: Some(DOWNLOAD_URL.to_string()),
-        })
-        .exec_d_program("spawn_metrics_agent", execd)
-        .build()
-    }
-
-    fn update(
-        &mut self,
-        _context: &libcnb::build::BuildContext<Self::Buildpack>,
-        layer_data: &libcnb::layer::LayerData<Self::Metadata>,
-    ) -> Result<
-        libcnb::layer::LayerResult<Self::Metadata>,
-        <Self::Buildpack as libcnb::Buildpack>::Error,
-    > {
-        let layer_path = &layer_data.path;
-
-        log_step("Writing scripts");
-        let execd = write_execd_script(&layer_path.join("bin").join("agentmon"), layer_path)
-            .map_err(RubyBuildpackError::MetricsAgentError)?;
-
-        LayerResultBuilder::new(Metadata {
-            download_url: Some(DOWNLOAD_URL.to_string()),
-        })
-        .exec_d_program("spawn_metrics_agent", execd)
-        .build()
-    }
-
-    fn existing_layer_strategy(
-        &mut self,
-        _context: &libcnb::build::BuildContext<Self::Buildpack>,
-        layer_data: &libcnb::layer::LayerData<Self::Metadata>,
-    ) -> Result<libcnb::layer::ExistingLayerStrategy, <Self::Buildpack as libcnb::Buildpack>::Error>
-    {
-        match &layer_data.content_metadata.metadata.download_url {
-            Some(url) if url == DOWNLOAD_URL => {
-                log_step("Using cached metrics agent");
-                Ok(ExistingLayerStrategy::Update)
-            }
-            Some(url) => {
-                log_step(format!(
-                    "Using cached metrics agent ({url} to {DOWNLOAD_URL}"
-                ));
-                Ok(ExistingLayerStrategy::Recreate)
-            }
-            None => Ok(ExistingLayerStrategy::Recreate),
-        }
-    }
-
-    fn migrate_incompatible_metadata(
-        &mut self,
-        _context: &libcnb::build::BuildContext<Self::Buildpack>,
-        _metadata: &GenericMetadata,
-    ) -> Result<
-        libcnb::layer::MetadataMigration<Self::Metadata>,
-        <Self::Buildpack as libcnb::Buildpack>::Error,
-    > {
-        log_step("Clearing cache (invalid metadata)");
-
-        Ok(libcnb::layer::MetadataMigration::RecreateLayer)
-    }
-}
-
-fn write_execd_script(
+pub(crate) fn write_execd_script(
     agentmon: &Path,
     layer_path: &Path,
 ) -> Result<PathBuf, MetricsAgentInstallError> {
@@ -200,7 +107,7 @@ fn write_execd_script(
     Ok(execd)
 }
 
-fn install_agentmon(dir: &Path) -> Result<PathBuf, MetricsAgentInstallError> {
+pub(crate) fn install_agentmon(dir: &Path) -> Result<PathBuf, MetricsAgentInstallError> {
     let agentmon = download_untar(DOWNLOAD_URL, dir).map(|()| dir.join("agentmon"))?;
 
     chmod_plus_x(&agentmon).map_err(MetricsAgentInstallError::PermissionError)?;

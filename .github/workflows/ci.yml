@@ -60,16 +60,20 @@ jobs:
         run: cargo test --locked -- --ignored
 
   print-pack-getting-started-output:
-    runs-on: ubuntu-22.04
+    runs-on: ${{ matrix.target == 'aarch64-unknown-linux-musl' && 'pub-hk-ubuntu-22.04-arm-medium' || 'ubuntu-latest' }}
+    strategy:
+      matrix:
+        target: ["aarch64-unknown-linux-musl", "x86_64-unknown-linux-musl"]
+      fail-fast: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Install musl-tools
-        run: sudo apt-get install musl-tools --no-install-recommends
+        run: sudo apt-get install -y --no-install-recommends musl-tools
       - name: Update Rust toolchain
         run: rustup update
       - name: Install Rust linux-musl target
-        run: rustup target add x86_64-unknown-linux-musl
+        run: rustup target add ${{ matrix.target }}
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.7.3
       - name: Install Pack CLI
@@ -86,11 +90,11 @@ jobs:
       - name: Install libcnb-cargo for `cargo libcnb package` command
         run: cargo install libcnb-cargo
       - name: Compile ruby buildpack
-        run: cargo libcnb package
+        run: cargo libcnb package --target ${{ matrix.target }}
       - name: "PRINT: Getting started guide output"
-        run: pack build my-image --force-color --builder heroku/builder:24 --buildpack heroku/nodejs-engine --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
+        run: pack build my-image --force-color --builder heroku/builder:24 --buildpack heroku/nodejs-engine --buildpack packaged/${{ matrix.target }}/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
       - name: "PRINT: Cached getting started guide output"
-        run: pack build my-image --force-color --builder heroku/builder:24 --buildpack heroku/nodejs-engine --buildpack packaged/x86_64-unknown-linux-musl/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
+        run: pack build my-image --force-color --builder heroku/builder:24 --buildpack heroku/nodejs-engine --buildpack packaged/${{ matrix.target }}/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
 
   print-style-guide:
     runs-on: ubuntu-22.04

@@ -13,9 +13,9 @@ use std::marker::PhantomData;
 /// only downside is that the buildpack author (you) is now responsible for:
 ///
 /// - Ensuring that `Box<dyn StartedLogger>::section()` was called right before any of these
-/// functions are called.
+///   functions are called.
 /// - Ensuring that you are not attempting to log while already logging i.e. calling `step()` within a
-/// `step_timed()` call.
+///   `step_timed()` call.
 ///
 /// For usage details run `cargo run --bin print_style_guide`
 ///

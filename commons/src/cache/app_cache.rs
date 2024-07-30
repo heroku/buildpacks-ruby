@@ -83,9 +83,9 @@ impl AppCache {
     /// # Errors
     ///
     /// - If the cache or applications directory cannot be created
-    /// (possibly due to permissions error).
+    ///   (possibly due to permissions error).
     /// - If files from the cache cannot be loaded into the
-    /// application directory (possibly due to permissions error).
+    ///   application directory (possibly due to permissions error).
     /// - Internal errors from libcnb layer creation and execution.
     pub fn new_and_load<B: libcnb::Buildpack>(
         context: &BuildContext<B>,
@@ -124,7 +124,7 @@ impl AppCache {
     /// # Errors
     ///
     /// - If the files cannot be moved/coppied into the cache
-    /// then then an error will be raised.
+    ///   then then an error will be raised.
     pub fn save(&self) -> Result<&AppCache, CacheError> {
         match self.keep_path {
             KeepPath::Runtime => preserve_path_save(self)?,
@@ -143,7 +143,7 @@ impl AppCache {
     /// # Errors
     ///
     /// - If files cannot be moved from the cache to the path
-    /// then an error will be raised.
+    ///   then an error will be raised.
     pub fn load(&self) -> Result<&Self, CacheError> {
         fs_err::create_dir_all(&self.path).map_err(CacheError::IoError)?;
         fs_err::create_dir_all(&self.cache).map_err(CacheError::IoError)?;
@@ -186,7 +186,7 @@ impl AppCache {
     ///
     /// - If files cannot be deleted an error will be raised
     /// - If the operating system does not support the `mtime` an
-    /// error will be raised.
+    ///   error will be raised.
     /// - If metadata of a file cannot be read, an error will be raised
     pub fn save_and_clean(&self) -> Result<Option<FilesWithSize>, CacheError> {
         self.save()?;

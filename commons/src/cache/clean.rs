@@ -15,7 +15,7 @@ use std::time::SystemTime;
 ///
 /// - The provided ``cache_path`` is not valid UTF-8 (`OsStringErr`).
 /// - Metadata from a file in the ``cache_path`` cannot be retrieved from the OS (`IoError`).
-/// this is needed for mtime retrieval to calculate which file is least recently used.
+///   this is needed for mtime retrieval to calculate which file is least recently used.
 /// - If there's an OS error while deleting a file.
 /// - If an internal glob pattern is incorrect
 /// - If the OS does not support mtime operation on files.

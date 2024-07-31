@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- The buildpack now warns the user when environmental variables used in running the default process are not defined. ([#307](https://github.com/heroku/buildpacks-ruby/pull/307))
+
 ## [3.0.0] - 2024-05-17
 
 ### Changed

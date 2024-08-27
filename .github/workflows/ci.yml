@@ -54,7 +54,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.7.3
       - name: Install Pack CLI
-        uses: buildpacks/github-actions/setup-pack@v5.7.1
+        uses: buildpacks/github-actions/setup-pack@v5.7.4
       - name: Run integration tests
         # Runs only tests annotated with the `ignore` attribute (which in this repo, are the integration tests).
         run: cargo test --locked -- --ignored
@@ -77,7 +77,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.7.3
       - name: Install Pack CLI
-        uses: buildpacks/github-actions/setup-pack@v5.7.1
+        uses: buildpacks/github-actions/setup-pack@v5.7.4
       - name: Pull builder and run images
         run: |
           docker pull "heroku/builder:24"
@@ -92,9 +92,9 @@ jobs:
       - name: Compile ruby buildpack
         run: cargo libcnb package --target ${{ matrix.target }}
       - name: "PRINT: Getting started guide output"
-        run: pack build my-image --force-color --builder heroku/builder:24 --buildpack heroku/nodejs-engine --buildpack packaged/${{ matrix.target }}/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
+        run: pack build my-image --force-color --builder heroku/builder:24 --trust-extra-buildpacks --buildpack heroku/nodejs-engine --buildpack packaged/${{ matrix.target }}/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
       - name: "PRINT: Cached getting started guide output"
-        run: pack build my-image --force-color --builder heroku/builder:24 --buildpack heroku/nodejs-engine --buildpack packaged/${{ matrix.target }}/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
+        run: pack build my-image --force-color --builder heroku/builder:24 --trust-extra-buildpacks --buildpack heroku/nodejs-engine --buildpack packaged/${{ matrix.target }}/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
 
   print-style-guide:
     runs-on: ubuntu-24.04

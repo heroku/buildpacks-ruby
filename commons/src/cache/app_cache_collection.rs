@@ -12,6 +12,8 @@ use std::fmt::Debug;
 ///
 /// Default logging is provided for each operation.
 ///
+///
+#[deprecated(since = "1.1.0", note = "Use `Vec<AppCache>` instead")]
 #[derive(Debug)]
 pub struct AppCacheCollection<'a> {
     _log: &'a dyn SectionLogger,

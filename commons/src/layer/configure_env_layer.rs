@@ -81,6 +81,7 @@ use std::path::Path;
 ///# }
 ///
 /// ```
+#[deprecated(since = "1.1.0", note = "Use the layer Struct API instead")]
 pub struct ConfigureEnvLayer<B: libcnb::Buildpack> {
     pub(crate) data: LayerEnv,
     pub(crate) _buildpack: std::marker::PhantomData<B>,

@@ -62,6 +62,7 @@ use super::ConfigureEnvLayer;
 ///# }
 ///
 /// ```
+#[deprecated(since = "1.1.0", note = "Use the layer Struct API instead")]
 pub struct DefaultEnvLayer;
 
 impl DefaultEnvLayer {

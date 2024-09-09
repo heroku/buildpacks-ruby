@@ -1,3 +1,4 @@
+use bullet_stream::Print;
 use commons::cache::CacheError;
 use commons::gemfile_lock::GemfileLock;
 use commons::metadata_digest::MetadataDigest;
@@ -10,7 +11,7 @@ use fun_run::CmdError;
 use layers::{
     bundle_download_layer::{BundleDownloadLayer, BundleDownloadLayerMetadata},
     bundle_install_layer::{BundleInstallLayer, BundleInstallLayerMetadata},
-    metrics_agent_install::{MetricsAgentInstall, MetricsAgentInstallError},
+    metrics_agent_install::MetricsAgentInstallError,
     ruby_install_layer::{RubyInstallError, RubyInstallLayer, RubyInstallLayerMetadata},
 };
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
@@ -25,6 +26,7 @@ use libcnb::{buildpack_main, Buildpack};
 use std::io::stdout;
 
 mod gem_list;
+mod install_ruby;
 mod layers;
 mod rake_status;
 mod rake_task_detect;
@@ -36,6 +38,8 @@ mod user_errors;
 use libcnb_test as _;
 
 use clap as _;
+
+use crate::layers::metrics_agent_install::install_metrics_agent;
 
 struct RubyBuildpack;
 
@@ -115,6 +119,9 @@ impl Buildpack for RubyBuildpack {
 
     #[allow(clippy::too_many_lines)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
+        let mut build_output = Print::new(stdout()).h2("Heroku Ruby Buildpack");
+
+        // TODO, remove
         let mut logger = BuildLog::new(stdout()).buildpack_name("Heroku Ruby Buildpack");
         let warn_later = WarnGuard::new(stdout());
 
@@ -131,28 +138,24 @@ impl Buildpack for RubyBuildpack {
         let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
 
         // ## Install metrics agent
-        (logger, env) = {
-            let section = logger.section("Metrics agent");
-            if lockfile_contents.contains("barnes") {
-                let layer_data = context.handle_layer(
-                    layer_name!("metrics_agent"),
-                    MetricsAgentInstall {
-                        _in_section: section.as_ref(),
-                    },
-                )?;
+        (build_output, env) = {
+            let bullet = build_output.bullet("Metrics agent");
 
-                (
-                    section.end_section(),
-                    layer_data.env.apply(Scope::Build, &env),
-                )
+            if lockfile_contents.contains("barnes") {
+                let (bullet, layer_env) = install_metrics_agent(&context, bullet)?;
+                // let layer_data =
+                //     context.handle_layer(layer_name!("metrics_agent"), MetricsAgentInstall {})?;
+
+                // (bullet.done(), layer_data.env.apply(Scope::Build, &env))
+                (bullet.done(), layer_env.apply(Scope::Build, &env))
             } else {
                 (
-                    section
-                        .step(&format!(
+                    bullet
+                        .sub_bullet(format!(
                             "Skipping install ({barnes} gem not found)",
                             barnes = fmt::value("barnes")
                         ))
-                        .end_section(),
+                        .done(),
                     env,
                 )
             }

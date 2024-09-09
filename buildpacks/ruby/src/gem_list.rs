@@ -1,13 +1,12 @@
+use bullet_stream::state::SubBullet;
+use bullet_stream::{style, Print};
 use commons::gem_version::GemVersion;
-use commons::output::{
-    fmt,
-    section_log::{log_step_timed, SectionLogger},
-};
 use core::str::FromStr;
 use fun_run::{CmdError, CommandWithName};
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::io::Stdout;
 use std::process::Command;
 
 /// ## Gets list of an application's dependencies
@@ -61,8 +60,8 @@ impl GemList {
     /// Errors if the command `bundle list` is unsuccessful.
     pub(crate) fn from_bundle_list<T, K, V>(
         envs: T,
-        _logger: &dyn SectionLogger,
-    ) -> Result<Self, CmdError>
+        bullet: Print<SubBullet<Stdout>>,
+    ) -> Result<(Print<SubBullet<Stdout>>, Self), CmdError>
     where
         T: IntoIterator<Item = (K, V)>,
         K: AsRef<OsStr>,
@@ -71,11 +70,9 @@ impl GemList {
         let mut cmd = Command::new("bundle");
         cmd.arg("list").env_clear().envs(envs);
 
-        let output = log_step_timed(format!("Running {}", fmt::command(cmd.name())), || {
-            cmd.named_output()
-        })?;
-
-        GemList::from_str(&output.stdout_lossy())
+        let timer = bullet.start_timer(format!("Running {}", style::command(cmd.name())));
+        let output = cmd.named_output()?;
+        GemList::from_str(&output.stdout_lossy()).map(|gem_list| (timer.done(), gem_list))
     }
 
     #[must_use]

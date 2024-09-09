@@ -1,52 +1,53 @@
 use crate::gem_list::GemList;
 use crate::RubyBuildpack;
-use commons::output::{
-    fmt,
-    section_log::{log_step, SectionLogger},
-};
+use bullet_stream::state::SubBullet;
+use bullet_stream::{style, Print};
 use libcnb::build::BuildContext;
 use libcnb::data::launch::Process;
 use libcnb::data::launch::ProcessBuilder;
 use libcnb::data::process_type;
+use std::io::Stdout;
 use std::path::Path;
 
 pub(crate) fn get_default_process(
-    _logger: &dyn SectionLogger,
+    mut bullet: Print<SubBullet<Stdout>>,
     context: &BuildContext<RubyBuildpack>,
     gem_list: &GemList,
-) -> Option<Process> {
-    let config_ru = fmt::value("config.ru");
-    let rails = fmt::value("rails");
-    let rack = fmt::value("rack");
-    let railties = fmt::value("railties");
-    match detect_web(gem_list, &context.app_dir) {
+) -> (Print<SubBullet<Stdout>>, Option<Process>) {
+    let config_ru = style::value("config.ru");
+    let rails = style::value("rails");
+    let rack = style::value("rack");
+    let railties = style::value("railties");
+    let process = match detect_web(gem_list, &context.app_dir) {
         WebProcess::Rails => {
-            log_step(format!("Detected rails app ({rails} gem found)"));
+            bullet = bullet.sub_bullet(format!("Detected rails app ({rails} gem found)"));
 
             Some(default_rails())
         }
         WebProcess::RackWithConfigRU => {
-            log_step(format!(
+            bullet = bullet.sub_bullet(format!(
                 "Detected rack app ({rack} gem found and {config_ru} at root of application)"
             ));
 
             Some(default_rack())
         }
         WebProcess::RackMissingConfigRu => {
-            log_step(format!(
-                "Skipping default web process ({rack} gem found but missing {config_ru} file)"
+            bullet = bullet.sub_bullet(format!(
+                "Detected rack app ({rack} gem found but missing {config_ru} file)"
             ));
 
             None
         }
         WebProcess::Missing => {
-            log_step(format!(
-                "Skipping default web process ({rails}, {railties}, and {rack} not found)"
+            bullet = bullet.sub_bullet(format!(
+                "No web process detected ({rails}, {railties}, or {rack} not found)"
             ));
 
             None
         }
-    }
+    };
+
+    (bullet, process)
 }
 
 enum WebProcess {

@@ -4,7 +4,6 @@ use commons::gemfile_lock::GemfileLock;
 use commons::metadata_digest::MetadataDigest;
 use commons::output::warn_later::WarnGuard;
 #[allow(clippy::wildcard_imports)]
-use commons::output::{build_log::*, fmt};
 use core::str::FromStr;
 use fs_err::PathExt;
 use fun_run::CmdError;
@@ -121,9 +120,6 @@ impl Buildpack for RubyBuildpack {
     #[allow(clippy::too_many_lines)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         let mut build_output = Print::new(stdout()).h2("Heroku Ruby Buildpack");
-
-        // TODO, remove
-        let mut logger = BuildLog::new(stdout()).buildpack_name("Heroku Ruby Buildpack");
         let warn_later = WarnGuard::new(stdout());
 
         // ## Set default environment
@@ -150,7 +146,7 @@ impl Buildpack for RubyBuildpack {
                     bullet
                         .sub_bullet(format!(
                             "Skipping install ({barnes} gem not found)",
-                            barnes = fmt::value("barnes")
+                            barnes = style::value("barnes")
                         ))
                         .done(),
                     env,
@@ -185,8 +181,8 @@ impl Buildpack for RubyBuildpack {
                 &env,
                 build_output.bullet(format!(
                     "Bundler version {} from {}",
-                    fmt::value(bundler_version.to_string()),
-                    fmt::value(gemfile_lock.bundler_source())
+                    style::value(bundler_version.to_string()),
+                    style::value(gemfile_lock.bundler_source())
                 )),
                 BundleDownloadLayerMetadata {
                     version: bundler_version,
@@ -228,29 +224,32 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Detect gems
-        let (mut logger, gem_list, default_process) = {
-            let section = logger.section("Setting default processes");
+        let (mut build_output, gem_list, default_process) = {
+            let bullet = build_output.bullet("Setting default processes");
 
-            let gem_list = gem_list::GemList::from_bundle_list(&env, section.as_ref())
+            let (bullet, gem_list) = gem_list::GemList::from_bundle_list(&env, bullet)
                 .map_err(RubyBuildpackError::GemListGetError)?;
-            let default_process = steps::get_default_process(section.as_ref(), &context, &gem_list);
+            let (bullet, default_process) = steps::get_default_process(bullet, &context, &gem_list);
 
-            (section.end_section(), gem_list, default_process)
+            (bullet.done(), gem_list, default_process)
         };
 
         // ## Assets install
-        logger = {
-            let section = logger.section("Rake assets install");
-            let rake_detect =
-                crate::steps::detect_rake_tasks(section.as_ref(), &gem_list, &context, &env)?;
+        build_output = {
+            let (mut bullet, rake_detect) = crate::steps::detect_rake_tasks(
+                build_output.bullet("Rake assets install"),
+                &gem_list,
+                &context,
+                &env,
+            )?;
 
             if let Some(rake_detect) = rake_detect {
-                crate::steps::rake_assets_install(section.as_ref(), &context, &env, &rake_detect)?;
+                bullet = crate::steps::rake_assets_install(bullet, &context, &env, &rake_detect)?;
             }
 
-            section.end_section()
+            bullet.done()
         };
-        logger.finish_logging();
+        build_output.done();
         warn_later.warn_now();
 
         if let Some(default_process) = default_process {

@@ -1,10 +1,9 @@
-use commons::output::{
-    fmt,
-    section_log::{log_step_timed, SectionLogger},
-};
+use bullet_stream::state::SubBullet;
+use bullet_stream::{style, Print};
 
 use core::str::FromStr;
 use fun_run::{CmdError, CommandWithName};
+use std::io::Stdout;
 use std::{ffi::OsStr, process::Command};
 
 /// Run `rake -P` and parse output to show what rake tasks an application has
@@ -30,30 +29,31 @@ impl RakeDetect {
         K: AsRef<OsStr>,
         V: AsRef<OsStr>,
     >(
-        _logger: &dyn SectionLogger,
+        bullet: Print<SubBullet<Stdout>>,
         envs: T,
         error_on_failure: bool,
-    ) -> Result<Self, CmdError> {
+    ) -> Result<(Print<SubBullet<Stdout>>, Self), CmdError> {
         let mut cmd = Command::new("bundle");
         cmd.args(["exec", "rake", "-P", "--trace"])
             .env_clear()
             .envs(envs);
 
-        log_step_timed(format!("Running {}", fmt::command(cmd.name())), || {
-            cmd.named_output()
-        })
-        .or_else(|error| {
-            if error_on_failure {
-                Err(error)
-            } else {
-                match error {
-                    CmdError::SystemError(_, _) => Err(error),
-                    CmdError::NonZeroExitNotStreamed(output)
-                    | CmdError::NonZeroExitAlreadyStreamed(output) => Ok(output),
+        let timer = bullet.start_timer(format!("Running {}", style::command(cmd.name())));
+
+        cmd.named_output()
+            .or_else(|error| {
+                if error_on_failure {
+                    Err(error)
+                } else {
+                    match error {
+                        CmdError::SystemError(_, _) => Err(error),
+                        CmdError::NonZeroExitNotStreamed(output)
+                        | CmdError::NonZeroExitAlreadyStreamed(output) => Ok(output),
+                    }
                 }
-            }
-        })
-        .and_then(|output| RakeDetect::from_str(&output.stdout_lossy()))
+            })
+            .and_then(|output| RakeDetect::from_str(&output.stdout_lossy()))
+            .map(|rake_detect| (timer.done(), rake_detect))
     }
 
     #[must_use]

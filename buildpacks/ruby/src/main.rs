@@ -1,4 +1,4 @@
-use bullet_stream::Print;
+use bullet_stream::{style, Print};
 use commons::cache::CacheError;
 use commons::gemfile_lock::GemfileLock;
 use commons::metadata_digest::MetadataDigest;
@@ -9,10 +9,10 @@ use core::str::FromStr;
 use fs_err::PathExt;
 use fun_run::CmdError;
 use layers::{
-    bundle_download_layer::{BundleDownloadLayer, BundleDownloadLayerMetadata},
+    bundle_download_layer::BundleDownloadLayerMetadata,
     bundle_install_layer::{BundleInstallLayer, BundleInstallLayerMetadata},
     metrics_agent_install::MetricsAgentInstallError,
-    ruby_install_layer::{RubyInstallError, RubyInstallLayer, RubyInstallLayerMetadata},
+    ruby_install_layer::{install_ruby, RubyInstallError, RubyInstallLayerMetadata},
 };
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
@@ -39,6 +39,7 @@ use libcnb_test as _;
 
 use clap as _;
 
+use crate::layers::bundle_download_layer::download_bundler;
 use crate::layers::metrics_agent_install::install_metrics_agent;
 
 struct RubyBuildpack;
@@ -143,10 +144,6 @@ impl Buildpack for RubyBuildpack {
 
             if lockfile_contents.contains("barnes") {
                 let (bullet, layer_env) = install_metrics_agent(&context, bullet)?;
-                // let layer_data =
-                //     context.handle_layer(layer_name!("metrics_agent"), MetricsAgentInstall {})?;
-
-                // (bullet.done(), layer_data.env.apply(Scope::Build, &env))
                 (bullet.done(), layer_env.apply(Scope::Build, &env))
             } else {
                 (
@@ -162,49 +159,41 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Install executable ruby version
-        (logger, env) = {
-            let section = logger.section(&format!(
-                "Ruby version {} from {}",
-                fmt::value(ruby_version.to_string()),
-                fmt::value(gemfile_lock.ruby_source())
-            ));
-            let ruby_layer = context //
-                .handle_layer(
-                    layer_name!("ruby"),
-                    RubyInstallLayer {
-                        _in_section: section.as_ref(),
-                        metadata: RubyInstallLayerMetadata {
-                            distro_name: context.target.distro_name.clone(),
-                            distro_version: context.target.distro_version.clone(),
-                            cpu_architecture: context.target.arch.clone(),
-                            ruby_version: ruby_version.clone(),
-                        },
-                    },
-                )?;
-            let env = ruby_layer.env.apply(Scope::Build, &env);
-            (section.end_section(), env)
+        (build_output, env) = {
+            let (bullet, layer_env) = install_ruby(
+                &context,
+                build_output.bullet(format!(
+                    "Ruby version {} from {}",
+                    style::value(ruby_version.to_string()),
+                    style::value(gemfile_lock.ruby_source())
+                )),
+                RubyInstallLayerMetadata {
+                    distro_name: context.target.distro_name.clone(),
+                    distro_version: context.target.distro_version.clone(),
+                    cpu_architecture: context.target.arch.clone(),
+                    ruby_version: ruby_version.clone(),
+                },
+            )?;
+
+            (bullet.done(), layer_env.apply(Scope::Build, &env))
         };
 
         // ## Setup bundler
-        (logger, env) = {
-            let section = logger.section(&format!(
-                "Bundler version {} from {}",
-                fmt::value(bundler_version.to_string()),
-                fmt::value(gemfile_lock.bundler_source())
-            ));
-            let download_bundler_layer = context.handle_layer(
-                layer_name!("bundler"),
-                BundleDownloadLayer {
-                    env: env.clone(),
-                    metadata: BundleDownloadLayerMetadata {
-                        version: bundler_version,
-                    },
-                    _section_logger: section.as_ref(),
+        (build_output, env) = {
+            let (bullet, layer_env) = download_bundler(
+                &context,
+                &env,
+                build_output.bullet(format!(
+                    "Bundler version {} from {}",
+                    fmt::value(bundler_version.to_string()),
+                    fmt::value(gemfile_lock.bundler_source())
+                )),
+                BundleDownloadLayerMetadata {
+                    version: bundler_version,
                 },
             )?;
-            let env = download_bundler_layer.env.apply(Scope::Build, &env);
 
-            (section.end_section(), env)
+            (bullet.done(), layer_env.apply(Scope::Build, &env))
         };
 
         // ## Bundle install

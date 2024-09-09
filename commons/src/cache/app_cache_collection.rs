@@ -20,6 +20,7 @@ pub struct AppCacheCollection<'a> {
     collection: Vec<AppCache>,
 }
 
+#[allow(deprecated)]
 impl<'a> AppCacheCollection<'a> {
     /// Store multiple application paths in the cache
     ///
@@ -36,7 +37,7 @@ impl<'a> AppCacheCollection<'a> {
         let caches = config
             .into_iter()
             .map(|config| {
-                AppCache::new_and_load(context, config).map(|store| {
+                AppCache::new_and_load(context, config).inspect(|store| {
                     let path = store.path().display();
 
                     log::log_step(match store.cache_state() {
@@ -44,7 +45,6 @@ impl<'a> AppCacheCollection<'a> {
                         CacheState::ExistsEmpty => format!("Loading (empty) cache for {path}"),
                         CacheState::ExistsWithContents => format!("Loading cache for {path}"),
                     });
-                    store
                 })
             })
             .collect::<Result<Vec<AppCache>, CacheError>>()?;

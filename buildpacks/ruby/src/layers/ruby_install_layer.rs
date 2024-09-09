@@ -10,8 +10,7 @@ use flate2::read::GzDecoder;
 use libcnb::build::BuildContext;
 use libcnb::data::layer_name;
 use libcnb::layer::{
-    CachedLayerDefinition, EmptyLayerCause, IntoAction, InvalidMetadataAction, LayerState,
-    RestoredLayerAction,
+    CachedLayerDefinition, EmptyLayerCause, IntoAction, LayerState, RestoredLayerAction,
 };
 use libcnb::layer_env::LayerEnv;
 use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};

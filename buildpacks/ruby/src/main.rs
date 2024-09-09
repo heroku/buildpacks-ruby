@@ -299,9 +299,6 @@ buildpack_main!(RubyBuildpack);
 struct BundleWithout(String);
 
 impl BundleWithout {
-    fn new(without: impl AsRef<str>) -> Self {
-        Self(String::from(without.as_ref()))
-    }
     fn as_str(&self) -> &str {
         &self.0
     }

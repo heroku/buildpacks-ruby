@@ -203,8 +203,6 @@ enum UpdateState {
 }
 
 /// Determines if 'bundle install' should execute on a given call to `BundleInstallLatyer::update`
-///
-///
 fn update_state(old: &BundleInstallLayerMetadata, now: &BundleInstallLayerMetadata) -> UpdateState {
     let forced_env = std::env::var_os(HEROKU_SKIP_BUNDLE_DIGEST);
     let old_key = &old.force_bundle_install_key;

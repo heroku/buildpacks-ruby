@@ -360,7 +360,7 @@ fn debug_cmd(mut bullet: Print<SubBullet<Stdout>>, command: &mut Command) -> Pri
 
     match result {
         Ok(_) => bullet.done(),
-        Err(e) => bullet.sub_bullet(&e.to_string()).done(),
+        Err(e) => bullet.sub_bullet(e.to_string()).done(),
     }
 }
 

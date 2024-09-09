@@ -1,3 +1,4 @@
+#[allow(deprecated)]
 use crate::output::build_log::{state, BuildData, BuildLog};
 #[allow(clippy::wildcard_imports)]
 pub use crate::output::interface::*;
@@ -118,6 +119,7 @@ pub fn log_important(s: impl AsRef<str>) {
     logger().announce().important(s.as_ref());
 }
 
+#[allow(deprecated)]
 fn logger() -> Box<dyn SectionLogger> {
     Box::new(BuildLog::<state::InSection, Stdout> {
         io: std::io::stdout(),

@@ -4,10 +4,6 @@ edition.workspace = true
 rust-version.workspace = true
 version = "1.1.0"
 
-[[bin]]
-name = "print_style_guide"
-path = "bin/print_style_guide.rs"
-
 [lints]
 workspace = true
 

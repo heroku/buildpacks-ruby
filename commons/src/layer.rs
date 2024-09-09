@@ -3,7 +3,9 @@ mod default_env_layer;
 
 use libcnb::layer::{IntoAction, InvalidMetadataAction};
 
+#[allow(deprecated)]
 pub use self::configure_env_layer::ConfigureEnvLayer;
+#[allow(deprecated)]
 pub use self::default_env_layer::DefaultEnvLayer;
 
 pub enum MetadataMigrationFYI<T> {

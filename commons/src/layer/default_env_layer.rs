@@ -2,6 +2,7 @@ use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use std::ffi::OsString;
 use std::marker::PhantomData;
 
+#[allow(deprecated)]
 use super::ConfigureEnvLayer;
 
 /// Set default environment variables
@@ -65,6 +66,7 @@ use super::ConfigureEnvLayer;
 #[deprecated(since = "1.1.0", note = "Use the layer Struct API instead")]
 pub struct DefaultEnvLayer;
 
+#[allow(deprecated)]
 impl DefaultEnvLayer {
     #[allow(clippy::new_ret_no_self)]
     pub fn new<E, K, V, B>(env: E) -> ConfigureEnvLayer<B>

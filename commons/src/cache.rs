@@ -6,6 +6,8 @@ mod error;
 
 pub use self::app_cache::{build, PathState};
 pub use self::app_cache::{AppCache, CacheState};
+
+#[allow(deprecated)]
 pub use self::app_cache_collection::AppCacheCollection;
 pub use self::clean::FilesWithSize;
 pub use self::config::CacheConfig;

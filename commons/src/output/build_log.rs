@@ -67,6 +67,7 @@ pub(crate) mod state {
     pub struct InSection;
 }
 
+#[allow(deprecated)]
 impl<W> BuildLog<state::NotStarted, W>
 where
     W: Write + Debug,
@@ -80,6 +81,7 @@ where
     }
 }
 
+#[allow(deprecated)]
 impl<W> Logger for BuildLog<state::NotStarted, W>
 where
     W: Write + Send + Sync + Debug + 'static,
@@ -103,6 +105,7 @@ where
     }
 }
 
+#[allow(deprecated)]
 impl<W> StartedLogger for BuildLog<state::Started, W>
 where
     W: Write + Send + Sync + Debug + 'static,
@@ -133,6 +136,8 @@ where
         })
     }
 }
+
+#[allow(deprecated)]
 impl<W> SectionLogger for BuildLog<state::InSection, W>
 where
     W: Write + Send + Sync + Debug + 'static,
@@ -291,6 +296,7 @@ where
         self
     }
 
+    #[allow(deprecated)]
     fn end_announce(self: Box<Self>) -> Box<dyn SectionLogger> {
         Box::new(BuildLog {
             io: self.io,
@@ -327,6 +333,7 @@ where
         self
     }
 
+    #[allow(deprecated)]
     fn end_announce(self: Box<Self>) -> Box<dyn StartedLogger> {
         Box::new(BuildLog {
             io: self.io,
@@ -425,6 +432,7 @@ where
         // // Newline after stream
         writeln_now(&mut io, "");
 
+        #[allow(deprecated)]
         let mut section = BuildLog {
             io,
             data: self.data,
@@ -461,6 +469,7 @@ where
 
         writeln_now(&mut io, fmt::details(fmt::time::human(&duration)));
 
+        #[allow(deprecated)]
         Box::new(BuildLog {
             io,
             data: self.data,
@@ -505,6 +514,7 @@ mod test {
         let writer = ReadYourWrite::writer(Vec::new());
         let reader = writer.reader();
 
+        #[allow(deprecated)]
         let mut stream = BuildLog::new(writer)
             .buildpack_name("Heroku Ruby Buildpack")
             .section("Ruby version `3.1.3` from `Gemfile.lock`")
@@ -545,6 +555,7 @@ mod test {
         let writer = ReadYourWrite::writer(Vec::new());
         let reader = writer.reader();
 
+        #[allow(deprecated)]
         let mut stream = BuildLog::new(writer)
             .buildpack_name("Streaming buildpack demo")
             .section("Command streaming")
@@ -568,6 +579,7 @@ mod test {
         let writer = ReadYourWrite::writer(Vec::new());
         let reader = writer.reader();
 
+        #[allow(deprecated)]
         BuildLog::new(writer)
             .buildpack_name("RCT")
             .section("Guest thoughs")
@@ -603,6 +615,7 @@ mod test {
         let writer = ReadYourWrite::writer(Vec::new());
         let reader = writer.reader();
 
+        #[allow(deprecated)]
         let logger = BuildLog::new(writer)
             .buildpack_name("RCT")
             .section("Guest thoughs")
@@ -643,6 +656,8 @@ mod test {
         let reader = writer.reader();
 
         let warn_later = WarnGuard::new(writer.clone());
+
+        #[allow(deprecated)]
         BuildLog::new(writer)
             .buildpack_name("Walkin' on the Sun")
             .section("So don't delay, act now, supplies are running out")
@@ -683,6 +698,7 @@ mod test {
         let writer = ReadYourWrite::writer(Vec::new());
         let reader = writer.reader();
 
+        #[allow(deprecated)]
         BuildLog::new(writer)
             .buildpack_name("Quick and simple")
             .section("Start")

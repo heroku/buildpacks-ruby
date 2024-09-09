@@ -4,6 +4,7 @@
 
 ### Changed
 
+- `BuildLog` is deprecated in favor of the `bullet_stream` crate.
 - `AppCacheCollection` is deprecated. Use a `Vec<AppCache>` instead.
 - `configure_env_layer::ConfigureEnvLayer` and `default_env_layer::DefaultEnvLayer` are deprecated, use the new "struct api" for layers instead.
 

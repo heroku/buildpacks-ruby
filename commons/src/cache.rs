@@ -3,7 +3,6 @@ mod app_cache_collection;
 mod clean;
 mod config;
 mod error;
-mod in_app_dir_cache_layer;
 
 pub use self::app_cache::{build, PathState};
 pub use self::app_cache::{AppCache, CacheState};

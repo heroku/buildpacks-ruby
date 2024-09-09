@@ -1,10 +1,11 @@
 use crate::cache::clean::{lru_clean, FilesWithSize};
-use crate::cache::in_app_dir_cache_layer::InAppDirCacheLayer;
 use crate::cache::{CacheConfig, CacheError, KeepPath};
 use byte_unit::{AdjustedByte, Byte};
 use fs_extra::dir::CopyOptions;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
+use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, RestoredLayerAction};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -249,11 +250,33 @@ pub fn build<B: libcnb::Buildpack>(
     let layer_name = create_layer_name(&context.app_dir, &path)?;
     let create_state = layer_name_cache_state(&context.layers_dir, &layer_name);
 
+    let metadata = InAppDirCacheLayerMetadata {
+        app_dir_path: path.clone(),
+    };
+
     let layer = context
-        .handle_layer(layer_name, InAppDirCacheLayer::new(path.clone()))
+        .cached_layer(
+            layer_name,
+            CachedLayerDefinition {
+                launch: false,
+                build: true,
+                invalid_metadata_action: &|_| InvalidMetadataAction::DeleteLayer,
+                restored_layer_action: &|old: &InAppDirCacheLayerMetadata, _| {
+                    if old.app_dir_path == metadata.app_dir_path {
+                        Ok(RestoredLayerAction::KeepLayer)
+                    } else {
+                        Ok(RestoredLayerAction::DeleteLayer)
+                    }
+                },
+            },
+        )
         .map_err(|error| CacheError::InternalLayerError(format!("{error:?}")))?;
 
-    let cache = layer.path;
+    layer
+        .write_metadata(metadata)
+        .map_err(|error| CacheError::InternalLayerError(format!("{error:?}")))?;
+
+    let cache = layer.path();
 
     Ok(AppCache {
         path,
@@ -262,6 +285,11 @@ pub fn build<B: libcnb::Buildpack>(
         keep_path,
         cache_state: create_state,
     })
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub(crate) struct InAppDirCacheLayerMetadata {
+    app_dir_path: PathBuf,
 }
 
 /// Copy contents of application path into the cache

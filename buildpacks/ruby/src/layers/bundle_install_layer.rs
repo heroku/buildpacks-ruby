@@ -113,14 +113,16 @@ pub(crate) fn bundle_install_gems(
         }
         UpdateState::Skip(ref sources) => {
             bullet = bullet.sub_bullet(format!(
-                "Skipping bundle install (no changes found in {sources})",
+                "Skipping {bundle_install} (no changes found in {sources})",
+                bundle_install = style::command("bundle install"),
                 sources = SentenceList::new(sources).join_str("or")
             ));
 
             bullet = bullet.sub_bullet(format!(
-                "{help}: To force run bundle install set {env_var}",
+                "{help}: To force run {bundle_install} set {env_var}",
                 help = style::important("HELP:"),
-                env_var = style::value(format!("{HEROKU_SKIP_BUNDLE_DIGEST}=1"))
+                env_var = style::value(format!("{HEROKU_SKIP_BUNDLE_DIGEST}=1")),
+                bundle_install = style::command("bundle install"),
             ));
         }
     }

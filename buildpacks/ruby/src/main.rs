@@ -1,3 +1,4 @@
+use bullet_stream::{style, Print};
 use commons::cache::CacheError;
 use commons::gemfile_lock::GemfileLock;
 use commons::metadata_digest::MetadataDigest;
@@ -130,22 +131,19 @@ impl Buildpack for RubyBuildpack {
         let bundler_version = gemfile_lock.resolve_bundler("2.4.5");
         let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
 
+        let mut build_output = Print::new(stdout()).without_header();
         // ## Install metrics agent
-        logger = {
-            let section = logger.section("Metrics agent");
+        build_output = {
+            let bullet = build_output.bullet("Metrics agent");
             if lockfile_contents.contains("barnes") {
-                layers::metrics_agent_install::handle_metrics_agent_layer(
-                    &context,
-                    section.as_ref(),
-                )?;
-                section.end_section()
+                layers::metrics_agent_install::handle_metrics_agent_layer(&context, bullet)?.done()
             } else {
-                section
-                    .step(&format!(
+                bullet
+                    .sub_bullet(&format!(
                         "Skipping install ({barnes} gem not found)",
-                        barnes = fmt::value("barnes")
+                        barnes = style::value("barnes")
                     ))
-                    .end_section()
+                    .done()
             }
         };
 

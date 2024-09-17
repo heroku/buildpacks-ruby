@@ -1,5 +1,6 @@
 use crate::{RubyBuildpack, RubyBuildpackError};
-use commons::output::section_log::{log_step, log_step_timed, SectionLogger};
+use bullet_stream::state::SubBullet;
+use bullet_stream::Print;
 use flate2::read::GzDecoder;
 use libcnb::additional_buildpack_binary_path;
 use libcnb::data::layer_name;
@@ -8,6 +9,7 @@ use libcnb::layer::{
 };
 use libherokubuildpack::digest::sha256;
 use serde::{Deserialize, Serialize};
+use std::io::Stdout;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use tar::Archive;
@@ -59,10 +61,8 @@ pub(crate) enum MetricsAgentInstallError {
 
 pub(crate) fn handle_metrics_agent_layer(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
-    // TODO: Replace when implementing bullet_stream. Included with original comment:
-    // force the layer to be called within a Section logging context, not necessary but it's safer
-    _in_section_logger: &dyn SectionLogger,
-) -> libcnb::Result<(), RubyBuildpackError> {
+    mut bullet: Print<SubBullet<Stdout>>,
+) -> libcnb::Result<Print<SubBullet<Stdout>>, RubyBuildpackError> {
     let layer_ref = context.cached_layer(
         layer_name!("metrics_agent"),
         CachedLayerDefinition {
@@ -87,26 +87,26 @@ pub(crate) fn handle_metrics_agent_layer(
 
     match layer_ref.state.clone() {
         LayerState::Restored { .. } => {
-            log_step("Using cached metrics agent");
+            bullet = bullet.sub_bullet("Using cached metrics agent");
         }
         LayerState::Empty { cause } => {
             match cause {
                 EmptyLayerCause::NewlyCreated => {}
                 EmptyLayerCause::InvalidMetadataAction { .. } => {
-                    log_step("Clearing cache (invalid metadata)");
+                    bullet = bullet.sub_bullet("Clearing cache (invalid metadata)");
                 }
                 EmptyLayerCause::RestoredLayerAction { cause: url } => {
-                    log_step(format!("Deleting cached metrics agent ({url})"));
+                    bullet = bullet.sub_bullet(format!("Deleting cached metrics agent ({url})"));
                 }
             }
             let bin_dir = layer_ref.path().join("bin");
 
-            let agentmon = log_step_timed(
-                format!("Installing metrics agent from {DOWNLOAD_URL}"),
-                || install_agentmon(&bin_dir).map_err(RubyBuildpackError::MetricsAgentError),
-            )?;
+            let timer = bullet.start_timer(format!("Installing metrics agent from {DOWNLOAD_URL}"));
+            let agentmon =
+                install_agentmon(&bin_dir).map_err(RubyBuildpackError::MetricsAgentError)?;
+            bullet = timer.done();
 
-            log_step("Writing scripts");
+            bullet = bullet.sub_bullet("Writing scripts");
             let execd = write_execd_script(&agentmon, layer_ref.path().as_path())
                 .map_err(RubyBuildpackError::MetricsAgentError)?;
 
@@ -116,7 +116,7 @@ pub(crate) fn handle_metrics_agent_layer(
             })?;
         }
     }
-    Ok(())
+    Ok(bullet)
 }
 
 fn write_execd_script(

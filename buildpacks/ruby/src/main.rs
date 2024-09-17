@@ -10,7 +10,7 @@ use fun_run::CmdError;
 use layers::{
     bundle_download_layer::{BundleDownloadLayer, BundleDownloadLayerMetadata},
     bundle_install_layer::{BundleInstallLayer, BundleInstallLayerMetadata},
-    metrics_agent_install::{MetricsAgentInstall, MetricsAgentInstallError},
+    metrics_agent_install::MetricsAgentInstallError,
     ruby_install_layer::{RubyInstallError, RubyInstallLayer, RubyInstallLayerMetadata},
 };
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
@@ -134,16 +134,15 @@ impl Buildpack for RubyBuildpack {
         (logger, env) = {
             let section = logger.section("Metrics agent");
             if lockfile_contents.contains("barnes") {
-                let layer_data = context.handle_layer(
-                    layer_name!("metrics_agent"),
-                    MetricsAgentInstall {
-                        _in_section: section.as_ref(),
-                    },
+                let layer_ref = layers::metrics_agent_install::handle_metrics_agent_layer(
+                    &context,
+                    section.as_ref(),
                 )?;
-
                 (
                     section.end_section(),
-                    layer_data.env.apply(Scope::Build, &env),
+                    // TODO: This should likely be removed (also eliminating the need for the `handle_metrics_agent_layer` function to return a `LayerRef`)?
+                    // Included the logic here for reference, but it doesn't seem necessary (the layer env isn't explicitly modified as far as I can tell, but perhaps there's some trait API magic happening I'm not familiar with?).
+                    layer_ref.read_env()?.apply(Scope::Build, &env),
                 )
             } else {
                 (

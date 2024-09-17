@@ -30,7 +30,7 @@ const DOWNLOAD_SHA: &str = "f9bf9f33c949e15ffed77046ca38f8dae9307b6a0181c6af29a2
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct Metadata {
-    download_url: Option<String>,
+    download_url: String,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -63,7 +63,7 @@ pub(crate) fn handle_metrics_agent_layer(
     // TODO: Replace when implementing bullet_stream. Included with original comment:
     // force the layer to be called within a Section logging context, not necessary but it's safer
     _in_section_logger: &dyn SectionLogger,
-) -> libcnb::Result<LayerRef<RubyBuildpack, (), Option<String>>, RubyBuildpackError> {
+) -> libcnb::Result<LayerRef<RubyBuildpack, (), String>, RubyBuildpackError> {
     let layer_ref = context.cached_layer(
         layer_name!("metrics_agent"),
         CachedLayerDefinition {
@@ -71,7 +71,7 @@ pub(crate) fn handle_metrics_agent_layer(
             launch: true,
             invalid_metadata_action: &|_| InvalidMetadataAction::DeleteLayer,
             restored_layer_action: &|metadata: &Metadata, _| {
-                if metadata.download_url == Some(DOWNLOAD_URL.to_string()) {
+                if metadata.download_url == DOWNLOAD_URL {
                     (
                         RestoredLayerAction::KeepLayer,
                         metadata.download_url.clone(),
@@ -96,10 +96,9 @@ pub(crate) fn handle_metrics_agent_layer(
                 EmptyLayerCause::InvalidMetadataAction { .. } => {
                     log_step("Clearing cache (invalid metadata)");
                 }
-                EmptyLayerCause::RestoredLayerAction { cause: Some(url) } => {
+                EmptyLayerCause::RestoredLayerAction { cause: url } => {
                     log_step(format!("Deleting cached metrics agent ({url})"));
                 }
-                EmptyLayerCause::RestoredLayerAction { cause: None } => {}
             }
             let bin_dir = layer_ref.path().join("bin");
 
@@ -114,7 +113,7 @@ pub(crate) fn handle_metrics_agent_layer(
 
             layer_ref.write_exec_d_programs([("spawn_metrics_agent".to_string(), execd)])?;
             layer_ref.write_metadata(Metadata {
-                download_url: Some(DOWNLOAD_URL.to_string()),
+                download_url: DOWNLOAD_URL.to_string(),
             })?;
         }
     }

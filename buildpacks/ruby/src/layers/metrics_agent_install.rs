@@ -97,23 +97,16 @@ pub(crate) fn handle_metrics_agent_layer(
                     log_step("Clearing cache (invalid metadata)");
                 }
                 EmptyLayerCause::RestoredLayerAction { cause: Some(url) } => {
-                    // This should probably be updated to "Updating cached metrics agent (from {url} to {DOWNLOAD_URL}"
-                    // or some other language that reflects the cache metrics agent is being updated. Alternatively,
-                    // this could simply state "Deleting cached metrics agent ({url}) if the "Downloading" log below
-                    // is updated to include the new download URL.
-                    // Including original language to show a 1:1 migration from Layer to Struct API, retaining full
-                    // functionality/behavior without refactoring.
-                    log_step(format!(
-                        "Using cached metrics agent ({url} to {DOWNLOAD_URL}"
-                    ));
+                    log_step(format!("Deleting cached metrics agent ({url})"));
                 }
                 EmptyLayerCause::RestoredLayerAction { cause: None } => {}
             }
             let bin_dir = layer_ref.path().join("bin");
 
-            let agentmon = log_step_timed("Downloading", || {
-                install_agentmon(&bin_dir).map_err(RubyBuildpackError::MetricsAgentError)
-            })?;
+            let agentmon = log_step_timed(
+                format!("Installing metrics agent from {DOWNLOAD_URL}"),
+                || install_agentmon(&bin_dir).map_err(RubyBuildpackError::MetricsAgentError),
+            )?;
 
             log_step("Writing scripts");
             let execd = write_execd_script(&agentmon, layer_ref.path().as_path())

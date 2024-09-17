@@ -131,29 +131,21 @@ impl Buildpack for RubyBuildpack {
         let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
 
         // ## Install metrics agent
-        (logger, env) = {
+        logger = {
             let section = logger.section("Metrics agent");
             if lockfile_contents.contains("barnes") {
-                let layer_ref = layers::metrics_agent_install::handle_metrics_agent_layer(
+                layers::metrics_agent_install::handle_metrics_agent_layer(
                     &context,
                     section.as_ref(),
                 )?;
-                (
-                    section.end_section(),
-                    // TODO: This should likely be removed (also eliminating the need for the `handle_metrics_agent_layer` function to return a `LayerRef`)?
-                    // Included the logic here for reference, but it doesn't seem necessary (the layer env isn't explicitly modified as far as I can tell, but perhaps there's some trait API magic happening I'm not familiar with?).
-                    layer_ref.read_env()?.apply(Scope::Build, &env),
-                )
+                section.end_section()
             } else {
-                (
-                    section
-                        .step(&format!(
-                            "Skipping install ({barnes} gem not found)",
-                            barnes = fmt::value("barnes")
-                        ))
-                        .end_section(),
-                    env,
-                )
+                section
+                    .step(&format!(
+                        "Skipping install ({barnes} gem not found)",
+                        barnes = fmt::value("barnes")
+                    ))
+                    .end_section()
             }
         };
 

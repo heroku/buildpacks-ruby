@@ -4,8 +4,7 @@ use flate2::read::GzDecoder;
 use libcnb::additional_buildpack_binary_path;
 use libcnb::data::layer_name;
 use libcnb::layer::{
-    CachedLayerDefinition, EmptyLayerCause, InvalidMetadataAction, LayerRef, LayerState,
-    RestoredLayerAction,
+    CachedLayerDefinition, EmptyLayerCause, InvalidMetadataAction, LayerState, RestoredLayerAction,
 };
 use libherokubuildpack::digest::sha256;
 use serde::{Deserialize, Serialize};
@@ -63,7 +62,7 @@ pub(crate) fn handle_metrics_agent_layer(
     // TODO: Replace when implementing bullet_stream. Included with original comment:
     // force the layer to be called within a Section logging context, not necessary but it's safer
     _in_section_logger: &dyn SectionLogger,
-) -> libcnb::Result<LayerRef<RubyBuildpack, (), String>, RubyBuildpackError> {
+) -> libcnb::Result<(), RubyBuildpackError> {
     let layer_ref = context.cached_layer(
         layer_name!("metrics_agent"),
         CachedLayerDefinition {
@@ -117,7 +116,7 @@ pub(crate) fn handle_metrics_agent_layer(
             })?;
         }
     }
-    Ok(layer_ref)
+    Ok(())
 }
 
 fn write_execd_script(

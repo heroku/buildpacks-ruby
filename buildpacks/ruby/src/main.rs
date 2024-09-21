@@ -12,7 +12,7 @@ use layers::{
     bundle_download_layer::{BundleDownloadLayer, BundleDownloadLayerMetadata},
     bundle_install_layer::{BundleInstallLayer, BundleInstallLayerMetadata},
     metrics_agent_install::MetricsAgentInstallError,
-    ruby_install_layer::{self, RubyInstallError, RubyInstallLayer},
+    ruby_install_layer::{self, RubyInstallError},
 };
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
@@ -155,21 +155,16 @@ impl Buildpack for RubyBuildpack {
                 fmt::value(ruby_version.to_string()),
                 fmt::value(gemfile_lock.ruby_source())
             ));
-            let ruby_layer = context //
-                .handle_layer(
-                    layer_name!("ruby"),
-                    RubyInstallLayer {
-                        _in_section: section.as_ref(),
-                        metadata: ruby_install_layer::Metadata {
-                            distro_name: context.target.distro_name.clone(),
-                            distro_version: context.target.distro_version.clone(),
-                            cpu_architecture: context.target.arch.clone(),
-                            ruby_version: ruby_version.clone(),
-                        },
-                    },
-                )?;
-            let env = ruby_layer.env.apply(Scope::Build, &env);
-            (section.end_section(), env)
+            let layer = layers::ruby_install_layer::handle(
+                &context,
+                ruby_install_layer::Metadata {
+                    distro_name: context.target.distro_name.clone(),
+                    distro_version: context.target.distro_version.clone(),
+                    cpu_architecture: context.target.arch.clone(),
+                    ruby_version: ruby_version.clone(),
+                },
+            )?;
+            (section.end_section(), layer.apply(Scope::Build, &env))
         };
 
         // ## Setup bundler

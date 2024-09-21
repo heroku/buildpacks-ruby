@@ -29,7 +29,7 @@ const DOWNLOAD_URL: &str =
     "https://agentmon-releases.s3.us-east-1.amazonaws.com/agentmon-0.3.1-linux-amd64.tar.gz";
 const DOWNLOAD_SHA: &str = "f9bf9f33c949e15ffed77046ca38f8dae9307b6a0181c6af29a25dec46eb2dac";
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Metadata {
     download_url: String,
 }
@@ -63,23 +63,21 @@ pub(crate) fn handle_metrics_agent_layer(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     mut bullet: Print<SubBullet<Stdout>>,
 ) -> libcnb::Result<Print<SubBullet<Stdout>>, RubyBuildpackError> {
+    let metadata = Metadata {
+        download_url: DOWNLOAD_URL.to_string(),
+    };
+
     let layer_ref = context.cached_layer(
         layer_name!("metrics_agent"),
         CachedLayerDefinition {
             build: true,
             launch: true,
             invalid_metadata_action: &|_| InvalidMetadataAction::DeleteLayer,
-            restored_layer_action: &|metadata: &Metadata, _| {
-                if metadata.download_url == DOWNLOAD_URL {
-                    (
-                        RestoredLayerAction::KeepLayer,
-                        metadata.download_url.clone(),
-                    )
+            restored_layer_action: &|old: &Metadata, _| {
+                if old == &metadata {
+                    (RestoredLayerAction::KeepLayer, old.download_url.clone())
                 } else {
-                    (
-                        RestoredLayerAction::DeleteLayer,
-                        metadata.download_url.clone(),
-                    )
+                    (RestoredLayerAction::DeleteLayer, old.download_url.clone())
                 }
             },
         },
@@ -101,9 +99,12 @@ pub(crate) fn handle_metrics_agent_layer(
             }
             let bin_dir = layer_ref.path().join("bin");
 
-            let timer = bullet.start_timer(format!("Installing metrics agent from {DOWNLOAD_URL}"));
-            let agentmon =
-                install_agentmon(&bin_dir).map_err(RubyBuildpackError::MetricsAgentError)?;
+            let timer = bullet.start_timer(format!(
+                "Installing metrics agent from {}",
+                metadata.download_url
+            ));
+            let agentmon = install_agentmon(&bin_dir, &metadata)
+                .map_err(RubyBuildpackError::MetricsAgentError)?;
             bullet = timer.done();
 
             bullet = bullet.sub_bullet("Writing scripts");
@@ -111,9 +112,7 @@ pub(crate) fn handle_metrics_agent_layer(
                 .map_err(RubyBuildpackError::MetricsAgentError)?;
 
             layer_ref.write_exec_d_programs([("spawn_metrics_agent".to_string(), execd)])?;
-            layer_ref.write_metadata(Metadata {
-                download_url: DOWNLOAD_URL.to_string(),
-            })?;
+            layer_ref.write_metadata(metadata)?;
         }
     }
     Ok(bullet)
@@ -162,8 +161,8 @@ fn write_execd_script(
     Ok(execd)
 }
 
-fn install_agentmon(dir: &Path) -> Result<PathBuf, MetricsAgentInstallError> {
-    let agentmon = download_untar(DOWNLOAD_URL, dir).map(|()| dir.join("agentmon"))?;
+fn install_agentmon(dir: &Path, metadata: &Metadata) -> Result<PathBuf, MetricsAgentInstallError> {
+    let agentmon = download_untar(&metadata.download_url, dir).map(|()| dir.join("agentmon"))?;
 
     chmod_plus_x(&agentmon).map_err(MetricsAgentInstallError::PermissionError)?;
     Ok(agentmon)

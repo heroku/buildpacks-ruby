@@ -1,6 +1,6 @@
 use crate::{RubyBuildpack, RubyBuildpackError};
 use bullet_stream::state::SubBullet;
-use bullet_stream::Print;
+use bullet_stream::{style, Print};
 use flate2::read::GzDecoder;
 use libcnb::additional_buildpack_binary_path;
 use libcnb::data::layer_name;
@@ -75,9 +75,15 @@ pub(crate) fn handle_metrics_agent_layer(
             invalid_metadata_action: &|_| InvalidMetadataAction::DeleteLayer,
             restored_layer_action: &|old: &Metadata, _| {
                 if old == &metadata {
-                    (RestoredLayerAction::KeepLayer, old.download_url.clone())
+                    (
+                        RestoredLayerAction::KeepLayer,
+                        style::url(old.download_url.clone()),
+                    )
                 } else {
-                    (RestoredLayerAction::DeleteLayer, old.download_url.clone())
+                    (
+                        RestoredLayerAction::DeleteLayer,
+                        style::url(old.download_url.clone()),
+                    )
                 }
             },
         },
@@ -100,8 +106,8 @@ pub(crate) fn handle_metrics_agent_layer(
             let bin_dir = layer_ref.path().join("bin");
 
             let timer = bullet.start_timer(format!(
-                "Installing metrics agent from {}",
-                metadata.download_url
+                "Installing metrics agent from {url}",
+                url = style::url(&metadata.download_url)
             ));
             let agentmon = install_agentmon(&bin_dir, &metadata)
                 .map_err(RubyBuildpackError::MetricsAgentError)?;

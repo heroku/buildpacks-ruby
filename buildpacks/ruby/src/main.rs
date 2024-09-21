@@ -154,6 +154,7 @@ impl Buildpack for RubyBuildpack {
                 fmt::value(ruby_version.to_string()),
                 fmt::value(gemfile_lock.ruby_source())
             ));
+            #[allow(deprecated)]
             let ruby_layer = context //
                 .handle_layer(
                     layer_name!("ruby"),
@@ -167,6 +168,7 @@ impl Buildpack for RubyBuildpack {
                         },
                     },
                 )?;
+            #[allow(deprecated)]
             let env = ruby_layer.env.apply(Scope::Build, &env);
             (section.end_section(), env)
         };
@@ -178,6 +180,7 @@ impl Buildpack for RubyBuildpack {
                 fmt::value(bundler_version.to_string()),
                 fmt::value(gemfile_lock.bundler_source())
             ));
+            #[allow(deprecated)]
             let download_bundler_layer = context.handle_layer(
                 layer_name!("bundler"),
                 BundleDownloadLayer {
@@ -188,6 +191,8 @@ impl Buildpack for RubyBuildpack {
                     _section_logger: section.as_ref(),
                 },
             )?;
+
+            #[allow(deprecated)]
             let env = download_bundler_layer.env.apply(Scope::Build, &env);
 
             (section.end_section(), env)
@@ -196,6 +201,7 @@ impl Buildpack for RubyBuildpack {
         // ## Bundle install
         (logger, env) = {
             let section = logger.section("Bundle install");
+            #[allow(deprecated)]
             let bundle_install_layer = context.handle_layer(
                 layer_name!("gems"),
                 BundleInstallLayer {
@@ -225,6 +231,7 @@ impl Buildpack for RubyBuildpack {
                     },
                 },
             )?;
+            #[allow(deprecated)]
             let env = bundle_install_layer.env.apply(Scope::Build, &env);
             (section.end_section(), env)
         };

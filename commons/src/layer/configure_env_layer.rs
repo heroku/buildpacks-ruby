@@ -1,6 +1,7 @@
 use libcnb::build::BuildContext;
 use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::generic::GenericMetadata;
+#[allow(deprecated)]
 use libcnb::layer::{Layer, LayerResult, LayerResultBuilder};
 use libcnb::layer_env::LayerEnv;
 use std::marker::PhantomData;
@@ -99,6 +100,7 @@ where
     }
 }
 
+#[allow(deprecated)]
 impl<B> Layer for ConfigureEnvLayer<B>
 where
     B: libcnb::Buildpack,
@@ -114,6 +116,7 @@ where
         }
     }
 
+    #[allow(deprecated)]
     fn create(
         &mut self,
         _context: &BuildContext<Self::Buildpack>,

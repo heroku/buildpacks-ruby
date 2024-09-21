@@ -236,6 +236,7 @@ pub enum PathState {
 /// # Errors
 ///
 /// - If the layer cannot be created
+#[allow(deprecated)]
 pub fn build<B: libcnb::Buildpack>(
     context: &BuildContext<B>,
     config: CacheConfig,
@@ -249,12 +250,10 @@ pub fn build<B: libcnb::Buildpack>(
     let layer_name = create_layer_name(&context.app_dir, &path)?;
     let create_state = layer_name_cache_state(&context.layers_dir, &layer_name);
 
-    #[allow(deprecated)]
     let layer = context
         .handle_layer(layer_name, InAppDirCacheLayer::new(path.clone()))
         .map_err(|error| CacheError::InternalLayerError(format!("{error:?}")))?;
 
-    #[allow(deprecated)]
     let cache = layer.path;
 
     Ok(AppCache {

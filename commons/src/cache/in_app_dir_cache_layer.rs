@@ -58,7 +58,6 @@ where
         }
     }
 
-    #[allow(deprecated)]
     fn create(
         &mut self,
         _context: &BuildContext<Self::Buildpack>,
@@ -70,7 +69,6 @@ where
         .build()
     }
 
-    #[allow(deprecated)]
     fn existing_layer_strategy(
         &mut self,
         _context: &BuildContext<Self::Buildpack>,

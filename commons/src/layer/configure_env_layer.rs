@@ -116,7 +116,6 @@ where
         }
     }
 
-    #[allow(deprecated)]
     fn create(
         &mut self,
         _context: &BuildContext<Self::Buildpack>,

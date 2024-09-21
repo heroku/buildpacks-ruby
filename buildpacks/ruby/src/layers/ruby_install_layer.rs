@@ -14,7 +14,7 @@
 use commons::display::SentenceList;
 use commons::output::section_log::{log_step, log_step_timed};
 use libcnb::data::layer_name;
-use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, LayerRef, RestoredLayerAction};
+use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, RestoredLayerAction};
 use libcnb::layer_env::LayerEnv;
 use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
 
@@ -72,27 +72,44 @@ pub(crate) fn handle(
                     "invalid metadata".to_string(),
                 ),
             },
-            restored_layer_action: &|old: &Metadata, _| match cache_state(
-                old.clone(),
-                metadata.clone(),
-            ) {
-                Changed::Nothing => (RestoredLayerAction::KeepLayer, Vec::new()),
-                Changed::CpuArchitecture(old, now) => (
-                    RestoredLayerAction::DeleteLayer,
-                    vec![format!("CPU architecture changed: {old} to {now}")],
-                ),
-                Changed::DistroVersion(old, now) => (
-                    RestoredLayerAction::DeleteLayer,
-                    vec![format!("distro version changed: {old} to {now}")],
-                ),
-                Changed::DistroName(old, now) => (
-                    RestoredLayerAction::DeleteLayer,
-                    vec![format!("distro name changed {old} to {now}")],
-                ),
-                Changed::RubyVersion(old, now) => (
-                    RestoredLayerAction::DeleteLayer,
-                    vec![format!("Ruby version changed: {old} to {now}")],
-                ),
+            restored_layer_action: &|old: &Metadata, _| {
+                if old == &metadata {
+                    (RestoredLayerAction::KeepLayer, Vec::new())
+                } else {
+                    let mut differences = Vec::new();
+                    let Metadata {
+                        distro_name,
+                        distro_version,
+                        cpu_architecture,
+                        ruby_version,
+                    } = old;
+                    if ruby_version != &metadata.ruby_version {
+                        differences.push(format!(
+                            "Ruby version changed: ({ruby_version} to {})",
+                            metadata.ruby_version
+                        ));
+                    }
+                    if distro_name != &metadata.distro_name {
+                        differences.push(format!(
+                            "distro name changed: ({distro_name} to {})",
+                            metadata.distro_name
+                        ));
+                    }
+                    if distro_version != &metadata.distro_version {
+                        differences.push(format!(
+                            "distro version changed ({distro_version} to {})",
+                            metadata.distro_version
+                        ));
+                    }
+                    if cpu_architecture != &metadata.cpu_architecture {
+                        differences.push(format!(
+                            "CPU architecture changed ({cpu_architecture} to {})",
+                            metadata.cpu_architecture
+                        ));
+                    }
+
+                    (RestoredLayerAction::DeleteLayer, differences)
+                }
             },
         },
     )?;
@@ -172,36 +189,6 @@ impl TryFrom<RubyInstallLayerMetadataV1> for RubyInstallLayerMetadataV2 {
             ruby_version: v1.version,
         })
     }
-}
-
-fn cache_state(old: Metadata, now: Metadata) -> Changed {
-    let Metadata {
-        distro_name,
-        distro_version,
-        cpu_architecture,
-        ruby_version,
-    } = now;
-
-    if old.distro_name != distro_name {
-        Changed::DistroName(old.distro_name, distro_name)
-    } else if old.distro_version != distro_version {
-        Changed::DistroVersion(old.distro_version, distro_version)
-    } else if old.cpu_architecture != cpu_architecture {
-        Changed::CpuArchitecture(old.cpu_architecture, cpu_architecture)
-    } else if old.ruby_version != ruby_version {
-        Changed::RubyVersion(old.ruby_version, ruby_version)
-    } else {
-        Changed::Nothing
-    }
-}
-
-#[derive(Debug)]
-enum Changed {
-    Nothing,
-    DistroName(String, String),
-    DistroVersion(String, String),
-    CpuArchitecture(String, String),
-    RubyVersion(ResolvedRubyVersion, ResolvedRubyVersion),
 }
 
 fn download_url(

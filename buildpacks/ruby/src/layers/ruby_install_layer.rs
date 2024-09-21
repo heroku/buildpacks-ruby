@@ -37,7 +37,7 @@ use url::Url;
 ///
 pub(crate) struct RubyInstallLayer<'a> {
     pub(crate) _in_section: &'a dyn SectionLogger, // force the layer to be called within a Section logging context, not necessary but it's safer
-    pub(crate) metadata: RubyInstallLayerMetadata,
+    pub(crate) metadata: Metadata,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -69,7 +69,7 @@ try_migrate_deserializer_chain!(
     error: MetadataMigrateError,
     deserializer: toml::Deserializer::new,
 );
-pub(crate) type RubyInstallLayerMetadata = RubyInstallLayerMetadataV2;
+pub(crate) type Metadata = RubyInstallLayerMetadataV2;
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum MetadataMigrateError {
@@ -96,7 +96,7 @@ impl TryFrom<RubyInstallLayerMetadataV1> for RubyInstallLayerMetadataV2 {
 #[allow(deprecated)]
 impl<'a> Layer for RubyInstallLayer<'a> {
     type Buildpack = RubyBuildpack;
-    type Metadata = RubyInstallLayerMetadata;
+    type Metadata = Metadata;
 
     fn types(&self) -> LayerTypes {
         LayerTypes {
@@ -201,8 +201,8 @@ impl<'a> Layer for RubyInstallLayer<'a> {
     }
 }
 
-fn cache_state(old: RubyInstallLayerMetadata, now: RubyInstallLayerMetadata) -> Changed {
-    let RubyInstallLayerMetadata {
+fn cache_state(old: Metadata, now: Metadata) -> Changed {
+    let Metadata {
         distro_name,
         distro_version,
         cpu_architecture,
@@ -320,7 +320,7 @@ mod tests {
     /// be built from the previous version.
     #[test]
     fn metadata_guard() {
-        let metadata = RubyInstallLayerMetadata {
+        let metadata = Metadata {
             distro_name: String::from("ubuntu"),
             distro_version: String::from("22.04"),
             cpu_architecture: String::from("amd64"),

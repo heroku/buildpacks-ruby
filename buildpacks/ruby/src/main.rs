@@ -12,7 +12,7 @@ use layers::{
     bundle_download_layer::{BundleDownloadLayer, BundleDownloadLayerMetadata},
     bundle_install_layer::{BundleInstallLayer, BundleInstallLayerMetadata},
     metrics_agent_install::MetricsAgentInstallError,
-    ruby_install_layer::{RubyInstallError, RubyInstallLayer, RubyInstallLayerMetadata},
+    ruby_install_layer::{Metadata, RubyInstallError, RubyInstallLayer},
 };
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
@@ -160,7 +160,7 @@ impl Buildpack for RubyBuildpack {
                     layer_name!("ruby"),
                     RubyInstallLayer {
                         _in_section: section.as_ref(),
-                        metadata: RubyInstallLayerMetadata {
+                        metadata: layers::ruby_install_layer::Metadata {
                             distro_name: context.target.distro_name.clone(),
                             distro_version: context.target.distro_version.clone(),
                             cpu_architecture: context.target.arch.clone(),

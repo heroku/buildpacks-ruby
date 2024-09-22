@@ -38,24 +38,25 @@ use url::Url;
 ///
 pub(crate) struct RubyInstallLayer<'a> {
     pub(crate) _in_section: &'a dyn SectionLogger, // force the layer to be called within a Section logging context, not necessary but it's safer
-    pub(crate) metadata: RubyInstallLayerMetadata,
+    pub(crate) metadata: Metadata,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub(crate) struct RubyInstallLayerMetadataV1 {
+pub(crate) struct MetadataV1 {
     pub(crate) stack: String,
     pub(crate) version: ResolvedRubyVersion,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
-pub(crate) struct RubyInstallLayerMetadataV2 {
+pub(crate) struct MetadataV2 {
     pub(crate) distro_name: String,
     pub(crate) distro_version: String,
     pub(crate) cpu_architecture: String,
     pub(crate) ruby_version: ResolvedRubyVersion,
 }
+pub(crate) type Metadata = MetadataV2;
 
-impl RubyInstallLayerMetadataV2 {
+impl MetadataV2 {
     pub(crate) fn target_id(&self) -> TargetId {
         TargetId {
             cpu_architecture: self.cpu_architecture.clone(),
@@ -66,11 +67,10 @@ impl RubyInstallLayerMetadataV2 {
 }
 
 try_migrate_deserializer_chain!(
-    chain: [RubyInstallLayerMetadataV1, RubyInstallLayerMetadataV2],
+    chain: [MetadataV1, MetadataV2],
     error: MetadataMigrateError,
     deserializer: toml::Deserializer::new,
 );
-pub(crate) type RubyInstallLayerMetadata = RubyInstallLayerMetadataV2;
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum MetadataMigrateError {
@@ -78,10 +78,10 @@ pub(crate) enum MetadataMigrateError {
     TargetIdError(TargetIdError),
 }
 
-impl TryFrom<RubyInstallLayerMetadataV1> for RubyInstallLayerMetadataV2 {
+impl TryFrom<MetadataV1> for MetadataV2 {
     type Error = MetadataMigrateError;
 
-    fn try_from(v1: RubyInstallLayerMetadataV1) -> Result<Self, Self::Error> {
+    fn try_from(v1: MetadataV1) -> Result<Self, Self::Error> {
         let target_id =
             TargetId::from_stack(&v1.stack).map_err(MetadataMigrateError::TargetIdError)?;
 
@@ -97,7 +97,7 @@ impl TryFrom<RubyInstallLayerMetadataV1> for RubyInstallLayerMetadataV2 {
 #[allow(deprecated)]
 impl<'a> Layer for RubyInstallLayer<'a> {
     type Buildpack = RubyBuildpack;
-    type Metadata = RubyInstallLayerMetadata;
+    type Metadata = Metadata;
 
     fn types(&self) -> LayerTypes {
         LayerTypes {
@@ -173,15 +173,12 @@ impl<'a> Layer for RubyInstallLayer<'a> {
     }
 }
 
-fn metadata_diff(
-    old: &RubyInstallLayerMetadata,
-    metadata: &RubyInstallLayerMetadata,
-) -> Option<Vec<String>> {
+fn metadata_diff(old: &Metadata, metadata: &Metadata) -> Option<Vec<String>> {
     if old == metadata {
         None
     } else {
         let mut differences = Vec::new();
-        let RubyInstallLayerMetadata {
+        let Metadata {
             distro_name,
             distro_version,
             cpu_architecture,
@@ -313,7 +310,7 @@ mod tests {
     /// be built from the previous version.
     #[test]
     fn metadata_guard() {
-        let metadata = RubyInstallLayerMetadata {
+        let metadata = Metadata {
             distro_name: String::from("ubuntu"),
             distro_version: String::from("22.04"),
             cpu_architecture: String::from("amd64"),
@@ -333,7 +330,7 @@ ruby_version = "3.1.3"
 
     #[test]
     fn metadata_migrate_v1_to_v2() {
-        let metadata = RubyInstallLayerMetadataV1 {
+        let metadata = MetadataV1 {
             stack: String::from("heroku-22"),
             version: ResolvedRubyVersion(String::from("3.1.3")),
         };
@@ -346,13 +343,12 @@ version = "3.1.3"
         .trim();
         assert_eq!(expected, actual.trim());
 
-        let deserialized: RubyInstallLayerMetadataV2 =
-            RubyInstallLayerMetadataV2::try_from_str_migrations(&actual)
-                .unwrap()
-                .unwrap();
+        let deserialized: MetadataV2 = MetadataV2::try_from_str_migrations(&actual)
+            .unwrap()
+            .unwrap();
 
         let target_id = TargetId::from_stack(&metadata.stack).unwrap();
-        let expected = RubyInstallLayerMetadataV2 {
+        let expected = MetadataV2 {
             distro_name: target_id.distro_name,
             distro_version: target_id.distro_version,
             cpu_architecture: target_id.cpu_architecture,

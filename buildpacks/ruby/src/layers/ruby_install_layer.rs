@@ -189,26 +189,30 @@ fn metadata_diff(
         } = old;
         if ruby_version != &metadata.ruby_version {
             differences.push(format!(
-                "Ruby version changed: ({ruby_version} to {})",
-                metadata.ruby_version
+                "Ruby version changed: ({old} to {now})",
+                old = fmt::value(ruby_version.to_string()),
+                now = fmt::value(metadata.ruby_version.to_string())
             ));
         }
         if distro_name != &metadata.distro_name {
             differences.push(format!(
-                "distro name changed: ({distro_name} to {})",
-                metadata.distro_name
+                "distro name changed: ({old} to {now})",
+                old = fmt::value(distro_name),
+                now = fmt::value(&metadata.distro_name)
             ));
         }
         if distro_version != &metadata.distro_version {
             differences.push(format!(
-                "distro version changed ({distro_version} to {})",
-                metadata.distro_version
+                "distro version changed ({old} to {now})",
+                old = fmt::value(distro_version),
+                now = fmt::value(&metadata.distro_version)
             ));
         }
         if cpu_architecture != &metadata.cpu_architecture {
             differences.push(format!(
-                "CPU architecture changed ({cpu_architecture} to {})",
-                metadata.cpu_architecture
+                "CPU architecture changed ({old} to {now})",
+                old = fmt::value(cpu_architecture),
+                now = fmt::value(&metadata.cpu_architecture)
             ));
         }
 

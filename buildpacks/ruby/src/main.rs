@@ -132,9 +132,9 @@ impl Buildpack for RubyBuildpack {
         let bundler_version = gemfile_lock.resolve_bundler("2.4.5");
         let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
 
-        let build_output = Print::new(stdout()).without_header();
+        let mut build_output = Print::new(stdout()).without_header();
         // ## Install metrics agent
-        _ = {
+        build_output = {
             let bullet = build_output.bullet("Metrics agent");
             if lockfile_contents.contains("barnes") {
                 layers::metrics_agent_install::handle_metrics_agent_layer(&context, bullet)?.done()
@@ -149,14 +149,15 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Install executable ruby version
-        (logger, env) = {
-            let section = logger.section(&format!(
+        (_, env) = {
+            let bullet = build_output.bullet(format!(
                 "Ruby version {} from {}",
-                fmt::value(ruby_version.to_string()),
-                fmt::value(gemfile_lock.ruby_source())
+                style::value(ruby_version.to_string()),
+                style::value(gemfile_lock.ruby_source())
             ));
-            let layer_env = layers::ruby_install_layer::handle(
+            let (bullet, layer_env) = layers::ruby_install_layer::handle(
                 &context,
+                bullet,
                 layers::ruby_install_layer::Metadata {
                     distro_name: context.target.distro_name.clone(),
                     distro_version: context.target.distro_version.clone(),
@@ -165,7 +166,7 @@ impl Buildpack for RubyBuildpack {
                 },
             )?;
 
-            (section.end_section(), layer_env.apply(Scope::Build, &env))
+            (bullet.done(), layer_env.apply(Scope::Build, &env))
         };
 
         // ## Setup bundler

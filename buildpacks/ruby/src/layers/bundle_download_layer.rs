@@ -55,24 +55,19 @@ impl<'a> Layer for BundleDownloadLayer<'a> {
         let gem_path = layer_path;
 
         let mut cmd = Command::new("gem");
-        cmd.args([
-            "install",
-            "bundler",
-            "--version", // Specify exact version to install
-            &self.metadata.version.to_string(),
-        ])
-        .env_clear()
-        .envs(&self.env);
+        cmd.args(["install", "bundler"]);
+        cmd.args(["--version", &self.metadata.version.to_string()])
+            .env_clear()
+            .envs(&self.env);
 
         // Format `gem install --version <version>` without other content for display
         let short_name = fun_run::display(&mut cmd);
 
-        // Arguments we don't need in the output
+        // Directory where bundler's contents will live
+        cmd.args(["--install-dir", &format!("{}", layer_path.display())]);
+        // Directory where `bundle` executable lives
+        cmd.args(["--bindir", &format!("{}", bin_dir.display())]);
         cmd.args([
-            "--install-dir", // Directory where bundler's contents will live
-            &layer_path.to_string_lossy(),
-            "--bindir", // Directory where `bundle` executable lives
-            &bin_dir.to_string_lossy(),
             "--force",       // Overwrite if it already exists
             "--no-document", // Don't install ri or rdoc documentation, which takes extra time
             "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`

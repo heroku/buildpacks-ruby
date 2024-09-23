@@ -112,38 +112,28 @@ impl<'a> Layer for BundleDownloadLayer<'a> {
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
         let old = &layer_data.content_metadata.metadata;
-        let now = self.metadata.clone();
-        match cache_state(old.clone(), now) {
-            State::NothingChanged(_version) => {
-                log_step("Using cached version");
+        if let Some(cause) = metadata_diff(old, &self.metadata) {
+            log_step(format!("Clearing cache due to change: {cause}"));
 
-                Ok(ExistingLayerStrategy::Keep)
-            }
-            State::BundlerVersionChanged(_old, _now) => {
-                log_step(format!(
-                    "Clearing cache {}",
-                    fmt::details("bundler version changed")
-                ));
-
-                Ok(ExistingLayerStrategy::Recreate)
-            }
+            Ok(ExistingLayerStrategy::Recreate)
+        } else {
+            log_step("Using cached version");
+            Ok(ExistingLayerStrategy::Keep)
         }
     }
 }
 
-// [derive(Debug)]
-enum State {
-    NothingChanged(ResolvedBundlerVersion),
-    BundlerVersionChanged(ResolvedBundlerVersion, ResolvedBundlerVersion),
-}
+fn metadata_diff(old: &Metadata, metadata: &Metadata) -> Option<String> {
+    let Metadata { version } = old;
 
-fn cache_state(old: Metadata, now: Metadata) -> State {
-    let Metadata { version } = now; // Ensure all properties are checked
-
-    if old.version == version {
-        State::NothingChanged(version)
+    if version == &metadata.version {
+        None
     } else {
-        State::BundlerVersionChanged(old.version, version)
+        Some(format!(
+            "Bundler version ({old} to {now})",
+            old = fmt::value(version.to_string()),
+            now = fmt::value(metadata.version.to_string())
+        ))
     }
 }
 

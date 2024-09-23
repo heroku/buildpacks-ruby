@@ -12,12 +12,8 @@
 //! When the Ruby version changes, invalidate and re-run.
 //!
 use bullet_stream::state::SubBullet;
-use bullet_stream::Print;
+use bullet_stream::{style, Print};
 use commons::display::SentenceList;
-use commons::output::{
-    fmt::{self},
-    section_log::{log_step, log_step_timed},
-};
 use libcnb::data::layer_name;
 use libcnb::layer::{
     CachedLayerDefinition, EmptyLayerCause, InvalidMetadataAction, LayerState, RestoredLayerAction,
@@ -44,7 +40,6 @@ pub(crate) fn handle(
     mut bullet: Print<SubBullet<Stdout>>,
     metadata: Metadata,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    // TODO: Replace when implementing bullet_stream.
     let layer_ref = context.cached_layer(
         layer_name!("ruby"),
         CachedLayerDefinition {
@@ -83,39 +78,35 @@ pub(crate) fn handle(
     )?;
     match &layer_ref.state {
         LayerState::Restored { cause: _ } => {
-            log_step("Using cached Ruby version");
+            bullet = bullet.sub_bullet("Using cached Ruby version");
         }
         LayerState::Empty { cause } => {
             match cause {
                 EmptyLayerCause::NewlyCreated => {}
                 EmptyLayerCause::InvalidMetadataAction { cause }
                 | EmptyLayerCause::RestoredLayerAction { cause } => {
-                    log_step(format!("Clearing cache {cause}"));
+                    bullet = bullet.sub_bullet(format!("Clearing cache {cause}"));
                 }
             }
-            install_ruby(&metadata, &layer_ref.path())?;
+            let timer = bullet.start_timer("Installing");
+            let tmp_ruby_tgz = NamedTempFile::new()
+                .map_err(RubyInstallError::CouldNotCreateDestinationFile)
+                .map_err(RubyBuildpackError::RubyInstallError)?;
+
+            let url = download_url(&metadata.target_id(), &metadata.ruby_version)
+                .map_err(RubyBuildpackError::RubyInstallError)?;
+
+            download(url.as_ref(), tmp_ruby_tgz.path())
+                .map_err(RubyBuildpackError::RubyInstallError)?;
+
+            untar(tmp_ruby_tgz.path(), layer_ref.path())
+                .map_err(RubyBuildpackError::RubyInstallError)?;
+
+            bullet = timer.done();
         }
     }
     layer_ref.write_metadata(metadata)?;
     Ok((bullet, layer_ref.read_env()?))
-}
-
-fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyBuildpackError> {
-    log_step_timed("Installing", || {
-        let tmp_ruby_tgz = NamedTempFile::new()
-            .map_err(RubyInstallError::CouldNotCreateDestinationFile)
-            .map_err(RubyBuildpackError::RubyInstallError)?;
-
-        let url = download_url(&metadata.target_id(), &metadata.ruby_version)
-            .map_err(RubyBuildpackError::RubyInstallError)?;
-
-        download(url.as_ref(), tmp_ruby_tgz.path())
-            .map_err(RubyBuildpackError::RubyInstallError)?;
-
-        untar(tmp_ruby_tgz.path(), layer_path).map_err(RubyBuildpackError::RubyInstallError)?;
-
-        Ok(())
-    })
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -185,29 +176,29 @@ fn metadata_diff(old: &Metadata, metadata: &Metadata) -> Option<Vec<String>> {
         if ruby_version != &metadata.ruby_version {
             differences.push(format!(
                 "Ruby version changed: ({old} to {now})",
-                old = fmt::value(ruby_version.to_string()),
-                now = fmt::value(metadata.ruby_version.to_string())
+                old = style::value(ruby_version.to_string()),
+                now = style::value(metadata.ruby_version.to_string())
             ));
         }
         if distro_name != &metadata.distro_name {
             differences.push(format!(
                 "distro name changed: ({old} to {now})",
-                old = fmt::value(distro_name),
-                now = fmt::value(&metadata.distro_name)
+                old = style::value(distro_name),
+                now = style::value(&metadata.distro_name)
             ));
         }
         if distro_version != &metadata.distro_version {
             differences.push(format!(
                 "distro version changed ({old} to {now})",
-                old = fmt::value(distro_version),
-                now = fmt::value(&metadata.distro_version)
+                old = style::value(distro_version),
+                now = style::value(&metadata.distro_version)
             ));
         }
         if cpu_architecture != &metadata.cpu_architecture {
             differences.push(format!(
                 "CPU architecture changed ({old} to {now})",
-                old = fmt::value(cpu_architecture),
-                now = fmt::value(&metadata.cpu_architecture)
+                old = style::value(cpu_architecture),
+                now = style::value(&metadata.cpu_architecture)
             ));
         }
 

@@ -11,6 +11,8 @@
 //!
 //! When the Ruby version changes, invalidate and re-run.
 //!
+use bullet_stream::state::SubBullet;
+use bullet_stream::Print;
 use commons::display::SentenceList;
 use commons::output::{
     fmt::{self},
@@ -31,7 +33,7 @@ use commons::gemfile_lock::ResolvedRubyVersion;
 use flate2::read::GzDecoder;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::convert::Infallible;
-use std::io;
+use std::io::{self, Stdout};
 use std::path::Path;
 use tar::Archive;
 use tempfile::NamedTempFile;
@@ -39,8 +41,9 @@ use url::Url;
 
 pub(crate) fn handle(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
+    mut bullet: Print<SubBullet<Stdout>>,
     metadata: Metadata,
-) -> libcnb::Result<LayerEnv, RubyBuildpackError> {
+) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
     // TODO: Replace when implementing bullet_stream.
     let layer_ref = context.cached_layer(
         layer_name!("ruby"),
@@ -94,7 +97,7 @@ pub(crate) fn handle(
         }
     }
     layer_ref.write_metadata(metadata)?;
-    layer_ref.read_env()
+    Ok((bullet, layer_ref.read_env()?))
 }
 
 fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyBuildpackError> {

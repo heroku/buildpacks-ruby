@@ -1,3 +1,9 @@
+//! # Install the bundler gem
+//!
+//! ## Layer dir: Install bundler to disk
+//!
+//! Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
+//! `<layer-dir>/bin`.
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use commons::gemfile_lock::ResolvedBundlerVersion;
@@ -21,12 +27,6 @@ pub(crate) struct BundleDownloadLayerMetadata {
     pub(crate) version: ResolvedBundlerVersion,
 }
 
-/// # Install the bundler gem
-///
-/// ## Layer dir: Install bundler to disk
-///
-/// Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
-/// `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
 pub(crate) struct BundleDownloadLayer<'a> {
     pub(crate) env: Env,
     pub(crate) metadata: BundleDownloadLayerMetadata,

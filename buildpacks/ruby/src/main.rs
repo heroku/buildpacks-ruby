@@ -1,3 +1,4 @@
+use bullet_stream::{style, Print};
 use commons::cache::CacheError;
 use commons::gemfile_lock::GemfileLock;
 use commons::metadata_digest::MetadataDigest;
@@ -10,7 +11,7 @@ use fun_run::CmdError;
 use layers::{
     bundle_download_layer::{BundleDownloadLayer, BundleDownloadLayerMetadata},
     bundle_install_layer::{BundleInstallLayer, BundleInstallLayerMetadata},
-    metrics_agent_install::{MetricsAgentInstall, MetricsAgentInstallError},
+    metrics_agent_install::MetricsAgentInstallError,
     ruby_install_layer::{RubyInstallError, RubyInstallLayer, RubyInstallLayerMetadata},
 };
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
@@ -114,6 +115,7 @@ impl Buildpack for RubyBuildpack {
     }
 
     #[allow(clippy::too_many_lines)]
+    #[allow(deprecated)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         let mut logger = BuildLog::new(stdout()).buildpack_name("Heroku Ruby Buildpack");
         let warn_later = WarnGuard::new(stdout());
@@ -130,31 +132,19 @@ impl Buildpack for RubyBuildpack {
         let bundler_version = gemfile_lock.resolve_bundler("2.4.5");
         let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
 
+        let build_output = Print::new(stdout()).without_header();
         // ## Install metrics agent
-        (logger, env) = {
-            let section = logger.section("Metrics agent");
+        _ = {
+            let bullet = build_output.bullet("Metrics agent");
             if lockfile_contents.contains("barnes") {
-                let layer_data = context.handle_layer(
-                    layer_name!("metrics_agent"),
-                    MetricsAgentInstall {
-                        _in_section: section.as_ref(),
-                    },
-                )?;
-
-                (
-                    section.end_section(),
-                    layer_data.env.apply(Scope::Build, &env),
-                )
+                layers::metrics_agent_install::handle_metrics_agent_layer(&context, bullet)?.done()
             } else {
-                (
-                    section
-                        .step(&format!(
-                            "Skipping install ({barnes} gem not found)",
-                            barnes = fmt::value("barnes")
-                        ))
-                        .end_section(),
-                    env,
-                )
+                bullet
+                    .sub_bullet(format!(
+                        "Skipping install ({barnes} gem not found)",
+                        barnes = style::value("barnes")
+                    ))
+                    .done()
             }
         };
 

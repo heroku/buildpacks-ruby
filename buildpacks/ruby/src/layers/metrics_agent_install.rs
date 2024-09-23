@@ -1,15 +1,15 @@
 use crate::{RubyBuildpack, RubyBuildpackError};
-use commons::output::section_log::{log_step, log_step_timed, SectionLogger};
+use bullet_stream::state::SubBullet;
+use bullet_stream::{style, Print};
 use flate2::read::GzDecoder;
-use libcnb::data::layer_content_metadata::LayerTypes;
-use libcnb::layer::ExistingLayerStrategy;
-use libcnb::{
-    additional_buildpack_binary_path,
-    generic::GenericMetadata,
-    layer::{Layer, LayerResultBuilder},
+use libcnb::additional_buildpack_binary_path;
+use libcnb::data::layer_name;
+use libcnb::layer::{
+    CachedLayerDefinition, EmptyLayerCause, InvalidMetadataAction, LayerState, RestoredLayerAction,
 };
 use libherokubuildpack::digest::sha256;
 use serde::{Deserialize, Serialize};
+use std::io::Stdout;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use tar::Archive;
@@ -29,14 +29,9 @@ const DOWNLOAD_URL: &str =
     "https://agentmon-releases.s3.us-east-1.amazonaws.com/agentmon-0.3.1-linux-amd64.tar.gz";
 const DOWNLOAD_SHA: &str = "f9bf9f33c949e15ffed77046ca38f8dae9307b6a0181c6af29a25dec46eb2dac";
 
-#[derive(Debug)]
-pub(crate) struct MetricsAgentInstall<'a> {
-    pub(crate) _in_section: &'a dyn SectionLogger, // force the layer to be called within a Section logging context, not necessary but it's safer
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Metadata {
-    download_url: Option<String>,
+    download_url: String,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -64,97 +59,69 @@ pub(crate) enum MetricsAgentInstallError {
     ChecksumFailed(String),
 }
 
-impl<'a> Layer for MetricsAgentInstall<'a> {
-    type Buildpack = RubyBuildpack;
-    type Metadata = Metadata;
+pub(crate) fn handle_metrics_agent_layer(
+    context: &libcnb::build::BuildContext<RubyBuildpack>,
+    mut bullet: Print<SubBullet<Stdout>>,
+) -> libcnb::Result<Print<SubBullet<Stdout>>, RubyBuildpackError> {
+    let metadata = Metadata {
+        download_url: DOWNLOAD_URL.to_string(),
+    };
 
-    fn types(&self) -> libcnb::data::layer_content_metadata::LayerTypes {
-        LayerTypes {
+    let layer_ref = context.cached_layer(
+        layer_name!("metrics_agent"),
+        CachedLayerDefinition {
             build: true,
             launch: true,
-            cache: true,
+            invalid_metadata_action: &|_| InvalidMetadataAction::DeleteLayer,
+            restored_layer_action: &|old: &Metadata, _| {
+                if old == &metadata {
+                    (
+                        RestoredLayerAction::KeepLayer,
+                        style::url(old.download_url.clone()),
+                    )
+                } else {
+                    (
+                        RestoredLayerAction::DeleteLayer,
+                        style::url(old.download_url.clone()),
+                    )
+                }
+            },
+        },
+    )?;
+
+    match layer_ref.state.clone() {
+        LayerState::Restored { .. } => {
+            bullet = bullet.sub_bullet("Using cached metrics agent");
+        }
+        LayerState::Empty { cause } => {
+            match cause {
+                EmptyLayerCause::NewlyCreated => {}
+                EmptyLayerCause::InvalidMetadataAction { .. } => {
+                    bullet = bullet.sub_bullet("Clearing cache (invalid metadata)");
+                }
+                EmptyLayerCause::RestoredLayerAction { cause: url } => {
+                    bullet = bullet.sub_bullet(format!("Deleting cached metrics agent ({url})"));
+                }
+            }
+            let bin_dir = layer_ref.path().join("bin");
+
+            let timer = bullet.start_timer(format!(
+                "Installing metrics agent from {url}",
+                url = style::url(&metadata.download_url)
+            ));
+            let agentmon = install_agentmon(&bin_dir, &metadata)
+                .map_err(RubyBuildpackError::MetricsAgentError)?;
+            bullet = timer.done();
+
+            bullet = bullet.sub_bullet("Writing scripts");
+            let execd = write_execd_script(&agentmon, layer_ref.path().as_path())
+                .map_err(RubyBuildpackError::MetricsAgentError)?;
+
+            layer_ref.write_exec_d_programs([("spawn_metrics_agent".to_string(), execd)])?;
+            layer_ref.write_metadata(metadata)?;
         }
     }
-
-    fn create(
-        &mut self,
-        _context: &libcnb::build::BuildContext<Self::Buildpack>,
-        layer_path: &std::path::Path,
-    ) -> Result<
-        libcnb::layer::LayerResult<Self::Metadata>,
-        <Self::Buildpack as libcnb::Buildpack>::Error,
-    > {
-        let bin_dir = layer_path.join("bin");
-
-        let agentmon = log_step_timed("Downloading", || {
-            install_agentmon(&bin_dir).map_err(RubyBuildpackError::MetricsAgentError)
-        })?;
-
-        log_step("Writing scripts");
-        let execd = write_execd_script(&agentmon, layer_path)
-            .map_err(RubyBuildpackError::MetricsAgentError)?;
-
-        LayerResultBuilder::new(Metadata {
-            download_url: Some(DOWNLOAD_URL.to_string()),
-        })
-        .exec_d_program("spawn_metrics_agent", execd)
-        .build()
-    }
-
-    fn update(
-        &mut self,
-        _context: &libcnb::build::BuildContext<Self::Buildpack>,
-        layer_data: &libcnb::layer::LayerData<Self::Metadata>,
-    ) -> Result<
-        libcnb::layer::LayerResult<Self::Metadata>,
-        <Self::Buildpack as libcnb::Buildpack>::Error,
-    > {
-        let layer_path = &layer_data.path;
-
-        log_step("Writing scripts");
-        let execd = write_execd_script(&layer_path.join("bin").join("agentmon"), layer_path)
-            .map_err(RubyBuildpackError::MetricsAgentError)?;
-
-        LayerResultBuilder::new(Metadata {
-            download_url: Some(DOWNLOAD_URL.to_string()),
-        })
-        .exec_d_program("spawn_metrics_agent", execd)
-        .build()
-    }
-
-    fn existing_layer_strategy(
-        &mut self,
-        _context: &libcnb::build::BuildContext<Self::Buildpack>,
-        layer_data: &libcnb::layer::LayerData<Self::Metadata>,
-    ) -> Result<libcnb::layer::ExistingLayerStrategy, <Self::Buildpack as libcnb::Buildpack>::Error>
-    {
-        match &layer_data.content_metadata.metadata.download_url {
-            Some(url) if url == DOWNLOAD_URL => {
-                log_step("Using cached metrics agent");
-                Ok(ExistingLayerStrategy::Update)
-            }
-            Some(url) => {
-                log_step(format!(
-                    "Using cached metrics agent ({url} to {DOWNLOAD_URL}"
-                ));
-                Ok(ExistingLayerStrategy::Recreate)
-            }
-            None => Ok(ExistingLayerStrategy::Recreate),
-        }
-    }
-
-    fn migrate_incompatible_metadata(
-        &mut self,
-        _context: &libcnb::build::BuildContext<Self::Buildpack>,
-        _metadata: &GenericMetadata,
-    ) -> Result<
-        libcnb::layer::MetadataMigration<Self::Metadata>,
-        <Self::Buildpack as libcnb::Buildpack>::Error,
-    > {
-        log_step("Clearing cache (invalid metadata)");
-
-        Ok(libcnb::layer::MetadataMigration::RecreateLayer)
-    }
+    Ok(bullet)
 }
 
 fn write_execd_script(
@@ -200,8 +167,8 @@ fn write_execd_script(
     Ok(execd)
 }
 
-fn install_agentmon(dir: &Path) -> Result<PathBuf, MetricsAgentInstallError> {
-    let agentmon = download_untar(DOWNLOAD_URL, dir).map(|()| dir.join("agentmon"))?;
+fn install_agentmon(dir: &Path, metadata: &Metadata) -> Result<PathBuf, MetricsAgentInstallError> {
+    let agentmon = download_untar(&metadata.download_url, dir).map(|()| dir.join("agentmon"))?;
 
     chmod_plus_x(&agentmon).map_err(MetricsAgentInstallError::PermissionError)?;
     Ok(agentmon)

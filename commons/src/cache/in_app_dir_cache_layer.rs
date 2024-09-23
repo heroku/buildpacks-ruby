@@ -1,5 +1,6 @@
 use libcnb::build::BuildContext;
 use libcnb::data::layer_content_metadata::LayerTypes;
+#[allow(deprecated)]
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use libcnb::Buildpack;
 use serde::{Deserialize, Serialize};
@@ -41,6 +42,7 @@ impl<B> InAppDirCacheLayer<B> {
     }
 }
 
+#[allow(deprecated)]
 impl<B> Layer for InAppDirCacheLayer<B>
 where
     B: Buildpack,

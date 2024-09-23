@@ -194,7 +194,7 @@ fn test_barnes_app() {
         |context| {
             println!("{}", context.pack_stdout);
 
-            assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
+            assert_contains!(context.pack_stdout, "Installing metrics agent from https://agentmon-releases.s3.us-east-1.amazonaws.com/agentmon");
             context.start_container(
                 ContainerConfig::new()
                     .entrypoint("launcher")

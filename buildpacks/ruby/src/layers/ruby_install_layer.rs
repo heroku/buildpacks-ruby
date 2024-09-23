@@ -12,6 +12,7 @@ use commons::gemfile_lock::ResolvedRubyVersion;
 use flate2::read::GzDecoder;
 use libcnb::build::BuildContext;
 use libcnb::data::layer_content_metadata::LayerTypes;
+#[allow(deprecated)]
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::convert::Infallible;
@@ -92,6 +93,7 @@ impl TryFrom<RubyInstallLayerMetadataV1> for RubyInstallLayerMetadataV2 {
     }
 }
 
+#[allow(deprecated)]
 impl<'a> Layer for RubyInstallLayer<'a> {
     type Buildpack = RubyBuildpack;
     type Metadata = RubyInstallLayerMetadata;

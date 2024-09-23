@@ -9,6 +9,7 @@ use libcnb::{
 use rand::Rng;
 
 // Set default environment values
+#[allow(deprecated)]
 pub(crate) fn default_env(
     context: &BuildContext<RubyBuildpack>,
     platform_env: &Env,

@@ -8,10 +8,11 @@ use commons::{
 };
 use fun_run::CommandWithName;
 use fun_run::{self, CmdError};
+#[allow(deprecated)]
+use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use libcnb::{
     build::BuildContext,
     data::layer_content_metadata::LayerTypes,
-    layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder},
     layer_env::{LayerEnv, ModificationBehavior, Scope},
     Env,
 };
@@ -149,6 +150,7 @@ fn update_state(old: &BundleInstallLayerMetadata, now: &BundleInstallLayerMetada
     }
 }
 
+#[allow(deprecated)]
 impl Layer for BundleInstallLayer<'_> {
     type Buildpack = RubyBuildpack;
     type Metadata = BundleInstallLayerMetadata;

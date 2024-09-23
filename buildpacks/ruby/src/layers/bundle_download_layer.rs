@@ -6,11 +6,9 @@
 //! `<layer-dir>/bin`.
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
+use bullet_stream::state::SubBullet;
+use bullet_stream::{style, Print};
 use commons::gemfile_lock::ResolvedBundlerVersion;
-use commons::output::{
-    fmt,
-    section_log::{log_step, log_step_timed},
-};
 use fun_run::{self, CommandWithName};
 use libcnb::data::layer_name;
 use libcnb::layer::{
@@ -19,13 +17,15 @@ use libcnb::layer::{
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Env;
 use serde::{Deserialize, Serialize};
+use std::io::Stdout;
 use std::process::Command;
 
 pub(crate) fn handle(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
+    mut bullet: Print<SubBullet<Stdout>>,
     env: &Env,
     metadata: Metadata,
-) -> libcnb::Result<LayerEnv, RubyBuildpackError> {
+) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
     // TODO switch logging to bullet stream
     let layer_ref = context.cached_layer(
         layer_name!("bundler"),
@@ -55,14 +55,14 @@ pub(crate) fn handle(
     let gem_path = layer_ref.path();
     match &layer_ref.state {
         LayerState::Restored { cause: _ } => {
-            log_step("Using cached version");
+            bullet = bullet.sub_bullet("Using cached version");
         }
         LayerState::Empty { cause } => {
             match cause {
                 EmptyLayerCause::NewlyCreated => {}
                 EmptyLayerCause::InvalidMetadataAction { cause }
                 | EmptyLayerCause::RestoredLayerAction { cause } => {
-                    log_step(format!("Clearing cache {cause}"));
+                    bullet = bullet.sub_bullet(format!("Clearing cache {cause}"));
                 }
             }
 
@@ -85,12 +85,13 @@ pub(crate) fn handle(
                 "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
             ]);
 
-            log_step_timed(format!("Running {}", fmt::command(short_name)), || {
-                cmd.named_output().map_err(|error| {
+            let timer = bullet.start_timer(format!("Running {}", style::command(short_name)));
+            cmd.named_output()
+                .map_err(|error| {
                     fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
                 })
-            })
-            .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
+                .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
+            bullet = timer.done();
         }
     }
     layer_ref.write_env(
@@ -111,7 +112,8 @@ pub(crate) fn handle(
             ),
     )?;
     layer_ref.write_metadata(metadata)?;
-    layer_ref.read_env()
+
+    Ok((bullet, layer_ref.read_env()?))
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -127,8 +129,8 @@ fn metadata_diff(old: &Metadata, metadata: &Metadata) -> Option<String> {
     } else {
         Some(format!(
             "Bundler version ({old} to {now})",
-            old = fmt::value(version.to_string()),
-            now = fmt::value(metadata.version.to_string())
+            old = style::value(version.to_string()),
+            now = style::value(metadata.version.to_string())
         ))
     }
 }

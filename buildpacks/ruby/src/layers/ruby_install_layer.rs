@@ -65,7 +65,7 @@ pub(crate) fn handle(
                 if let Some(diff) = metadata_diff(old, &metadata) {
                     (
                         RestoredLayerAction::DeleteLayer,
-                        SentenceList::new(&diff).to_string(),
+                        format!("due to change(s): {}", SentenceList::new(&diff)),
                     )
                 } else {
                     (
@@ -178,28 +178,28 @@ fn metadata_diff(old: &Metadata, metadata: &Metadata) -> Option<Vec<String>> {
         } = old;
         if ruby_version != &metadata.ruby_version {
             differences.push(format!(
-                "Ruby version changed: ({old} to {now})",
+                "Ruby version ({old} to {now})",
                 old = style::value(ruby_version.to_string()),
                 now = style::value(metadata.ruby_version.to_string())
             ));
         }
         if distro_name != &metadata.distro_name {
             differences.push(format!(
-                "distro name changed: ({old} to {now})",
+                "distro name ({old} to {now})",
                 old = style::value(distro_name),
                 now = style::value(&metadata.distro_name)
             ));
         }
         if distro_version != &metadata.distro_version {
             differences.push(format!(
-                "distro version changed ({old} to {now})",
+                "distro version ({old} to {now})",
                 old = style::value(distro_version),
                 now = style::value(&metadata.distro_version)
             ));
         }
         if cpu_architecture != &metadata.cpu_architecture {
             differences.push(format!(
-                "CPU architecture changed ({old} to {now})",
+                "CPU architecture ({old} to {now})",
                 old = style::value(cpu_architecture),
                 now = style::value(&metadata.cpu_architecture)
             ));

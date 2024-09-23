@@ -115,6 +115,7 @@ impl Buildpack for RubyBuildpack {
     }
 
     #[allow(clippy::too_many_lines)]
+    #[allow(deprecated)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         let mut logger = BuildLog::new(stdout()).buildpack_name("Heroku Ruby Buildpack");
         let warn_later = WarnGuard::new(stdout());
@@ -131,15 +132,15 @@ impl Buildpack for RubyBuildpack {
         let bundler_version = gemfile_lock.resolve_bundler("2.4.5");
         let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
 
-        let mut build_output = Print::new(stdout()).without_header();
+        let build_output = Print::new(stdout()).without_header();
         // ## Install metrics agent
-        build_output = {
+        _ = {
             let bullet = build_output.bullet("Metrics agent");
             if lockfile_contents.contains("barnes") {
                 layers::metrics_agent_install::handle_metrics_agent_layer(&context, bullet)?.done()
             } else {
                 bullet
-                    .sub_bullet(&format!(
+                    .sub_bullet(format!(
                         "Skipping install ({barnes} gem not found)",
                         barnes = style::value("barnes")
                     ))

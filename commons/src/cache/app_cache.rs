@@ -236,6 +236,7 @@ pub enum PathState {
 /// # Errors
 ///
 /// - If the layer cannot be created
+#[allow(deprecated)]
 pub fn build<B: libcnb::Buildpack>(
     context: &BuildContext<B>,
     config: CacheConfig,

@@ -8,6 +8,7 @@ use commons::output::{
 use fun_run::{self, CommandWithName};
 use libcnb::build::BuildContext;
 use libcnb::data::layer_content_metadata::LayerTypes;
+#[allow(deprecated)]
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Env;
@@ -32,6 +33,7 @@ pub(crate) struct BundleDownloadLayer<'a> {
     pub(crate) _section_logger: &'a dyn SectionLogger,
 }
 
+#[allow(deprecated)]
 impl<'a> Layer for BundleDownloadLayer<'a> {
     type Buildpack = RubyBuildpack;
     type Metadata = BundleDownloadLayerMetadata;

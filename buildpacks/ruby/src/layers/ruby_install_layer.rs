@@ -1,8 +1,26 @@
+//! # Install Ruby version
+//!
+//! ## Layer dir
+//!
+//! The compiled Ruby tgz file is downloaded to a temporary directory and exported to `<layer-dir>`.
+//! The tgz already contains a `bin/` directory with a `ruby` executable file.
+//!
+//! This layer relies on the CNB lifecycle to add `<layer-dir>/bin` to the PATH.
+//!
+//! ## Cache invalidation
+//!
+//! When the Ruby version changes, invalidate and re-run.
+//!
 use commons::display::SentenceList;
 use commons::output::{
     fmt::{self},
-    section_log::{log_step, log_step_timed, SectionLogger},
+    section_log::{log_step, log_step_timed},
 };
+use libcnb::data::layer_name;
+use libcnb::layer::{
+    CachedLayerDefinition, EmptyLayerCause, InvalidMetadataAction, LayerState, RestoredLayerAction,
+};
+use libcnb::layer_env::LayerEnv;
 use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
 
 use crate::{
@@ -11,10 +29,6 @@ use crate::{
 };
 use commons::gemfile_lock::ResolvedRubyVersion;
 use flate2::read::GzDecoder;
-use libcnb::build::BuildContext;
-use libcnb::data::layer_content_metadata::LayerTypes;
-#[allow(deprecated)]
-use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::convert::Infallible;
 use std::io;
@@ -23,22 +37,82 @@ use tar::Archive;
 use tempfile::NamedTempFile;
 use url::Url;
 
-/// # Install Ruby version
-///
-/// ## Layer dir
-///
-/// The compiled Ruby tgz file is downloaded to a temporary directory and exported to `<layer-dir>`.
-/// The tgz already contains a `bin/` directory with a `ruby` executable file.
-///
-/// This layer relies on the CNB lifecycle to add `<layer-dir>/bin` to the PATH.
-///
-/// ## Cache invalidation
-///
-/// When the Ruby version changes, invalidate and re-run.
-///
-pub(crate) struct RubyInstallLayer<'a> {
-    pub(crate) _in_section: &'a dyn SectionLogger, // force the layer to be called within a Section logging context, not necessary but it's safer
-    pub(crate) metadata: Metadata,
+pub(crate) fn handle(
+    context: &libcnb::build::BuildContext<RubyBuildpack>,
+    metadata: Metadata,
+) -> libcnb::Result<LayerEnv, RubyBuildpackError> {
+    // TODO: Replace when implementing bullet_stream.
+    let layer_ref = context.cached_layer(
+        layer_name!("ruby"),
+        CachedLayerDefinition {
+            build: true,
+            launch: true,
+            invalid_metadata_action: &|old| match Metadata::try_from_str_migrations(
+                &toml::to_string(old).expect("TOML deserialization of GenericMetadata"),
+            ) {
+                Some(Ok(migrated)) => (
+                    InvalidMetadataAction::ReplaceMetadata(migrated),
+                    "replaced metadata".to_string(),
+                ),
+                Some(Err(error)) => (
+                    InvalidMetadataAction::DeleteLayer,
+                    format!("metadata migration error {error}"),
+                ),
+                None => (
+                    InvalidMetadataAction::DeleteLayer,
+                    "invalid metadata".to_string(),
+                ),
+            },
+            restored_layer_action: &|old: &Metadata, _| {
+                if let Some(diff) = metadata_diff(old, &metadata) {
+                    (
+                        RestoredLayerAction::DeleteLayer,
+                        SentenceList::new(&diff).to_string(),
+                    )
+                } else {
+                    (
+                        RestoredLayerAction::KeepLayer,
+                        "using cached version".to_string(),
+                    )
+                }
+            },
+        },
+    )?;
+    match &layer_ref.state {
+        LayerState::Restored { cause: _ } => {
+            log_step("Using cached Ruby version");
+        }
+        LayerState::Empty { cause } => {
+            match cause {
+                EmptyLayerCause::NewlyCreated => {}
+                EmptyLayerCause::InvalidMetadataAction { cause }
+                | EmptyLayerCause::RestoredLayerAction { cause } => {
+                    log_step(format!("Clearing cache {cause}"));
+                }
+            }
+            install_ruby(&metadata, &layer_ref.path())?;
+        }
+    }
+    layer_ref.write_metadata(metadata)?;
+    layer_ref.read_env()
+}
+
+fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyBuildpackError> {
+    log_step_timed("Installing", || {
+        let tmp_ruby_tgz = NamedTempFile::new()
+            .map_err(RubyInstallError::CouldNotCreateDestinationFile)
+            .map_err(RubyBuildpackError::RubyInstallError)?;
+
+        let url = download_url(&metadata.target_id(), &metadata.ruby_version)
+            .map_err(RubyBuildpackError::RubyInstallError)?;
+
+        download(url.as_ref(), tmp_ruby_tgz.path())
+            .map_err(RubyBuildpackError::RubyInstallError)?;
+
+        untar(tmp_ruby_tgz.path(), layer_path).map_err(RubyBuildpackError::RubyInstallError)?;
+
+        Ok(())
+    })
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -91,85 +165,6 @@ impl TryFrom<MetadataV1> for MetadataV2 {
             cpu_architecture: target_id.cpu_architecture,
             ruby_version: v1.version,
         })
-    }
-}
-
-#[allow(deprecated)]
-impl<'a> Layer for RubyInstallLayer<'a> {
-    type Buildpack = RubyBuildpack;
-    type Metadata = Metadata;
-
-    fn types(&self) -> LayerTypes {
-        LayerTypes {
-            build: true,
-            launch: true,
-            cache: true,
-        }
-    }
-
-    fn create(
-        &mut self,
-        _context: &BuildContext<Self::Buildpack>,
-        layer_path: &Path,
-    ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        log_step_timed("Installing", || {
-            let tmp_ruby_tgz = NamedTempFile::new()
-                .map_err(RubyInstallError::CouldNotCreateDestinationFile)
-                .map_err(RubyBuildpackError::RubyInstallError)?;
-
-            let url = download_url(&self.metadata.target_id(), &self.metadata.ruby_version)
-                .map_err(RubyBuildpackError::RubyInstallError)?;
-
-            download(url.as_ref(), tmp_ruby_tgz.path())
-                .map_err(RubyBuildpackError::RubyInstallError)?;
-
-            untar(tmp_ruby_tgz.path(), layer_path).map_err(RubyBuildpackError::RubyInstallError)?;
-
-            LayerResultBuilder::new(self.metadata.clone()).build()
-        })
-    }
-
-    fn migrate_incompatible_metadata(
-        &mut self,
-        _context: &BuildContext<Self::Buildpack>,
-        metadata: &libcnb::generic::GenericMetadata,
-    ) -> Result<
-        libcnb::layer::MetadataMigration<Self::Metadata>,
-        <Self::Buildpack as libcnb::Buildpack>::Error,
-    > {
-        match Self::Metadata::try_from_str_migrations(
-            &toml::to_string(&metadata).expect("TOML deserialization of GenericMetadata"),
-        ) {
-            Some(Ok(metadata)) => Ok(libcnb::layer::MetadataMigration::ReplaceMetadata(metadata)),
-            Some(Err(e)) => {
-                log_step(format!("Clearing cache (metadata migration error {e})"));
-                Ok(libcnb::layer::MetadataMigration::RecreateLayer)
-            }
-            None => {
-                log_step("Clearing cache (invalid metadata)");
-                Ok(libcnb::layer::MetadataMigration::RecreateLayer)
-            }
-        }
-    }
-
-    fn existing_layer_strategy(
-        &mut self,
-        _context: &BuildContext<Self::Buildpack>,
-        layer_data: &LayerData<Self::Metadata>,
-    ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
-        let old = &layer_data.content_metadata.metadata;
-        let now = self.metadata.clone();
-
-        if let Some(differences) = metadata_diff(old, &now) {
-            log_step(format!(
-                "Clearing cache {}",
-                SentenceList::new(&differences)
-            ));
-            Ok(ExistingLayerStrategy::Recreate)
-        } else {
-            log_step("Using cached Ruby version");
-            Ok(ExistingLayerStrategy::Keep)
-        }
     }
 }
 

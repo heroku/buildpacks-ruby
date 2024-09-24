@@ -11,7 +11,9 @@
 //!
 //! When the Ruby version changes, invalidate and re-run.
 //!
-use crate::layers::shared::{invalid_metadata_action, restored_layer_action, MetadataDiff};
+use crate::layers::shared::{
+    cached_layer_ref, invalid_metadata_action, restored_layer_action, MetadataDiff,
+};
 use crate::{
     target_id::{TargetId, TargetIdError},
     RubyBuildpack, RubyBuildpackError,
@@ -40,15 +42,7 @@ pub(crate) fn handle(
     mut bullet: Print<SubBullet<Stdout>>,
     metadata: Metadata,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = context.cached_layer(
-        layer_name!("ruby"),
-        CachedLayerDefinition {
-            build: true,
-            launch: true,
-            invalid_metadata_action: &invalid_metadata_action,
-            restored_layer_action: &|old: &Metadata, _| restored_layer_action(old, &metadata),
-        },
-    )?;
+    let layer_ref = cached_layer_ref(layer_name!("ruby"), context, &metadata)?;
     match &layer_ref.state {
         LayerState::Restored { cause: _ } => {
             bullet = bullet.sub_bullet("Using cached Ruby version");

@@ -1,5 +1,31 @@
 use commons::display::SentenceList;
-use libcnb::layer::{InvalidMetadataAction, RestoredLayerAction};
+use libcnb::build::BuildContext;
+use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, LayerRef, RestoredLayerAction};
+
+/// Default behavior for a cached layer
+///
+/// The metadadata must implement `MetadataDiff` and `TryMigrate` in addition
+/// to the typical `Serialize` and `Debug` traits
+pub(crate) fn cached_layer_ref<M, B>(
+    layer_name: libcnb::data::layer::LayerName,
+    context: &BuildContext<B>,
+    metadata: &'_ M,
+) -> libcnb::Result<LayerRef<B, String, String>, B::Error>
+where
+    B: libcnb::Buildpack,
+    M: MetadataDiff + magic_migrate::TryMigrate + serde::ser::Serialize + std::fmt::Debug,
+    <M as magic_migrate::TryMigrate>::Error: std::fmt::Display,
+{
+    context.cached_layer(
+        layer_name,
+        CachedLayerDefinition {
+            build: true,
+            launch: true,
+            invalid_metadata_action: &invalid_metadata_action,
+            restored_layer_action: &|old: &M, _| restored_layer_action(old, metadata),
+        },
+    )
+}
 
 /// Given another metadata object, returns a list of differences between the two
 ///

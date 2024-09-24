@@ -12,7 +12,7 @@ use layers::{
     bundle_download_layer::{BundleDownloadLayer, BundleDownloadLayerMetadata},
     bundle_install_layer::{BundleInstallLayer, BundleInstallLayerMetadata},
     metrics_agent_install::MetricsAgentInstallError,
-    ruby_install_layer::{RubyInstallError, RubyInstallLayer, RubyInstallLayerMetadata},
+    ruby_install_layer::RubyInstallError,
 };
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
@@ -132,9 +132,9 @@ impl Buildpack for RubyBuildpack {
         let bundler_version = gemfile_lock.resolve_bundler("2.4.5");
         let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
 
-        let build_output = Print::new(stdout()).without_header();
+        let mut build_output = Print::new(stdout()).without_header();
         // ## Install metrics agent
-        _ = {
+        build_output = {
             let bullet = build_output.bullet("Metrics agent");
             if lockfile_contents.contains("barnes") {
                 layers::metrics_agent_install::handle_metrics_agent_layer(&context, bullet)?.done()
@@ -149,27 +149,24 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Install executable ruby version
-        (logger, env) = {
-            let section = logger.section(&format!(
+        (_, env) = {
+            let bullet = build_output.bullet(format!(
                 "Ruby version {} from {}",
-                fmt::value(ruby_version.to_string()),
-                fmt::value(gemfile_lock.ruby_source())
+                style::value(ruby_version.to_string()),
+                style::value(gemfile_lock.ruby_source())
             ));
-            let ruby_layer = context //
-                .handle_layer(
-                    layer_name!("ruby"),
-                    RubyInstallLayer {
-                        _in_section: section.as_ref(),
-                        metadata: RubyInstallLayerMetadata {
-                            distro_name: context.target.distro_name.clone(),
-                            distro_version: context.target.distro_version.clone(),
-                            cpu_architecture: context.target.arch.clone(),
-                            ruby_version: ruby_version.clone(),
-                        },
-                    },
-                )?;
-            let env = ruby_layer.env.apply(Scope::Build, &env);
-            (section.end_section(), env)
+            let (bullet, layer_env) = layers::ruby_install_layer::handle(
+                &context,
+                bullet,
+                layers::ruby_install_layer::Metadata {
+                    distro_name: context.target.distro_name.clone(),
+                    distro_version: context.target.distro_version.clone(),
+                    cpu_architecture: context.target.arch.clone(),
+                    ruby_version: ruby_version.clone(),
+                },
+            )?;
+
+            (bullet.done(), layer_env.apply(Scope::Build, &env))
         };
 
         // ## Setup bundler

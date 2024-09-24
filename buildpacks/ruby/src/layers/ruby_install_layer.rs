@@ -11,9 +11,7 @@
 //!
 //! When the Ruby version changes, invalidate and re-run.
 //!
-use crate::layers::shared::{
-    cached_layer_write_metadata, invalid_metadata_action, restored_layer_action, MetadataDiff,
-};
+use crate::layers::shared::{cached_layer_write_metadata, MetadataDiff};
 use crate::{
     target_id::{TargetId, TargetIdError},
     RubyBuildpack, RubyBuildpackError,
@@ -23,7 +21,7 @@ use bullet_stream::{style, Print};
 use commons::gemfile_lock::ResolvedRubyVersion;
 use flate2::read::GzDecoder;
 use libcnb::data::layer_name;
-use libcnb::layer::{CachedLayerDefinition, EmptyLayerCause, LayerState};
+use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::layer_env::LayerEnv;
 use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -251,6 +249,8 @@ pub(crate) enum RubyInstallError {
 
 #[cfg(test)]
 mod tests {
+    use crate::layers::shared::restored_layer_action;
+
     use super::*;
 
     /// If this test fails due to a change you'll need to

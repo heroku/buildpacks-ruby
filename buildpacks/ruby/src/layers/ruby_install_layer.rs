@@ -322,4 +322,31 @@ version = "3.1.3"
             "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com/heroku-22/ruby-2.7.4.tgz",
         );
     }
+
+    #[test]
+    fn test_ruby_version_difference() {
+        let old = Metadata {
+            ruby_version: ResolvedRubyVersion("2.7.2".to_string()),
+            distro_name: "ubuntu".to_string(),
+            distro_version: "20.04".to_string(),
+            cpu_architecture: "x86_64".to_string(),
+        };
+        let differences = old.diff(&old);
+        assert_eq!(differences, Vec::<String>::new());
+
+        let now = Metadata {
+            ruby_version: ResolvedRubyVersion("3.0.0".to_string()),
+            ..old.clone()
+        };
+
+        let differences = now.diff(&old);
+        assert_eq!(
+            differences,
+            vec![format!(
+                "Ruby version ({old} to {now})",
+                old = style::value("2.7.2"),
+                now = style::value("3.0.0")
+            )]
+        );
+    }
 }

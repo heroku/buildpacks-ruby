@@ -158,7 +158,7 @@ impl Buildpack for RubyBuildpack {
             let (bullet, layer_env) = layers::ruby_install_layer::handle(
                 &context,
                 bullet,
-                layers::ruby_install_layer::Metadata {
+                &layers::ruby_install_layer::Metadata {
                     distro_name: context.target.distro_name.clone(),
                     distro_version: context.target.distro_version.clone(),
                     cpu_architecture: context.target.arch.clone(),

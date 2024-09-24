@@ -37,9 +37,9 @@ use url::Url;
 pub(crate) fn handle(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     mut bullet: Print<SubBullet<Stdout>>,
-    metadata: Metadata,
+    metadata: &Metadata,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = cached_layer_write_metadata(layer_name!("ruby"), context, &metadata)?;
+    let layer_ref = cached_layer_write_metadata(layer_name!("ruby"), context, metadata)?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);
@@ -53,7 +53,7 @@ pub(crate) fn handle(
                 }
             }
             let timer = bullet.start_timer("Installing");
-            install_ruby(&metadata, &layer_ref.path())?;
+            install_ruby(metadata, &layer_ref.path())?;
             bullet = timer.done();
         }
     }

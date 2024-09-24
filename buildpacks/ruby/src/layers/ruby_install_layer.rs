@@ -62,15 +62,20 @@ pub(crate) fn handle(
                 ),
             },
             restored_layer_action: &|old: &Metadata, _| {
-                if let Some(diff) = metadata_diff(old, &metadata) {
-                    (
-                        RestoredLayerAction::DeleteLayer,
-                        format!("due to change(s): {}", SentenceList::new(&diff)),
-                    )
-                } else {
+                let diff = metadata_diff(old, &metadata);
+                if diff.is_empty() {
                     (
                         RestoredLayerAction::KeepLayer,
                         "using cached version".to_string(),
+                    )
+                } else {
+                    (
+                        RestoredLayerAction::DeleteLayer,
+                        format!(
+                            "due to {changes}: {differences}",
+                            changes = if diff.len() > 1 { "changes" } else { "change" },
+                            differences = SentenceList::new(&diff)
+                        ),
                     )
                 }
             },
@@ -165,7 +170,7 @@ impl TryFrom<MetadataV1> for MetadataV2 {
     }
 }
 
-fn metadata_diff(old: &Metadata, metadata: &Metadata) -> Option<Vec<String>> {
+fn metadata_diff(old: &Metadata, metadata: &Metadata) -> Vec<String> {
     let mut differences = Vec::new();
     let Metadata {
         distro_name,
@@ -202,11 +207,7 @@ fn metadata_diff(old: &Metadata, metadata: &Metadata) -> Option<Vec<String>> {
         ));
     }
 
-    if differences.is_empty() {
-        None
-    } else {
-        Some(differences)
-    }
+    differences
 }
 
 fn download_url(

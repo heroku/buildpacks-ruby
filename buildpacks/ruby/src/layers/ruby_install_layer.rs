@@ -11,7 +11,7 @@
 //!
 //! When the Ruby version changes, invalidate and re-run.
 //!
-use crate::layers::shared::MetadataDiff;
+use crate::layers::shared::{invalid_metadata_action, MetadataDiff};
 use crate::{
     target_id::{TargetId, TargetIdError},
     RubyBuildpack, RubyBuildpackError,
@@ -45,22 +45,7 @@ pub(crate) fn handle(
         CachedLayerDefinition {
             build: true,
             launch: true,
-            invalid_metadata_action: &|old| match Metadata::try_from_str_migrations(
-                &toml::to_string(old).expect("TOML deserialization of GenericMetadata"),
-            ) {
-                Some(Ok(migrated)) => (
-                    InvalidMetadataAction::ReplaceMetadata(migrated),
-                    "replaced metadata".to_string(),
-                ),
-                Some(Err(error)) => (
-                    InvalidMetadataAction::DeleteLayer,
-                    format!("metadata migration error {error}"),
-                ),
-                None => (
-                    InvalidMetadataAction::DeleteLayer,
-                    "invalid metadata".to_string(),
-                ),
-            },
+            invalid_metadata_action: &invalid_metadata_action,
             restored_layer_action: &|old: &Metadata, _| {
                 let diff = metadata.diff(old);
                 if diff.is_empty() {

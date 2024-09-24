@@ -12,7 +12,7 @@
 //! When the Ruby version changes, invalidate and re-run.
 //!
 use crate::layers::shared::{
-    cached_layer_ref, invalid_metadata_action, restored_layer_action, MetadataDiff,
+    cached_layer_write_metadata, invalid_metadata_action, restored_layer_action, MetadataDiff,
 };
 use crate::{
     target_id::{TargetId, TargetIdError},
@@ -39,7 +39,7 @@ pub(crate) fn handle(
     mut bullet: Print<SubBullet<Stdout>>,
     metadata: Metadata,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = cached_layer_ref(layer_name!("ruby"), context, &metadata)?;
+    let layer_ref = cached_layer_write_metadata(layer_name!("ruby"), context, &metadata)?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);
@@ -57,7 +57,6 @@ pub(crate) fn handle(
             bullet = timer.done();
         }
     }
-    layer_ref.write_metadata(metadata)?;
     Ok((bullet, layer_ref.read_env()?))
 }
 

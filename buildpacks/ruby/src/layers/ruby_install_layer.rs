@@ -11,7 +11,7 @@
 //!
 //! When the Ruby version changes, invalidate and re-run.
 //!
-use crate::layers::shared::{invalid_metadata_action, MetadataDiff};
+use crate::layers::shared::{invalid_metadata_action, restored_layer_action, MetadataDiff};
 use crate::{
     target_id::{TargetId, TargetIdError},
     RubyBuildpack, RubyBuildpackError,
@@ -46,24 +46,7 @@ pub(crate) fn handle(
             build: true,
             launch: true,
             invalid_metadata_action: &invalid_metadata_action,
-            restored_layer_action: &|old: &Metadata, _| {
-                let diff = metadata.diff(old);
-                if diff.is_empty() {
-                    (
-                        RestoredLayerAction::KeepLayer,
-                        "using cached version".to_string(),
-                    )
-                } else {
-                    (
-                        RestoredLayerAction::DeleteLayer,
-                        format!(
-                            "due to {changes}: {differences}",
-                            changes = if diff.len() > 1 { "changes" } else { "change" },
-                            differences = SentenceList::new(&diff)
-                        ),
-                    )
-                }
-            },
+            restored_layer_action: &|old: &Metadata, _| restored_layer_action(old, &metadata),
         },
     )?;
     match &layer_ref.state {

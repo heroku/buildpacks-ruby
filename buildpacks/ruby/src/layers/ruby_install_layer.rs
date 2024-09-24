@@ -11,6 +11,7 @@
 //!
 //! When the Ruby version changes, invalidate and re-run.
 //!
+use crate::layers::shared::MetadataDiff;
 use crate::{
     target_id::{TargetId, TargetIdError},
     RubyBuildpack, RubyBuildpackError,
@@ -61,7 +62,7 @@ pub(crate) fn handle(
                 ),
             },
             restored_layer_action: &|old: &Metadata, _| {
-                let diff = metadata_diff(old, &metadata);
+                let diff = metadata.diff(old);
                 if diff.is_empty() {
                     (
                         RestoredLayerAction::KeepLayer,
@@ -169,44 +170,46 @@ impl TryFrom<MetadataV1> for MetadataV2 {
     }
 }
 
-fn metadata_diff(old: &Metadata, metadata: &Metadata) -> Vec<String> {
-    let mut differences = Vec::new();
-    let Metadata {
-        distro_name,
-        distro_version,
-        cpu_architecture,
-        ruby_version,
-    } = old;
-    if ruby_version != &metadata.ruby_version {
-        differences.push(format!(
-            "Ruby version ({old} to {now})",
-            old = style::value(ruby_version.to_string()),
-            now = style::value(metadata.ruby_version.to_string())
-        ));
-    }
-    if distro_name != &metadata.distro_name {
-        differences.push(format!(
-            "distro name ({old} to {now})",
-            old = style::value(distro_name),
-            now = style::value(&metadata.distro_name)
-        ));
-    }
-    if distro_version != &metadata.distro_version {
-        differences.push(format!(
-            "distro version ({old} to {now})",
-            old = style::value(distro_version),
-            now = style::value(&metadata.distro_version)
-        ));
-    }
-    if cpu_architecture != &metadata.cpu_architecture {
-        differences.push(format!(
-            "CPU architecture ({old} to {now})",
-            old = style::value(cpu_architecture),
-            now = style::value(&metadata.cpu_architecture)
-        ));
-    }
+impl MetadataDiff for Metadata {
+    fn diff(&self, old: &Self) -> Vec<String> {
+        let mut differences = Vec::new();
+        let Metadata {
+            distro_name,
+            distro_version,
+            cpu_architecture,
+            ruby_version,
+        } = old;
+        if ruby_version != &self.ruby_version {
+            differences.push(format!(
+                "Ruby version ({old} to {now})",
+                old = style::value(ruby_version.to_string()),
+                now = style::value(self.ruby_version.to_string())
+            ));
+        }
+        if distro_name != &self.distro_name {
+            differences.push(format!(
+                "distro name ({old} to {now})",
+                old = style::value(distro_name),
+                now = style::value(&self.distro_name)
+            ));
+        }
+        if distro_version != &self.distro_version {
+            differences.push(format!(
+                "distro version ({old} to {now})",
+                old = style::value(distro_version),
+                now = style::value(&self.distro_version)
+            ));
+        }
+        if cpu_architecture != &self.cpu_architecture {
+            differences.push(format!(
+                "CPU architecture ({old} to {now})",
+                old = style::value(cpu_architecture),
+                now = style::value(&self.cpu_architecture)
+            ));
+        }
 
-    differences
+        differences
+    }
 }
 
 fn download_url(

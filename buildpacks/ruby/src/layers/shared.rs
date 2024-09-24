@@ -71,20 +71,25 @@ where
     // TODO: Enforce Display + Debug in the library
     <T as magic_migrate::TryMigrate>::Error: std::fmt::Display,
 {
-    match T::try_from_str_migrations(
-        &toml::to_string(invalid).expect("TOML deserialization of GenericMetadata"),
-    ) {
-        Some(Ok(migrated)) => (
-            InvalidMetadataAction::ReplaceMetadata(migrated),
-            "Replaced metadata".to_string(),
-        ),
-        Some(Err(error)) => (
+    let invalid = toml::to_string(invalid);
+    match invalid {
+        Ok(toml) => match T::try_from_str_migrations(&toml) {
+            Some(Ok(migrated)) => (
+                InvalidMetadataAction::ReplaceMetadata(migrated),
+                "Replaced metadata".to_string(),
+            ),
+            Some(Err(error)) => (
+                InvalidMetadataAction::DeleteLayer,
+                format!("Clearing cache due to metadata migration error: {error}"),
+            ),
+            None => (
+                InvalidMetadataAction::DeleteLayer,
+                format!("Clearing cache due to invalid metadata ({toml:?})"),
+            ),
+        },
+        Err(error) => (
             InvalidMetadataAction::DeleteLayer,
-            format!("Clearing cache due to metadata migration error: {error}"),
-        ),
-        None => (
-            InvalidMetadataAction::DeleteLayer,
-            format!("Clearing cache due to invalid metadata ({invalid:?})"),
+            format!("Clearing cache due to invalid metadata serialization error: {error}"),
         ),
     }
 }

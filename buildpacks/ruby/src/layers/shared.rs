@@ -2,11 +2,11 @@ use commons::display::SentenceList;
 use libcnb::build::BuildContext;
 use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, LayerRef, RestoredLayerAction};
 
-/// Default behavior for a cached layer
+/// Default behavior for a cached layer, ensures new metadata is always written
 ///
 /// The metadadata must implement `MetadataDiff` and `TryMigrate` in addition
 /// to the typical `Serialize` and `Debug` traits
-pub(crate) fn cached_layer_ref<M, B>(
+pub(crate) fn cached_layer_write_metadata<M, B>(
     layer_name: libcnb::data::layer::LayerName,
     context: &BuildContext<B>,
     metadata: &'_ M,
@@ -16,7 +16,7 @@ where
     M: MetadataDiff + magic_migrate::TryMigrate + serde::ser::Serialize + std::fmt::Debug,
     <M as magic_migrate::TryMigrate>::Error: std::fmt::Display,
 {
-    context.cached_layer(
+    let layer_ref = context.cached_layer(
         layer_name,
         CachedLayerDefinition {
             build: true,
@@ -24,7 +24,9 @@ where
             invalid_metadata_action: &invalid_metadata_action,
             restored_layer_action: &|old: &M, _| restored_layer_action(old, metadata),
         },
-    )
+    )?;
+    layer_ref.write_metadata(metadata)?;
+    Ok(layer_ref)
 }
 
 /// Given another metadata object, returns a list of differences between the two

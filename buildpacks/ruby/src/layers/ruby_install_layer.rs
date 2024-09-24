@@ -327,7 +327,7 @@ version = "3.1.3"
     }
 
     #[test]
-    fn test_ruby_version_difference() {
+    fn test_ruby_version_difference_clears_cache() {
         let old = Metadata {
             ruby_version: ResolvedRubyVersion("2.7.2".to_string()),
             distro_name: "ubuntu".to_string(),
@@ -335,6 +335,12 @@ version = "3.1.3"
             cpu_architecture: "x86_64".to_string(),
         };
         let differences = old.diff(&old);
+        let actual = restored_layer_action(&old, &old);
+        assert!(matches!(
+            actual,
+            (libcnb::layer::RestoredLayerAction::KeepLayer, _)
+        ));
+
         assert_eq!(differences, Vec::<String>::new());
 
         let now = Metadata {
@@ -342,14 +348,10 @@ version = "3.1.3"
             ..old.clone()
         };
 
-        let differences = now.diff(&old);
-        assert_eq!(
-            differences,
-            vec![format!(
-                "Ruby version ({old} to {now})",
-                old = style::value("2.7.2"),
-                now = style::value("3.0.0")
-            )]
-        );
+        let actual = restored_layer_action(&old, &now);
+        assert!(matches!(
+            actual,
+            (libcnb::layer::RestoredLayerAction::DeleteLayer, _)
+        ));
     }
 }

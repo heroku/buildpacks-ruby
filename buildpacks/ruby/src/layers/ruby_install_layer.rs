@@ -39,15 +39,15 @@ pub(crate) fn handle(
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
     let layer_ref = cached_layer_write_metadata(layer_name!("ruby"), context, metadata)?;
     match &layer_ref.state {
-        LayerState::Restored { cause: _ } => {
-            bullet = bullet.sub_bullet("Using cached Ruby version");
+        LayerState::Restored { cause } => {
+            bullet = bullet.sub_bullet(cause);
         }
         LayerState::Empty { cause } => {
             match cause {
                 EmptyLayerCause::NewlyCreated => {}
                 EmptyLayerCause::InvalidMetadataAction { cause }
                 | EmptyLayerCause::RestoredLayerAction { cause } => {
-                    bullet = bullet.sub_bullet(format!("Clearing cache {cause}"));
+                    bullet = bullet.sub_bullet(cause);
                 }
             }
             let timer = bullet.start_timer("Installing");

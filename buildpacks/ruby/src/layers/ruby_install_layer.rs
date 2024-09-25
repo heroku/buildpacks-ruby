@@ -11,22 +11,21 @@
 //!
 //! When the Ruby version changes, invalidate and re-run.
 //!
+use crate::{
+    target_id::{TargetId, TargetIdError},
+    RubyBuildpack, RubyBuildpackError,
+};
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use commons::display::SentenceList;
+use commons::gemfile_lock::ResolvedRubyVersion;
+use flate2::read::GzDecoder;
 use libcnb::data::layer_name;
 use libcnb::layer::{
     CachedLayerDefinition, EmptyLayerCause, InvalidMetadataAction, LayerState, RestoredLayerAction,
 };
 use libcnb::layer_env::LayerEnv;
 use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
-
-use crate::{
-    target_id::{TargetId, TargetIdError},
-    RubyBuildpack, RubyBuildpackError,
-};
-use commons::gemfile_lock::ResolvedRubyVersion;
-use flate2::read::GzDecoder;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::convert::Infallible;
 use std::io::{self, Stdout};

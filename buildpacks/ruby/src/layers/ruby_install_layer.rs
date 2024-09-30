@@ -249,7 +249,7 @@ pub(crate) enum RubyInstallError {
 
 #[cfg(test)]
 mod tests {
-    use crate::layers::shared::restored_layer_action;
+    use crate::layers::shared::temp_build_context;
 
     use super::*;
 
@@ -325,6 +325,8 @@ version = "3.1.3"
 
     #[test]
     fn test_ruby_version_difference_clears_cache() {
+        let temp = tempfile::tempdir().unwrap();
+        let context = temp_build_context::<RubyBuildpack>(temp.path());
         let old = Metadata {
             ruby_version: ResolvedRubyVersion("2.7.2".to_string()),
             distro_name: "ubuntu".to_string(),
@@ -332,23 +334,26 @@ version = "3.1.3"
             cpu_architecture: "x86_64".to_string(),
         };
         let differences = old.diff(&old);
-        let actual = restored_layer_action(&old, &old);
-        assert!(matches!(
-            actual,
-            (libcnb::layer::RestoredLayerAction::KeepLayer, _)
-        ));
-
         assert_eq!(differences, Vec::<String>::new());
+
+        cached_layer_write_metadata(layer_name!("ruby"), &context, &old).unwrap();
+        let result = cached_layer_write_metadata(layer_name!("ruby"), &context, &old).unwrap();
+        let actual = result.state;
+        assert!(matches!(actual, LayerState::Restored { .. }));
 
         let now = Metadata {
             ruby_version: ResolvedRubyVersion("3.0.0".to_string()),
             ..old.clone()
         };
+        let differences = now.diff(&old);
+        assert_eq!(differences.len(), 1);
 
-        let actual = restored_layer_action(&old, &now);
+        let result = cached_layer_write_metadata(layer_name!("ruby"), &context, &now).unwrap();
         assert!(matches!(
-            actual,
-            (libcnb::layer::RestoredLayerAction::DeleteLayer, _)
+            result.state,
+            LayerState::Empty {
+                cause: EmptyLayerCause::RestoredLayerAction { .. }
+            }
         ));
     }
 }

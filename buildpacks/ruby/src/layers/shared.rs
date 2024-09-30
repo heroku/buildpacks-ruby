@@ -84,7 +84,10 @@ where
             ),
             None => (
                 InvalidMetadataAction::DeleteLayer,
-                format!("Clearing cache due to invalid metadata ({toml:?})"),
+                format!(
+                    "Clearing cache due to invalid metadata ({toml})",
+                    toml = toml.trim()
+                ),
             ),
         },
         Err(error) => (
@@ -144,10 +147,12 @@ pub(crate) fn temp_build_context<B: libcnb::Buildpack>(
 mod tests {
     use super::*;
     use crate::RubyBuildpack;
+    use core::panic;
     use libcnb::data::layer_name;
     use libcnb::layer::{EmptyLayerCause, LayerState};
-    use magic_migrate::{migrate_toml_chain, Migrate};
+    use magic_migrate::{migrate_toml_chain, try_migrate_deserializer_chain, Migrate, TryMigrate};
     use serde::Deserializer;
+    use std::convert::Infallible;
 
     /// Struct for asserting the behavior of `cached_layer_write_metadata`
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -166,7 +171,7 @@ mod tests {
     migrate_toml_chain! {TestMetadata}
 
     #[test]
-    fn test_cached_layer_write_metadata() {
+    fn test_cached_layer_write_metadata_restored_layer_action() {
         let temp = tempfile::tempdir().unwrap();
         let context = temp_build_context::<RubyBuildpack>(temp.path());
 
@@ -220,5 +225,83 @@ mod tests {
             cause,
             "Clearing cache due to change: value (hello to world)"
         );
+    }
+
+    /// Struct for asserting the behavior of `invalid_metadata_action`
+    #[derive(serde::Deserialize, serde::Serialize, Debug)]
+    #[serde(deny_unknown_fields)]
+    struct PersonV1 {
+        name: String,
+    }
+    /// Struct for asserting the behavior of `invalid_metadata_action`
+    #[derive(serde::Deserialize, serde::Serialize, Debug)]
+    #[serde(deny_unknown_fields)]
+    struct PersonV2 {
+        name: String,
+        updated_at: String,
+    }
+    // First define how to map from one struct to another
+    impl TryFrom<PersonV1> for PersonV2 {
+        type Error = NotRichard;
+        fn try_from(value: PersonV1) -> Result<Self, NotRichard> {
+            if &value.name == "Schneems" {
+                Ok(PersonV2 {
+                    name: value.name.clone(),
+                    updated_at: "unknown".to_string(),
+                })
+            } else {
+                Err(NotRichard {
+                    name: value.name.clone(),
+                })
+            }
+        }
+    }
+    #[derive(Debug, Eq, PartialEq)]
+    struct NotRichard {
+        name: String,
+    }
+    impl From<NotRichard> for PersonMigrationError {
+        fn from(value: NotRichard) -> Self {
+            PersonMigrationError::NotRichard(value)
+        }
+    }
+    #[derive(Debug, Eq, PartialEq, thiserror::Error)]
+    enum PersonMigrationError {
+        #[error("Not Richard")]
+        NotRichard(NotRichard),
+    }
+    try_migrate_deserializer_chain!(
+        deserializer: toml::Deserializer::new,
+        error: PersonMigrationError,
+        chain: [PersonV1, PersonV2],
+    );
+
+    #[test]
+    fn test_invalid_metadata_action() {
+        let (action, message) = invalid_metadata_action::<PersonV1, _>(&PersonV1 {
+            name: "schneems".to_string(),
+        });
+        assert!(matches!(action, InvalidMetadataAction::ReplaceMetadata(_)));
+        assert_eq!(message, "Replaced metadata".to_string());
+
+        let (action, message) = invalid_metadata_action::<PersonV2, _>(&PersonV1 {
+            name: "not_richard".to_string(),
+        });
+        assert!(matches!(action, InvalidMetadataAction::DeleteLayer));
+        assert_eq!(
+            message,
+            "Clearing cache due to metadata migration error: Not Richard".to_string()
+        );
+
+        let (action, message) = invalid_metadata_action::<PersonV2, _>(&TestMetadata {
+            value: "world".to_string(),
+        });
+        assert!(matches!(action, InvalidMetadataAction::DeleteLayer));
+        assert_eq!(
+            message,
+            "Clearing cache due to invalid metadata (value = \"world\")".to_string()
+        );
+
+        // Unable to produce this error at will: "Clearing cache due to invalid metadata serialization error: {error}"
     }
 }

@@ -63,6 +63,64 @@ pub(crate) struct BundleDownloadLayer<'a> {
     pub(crate) _section_logger: &'a dyn SectionLogger,
 }
 
+fn download_bundler(
+    env: &Env,
+    metadata: &Metadata,
+    path: &Path,
+) -> Result<LayerEnv, RubyBuildpackError> {
+    let bin_dir = path.join("bin");
+    let gem_path = path;
+
+    let mut cmd = Command::new("gem");
+    cmd.args([
+        "install",
+        "bundler",
+        "--version", // Specify exact version to install
+        &metadata.version.to_string(),
+    ])
+    .env_clear()
+    .envs(env);
+
+    // Format `gem install --version <version>` without other content for display
+    let short_name = fun_run::display(&mut cmd);
+
+    // Arguments we don't need in the output
+    cmd.args([
+        "--install-dir", // Directory where bundler's contents will live
+        &gem_path.to_string_lossy(),
+        "--bindir", // Directory where `bundle` executable lives
+        &bin_dir.to_string_lossy(),
+        "--force",       // Overwrite if it already exists
+        "--no-document", // Don't install ri or rdoc documentation, which takes extra time
+        "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
+    ]);
+
+    log_step_timed(format!("Running {}", fmt::command(short_name)), || {
+        cmd.named_output().map_err(|error| {
+            fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
+        })
+    })
+    .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
+
+    let layer_env = LayerEnv::new()
+        .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
+        .chainable_insert(
+            Scope::All,
+            ModificationBehavior::Prepend,
+            "PATH", // Ensure this path comes before default bundler that ships with ruby, don't rely on the lifecycle
+            bin_dir,
+        )
+        .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
+        .chainable_insert(
+            Scope::All,
+            ModificationBehavior::Prepend,
+            "GEM_PATH", // Bundler is a gem too, allow it to be required
+            gem_path,
+        );
+
+    Ok(layer_env)
+}
+
 #[allow(deprecated)]
 impl<'a> Layer for BundleDownloadLayer<'a> {
     type Buildpack = RubyBuildpack;
@@ -81,58 +139,10 @@ impl<'a> Layer for BundleDownloadLayer<'a> {
         _context: &BuildContext<Self::Buildpack>,
         layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let bin_dir = layer_path.join("bin");
-        let gem_path = layer_path;
-
-        let mut cmd = Command::new("gem");
-        cmd.args([
-            "install",
-            "bundler",
-            "--version", // Specify exact version to install
-            &self.metadata.version.to_string(),
-        ])
-        .env_clear()
-        .envs(&self.env);
-
-        // Format `gem install --version <version>` without other content for display
-        let short_name = fun_run::display(&mut cmd);
-
-        // Arguments we don't need in the output
-        cmd.args([
-            "--install-dir", // Directory where bundler's contents will live
-            &layer_path.to_string_lossy(),
-            "--bindir", // Directory where `bundle` executable lives
-            &bin_dir.to_string_lossy(),
-            "--force",       // Overwrite if it already exists
-            "--no-document", // Don't install ri or rdoc documentation, which takes extra time
-            "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
-        ]);
-
-        log_step_timed(format!("Running {}", fmt::command(short_name)), || {
-            cmd.named_output().map_err(|error| {
-                fun_run::map_which_problem(error, cmd.mut_cmd(), self.env.get("PATH").cloned())
-            })
-        })
-        .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
+        let layer_env = download_bundler(&self.env, &self.metadata, layer_path)?;
 
         LayerResultBuilder::new(self.metadata.clone())
-            .env(
-                LayerEnv::new()
-                    .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
-                    .chainable_insert(
-                        Scope::All,
-                        ModificationBehavior::Prepend,
-                        "PATH", // Ensure this path comes before default bundler that ships with ruby, don't rely on the lifecycle
-                        bin_dir,
-                    )
-                    .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
-                    .chainable_insert(
-                        Scope::All,
-                        ModificationBehavior::Prepend,
-                        "GEM_PATH", // Bundler is a gem too, allow it to be required
-                        gem_path,
-                    ),
-            )
+            .env(layer_env)
             .build()
     }
 

@@ -2,9 +2,9 @@ use bullet_stream::{style, Print};
 use commons::cache::CacheError;
 use commons::gemfile_lock::GemfileLock;
 use commons::metadata_digest::MetadataDigest;
-use commons::output::warn_later::WarnGuard;
 #[allow(clippy::wildcard_imports)]
-use commons::output::{build_log::*, fmt};
+use commons::output::build_log::*;
+use commons::output::warn_later::WarnGuard;
 use core::str::FromStr;
 use fs_err::PathExt;
 use fun_run::CmdError;
@@ -148,7 +148,7 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Install executable ruby version
-        (_, env) = {
+        (build_output, env) = {
             let bullet = build_output.bullet(format!(
                 "Ruby version {} from {}",
                 style::value(ruby_version.to_string()),
@@ -169,21 +169,22 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Setup bundler
-        (logger, env) = {
-            let section = logger.section(&format!(
+        (_, env) = {
+            let bullet = build_output.bullet(format!(
                 "Bundler version {} from {}",
-                fmt::value(bundler_version.to_string()),
-                fmt::value(gemfile_lock.bundler_source())
+                style::value(bundler_version.to_string()),
+                style::value(gemfile_lock.bundler_source())
             ));
-            let layer_env = layers::bundle_download_layer::handle(
+            let (bullet, layer_env) = layers::bundle_download_layer::handle(
                 &context,
                 &env,
+                bullet,
                 &layers::bundle_download_layer::Metadata {
                     version: bundler_version,
                 },
             )?;
 
-            (section.end_section(), layer_env.apply(Scope::Build, &env))
+            (bullet.done(), layer_env.apply(Scope::Build, &env))
         };
 
         // ## Bundle install

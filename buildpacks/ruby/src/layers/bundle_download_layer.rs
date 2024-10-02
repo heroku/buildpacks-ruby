@@ -7,12 +7,9 @@
 use crate::layers::shared::{cached_layer_write_metadata, MetadataDiff};
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
-use bullet_stream::style;
+use bullet_stream::state::SubBullet;
+use bullet_stream::{style, Print};
 use commons::gemfile_lock::ResolvedBundlerVersion;
-use commons::output::{
-    fmt,
-    section_log::{log_step, log_step_timed},
-};
 use fun_run::{self, CommandWithName};
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
@@ -21,32 +18,36 @@ use libcnb::Env;
 use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::convert::Infallible;
+use std::io::Stdout;
 use std::path::Path;
 use std::process::Command;
 
 pub(crate) fn handle(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     env: &Env,
+    mut bullet: Print<SubBullet<Stdout>>,
     metadata: &Metadata,
-) -> libcnb::Result<LayerEnv, RubyBuildpackError> {
+) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
     let layer_ref = cached_layer_write_metadata(layer_name!("bundler"), context, metadata)?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
-            log_step(cause);
+            bullet = bullet.sub_bullet(cause);
+            Ok((bullet, layer_ref.read_env()?))
         }
         LayerState::Empty { cause } => {
             match cause {
                 EmptyLayerCause::NewlyCreated => {}
                 EmptyLayerCause::InvalidMetadataAction { cause }
                 | EmptyLayerCause::RestoredLayerAction { cause } => {
-                    log_step(cause);
+                    bullet = bullet.sub_bullet(cause);
                 }
             }
-            let layer_env = download_bundler(env, metadata, &layer_ref.path())?;
+            let (bullet, layer_env) = download_bundler(bullet, env, metadata, &layer_ref.path())?;
             layer_ref.write_env(&layer_env)?;
+
+            Ok((bullet, layer_ref.read_env()?))
         }
     }
-    Ok(layer_ref.read_env()?)
 }
 
 pub(crate) type Metadata = MetadataV1;
@@ -81,10 +82,11 @@ pub(crate) enum MetadataError {
 }
 
 fn download_bundler(
+    bullet: Print<SubBullet<Stdout>>,
     env: &Env,
     metadata: &Metadata,
     path: &Path,
-) -> Result<LayerEnv, RubyBuildpackError> {
+) -> Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
     let bin_dir = path.join("bin");
     let gem_path = path;
 
@@ -104,12 +106,11 @@ fn download_bundler(
         "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
     ]);
 
-    log_step_timed(format!("Running {}", fmt::command(short_name)), || {
-        cmd.named_output().map_err(|error| {
-            fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
-        })
-    })
-    .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
+    let timer = bullet.start_timer(format!("Running {}", style::command(short_name)));
+
+    cmd.named_output()
+        .map_err(|error| fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned()))
+        .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
 
     let layer_env = LayerEnv::new()
         .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
@@ -127,7 +128,7 @@ fn download_bundler(
             gem_path,
         );
 
-    Ok(layer_env)
+    Ok((timer.done(), layer_env))
 }
 
 #[cfg(test)]

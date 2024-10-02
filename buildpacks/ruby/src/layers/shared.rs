@@ -97,6 +97,13 @@ where
     }
 }
 
+/// Removes ANSI control characters from a string
+#[cfg(test)]
+pub(crate) fn strip_ansi(input: impl AsRef<str>) -> String {
+    let re = regex::Regex::new(r"\x1b\[[0-9;]*[a-zA-Z]").expect("Clippy checked");
+    re.replace_all(input.as_ref(), "").to_string()
+}
+
 /// Takes in a directory and returns a minimal build context for use in testing shared caching behavior
 ///
 /// Intented only for use with this buildpack, but meant to be used by multiple layers to assert caching behavior.

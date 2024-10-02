@@ -9,7 +9,7 @@ use core::str::FromStr;
 use fs_err::PathExt;
 use fun_run::CmdError;
 use layers::{
-    bundle_download_layer::{BundleDownloadLayer, BundleDownloadLayerMetadata},
+    bundle_download_layer::BundleDownloadLayer,
     bundle_install_layer::{BundleInstallLayer, BundleInstallLayerMetadata},
     metrics_agent_install::MetricsAgentInstallError,
     ruby_install_layer::RubyInstallError,
@@ -180,7 +180,7 @@ impl Buildpack for RubyBuildpack {
                 layer_name!("bundler"),
                 BundleDownloadLayer {
                     env: env.clone(),
-                    metadata: BundleDownloadLayerMetadata {
+                    metadata: layers::bundle_download_layer::Metadata {
                         version: bundler_version,
                     },
                     _section_logger: section.as_ref(),

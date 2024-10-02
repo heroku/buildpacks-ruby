@@ -23,20 +23,20 @@ use std::path::Path;
 use std::process::Command;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub(crate) struct BundleDownloadLayerMetadata {
+pub(crate) struct Metadata {
     pub(crate) version: ResolvedBundlerVersion,
 }
 
 pub(crate) struct BundleDownloadLayer<'a> {
     pub(crate) env: Env,
-    pub(crate) metadata: BundleDownloadLayerMetadata,
+    pub(crate) metadata: Metadata,
     pub(crate) _section_logger: &'a dyn SectionLogger,
 }
 
 #[allow(deprecated)]
 impl<'a> Layer for BundleDownloadLayer<'a> {
     type Buildpack = RubyBuildpack;
-    type Metadata = BundleDownloadLayerMetadata;
+    type Metadata = Metadata;
 
     fn types(&self) -> LayerTypes {
         LayerTypes {
@@ -137,8 +137,8 @@ enum State {
     BundlerVersionChanged(ResolvedBundlerVersion, ResolvedBundlerVersion),
 }
 
-fn cache_state(old: BundleDownloadLayerMetadata, now: BundleDownloadLayerMetadata) -> State {
-    let BundleDownloadLayerMetadata { version } = now; // Ensure all properties are checked
+fn cache_state(old: Metadata, now: Metadata) -> State {
+    let Metadata { version } = now; // Ensure all properties are checked
 
     if old.version == version {
         State::NothingChanged(version)
@@ -155,7 +155,7 @@ mod test {
     /// `migrate_incompatible_metadata` for the Layer trait
     #[test]
     fn metadata_guard() {
-        let metadata = BundleDownloadLayerMetadata {
+        let metadata = Metadata {
             version: ResolvedBundlerVersion(String::from("2.3.6")),
         };
 

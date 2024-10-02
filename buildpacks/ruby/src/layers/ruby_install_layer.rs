@@ -11,22 +11,19 @@
 //!
 //! When the Ruby version changes, invalidate and re-run.
 //!
-use bullet_stream::state::SubBullet;
-use bullet_stream::{style, Print};
-use commons::display::SentenceList;
-use libcnb::data::layer_name;
-use libcnb::layer::{
-    CachedLayerDefinition, EmptyLayerCause, InvalidMetadataAction, LayerState, RestoredLayerAction,
-};
-use libcnb::layer_env::LayerEnv;
-use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
-
+use crate::layers::shared::{cached_layer_write_metadata, MetadataDiff};
 use crate::{
     target_id::{TargetId, TargetIdError},
     RubyBuildpack, RubyBuildpackError,
 };
+use bullet_stream::state::SubBullet;
+use bullet_stream::{style, Print};
 use commons::gemfile_lock::ResolvedRubyVersion;
 use flate2::read::GzDecoder;
+use libcnb::data::layer_name;
+use libcnb::layer::{EmptyLayerCause, LayerState};
+use libcnb::layer_env::LayerEnv;
+use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::convert::Infallible;
 use std::io::{self, Stdout};
@@ -38,67 +35,26 @@ use url::Url;
 pub(crate) fn handle(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     mut bullet: Print<SubBullet<Stdout>>,
-    metadata: Metadata,
+    metadata: &Metadata,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = context.cached_layer(
-        layer_name!("ruby"),
-        CachedLayerDefinition {
-            build: true,
-            launch: true,
-            invalid_metadata_action: &|old| match Metadata::try_from_str_migrations(
-                &toml::to_string(old).expect("TOML deserialization of GenericMetadata"),
-            ) {
-                Some(Ok(migrated)) => (
-                    InvalidMetadataAction::ReplaceMetadata(migrated),
-                    "replaced metadata".to_string(),
-                ),
-                Some(Err(error)) => (
-                    InvalidMetadataAction::DeleteLayer,
-                    format!("metadata migration error {error}"),
-                ),
-                None => (
-                    InvalidMetadataAction::DeleteLayer,
-                    "invalid metadata".to_string(),
-                ),
-            },
-            restored_layer_action: &|old: &Metadata, _| {
-                let diff = metadata_diff(old, &metadata);
-                if diff.is_empty() {
-                    (
-                        RestoredLayerAction::KeepLayer,
-                        "using cached version".to_string(),
-                    )
-                } else {
-                    (
-                        RestoredLayerAction::DeleteLayer,
-                        format!(
-                            "due to {changes}: {differences}",
-                            changes = if diff.len() > 1 { "changes" } else { "change" },
-                            differences = SentenceList::new(&diff)
-                        ),
-                    )
-                }
-            },
-        },
-    )?;
+    let layer_ref = cached_layer_write_metadata(layer_name!("ruby"), context, metadata)?;
     match &layer_ref.state {
-        LayerState::Restored { cause: _ } => {
-            bullet = bullet.sub_bullet("Using cached Ruby version");
+        LayerState::Restored { cause } => {
+            bullet = bullet.sub_bullet(cause);
         }
         LayerState::Empty { cause } => {
             match cause {
                 EmptyLayerCause::NewlyCreated => {}
                 EmptyLayerCause::InvalidMetadataAction { cause }
                 | EmptyLayerCause::RestoredLayerAction { cause } => {
-                    bullet = bullet.sub_bullet(format!("Clearing cache {cause}"));
+                    bullet = bullet.sub_bullet(cause);
                 }
             }
             let timer = bullet.start_timer("Installing");
-            install_ruby(&metadata, &layer_ref.path())?;
+            install_ruby(metadata, &layer_ref.path())?;
             bullet = timer.done();
         }
     }
-    layer_ref.write_metadata(metadata)?;
     Ok((bullet, layer_ref.read_env()?))
 }
 
@@ -170,44 +126,39 @@ impl TryFrom<MetadataV1> for MetadataV2 {
     }
 }
 
-fn metadata_diff(old: &Metadata, metadata: &Metadata) -> Vec<String> {
-    let mut differences = Vec::new();
-    let Metadata {
-        distro_name,
-        distro_version,
-        cpu_architecture,
-        ruby_version,
-    } = old;
-    if ruby_version != &metadata.ruby_version {
-        differences.push(format!(
-            "Ruby version ({old} to {now})",
-            old = style::value(ruby_version.to_string()),
-            now = style::value(metadata.ruby_version.to_string())
-        ));
-    }
-    if distro_name != &metadata.distro_name {
-        differences.push(format!(
-            "distro name ({old} to {now})",
-            old = style::value(distro_name),
-            now = style::value(&metadata.distro_name)
-        ));
-    }
-    if distro_version != &metadata.distro_version {
-        differences.push(format!(
-            "distro version ({old} to {now})",
-            old = style::value(distro_version),
-            now = style::value(&metadata.distro_version)
-        ));
-    }
-    if cpu_architecture != &metadata.cpu_architecture {
-        differences.push(format!(
-            "CPU architecture ({old} to {now})",
-            old = style::value(cpu_architecture),
-            now = style::value(&metadata.cpu_architecture)
-        ));
-    }
+impl MetadataDiff for Metadata {
+    fn diff(&self, old: &Self) -> Vec<String> {
+        let mut differences = Vec::new();
+        let Metadata {
+            distro_name,
+            distro_version,
+            cpu_architecture,
+            ruby_version,
+        } = old;
+        if ruby_version != &self.ruby_version {
+            differences.push(format!(
+                "Ruby version ({old} to {now})",
+                old = style::value(ruby_version.to_string()),
+                now = style::value(self.ruby_version.to_string())
+            ));
+        }
+        if distro_name != &self.distro_name || distro_version != &self.distro_version {
+            differences.push(format!(
+                "Distribution ({old} to {now})",
+                old = style::value(format!("{distro_name} {distro_version}")),
+                now = style::value(format!("{} {}", self.distro_name, self.distro_version))
+            ));
+        }
+        if cpu_architecture != &self.cpu_architecture {
+            differences.push(format!(
+                "CPU architecture ({old} to {now})",
+                old = style::value(cpu_architecture),
+                now = style::value(&self.cpu_architecture)
+            ));
+        }
 
-    differences
+        differences
+    }
 }
 
 fn download_url(
@@ -291,6 +242,8 @@ pub(crate) enum RubyInstallError {
 
 #[cfg(test)]
 mod tests {
+    use crate::layers::shared::{strip_ansi, temp_build_context};
+
     use super::*;
 
     /// If this test fails due to a change you'll need to
@@ -361,5 +314,87 @@ version = "3.1.3"
             out.as_ref(),
             "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com/heroku-22/ruby-2.7.4.tgz",
         );
+    }
+
+    #[test]
+    fn metadata_diff_messages() {
+        let old = Metadata {
+            ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
+            distro_name: "ubuntu".to_string(),
+            distro_version: "20.04".to_string(),
+            cpu_architecture: "amd64".to_string(),
+        };
+        assert_eq!(old.diff(&old), Vec::<String>::new());
+
+        let diff = Metadata {
+            ruby_version: ResolvedRubyVersion("3.5.5".to_string()),
+            distro_name: old.distro_name.clone(),
+            distro_version: old.distro_version.clone(),
+            cpu_architecture: old.cpu_architecture.clone(),
+        }
+        .diff(&old);
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["Ruby version (`3.5.3` to `3.5.5`)".to_string()]
+        );
+
+        let diff = Metadata {
+            ruby_version: old.ruby_version.clone(),
+            distro_name: "alpine".to_string(),
+            distro_version: "3.20.0".to_string(),
+            cpu_architecture: old.cpu_architecture.clone(),
+        }
+        .diff(&old);
+
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["Distribution (`ubuntu 20.04` to `alpine 3.20.0`)".to_string()]
+        );
+
+        let diff = Metadata {
+            ruby_version: old.ruby_version.clone(),
+            distro_name: old.distro_name.clone(),
+            distro_version: old.distro_version.clone(),
+            cpu_architecture: "arm64".to_string(),
+        }
+        .diff(&old);
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["CPU architecture (`amd64` to `arm64`)".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_ruby_version_difference_clears_cache() {
+        let temp = tempfile::tempdir().unwrap();
+        let context = temp_build_context::<RubyBuildpack>(temp.path());
+        let old = Metadata {
+            ruby_version: ResolvedRubyVersion("2.7.2".to_string()),
+            distro_name: "ubuntu".to_string(),
+            distro_version: "20.04".to_string(),
+            cpu_architecture: "x86_64".to_string(),
+        };
+        let differences = old.diff(&old);
+        assert_eq!(differences, Vec::<String>::new());
+
+        cached_layer_write_metadata(layer_name!("ruby"), &context, &old).unwrap();
+        let result = cached_layer_write_metadata(layer_name!("ruby"), &context, &old).unwrap();
+        let actual = result.state;
+        assert!(matches!(actual, LayerState::Restored { .. }));
+
+        let now = Metadata {
+            ruby_version: ResolvedRubyVersion("3.0.0".to_string()),
+            ..old.clone()
+        };
+        let differences = now.diff(&old);
+        assert_eq!(differences.len(), 1);
+
+        let result = cached_layer_write_metadata(layer_name!("ruby"), &context, &now).unwrap();
+        assert!(matches!(
+            result.state,
+            LayerState::Empty {
+                cause: EmptyLayerCause::RestoredLayerAction { .. }
+            }
+        ));
     }
 }

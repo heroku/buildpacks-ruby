@@ -142,18 +142,10 @@ impl MetadataDiff for Metadata {
                 now = style::value(self.ruby_version.to_string())
             ));
         }
-        if distro_name != &self.distro_name {
+        if distro_name != &self.distro_name || distro_version != &self.distro_version {
             differences.push(format!(
-                "distro name ({old} to {now})",
-                old = style::value(distro_name),
-                now = style::value(&self.distro_name)
-            ));
-        }
-        if distro_version != &self.distro_version {
-            differences.push(format!(
-                "distro version ({old} to {now})",
-                old = style::value(distro_version),
-                now = style::value(&self.distro_version)
+                "Distribution ({} {} to {} {})",
+                distro_name, distro_version, self.distro_name, self.distro_version
             ));
         }
         if cpu_architecture != &self.cpu_architecture {

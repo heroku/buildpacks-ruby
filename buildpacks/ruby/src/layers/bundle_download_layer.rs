@@ -18,13 +18,27 @@ use libcnb::data::layer_content_metadata::LayerTypes;
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Env;
-use serde::{Deserialize, Serialize};
+use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
+use serde::{Deserialize, Deserializer, Serialize};
+use std::convert::Infallible;
 use std::path::Path;
 use std::process::Command;
 
+pub(crate) type Metadata = MetadataV1;
+try_migrate_deserializer_chain!(
+    deserializer: toml::Deserializer::new,
+    error: MetadataError,
+    chain: [MetadataV1],
+);
+
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub(crate) struct Metadata {
+pub(crate) struct MetadataV1 {
     pub(crate) version: ResolvedBundlerVersion,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum MetadataError {
+    // Update if migrating between a metadata version can error
 }
 
 pub(crate) struct BundleDownloadLayer<'a> {

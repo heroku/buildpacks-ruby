@@ -72,24 +72,16 @@ fn download_bundler(
     let gem_path = path;
 
     let mut cmd = Command::new("gem");
-    cmd.args([
-        "install",
-        "bundler",
-        "--version", // Specify exact version to install
-        &metadata.version.to_string(),
-    ])
-    .env_clear()
-    .envs(env);
+    cmd.args(["install", "bundler"]);
+    cmd.args(["--version", &metadata.version.to_string()]) // Specify exact version to install
+        .env_clear()
+        .envs(env);
 
-    // Format `gem install --version <version>` without other content for display
-    let short_name = fun_run::display(&mut cmd);
+    let short_name = fun_run::display(&mut cmd); // Format `gem install --version <version>` without other content for display
 
-    // Arguments we don't need in the output
+    cmd.args(["--install-dir", &format!("{}", gem_path.display())]); // Directory where bundler's contents will live
+    cmd.args(["--bindir", &format!("{}", bin_dir.display())]); // Directory where `bundle` executable lives
     cmd.args([
-        "--install-dir", // Directory where bundler's contents will live
-        &gem_path.to_string_lossy(),
-        "--bindir", // Directory where `bundle` executable lives
-        &bin_dir.to_string_lossy(),
         "--force",       // Overwrite if it already exists
         "--no-document", // Don't install ri or rdoc documentation, which takes extra time
         "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`

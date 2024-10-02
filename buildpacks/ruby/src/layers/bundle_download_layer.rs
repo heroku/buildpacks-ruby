@@ -4,8 +4,10 @@
 //!
 //! Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
 //! `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
+use crate::layers::shared::MetadataDiff;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
+use bullet_stream::style;
 use commons::gemfile_lock::ResolvedBundlerVersion;
 use commons::output::{
     fmt,
@@ -30,6 +32,20 @@ try_migrate_deserializer_chain!(
     error: MetadataError,
     chain: [MetadataV1],
 );
+
+impl MetadataDiff for Metadata {
+    fn diff(&self, other: &Self) -> Vec<String> {
+        let mut differences = Vec::new();
+        if self.version != other.version {
+            differences.push(format!(
+                "Bundler version ({old} to {now})",
+                old = style::value(other.version.to_string()),
+                now = style::value(self.version.to_string())
+            ));
+        }
+        differences
+    }
+}
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub(crate) struct MetadataV1 {
@@ -164,6 +180,24 @@ fn cache_state(old: Metadata, now: Metadata) -> State {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::layers::shared::strip_ansi;
+
+    #[test]
+    fn test_metadata_diff() {
+        let old = Metadata {
+            version: ResolvedBundlerVersion("2.3.5".to_string()),
+        };
+        assert!(old.diff(&old).is_empty());
+
+        let diff = Metadata {
+            version: ResolvedBundlerVersion("2.3.6".to_string()),
+        }
+        .diff(&old);
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["Bundler version (`2.3.5` to `2.3.6`)"]
+        );
+    }
 
     /// If this test fails due to a change you'll need to implement
     /// `migrate_incompatible_metadata` for the Layer trait

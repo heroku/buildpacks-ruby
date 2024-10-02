@@ -242,7 +242,7 @@ pub(crate) enum RubyInstallError {
 
 #[cfg(test)]
 mod tests {
-    use crate::layers::shared::temp_build_context;
+    use crate::layers::shared::{strip_ansi, temp_build_context};
 
     use super::*;
 
@@ -313,6 +313,54 @@ version = "3.1.3"
         assert_eq!(
             out.as_ref(),
             "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com/heroku-22/ruby-2.7.4.tgz",
+        );
+    }
+
+    #[test]
+    fn metadata_diff_messages() {
+        let old = Metadata {
+            ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
+            distro_name: "ubuntu".to_string(),
+            distro_version: "20.04".to_string(),
+            cpu_architecture: "amd64".to_string(),
+        };
+        assert_eq!(old.diff(&old), Vec::<String>::new());
+
+        let diff = Metadata {
+            ruby_version: ResolvedRubyVersion("3.5.5".to_string()),
+            distro_name: old.distro_name.clone(),
+            distro_version: old.distro_version.clone(),
+            cpu_architecture: old.cpu_architecture.clone(),
+        }
+        .diff(&old);
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["Ruby version (`3.5.3` to `3.5.5`)".to_string()]
+        );
+
+        let diff = Metadata {
+            ruby_version: old.ruby_version.clone(),
+            distro_name: "alpine".to_string(),
+            distro_version: "3.20.0".to_string(),
+            cpu_architecture: old.cpu_architecture.clone(),
+        }
+        .diff(&old);
+
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["Distribution (`ubuntu 20.04` to `alpine 3.20.0`)".to_string()]
+        );
+
+        let diff = Metadata {
+            ruby_version: old.ruby_version.clone(),
+            distro_name: old.distro_name.clone(),
+            distro_version: old.distro_version.clone(),
+            cpu_architecture: "arm64".to_string(),
+        }
+        .diff(&old);
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["CPU architecture (`amd64` to `arm64`)".to_string()]
         );
     }
 

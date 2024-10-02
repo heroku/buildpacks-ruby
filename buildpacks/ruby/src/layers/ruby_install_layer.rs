@@ -144,8 +144,9 @@ impl MetadataDiff for Metadata {
         }
         if distro_name != &self.distro_name || distro_version != &self.distro_version {
             differences.push(format!(
-                "Distribution ({} {} to {} {})",
-                distro_name, distro_version, self.distro_name, self.distro_version
+                "Distribution ({old} to {now})",
+                old = style::value(format!("{distro_name} {distro_version}")),
+                now = style::value(format!("{} {}", self.distro_name, self.distro_version))
             ));
         }
         if cpu_architecture != &self.cpu_architecture {

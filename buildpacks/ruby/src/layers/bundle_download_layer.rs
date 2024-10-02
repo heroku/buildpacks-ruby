@@ -4,20 +4,18 @@
 //!
 //! Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
 //! `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
-use crate::layers::shared::MetadataDiff;
+use crate::layers::shared::{cached_layer_write_metadata, MetadataDiff};
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use bullet_stream::style;
 use commons::gemfile_lock::ResolvedBundlerVersion;
 use commons::output::{
     fmt,
-    section_log::{log_step, log_step_timed, SectionLogger},
+    section_log::{log_step, log_step_timed},
 };
 use fun_run::{self, CommandWithName};
-use libcnb::build::BuildContext;
-use libcnb::data::layer_content_metadata::LayerTypes;
-#[allow(deprecated)]
-use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
+use libcnb::data::layer_name;
+use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Env;
 use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
@@ -25,6 +23,31 @@ use serde::{Deserialize, Deserializer, Serialize};
 use std::convert::Infallible;
 use std::path::Path;
 use std::process::Command;
+
+pub(crate) fn handle(
+    context: &libcnb::build::BuildContext<RubyBuildpack>,
+    env: &Env,
+    metadata: &Metadata,
+) -> libcnb::Result<LayerEnv, RubyBuildpackError> {
+    let layer_ref = cached_layer_write_metadata(layer_name!("bundler"), context, metadata)?;
+    match &layer_ref.state {
+        LayerState::Restored { cause } => {
+            log_step(cause);
+        }
+        LayerState::Empty { cause } => {
+            match cause {
+                EmptyLayerCause::NewlyCreated => {}
+                EmptyLayerCause::InvalidMetadataAction { cause }
+                | EmptyLayerCause::RestoredLayerAction { cause } => {
+                    log_step(cause);
+                }
+            }
+            let layer_env = download_bundler(env, metadata, &layer_ref.path())?;
+            layer_ref.write_env(&layer_env)?;
+        }
+    }
+    Ok(layer_ref.read_env()?)
+}
 
 pub(crate) type Metadata = MetadataV1;
 try_migrate_deserializer_chain!(
@@ -55,12 +78,6 @@ pub(crate) struct MetadataV1 {
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum MetadataError {
     // Update if migrating between a metadata version can error
-}
-
-pub(crate) struct BundleDownloadLayer<'a> {
-    pub(crate) env: Env,
-    pub(crate) metadata: Metadata,
-    pub(crate) _section_logger: &'a dyn SectionLogger,
 }
 
 fn download_bundler(
@@ -111,72 +128,6 @@ fn download_bundler(
         );
 
     Ok(layer_env)
-}
-
-#[allow(deprecated)]
-impl<'a> Layer for BundleDownloadLayer<'a> {
-    type Buildpack = RubyBuildpack;
-    type Metadata = Metadata;
-
-    fn types(&self) -> LayerTypes {
-        LayerTypes {
-            build: true,
-            launch: true,
-            cache: true,
-        }
-    }
-
-    fn create(
-        &mut self,
-        _context: &BuildContext<Self::Buildpack>,
-        layer_path: &Path,
-    ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let layer_env = download_bundler(&self.env, &self.metadata, layer_path)?;
-
-        LayerResultBuilder::new(self.metadata.clone())
-            .env(layer_env)
-            .build()
-    }
-
-    fn existing_layer_strategy(
-        &mut self,
-        _context: &BuildContext<Self::Buildpack>,
-        layer_data: &LayerData<Self::Metadata>,
-    ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
-        let old = &layer_data.content_metadata.metadata;
-        let now = self.metadata.clone();
-        match cache_state(old.clone(), now) {
-            State::NothingChanged(_version) => {
-                log_step("Using cached version");
-
-                Ok(ExistingLayerStrategy::Keep)
-            }
-            State::BundlerVersionChanged(_old, _now) => {
-                log_step(format!(
-                    "Clearing cache {}",
-                    fmt::details("bundler version changed")
-                ));
-
-                Ok(ExistingLayerStrategy::Recreate)
-            }
-        }
-    }
-}
-
-// [derive(Debug)]
-enum State {
-    NothingChanged(ResolvedBundlerVersion),
-    BundlerVersionChanged(ResolvedBundlerVersion, ResolvedBundlerVersion),
-}
-
-fn cache_state(old: Metadata, now: Metadata) -> State {
-    let Metadata { version } = now; // Ensure all properties are checked
-
-    if old.version == version {
-        State::NothingChanged(version)
-    } else {
-        State::BundlerVersionChanged(old.version, version)
-    }
 }
 
 #[cfg(test)]

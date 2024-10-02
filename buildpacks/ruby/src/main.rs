@@ -9,7 +9,6 @@ use core::str::FromStr;
 use fs_err::PathExt;
 use fun_run::CmdError;
 use layers::{
-    bundle_download_layer::BundleDownloadLayer,
     bundle_install_layer::{BundleInstallLayer, BundleInstallLayerMetadata},
     metrics_agent_install::MetricsAgentInstallError,
     ruby_install_layer::RubyInstallError,
@@ -176,19 +175,15 @@ impl Buildpack for RubyBuildpack {
                 fmt::value(bundler_version.to_string()),
                 fmt::value(gemfile_lock.bundler_source())
             ));
-            let download_bundler_layer = context.handle_layer(
-                layer_name!("bundler"),
-                BundleDownloadLayer {
-                    env: env.clone(),
-                    metadata: layers::bundle_download_layer::Metadata {
-                        version: bundler_version,
-                    },
-                    _section_logger: section.as_ref(),
+            let layer_env = layers::bundle_download_layer::handle(
+                &context,
+                &env,
+                &layers::bundle_download_layer::Metadata {
+                    version: bundler_version,
                 },
             )?;
-            let env = download_bundler_layer.env.apply(Scope::Build, &env);
 
-            (section.end_section(), env)
+            (section.end_section(), layer_env.apply(Scope::Build, &env))
         };
 
         // ## Bundle install

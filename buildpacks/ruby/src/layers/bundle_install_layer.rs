@@ -2,7 +2,9 @@
 //!
 //! Creates the cache where gems live. We want 'bundle install'
 //! to execute on every build (as opposed to only when the cache is empty)
+use crate::layers::shared::MetadataDiff;
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
+use bullet_stream::style;
 use commons::output::{
     fmt::{self, HELP},
     section_log::{log_step, log_step_stream, SectionLogger},
@@ -36,6 +38,44 @@ try_migrate_deserializer_chain!(
     error: MetadataMigrateError,
     deserializer: toml::Deserializer::new,
 );
+
+impl MetadataDiff for Metadata {
+    fn diff(&self, other: &Self) -> Vec<String> {
+        let mut differences = Vec::new();
+        let Metadata {
+            distro_name,
+            distro_version,
+            cpu_architecture,
+            ruby_version,
+            force_bundle_install_key: _,
+            digest: _,
+        } = other;
+
+        if ruby_version != &self.ruby_version {
+            differences.push(format!(
+                "Ruby version ({old} to {now})",
+                old = style::value(ruby_version.to_string()),
+                now = style::value(self.ruby_version.to_string())
+            ));
+        }
+        if distro_name != &self.distro_name || distro_version != &self.distro_version {
+            differences.push(format!(
+                "Distribution ({old} to {now})",
+                old = style::value(format!("{distro_name} {distro_version}")),
+                now = style::value(format!("{} {}", self.distro_name, self.distro_version))
+            ));
+        }
+        if cpu_architecture != &self.cpu_architecture {
+            differences.push(format!(
+                "CPU architecture ({old} to {now})",
+                old = style::value(cpu_architecture),
+                now = style::value(&self.cpu_architecture)
+            ));
+        }
+
+        differences
+    }
+}
 
 #[derive(Debug)]
 pub(crate) struct BundleInstallLayer<'a> {
@@ -431,8 +471,79 @@ pub(crate) struct BundleDigest {
 
 #[cfg(test)]
 mod test {
+    use crate::layers::shared::strip_ansi;
+
     use super::*;
     use std::path::PathBuf;
+    #[test]
+    fn metadata_diff_messages() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let app_path = tmpdir.path().to_path_buf();
+        let gemfile = app_path.join("Gemfile");
+        let env = Env::new();
+        let context = FakeContext {
+            platform: FakePlatform { env },
+            app_path,
+        };
+        std::fs::write(&gemfile, "iamagemfile").unwrap();
+
+        let old = Metadata {
+            ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
+            distro_name: "ubuntu".to_string(),
+            distro_version: "20.04".to_string(),
+            cpu_architecture: "amd64".to_string(),
+            force_bundle_install_key: FORCE_BUNDLE_INSTALL_CACHE_KEY.to_string(),
+            digest: MetadataDigest::new_env_files(
+                &context.platform,
+                &[&context.app_path.join("Gemfile")],
+            )
+            .unwrap(),
+        };
+        assert_eq!(old.diff(&old), Vec::<String>::new());
+
+        let diff = Metadata {
+            ruby_version: ResolvedRubyVersion("3.5.5".to_string()),
+            distro_name: old.distro_name.clone(),
+            distro_version: old.distro_version.clone(),
+            cpu_architecture: old.cpu_architecture.clone(),
+            force_bundle_install_key: old.force_bundle_install_key.clone(),
+            digest: old.digest.clone(),
+        }
+        .diff(&old);
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["Ruby version (`3.5.3` to `3.5.5`)".to_string()]
+        );
+
+        let diff = Metadata {
+            ruby_version: old.ruby_version.clone(),
+            distro_name: "alpine".to_string(),
+            distro_version: "3.20.0".to_string(),
+            cpu_architecture: old.cpu_architecture.clone(),
+            force_bundle_install_key: old.force_bundle_install_key.clone(),
+            digest: old.digest.clone(),
+        }
+        .diff(&old);
+
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["Distribution (`ubuntu 20.04` to `alpine 3.20.0`)".to_string()]
+        );
+
+        let diff = Metadata {
+            ruby_version: old.ruby_version.clone(),
+            distro_name: old.distro_name.clone(),
+            distro_version: old.distro_version.clone(),
+            cpu_architecture: "arm64".to_string(),
+            force_bundle_install_key: old.force_bundle_install_key.clone(),
+            digest: old.digest.clone(),
+        }
+        .diff(&old);
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["CPU architecture (`amd64` to `arm64`)".to_string()]
+        );
+    }
 
     #[cfg(test)]
     #[derive(Default, Clone)]

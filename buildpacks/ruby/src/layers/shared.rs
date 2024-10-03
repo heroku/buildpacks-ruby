@@ -263,14 +263,15 @@ mod tests {
         let context = temp_build_context::<RubyBuildpack>(temp.path());
 
         // First write
-        let result = cached_layer_write_metadata(
-            layer_name!("testing"),
-            &context,
-            &TestMetadata {
+        let result = cached_layer_builder()
+            .layer_name(layer_name!("testing"))
+            .context(&context)
+            .metadata(&TestMetadata {
                 value: "hello".to_string(),
-            },
-        )
-        .unwrap();
+            })
+            .with_data(|_, _| ())
+            .call()
+            .unwrap();
         assert!(matches!(
             result.state,
             LayerState::Empty {
@@ -279,28 +280,30 @@ mod tests {
         ));
 
         // Second write, preserve the contents
-        let result = cached_layer_write_metadata(
-            layer_name!("testing"),
-            &context,
-            &TestMetadata {
+        let result = cached_layer_builder()
+            .layer_name(layer_name!("testing"))
+            .context(&context)
+            .metadata(&TestMetadata {
                 value: "hello".to_string(),
-            },
-        )
-        .unwrap();
+            })
+            .with_data(|_, _| ())
+            .call()
+            .unwrap();
         let LayerState::Restored { cause } = &result.state else {
             panic!("Expected restored layer")
         };
-        assert_eq!(cause, "Using cache");
+        assert_eq!(cause.as_ref(), "Using cache");
 
         // Third write, change the data
-        let result = cached_layer_write_metadata(
-            layer_name!("testing"),
-            &context,
-            &TestMetadata {
+        let result = cached_layer_builder()
+            .layer_name(layer_name!("testing"))
+            .context(&context)
+            .metadata(&TestMetadata {
                 value: "world".to_string(),
-            },
-        )
-        .unwrap();
+            })
+            .with_data(|_, _| ())
+            .call()
+            .unwrap();
 
         let LayerState::Empty {
             cause: EmptyLayerCause::RestoredLayerAction { cause },
@@ -309,7 +312,7 @@ mod tests {
             panic!("Expected empty layer with restored layer action");
         };
         assert_eq!(
-            cause,
+            cause.as_ref(),
             "Clearing cache due to change: value (hello to world)"
         );
     }

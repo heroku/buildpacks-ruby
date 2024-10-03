@@ -4,9 +4,18 @@ use libcnb::build::BuildContext;
 use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, LayerRef, RestoredLayerAction};
 use std::fmt::Display;
 
-/// Writes metadata to a layer and returns a reference to the layer
+/// Default behavior for a cached layer, ensures new metadata is always written
 ///
-/// A function can be used to extract data or state from the old metadata
+/// The metadadata must implement `MetadataDiff` and `TryMigrate` in addition
+/// to the typical `Serialize` and `Debug` traits
+///
+/// The `with_data` function is required to inform the builder what data
+/// should be returned. It will be packaged in a `CacheState` enum which
+/// will either return a message (if the cache was cleared) or the data if it wasn't.
+///
+/// The `CacheState` implements `Display` and `AsRef<str>` to allow for easy printing.
+///
+/// If you don't need any data returned you can use `|_, _| ()` to return an empty unit.
 #[builder]
 #[allow(clippy::needless_pass_by_value)]
 pub(crate) fn cached_layer_builder<B, M, F, T>(

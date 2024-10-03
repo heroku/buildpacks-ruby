@@ -1,3 +1,4 @@
+use bon::builder;
 use commons::display::SentenceList;
 use libcnb::build::BuildContext;
 use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, LayerRef, RestoredLayerAction};
@@ -6,11 +7,15 @@ use std::fmt::Display;
 /// Writes metadata to a layer and returns a reference to the layer
 ///
 /// A function can be used to extract data or state from the old metadata
-pub(crate) fn cached_layer_with<B, M, F, T>(
+#[builder]
+#[allow(clippy::needless_pass_by_value)]
+pub(crate) fn cached_layer_builder<B, M, F, T>(
     layer_name: libcnb::data::layer::LayerName,
     context: &BuildContext<B>,
     metadata: &'_ M,
-    f: F,
+    build: Option<bool>,
+    launch: Option<bool>,
+    with_data: F,
 ) -> libcnb::Result<LayerRef<B, CacheState<T>, CacheState<T>>, B::Error>
 where
     F: Fn(&M, &M) -> T,
@@ -21,8 +26,8 @@ where
     let layer_ref = context.cached_layer(
         layer_name,
         CachedLayerDefinition {
-            build: true,
-            launch: true,
+            build: build.unwrap_or(true),
+            launch: launch.unwrap_or(true),
             invalid_metadata_action: &|invalid| {
                 let (action, cause) = invalid_metadata_action(invalid);
                 match action {
@@ -36,7 +41,7 @@ where
                 let (action, cause) = restored_layer_action(old, metadata);
                 match action {
                     RestoredLayerAction::KeepLayer => {
-                        let out = f(old, metadata);
+                        let out = with_data(old, metadata);
                         (action, CacheState::Data(out))
                     }
                     RestoredLayerAction::DeleteLayer => (action, CacheState::Message(cause)),

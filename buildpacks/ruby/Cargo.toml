@@ -30,6 +30,7 @@ ureq = { version = "2", default-features = false, features = ["tls"] }
 url = "2"
 magic_migrate = "0.2"
 toml = "0.8"
+bon = "2.3.0"
 
 [dev-dependencies]
 libcnb-test = "=0.23.0"

@@ -3,7 +3,7 @@
 //! Creates the cache where gems live. We want 'bundle install'
 //! to execute on every build (as opposed to only when the cache is empty)
 use crate::layers::shared::{
-    cached_layer_with, cached_layer_write_metadata, CacheState, MetadataDiff,
+    cached_layer_builder, cached_layer_write_metadata, CacheState, MetadataDiff,
 };
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use bullet_stream::state::SubBullet;
@@ -49,13 +49,16 @@ pub(crate) fn handle(
     metadata: &Metadata,
     without: &BundleWithout,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = cached_layer_with(layer_name!("gems"), context, metadata, |old, now| {
-        update_state(old, now)
-    })?;
+    let layer_ref = cached_layer_builder()
+        .layer_name(layer_name!("gems"))
+        .context(context)
+        .metadata(metadata)
+        .with_data(|old, _| old.clone())
+        .call()?;
 
     let update_state = match &layer_ref.state {
         LayerState::Restored { cause } => match cause {
-            CacheState::Data(data) => data,
+            CacheState::Data(old) => &update_state(old, metadata),
             CacheState::Message(_) => unreachable!(),
         },
         LayerState::Empty { cause } => match cause {

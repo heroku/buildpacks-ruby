@@ -4,7 +4,8 @@
 //! to execute on every build (as opposed to only when the cache is empty)
 use crate::layers::shared::MetadataDiff;
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
-use bullet_stream::style;
+use bullet_stream::state::SubBullet;
+use bullet_stream::{style, Print};
 use commons::output::{
     fmt::{self, HELP},
     section_log::{log_step, log_step_stream, SectionLogger},
@@ -25,6 +26,7 @@ use libcnb::{
 use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::convert::Infallible;
+use std::io::Stdout;
 use std::{path::Path, process::Command};
 
 use crate::target_id::{TargetId, TargetIdError};
@@ -34,6 +36,14 @@ const SKIP_DIGEST_ENV: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
 /// A failsafe, if a programmer made a mistake in the caching logic, rev-ing this
 /// key will force a re-run of `bundle install` to ensure the cache is correct on the next build.
 pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
+
+pub(crate) fn handle(
+    context: &libcnb::build::BuildContext<RubyBuildpack>,
+    mut bullet: Print<SubBullet<Stdout>>,
+    metadata: &Metadata,
+) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
+    todo!()
+}
 
 pub(crate) type Metadata = MetadataV2;
 try_migrate_deserializer_chain!(

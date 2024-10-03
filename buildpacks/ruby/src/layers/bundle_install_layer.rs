@@ -29,7 +29,10 @@ use std::{path::Path, process::Command};
 
 use crate::target_id::{TargetId, TargetIdError};
 
-const HEROKU_SKIP_BUNDLE_DIGEST: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
+/// If this environment variable is set, the `bundle install` command will always run.
+const SKIP_DIGEST_ENV: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
+/// A failsafe, if a programmer made a mistake in the caching logic, rev-ing this
+/// key will force a re-run of `bundle install` to ensure the cache is correct on the next build.
 pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
 
 pub(crate) type Metadata = MetadataV2;
@@ -167,7 +170,7 @@ enum UpdateState {
 ///
 ///
 fn update_state(old: &Metadata, now: &Metadata) -> UpdateState {
-    let forced_env = std::env::var_os(HEROKU_SKIP_BUNDLE_DIGEST);
+    let forced_env = std::env::var_os(SKIP_DIGEST_ENV);
     let old_key = &old.force_bundle_install_key;
     let now_key = &now.force_bundle_install_key;
 
@@ -178,7 +181,7 @@ fn update_state(old: &Metadata, now: &Metadata) -> UpdateState {
     } else if let Some(value) = forced_env {
         let value = value.to_string_lossy();
 
-        UpdateState::Run(format!("found {HEROKU_SKIP_BUNDLE_DIGEST}={value}"))
+        UpdateState::Run(format!("found {SKIP_DIGEST_ENV}={value}"))
     } else if let Some(changed) = now.digest.changed(&old.digest) {
         UpdateState::Run(format!("{changed}"))
     } else {
@@ -226,7 +229,7 @@ impl Layer for BundleInstallLayer<'_> {
 
                 log_step(format!(
                     "{HELP} To force run {bundle_install} set {}",
-                    fmt::value(format!("{HEROKU_SKIP_BUNDLE_DIGEST}=1"))
+                    fmt::value(format!("{SKIP_DIGEST_ENV}=1"))
                 ));
             }
         }

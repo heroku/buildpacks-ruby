@@ -4,7 +4,7 @@
 //!
 //! Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
 //! `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
-use crate::layers::shared::{cached_layer_write_metadata, MetadataDiff};
+use crate::layers::shared::{cached_layer_builder, MetadataDiff};
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use bullet_stream::state::SubBullet;
@@ -28,7 +28,12 @@ pub(crate) fn handle(
     mut bullet: Print<SubBullet<Stdout>>,
     metadata: &Metadata,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = cached_layer_write_metadata(layer_name!("bundler"), context, metadata)?;
+    let layer_ref = cached_layer_builder()
+        .layer_name(layer_name!("bundler"))
+        .context(context)
+        .metadata(metadata)
+        .with_data(|_, _| ())
+        .call()?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);

@@ -9,13 +9,11 @@ use core::str::FromStr;
 use fs_err::PathExt;
 use fun_run::CmdError;
 use layers::{
-    bundle_install_layer::BundleInstallLayer, metrics_agent_install::MetricsAgentInstallError,
-    ruby_install_layer::RubyInstallError,
+    metrics_agent_install::MetricsAgentInstallError, ruby_install_layer::RubyInstallError,
 };
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
 use libcnb::data::launch::LaunchBuilder;
-use libcnb::data::layer_name;
 use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
 use libcnb::generic::{GenericMetadata, GenericPlatform};
 use libcnb::layer_env::Scope;
@@ -168,7 +166,7 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Setup bundler
-        (_, env) = {
+        (build_output, env) = {
             let bullet = build_output.bullet(format!(
                 "Bundler version {} from {}",
                 style::value(bundler_version.to_string()),
@@ -187,39 +185,36 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Bundle install
-        (logger, env) = {
-            let section = logger.section("Bundle install");
-            let bundle_install_layer = context.handle_layer(
-                layer_name!("gems"),
-                BundleInstallLayer {
-                    env: env.clone(),
-                    without: BundleWithout::new("development:test"),
-                    _section_log: section.as_ref(),
-                    metadata: layers::bundle_install_layer::Metadata {
-                        distro_name: context.target.distro_name.clone(),
-                        distro_version: context.target.distro_version.clone(),
-                        cpu_architecture: context.target.arch.clone(),
-                        ruby_version: ruby_version.clone(),
-                        force_bundle_install_key: String::from(
-                            crate::layers::bundle_install_layer::FORCE_BUNDLE_INSTALL_CACHE_KEY,
-                        ),
-                        digest: MetadataDigest::new_env_files(
-                            &context.platform,
-                            &[
-                                &context.app_dir.join("Gemfile"),
-                                &context.app_dir.join("Gemfile.lock"),
-                            ],
-                        )
-                        .map_err(|error| match error {
-                            commons::metadata_digest::DigestError::CannotReadFile(path, error) => {
-                                RubyBuildpackError::BundleInstallDigestError(path, error)
-                            }
-                        })?,
-                    },
+        (_, env) = {
+            let bullet = build_output.bullet("Bundle install");
+            let (bullet, layer_env) = layers::bundle_install_layer::handle(
+                &env,
+                &context,
+                bullet,
+                &layers::bundle_install_layer::Metadata {
+                    distro_name: context.target.distro_name.clone(),
+                    distro_version: context.target.distro_version.clone(),
+                    cpu_architecture: context.target.arch.clone(),
+                    ruby_version: ruby_version.clone(),
+                    force_bundle_install_key: String::from(
+                        crate::layers::bundle_install_layer::FORCE_BUNDLE_INSTALL_CACHE_KEY,
+                    ),
+                    digest: MetadataDigest::new_env_files(
+                        &context.platform,
+                        &[
+                            &context.app_dir.join("Gemfile"),
+                            &context.app_dir.join("Gemfile.lock"),
+                        ],
+                    )
+                    .map_err(|error| match error {
+                        commons::metadata_digest::DigestError::CannotReadFile(path, error) => {
+                            RubyBuildpackError::BundleInstallDigestError(path, error)
+                        }
+                    })?,
                 },
+                &BundleWithout::new("development:test"),
             )?;
-            let env = bundle_install_layer.env.apply(Scope::Build, &env);
-            (section.end_section(), env)
+            (bullet.done(), layer_env.apply(Scope::Build, &env))
         };
 
         // ## Detect gems

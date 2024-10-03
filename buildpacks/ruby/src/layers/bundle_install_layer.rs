@@ -2,10 +2,13 @@
 //!
 //! Creates the cache where gems live. We want 'bundle install'
 //! to execute on every build (as opposed to only when the cache is empty)
-use crate::layers::shared::MetadataDiff;
+use crate::layers::shared::{
+    cached_layer_with, cached_layer_write_metadata, CacheState, MetadataDiff,
+};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
+use commons::layer;
 use commons::output::{
     fmt::{self, HELP},
     section_log::{log_step, log_step_stream, SectionLogger},
@@ -15,6 +18,8 @@ use commons::{
 };
 use fun_run::CommandWithName;
 use fun_run::{self, CmdError};
+use libcnb::data::layer_name;
+use libcnb::layer::{CachedLayerDefinition, EmptyLayerCause, LayerState, RestoredLayerAction};
 #[allow(deprecated)]
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use libcnb::{
@@ -38,11 +43,57 @@ const SKIP_DIGEST_ENV: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
 pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
 
 pub(crate) fn handle(
+    env: &Env,
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     mut bullet: Print<SubBullet<Stdout>>,
     metadata: &Metadata,
+    without: &BundleWithout,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    todo!()
+    let layer_ref = cached_layer_with(layer_name!("gems"), context, metadata, |old, now| {
+        update_state(old, now)
+    })?;
+
+    let update_state = match &layer_ref.state {
+        LayerState::Restored { cause } => match cause {
+            CacheState::Data(data) => data,
+            CacheState::Message(_) => unreachable!(),
+        },
+        LayerState::Empty { cause } => match cause {
+            EmptyLayerCause::NewlyCreated => &UpdateState::Run(String::new()),
+            EmptyLayerCause::InvalidMetadataAction { cause }
+            | EmptyLayerCause::RestoredLayerAction { cause } => {
+                &UpdateState::Run(cause.to_string())
+            }
+        },
+    };
+
+    let layer_env = layer_env(&layer_ref.path(), &context.app_dir, without);
+    layer_ref.write_env(&layer_env)?;
+    let env = layer_env.apply(Scope::Build, env);
+
+    match update_state {
+        UpdateState::Run(reason) => {
+            if !reason.is_empty() {
+                log_step(reason);
+            }
+
+            bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
+        }
+        UpdateState::Skip(checked) => {
+            let bundle_install = fmt::value("bundle install");
+
+            log_step(format!(
+                "Skipping {bundle_install} (no changes found in {sources})",
+                sources = SentenceList::new(checked).join_str("or")
+            ));
+
+            log_step(format!(
+                "{HELP} To force run {bundle_install} set {}",
+                fmt::value(format!("{SKIP_DIGEST_ENV}=1"))
+            ));
+        }
+    }
+    Ok((bullet, layer_ref.read_env()?))
 }
 
 pub(crate) type Metadata = MetadataV2;
@@ -88,14 +139,6 @@ impl MetadataDiff for Metadata {
 
         differences
     }
-}
-
-#[derive(Debug)]
-pub(crate) struct BundleInstallLayer<'a> {
-    pub(crate) env: Env,
-    pub(crate) without: BundleWithout,
-    pub(crate) _section_log: &'a dyn SectionLogger,
-    pub(crate) metadata: Metadata,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
@@ -154,19 +197,6 @@ impl TryFrom<MetadataV1> for MetadataV2 {
     }
 }
 
-impl<'a> BundleInstallLayer<'a> {
-    #[allow(clippy::unnecessary_wraps)]
-    fn build_layer_env(
-        &self,
-        context: &BuildContext<RubyBuildpack>,
-        layer_path: &Path,
-    ) -> Result<LayerEnv, RubyBuildpackError> {
-        let out = layer_env(layer_path, &context.app_dir, &self.without);
-
-        Ok(out)
-    }
-}
-
 #[derive(Debug)]
 enum UpdateState {
     /// Holds message indicating the reason why we want to run 'bundle install'
@@ -197,120 +227,6 @@ fn update_state(old: &Metadata, now: &Metadata) -> UpdateState {
     } else {
         let checked = now.digest.checked_list();
         UpdateState::Skip(checked)
-    }
-}
-
-#[allow(deprecated)]
-impl Layer for BundleInstallLayer<'_> {
-    type Buildpack = RubyBuildpack;
-    type Metadata = Metadata;
-
-    fn types(&self) -> LayerTypes {
-        LayerTypes {
-            build: true,
-            launch: true,
-            cache: true,
-        }
-    }
-
-    /// Runs with gems cache from last execution
-    fn update(
-        &mut self,
-        context: &BuildContext<Self::Buildpack>,
-        layer_data: &LayerData<Self::Metadata>,
-    ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let metadata = self.metadata.clone();
-        let layer_env = self.build_layer_env(context, &layer_data.path)?;
-        let env = layer_env.apply(Scope::Build, &self.env);
-
-        match update_state(&layer_data.content_metadata.metadata, &metadata) {
-            UpdateState::Run(reason) => {
-                log_step(reason);
-
-                bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
-            }
-            UpdateState::Skip(checked) => {
-                let bundle_install = fmt::value("bundle install");
-
-                log_step(format!(
-                    "Skipping {bundle_install} (no changes found in {sources})",
-                    sources = SentenceList::new(&checked).join_str("or")
-                ));
-
-                log_step(format!(
-                    "{HELP} To force run {bundle_install} set {}",
-                    fmt::value(format!("{SKIP_DIGEST_ENV}=1"))
-                ));
-            }
-        }
-
-        LayerResultBuilder::new(metadata).env(layer_env).build()
-    }
-
-    /// Runs when with empty cache
-    fn create(
-        &mut self,
-        context: &BuildContext<Self::Buildpack>,
-        layer_path: &Path,
-    ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let layer_env = self.build_layer_env(context, layer_path)?;
-        let env = layer_env.apply(Scope::Build, &self.env);
-
-        bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
-
-        LayerResultBuilder::new(self.metadata.clone())
-            .env(layer_env)
-            .build()
-    }
-
-    /// When there is a cache determines if we will run:
-    /// - update (keep cache and bundle install)
-    /// - recreate (destroy cache and bundle instal)
-    ///
-    /// CAUTION: We should Should never Keep, this will prevent env vars
-    /// if a coder updates env vars they won't be set unless update or
-    /// create is run.
-    fn existing_layer_strategy(
-        &mut self,
-        _context: &BuildContext<Self::Buildpack>,
-        layer_data: &LayerData<Self::Metadata>,
-    ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
-        let old = &layer_data.content_metadata.metadata;
-
-        let diff = self.metadata.diff(old);
-        if diff.is_empty() {
-            log_step("Loading cached gems");
-            Ok(ExistingLayerStrategy::Update)
-        } else {
-            log_step(format!(
-                "Clearing cache due to change(s) {}",
-                SentenceList::new(&diff)
-            ));
-            Ok(ExistingLayerStrategy::Recreate)
-        }
-    }
-
-    fn migrate_incompatible_metadata(
-        &mut self,
-        _context: &BuildContext<Self::Buildpack>,
-        metadata: &libcnb::generic::GenericMetadata,
-    ) -> Result<
-        libcnb::layer::MetadataMigration<Self::Metadata>,
-        <Self::Buildpack as libcnb::Buildpack>::Error,
-    > {
-        match Self::Metadata::try_from_str_migrations(
-            &toml::to_string(&metadata).expect("TOML deserialization of GenericMetadata"),
-        ) {
-            Some(Ok(metadata)) => Ok(libcnb::layer::MetadataMigration::ReplaceMetadata(metadata)),
-            Some(Err(e)) => {
-                log_step(format!("Clearing cache (metadata migration error {e})"));
-                Ok(libcnb::layer::MetadataMigration::RecreateLayer)
-            }
-            None => {
-                log_step("Clearing cache (invalid metadata)");
-                Ok(libcnb::layer::MetadataMigration::RecreateLayer)
-            }
-        }
     }
 }
 

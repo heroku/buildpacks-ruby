@@ -263,49 +263,17 @@ impl Layer for BundleInstallLayer<'_> {
         layer_data: &LayerData<Self::Metadata>,
     ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
         let old = &layer_data.content_metadata.metadata;
-        let now = self.metadata.clone();
 
-        let clear_and_run = Ok(ExistingLayerStrategy::Recreate);
-        let keep_and_run = Ok(ExistingLayerStrategy::Update);
-
-        match cache_state(old.clone(), now) {
-            Changed::Nothing => {
-                log_step("Loading cached gems");
-
-                keep_and_run
-            }
-            Changed::DistroName(old, now) => {
-                log_step(format!(
-                    "Clearing cache {}",
-                    fmt::details(format!("distro name changed: {old} to {now}"))
-                ));
-
-                clear_and_run
-            }
-            Changed::DistroVersion(old, now) => {
-                log_step(format!(
-                    "Clearing cache {}",
-                    fmt::details(format!("distro version changed: {old} to {now}"))
-                ));
-
-                clear_and_run
-            }
-            Changed::CpuArchitecture(old, now) => {
-                log_step(format!(
-                    "Clearing cache {}",
-                    fmt::details(format!("cpu architecture changed: {old} to {now}"))
-                ));
-
-                clear_and_run
-            }
-            Changed::RubyVersion(old, now) => {
-                log_step(format!(
-                    "Clearing cache {}",
-                    fmt::details(format!("Ruby version changed: {old} to {now}"))
-                ));
-
-                clear_and_run
-            }
+        let diff = self.metadata.diff(old);
+        if diff.is_empty() {
+            log_step("Loading cached gems");
+            Ok(ExistingLayerStrategy::Update)
+        } else {
+            log_step(format!(
+                "Clearing cache due to change(s) {}",
+                SentenceList::new(&diff)
+            ));
+            Ok(ExistingLayerStrategy::Recreate)
         }
     }
 
@@ -330,41 +298,6 @@ impl Layer for BundleInstallLayer<'_> {
                 Ok(libcnb::layer::MetadataMigration::RecreateLayer)
             }
         }
-    }
-}
-
-/// The possible states of the cache values, used for determining `ExistingLayerStrategy`
-#[derive(Debug)]
-enum Changed {
-    Nothing,
-    DistroName(String, String),
-    DistroVersion(String, String),
-    CpuArchitecture(String, String),
-    RubyVersion(ResolvedRubyVersion, ResolvedRubyVersion),
-}
-
-// Compare the old metadata to current metadata to determine the state of the
-// cache. Based on that state, we can log and determine `ExistingLayerStrategy`
-fn cache_state(old: Metadata, now: Metadata) -> Changed {
-    let Metadata {
-        distro_name,
-        distro_version,
-        cpu_architecture,
-        ruby_version,
-        force_bundle_install_key: _,
-        digest: _, // digest state handled elsewhere
-    } = now; // ensure all values are handled or we get a clippy warning
-
-    if old.distro_name != distro_name {
-        Changed::DistroName(old.distro_name, distro_name)
-    } else if old.distro_version != distro_version {
-        Changed::DistroVersion(old.distro_version, distro_version)
-    } else if old.cpu_architecture != cpu_architecture {
-        Changed::CpuArchitecture(old.cpu_architecture, cpu_architecture)
-    } else if old.ruby_version != ruby_version {
-        Changed::RubyVersion(old.ruby_version, ruby_version)
-    } else {
-        Changed::Nothing
     }
 }
 

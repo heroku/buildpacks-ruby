@@ -1,6 +1,72 @@
 use commons::display::SentenceList;
 use libcnb::build::BuildContext;
 use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, LayerRef, RestoredLayerAction};
+use std::fmt::Display;
+
+/// Writes metadata to a layer and returns a reference to the layer
+///
+/// A function can be used to extract data or state from the old metadata
+pub(crate) fn cached_layer_with<B, M, F, T>(
+    layer_name: libcnb::data::layer::LayerName,
+    context: &BuildContext<B>,
+    metadata: &'_ M,
+    f: F,
+) -> libcnb::Result<LayerRef<B, CacheState<T>, CacheState<T>>, B::Error>
+where
+    F: Fn(&M, &M) -> T,
+    B: libcnb::Buildpack,
+    M: MetadataDiff + magic_migrate::TryMigrate + serde::ser::Serialize + std::fmt::Debug,
+    <M as magic_migrate::TryMigrate>::Error: std::fmt::Display,
+{
+    let layer_ref = context.cached_layer(
+        layer_name,
+        CachedLayerDefinition {
+            build: true,
+            launch: true,
+            invalid_metadata_action: &|invalid| {
+                let (action, cause) = invalid_metadata_action(invalid);
+                match action {
+                    InvalidMetadataAction::ReplaceMetadata(_) => {
+                        (action, CacheState::Message("Using cache".to_string()))
+                    }
+                    InvalidMetadataAction::DeleteLayer => (action, CacheState::Message(cause)),
+                }
+            },
+            restored_layer_action: &|old: &M, _| {
+                let (action, cause) = restored_layer_action(old, metadata);
+                match action {
+                    RestoredLayerAction::KeepLayer => {
+                        let out = f(old, metadata);
+                        (action, CacheState::Data(out))
+                    }
+                    RestoredLayerAction::DeleteLayer => (action, CacheState::Message(cause)),
+                }
+            },
+        },
+    )?;
+    layer_ref.write_metadata(metadata)?;
+    Ok(layer_ref)
+}
+
+pub(crate) enum CacheState<T> {
+    Message(String),
+    Data(T),
+}
+
+impl<T> Display for CacheState<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_ref())
+    }
+}
+
+impl<T> AsRef<str> for CacheState<T> {
+    fn as_ref(&self) -> &str {
+        match self {
+            CacheState::Message(s) => s.as_str(),
+            CacheState::Data(_) => "Using cache",
+        }
+    }
+}
 
 /// Default behavior for a cached layer, ensures new metadata is always written
 ///

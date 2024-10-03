@@ -1,3 +1,7 @@
+//! Mostly runs 'bundle install'
+//!
+//! Creates the cache where gems live. We want 'bundle install'
+//! to execute on every build (as opposed to only when the cache is empty)
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use commons::output::{
     fmt::{self, HELP},
@@ -33,13 +37,6 @@ try_migrate_deserializer_chain!(
     deserializer: toml::Deserializer::new,
 );
 
-/// Mostly runs 'bundle install'
-///
-/// Creates the cache where gems live. We want 'bundle install'
-/// to execute on every build (as opposed to only when the cache is empty)
-///
-/// To help achieve this the logic inside of `BundleInstallLayer::update` and
-/// `BundleInstallLayer::create` are the same.
 #[derive(Debug)]
 pub(crate) struct BundleInstallLayer<'a> {
     pub(crate) env: Env,

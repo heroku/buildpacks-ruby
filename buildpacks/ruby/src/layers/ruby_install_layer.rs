@@ -247,7 +247,7 @@ pub(crate) enum RubyInstallError {
 
 #[cfg(test)]
 mod tests {
-    use crate::layers::shared::{strip_ansi, temp_build_context};
+    use crate::layers::shared::strip_ansi;
 
     use super::*;
 

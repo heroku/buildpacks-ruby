@@ -17,7 +17,6 @@ use std::fmt::Display;
 ///
 /// If you don't need any data returned you can use `|_, _| ()` to return an empty unit.
 #[builder]
-#[allow(clippy::needless_pass_by_value)]
 pub(crate) fn cached_layer_builder<B, M, F, T>(
     layer_name: libcnb::data::layer::LayerName,
     context: &BuildContext<B>,

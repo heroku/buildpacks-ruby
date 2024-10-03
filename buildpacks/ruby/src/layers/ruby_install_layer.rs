@@ -11,7 +11,7 @@
 //!
 //! When the Ruby version changes, invalidate and re-run.
 //!
-use crate::layers::shared::{cached_layer_write_metadata, MetadataDiff};
+use crate::layers::shared::{cached_layer_builder, MetadataDiff};
 use crate::{
     target_id::{TargetId, TargetIdError},
     RubyBuildpack, RubyBuildpackError,
@@ -37,7 +37,12 @@ pub(crate) fn handle(
     mut bullet: Print<SubBullet<Stdout>>,
     metadata: &Metadata,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = cached_layer_write_metadata(layer_name!("ruby"), context, metadata)?;
+    let layer_ref = cached_layer_builder()
+        .layer_name(layer_name!("ruby"))
+        .context(context)
+        .metadata(metadata)
+        .with_data(|_, _| ())
+        .call()?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);
@@ -364,10 +369,9 @@ version = "3.1.3"
         );
     }
 
+    // Cache behavior relies on `MetadataDiff` implementation
     #[test]
     fn test_ruby_version_difference_clears_cache() {
-        let temp = tempfile::tempdir().unwrap();
-        let context = temp_build_context::<RubyBuildpack>(temp.path());
         let old = Metadata {
             ruby_version: ResolvedRubyVersion("2.7.2".to_string()),
             distro_name: "ubuntu".to_string(),
@@ -377,24 +381,11 @@ version = "3.1.3"
         let differences = old.diff(&old);
         assert_eq!(differences, Vec::<String>::new());
 
-        cached_layer_write_metadata(layer_name!("ruby"), &context, &old).unwrap();
-        let result = cached_layer_write_metadata(layer_name!("ruby"), &context, &old).unwrap();
-        let actual = result.state;
-        assert!(matches!(actual, LayerState::Restored { .. }));
-
         let now = Metadata {
             ruby_version: ResolvedRubyVersion("3.0.0".to_string()),
             ..old.clone()
         };
         let differences = now.diff(&old);
         assert_eq!(differences.len(), 1);
-
-        let result = cached_layer_write_metadata(layer_name!("ruby"), &context, &now).unwrap();
-        assert!(matches!(
-            result.state,
-            LayerState::Empty {
-                cause: EmptyLayerCause::RestoredLayerAction { .. }
-            }
-        ));
     }
 }

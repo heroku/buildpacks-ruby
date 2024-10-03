@@ -82,33 +82,6 @@ impl<T> AsRef<str> for CacheState<T> {
     }
 }
 
-/// Default behavior for a cached layer, ensures new metadata is always written
-///
-/// The metadadata must implement `MetadataDiff` and `TryMigrate` in addition
-/// to the typical `Serialize` and `Debug` traits
-pub(crate) fn cached_layer_write_metadata<M, B>(
-    layer_name: libcnb::data::layer::LayerName,
-    context: &BuildContext<B>,
-    metadata: &'_ M,
-) -> libcnb::Result<LayerRef<B, String, String>, B::Error>
-where
-    B: libcnb::Buildpack,
-    M: MetadataDiff + magic_migrate::TryMigrate + serde::ser::Serialize + std::fmt::Debug,
-    <M as magic_migrate::TryMigrate>::Error: std::fmt::Display,
-{
-    let layer_ref = context.cached_layer(
-        layer_name,
-        CachedLayerDefinition {
-            build: true,
-            launch: true,
-            invalid_metadata_action: &invalid_metadata_action,
-            restored_layer_action: &|old: &M, _| restored_layer_action(old, metadata),
-        },
-    )?;
-    layer_ref.write_metadata(metadata)?;
-    Ok(layer_ref)
-}
-
 /// Given another metadata object, returns a list of differences between the two
 ///
 /// If no differences, return an empty list
@@ -241,7 +214,7 @@ mod tests {
     use serde::Deserializer;
     use std::convert::Infallible;
 
-    /// Struct for asserting the behavior of `cached_layer_write_metadata`
+    /// Struct for asserting the behavior of `cached_layer_builder`
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     struct TestMetadata {
         value: String,
@@ -258,7 +231,7 @@ mod tests {
     migrate_toml_chain! {TestMetadata}
 
     #[test]
-    fn test_cached_layer_write_metadata_restored_layer_action() {
+    fn test_cached_layer_builder_restored_layer_action() {
         let temp = tempfile::tempdir().unwrap();
         let context = temp_build_context::<RubyBuildpack>(temp.path());
 

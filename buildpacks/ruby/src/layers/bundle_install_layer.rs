@@ -1,10 +1,19 @@
-//! Mostly runs 'bundle install'
+//! Installs Ruby gems (libraries) via `bundle install`
 //!
 //! Creates the cache where gems live. We want 'bundle install'
-//! to execute on every build (as opposed to only when the cache is empty)
+//! to execute on every build (as opposed to only when the cache is empty).
 //!
-//! To help achieve this the logic inside of `BundleInstallLayer::update` and
-//! `BundleInstallLayer::create` are the same.
+//! As a small performance optimization, it will not run if the `Gemfile.lock`,
+//! `Gemfile`, or user provided "platform" environment variable have not changed.
+//! User applications can opt out of this behavior by setting the environment
+//! variable `HEROKU_SKIP_BUNDLE_DIGEST=1`. That would be useful if the application's
+//! `Gemfile` sources logic or data from another file that is unknown to the buildpack.
+//!
+//! Gems can be plain Ruby code which are OS, Architecture, and Ruby version independent.
+//! They can also be native extensions that use Ruby's C API or contain libraries that
+//! must be compiled and will then be invoked via FFI. These native extensions are
+//! OS, Architecture, and Ruby version dependent. Due to this, when one of these changes
+//! we must clear the cache and re-run `bundle install`.
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use commons::output::{
     fmt::{self, HELP},

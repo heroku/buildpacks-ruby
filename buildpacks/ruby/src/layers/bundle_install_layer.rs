@@ -42,6 +42,13 @@ use crate::target_id::{TargetId, TargetIdError};
 const HEROKU_SKIP_BUNDLE_DIGEST: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
 pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
 
+pub(crate) type Metadata = MetadataV2;
+try_migrate_deserializer_chain!(
+    chain: [MetadataV1, MetadataV2],
+    error: MetadataMigrateError,
+    deserializer: toml::Deserializer::new,
+);
+
 #[derive(Debug)]
 pub(crate) struct BundleInstallLayer<'a> {
     pub(crate) env: Env,
@@ -79,13 +86,6 @@ pub(crate) struct MetadataV2 {
     ///
     pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
-
-try_migrate_deserializer_chain!(
-    chain: [MetadataV1, MetadataV2],
-    error: MetadataMigrateError,
-    deserializer: toml::Deserializer::new,
-);
-pub(crate) type Metadata = MetadataV2;
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum MetadataMigrateError {

@@ -14,10 +14,11 @@
 //! must be compiled and will then be invoked via FFI. These native extensions are
 //! OS, Architecture, and Ruby version dependent. Due to this, when one of these changes
 //! we must clear the cache and re-run `bundle install`.
-use crate::layers::shared::MetadataDiff;
+use crate::layers::shared::{cached_layer_write_metadata, MetadataDiff};
 use crate::target_id::{TargetId, TargetIdError};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
-use bullet_stream::style;
+use bullet_stream::state::SubBullet;
+use bullet_stream::{style, Print};
 use commons::output::{
     fmt::{self, HELP},
     section_log::{log_step, log_step_stream, SectionLogger},
@@ -27,6 +28,8 @@ use commons::{
 };
 use fun_run::CommandWithName;
 use fun_run::{self, CmdError};
+use libcnb::data::layer_name;
+use libcnb::layer::{EmptyLayerCause, LayerState};
 #[allow(deprecated)]
 use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use libcnb::{
@@ -38,6 +41,7 @@ use libcnb::{
 use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::convert::Infallible;
+use std::io::Stdout;
 use std::{path::Path, process::Command};
 
 /// When this environment variable is set, the `bundle install` command will always
@@ -48,6 +52,29 @@ const SKIP_DIGEST_ENV_KEY: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
 /// key will force a re-run of `bundle install` to ensure the cache is correct
 /// on the next build.
 pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
+
+pub(crate) fn handle(
+    context: &libcnb::build::BuildContext<RubyBuildpack>,
+    env: &Env,
+    mut bullet: Print<SubBullet<Stdout>>,
+    metadata: &Metadata,
+) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
+    let layer_ref = cached_layer_write_metadata(layer_name!("gems"), context, metadata)?;
+    match &layer_ref.state {
+        LayerState::Restored { cause } => {
+            bullet = bullet.sub_bullet(cause);
+        }
+        LayerState::Empty { cause } => match cause {
+            EmptyLayerCause::NewlyCreated => {}
+            EmptyLayerCause::InvalidMetadataAction { cause }
+            | EmptyLayerCause::RestoredLayerAction { cause } => {
+                bullet = bullet.sub_bullet(cause);
+            }
+        },
+    }
+
+    Ok((bullet, layer_ref.read_env()?))
+}
 
 pub(crate) type Metadata = MetadataV2;
 try_migrate_deserializer_chain!(

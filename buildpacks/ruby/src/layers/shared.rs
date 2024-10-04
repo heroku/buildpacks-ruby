@@ -40,9 +40,9 @@ pub(crate) trait MetadataDiff {
 ///
 /// If the diff is empty, there are no changes and the layer is kept
 /// If the diff is not empty, the layer is deleted and the changes are listed
-pub(crate) fn restored_layer_action<T>(old: &T, now: &T) -> (RestoredLayerAction, String)
+pub(crate) fn restored_layer_action<M>(old: &M, now: &M) -> (RestoredLayerAction, String)
 where
-    T: MetadataDiff,
+    M: MetadataDiff,
 {
     let diff = now.diff(old);
     if diff.is_empty() {

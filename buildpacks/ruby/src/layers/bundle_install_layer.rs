@@ -15,6 +15,7 @@
 //! OS, Architecture, and Ruby version dependent. Due to this, when one of these changes
 //! we must clear the cache and re-run `bundle install`.
 use crate::layers::shared::MetadataDiff;
+use crate::target_id::{TargetId, TargetIdError};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use bullet_stream::style;
 use commons::output::{
@@ -38,8 +39,6 @@ use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::convert::Infallible;
 use std::{path::Path, process::Command};
-
-use crate::target_id::{TargetId, TargetIdError};
 
 /// When this environment variable is set, the `bundle install` command will always
 /// run regardless of whether the `Gemfile`, `Gemfile.lock`, or platform environment

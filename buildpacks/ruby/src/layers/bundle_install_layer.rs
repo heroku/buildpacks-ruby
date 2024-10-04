@@ -87,7 +87,18 @@ pub(crate) fn handle(
                 log_step(reason);
             }
 
-            bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
+            let mut cmd = Command::new("bundle");
+            cmd.args(["install"])
+                .env_clear() // Current process env vars already merged into env
+                .envs(&env);
+            let mut cmd = cmd.named_fn(|cmd| display_name(cmd, &env));
+            log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
+                cmd.stream_output(stream.io(), stream.io())
+            })
+            .map_err(|error| {
+                fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
+            })
+            .map_err(RubyBuildpackError::BundleInstallCommandError)?;
         }
         InstallState::Skip(checked) => {
             let bundle_install = fmt::value("bundle install");
@@ -292,27 +303,6 @@ fn layer_env(layer_path: &Path, app_dir: &Path, without_default: &BundleWithout)
     // Rev the `force_bundle_install` cache key to ensure consistent
     // state (when appropriate).
     layer_env
-}
-
-/// Sets the needed environment variables to configure bundler and uses them
-/// to execute the `bundle install` command. The results are streamed to stdout/stderr.
-///
-/// # Errors
-///
-/// When the 'bundle install' command fails this function returns an error.
-fn bundle_install(env: &Env) -> Result<(), CmdError> {
-    let mut cmd = Command::new("bundle");
-    cmd.args(["install"])
-        .env_clear() // Current process env vars already merged into env
-        .envs(env);
-
-    let mut cmd = cmd.named_fn(|cmd| display_name(cmd, env));
-    log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
-        cmd.stream_output(stream.io(), stream.io())
-    })
-    .map_err(|error| fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned()))?;
-
-    Ok(())
 }
 
 /// Displays the `bundle install` command with `BUNDLE_` environment variables

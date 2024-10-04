@@ -65,15 +65,15 @@ pub(crate) fn handle(
             bullet = bullet.sub_bullet(cause);
             match cause {
                 Meta::Data(old) => update_state(old, metadata),
-                Meta::Message(_) => UpdateState::Run(String::new()),
+                Meta::Message(_) => InstallState::Run(String::new()),
             }
         }
         LayerState::Empty { cause } => match cause {
-            EmptyLayerCause::NewlyCreated => UpdateState::Run(String::new()),
+            EmptyLayerCause::NewlyCreated => InstallState::Run(String::new()),
             EmptyLayerCause::InvalidMetadataAction { cause }
             | EmptyLayerCause::RestoredLayerAction { cause } => {
                 bullet = bullet.sub_bullet(cause);
-                UpdateState::Run(String::new())
+                InstallState::Run(String::new())
             }
         },
     };
@@ -204,7 +204,7 @@ impl<'a> BundleInstallLayer<'a> {
 }
 
 #[derive(Debug)]
-enum UpdateState {
+enum InstallState {
     /// Holds message indicating the reason why we want to run 'bundle install'
     Run(String),
 
@@ -215,24 +215,24 @@ enum UpdateState {
 /// Determines if 'bundle install' should execute on a given call to `BundleInstallLatyer::update`
 ///
 ///
-fn update_state(old: &Metadata, now: &Metadata) -> UpdateState {
+fn update_state(old: &Metadata, now: &Metadata) -> InstallState {
     let forced_env = std::env::var_os(SKIP_DIGEST_ENV_KEY);
     let old_key = &old.force_bundle_install_key;
     let now_key = &now.force_bundle_install_key;
 
     if old_key != now_key {
-        UpdateState::Run(format!(
+        InstallState::Run(format!(
             "buildpack author triggered internal change {old_key} to {now_key}"
         ))
     } else if let Some(value) = forced_env {
         let value = value.to_string_lossy();
 
-        UpdateState::Run(format!("found {SKIP_DIGEST_ENV_KEY}={value}"))
+        InstallState::Run(format!("found {SKIP_DIGEST_ENV_KEY}={value}"))
     } else if let Some(changed) = now.digest.changed(&old.digest) {
-        UpdateState::Run(format!("{changed}"))
+        InstallState::Run(format!("{changed}"))
     } else {
         let checked = now.digest.checked_list();
-        UpdateState::Skip(checked)
+        InstallState::Skip(checked)
     }
 }
 
@@ -260,12 +260,12 @@ impl Layer for BundleInstallLayer<'_> {
         let env = layer_env.apply(Scope::Build, &self.env);
 
         match update_state(&layer_data.content_metadata.metadata, &metadata) {
-            UpdateState::Run(reason) => {
+            InstallState::Run(reason) => {
                 log_step(reason);
 
                 bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
             }
-            UpdateState::Skip(checked) => {
+            InstallState::Skip(checked) => {
                 let bundle_install = fmt::value("bundle install");
 
                 log_step(format!(

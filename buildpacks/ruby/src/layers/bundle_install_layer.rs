@@ -314,7 +314,7 @@ fn bundle_install(
 
     bullet
         .stream_with(
-            format!("Running {}", style::command("bundle install")),
+            format!("Running {}", style::command(cmd.name())),
             |stdout, stderr| cmd.stream_output(stdout, stderr),
         )
         .map_err(|error| fun_run::map_which_problem(error, cmd.mut_cmd(), path_env))?;

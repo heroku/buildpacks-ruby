@@ -334,7 +334,7 @@ mod test {
     use super::*;
     use std::path::PathBuf;
 
-    /// MetadataDiff logic controls cache invalidation
+    /// `MetadataDiff` logic controls cache invalidation
     /// When the vec is empty the cache is kept, otherwise it is invalidated
     #[test]
     fn metadata_diff_messages() {

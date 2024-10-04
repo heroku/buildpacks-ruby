@@ -489,8 +489,82 @@ pub(crate) struct BundleDigest {
 
 #[cfg(test)]
 mod test {
+    use crate::layers::shared::strip_ansi;
+
     use super::*;
     use std::path::PathBuf;
+
+    /// MetadataDiff logic controls cache invalidation
+    /// When the vec is empty the cache is kept, otherwise it is invalidated
+    #[test]
+    fn metadata_diff_messages() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let app_path = tmpdir.path().to_path_buf();
+        let gemfile = app_path.join("Gemfile");
+        let env = Env::new();
+        let context = FakeContext {
+            platform: FakePlatform { env },
+            app_path,
+        };
+        std::fs::write(&gemfile, "iamagemfile").unwrap();
+
+        let old = Metadata {
+            ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
+            distro_name: "ubuntu".to_string(),
+            distro_version: "20.04".to_string(),
+            cpu_architecture: "amd64".to_string(),
+            force_bundle_install_key: FORCE_BUNDLE_INSTALL_CACHE_KEY.to_string(),
+            digest: MetadataDigest::new_env_files(
+                &context.platform,
+                &[&context.app_path.join("Gemfile")],
+            )
+            .unwrap(),
+        };
+        assert_eq!(old.diff(&old), Vec::<String>::new());
+
+        let diff = Metadata {
+            ruby_version: ResolvedRubyVersion("3.5.5".to_string()),
+            distro_name: old.distro_name.clone(),
+            distro_version: old.distro_version.clone(),
+            cpu_architecture: old.cpu_architecture.clone(),
+            force_bundle_install_key: old.force_bundle_install_key.clone(),
+            digest: old.digest.clone(),
+        }
+        .diff(&old);
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["Ruby version (`3.5.3` to `3.5.5`)".to_string()]
+        );
+
+        let diff = Metadata {
+            ruby_version: old.ruby_version.clone(),
+            distro_name: "alpine".to_string(),
+            distro_version: "3.20.0".to_string(),
+            cpu_architecture: old.cpu_architecture.clone(),
+            force_bundle_install_key: old.force_bundle_install_key.clone(),
+            digest: old.digest.clone(),
+        }
+        .diff(&old);
+
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["Distribution (`ubuntu 20.04` to `alpine 3.20.0`)".to_string()]
+        );
+
+        let diff = Metadata {
+            ruby_version: old.ruby_version.clone(),
+            distro_name: old.distro_name.clone(),
+            distro_version: old.distro_version.clone(),
+            cpu_architecture: "arm64".to_string(),
+            force_bundle_install_key: old.force_bundle_install_key.clone(),
+            digest: old.digest.clone(),
+        }
+        .diff(&old);
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["CPU architecture (`amd64` to `arm64`)".to_string()]
+        );
+    }
 
     #[cfg(test)]
     #[derive(Default, Clone)]

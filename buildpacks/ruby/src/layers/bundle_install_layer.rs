@@ -446,38 +446,36 @@ fn layer_env(layer_path: &Path, app_dir: &Path, without_default: &BundleWithout)
 /// # Errors
 ///
 /// When the 'bundle install' command fails this function returns an error.
-///
 fn bundle_install(env: &Env) -> Result<(), CmdError> {
-    let path_env = env.get("PATH").cloned();
-    let display_with_env = |cmd: &'_ mut Command| {
-        fun_run::display_with_env_keys(
-            cmd,
-            env,
-            [
-                "BUNDLE_BIN",
-                "BUNDLE_CLEAN",
-                "BUNDLE_DEPLOYMENT",
-                "BUNDLE_GEMFILE",
-                "BUNDLE_PATH",
-                "BUNDLE_WITHOUT",
-            ],
-        )
-    };
-
-    // ## Run `$ bundle install`
     let mut cmd = Command::new("bundle");
-    cmd.env_clear() // Current process env vars already merged into env
-        .args(["install"])
+    cmd.args(["install"])
+        .env_clear() // Current process env vars already merged into env
         .envs(env);
 
-    let mut cmd = cmd.named_fn(display_with_env);
-
+    let mut cmd = cmd.named_fn(|cmd| display_name(cmd, env));
     log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
         cmd.stream_output(stream.io(), stream.io())
     })
-    .map_err(|error| fun_run::map_which_problem(error, cmd.mut_cmd(), path_env))?;
+    .map_err(|error| fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned()))?;
 
     Ok(())
+}
+
+/// Displays the `bundle install` command with `BUNDLE_` environment variables
+/// that we use to configure bundler.
+fn display_name(cmd: &mut Command, env: &Env) -> String {
+    fun_run::display_with_env_keys(
+        cmd,
+        env,
+        [
+            "BUNDLE_BIN",
+            "BUNDLE_CLEAN",
+            "BUNDLE_DEPLOYMENT",
+            "BUNDLE_GEMFILE",
+            "BUNDLE_PATH",
+            "BUNDLE_WITHOUT",
+        ],
+    )
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, Default)]

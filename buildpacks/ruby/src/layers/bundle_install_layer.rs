@@ -42,13 +42,12 @@ pub(crate) fn handle(
         .layer_name(layer_name!("gems"))
         .context(context)
         .metadata(metadata)
-        .with_data(|old, _| old.clone())
         .call()?;
 
     let update_state = match &layer_ref.state {
         LayerState::Restored { cause } => match cause {
             CacheState::Data(old) => &update_state(old, metadata),
-            CacheState::Message(_) => unreachable!(),
+            CacheState::Message(msg) => &UpdateState::Run(msg.to_string()),
         },
         LayerState::Empty { cause } => match cause {
             EmptyLayerCause::NewlyCreated => &UpdateState::Run(String::new()),

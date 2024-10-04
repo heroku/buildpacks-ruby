@@ -41,7 +41,6 @@ pub(crate) fn handle(
         .layer_name(layer_name!("ruby"))
         .context(context)
         .metadata(metadata)
-        .with_data(|_, _| ())
         .call()?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {

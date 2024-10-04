@@ -9,8 +9,7 @@ use core::str::FromStr;
 use fs_err::PathExt;
 use fun_run::CmdError;
 use layers::{
-    bundle_install_layer::{BundleInstallLayer, BundleInstallLayerMetadata},
-    metrics_agent_install::MetricsAgentInstallError,
+    bundle_install_layer::BundleInstallLayer, metrics_agent_install::MetricsAgentInstallError,
     ruby_install_layer::RubyInstallError,
 };
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
@@ -196,7 +195,7 @@ impl Buildpack for RubyBuildpack {
                     env: env.clone(),
                     without: BundleWithout::new("development:test"),
                     _section_log: section.as_ref(),
-                    metadata: BundleInstallLayerMetadata {
+                    metadata: layers::bundle_install_layer::Metadata {
                         distro_name: context.target.distro_name.clone(),
                         distro_version: context.target.distro_version.clone(),
                         cpu_architecture: context.target.arch.clone(),

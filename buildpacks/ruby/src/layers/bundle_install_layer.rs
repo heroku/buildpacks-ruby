@@ -38,11 +38,11 @@ pub(crate) struct BundleInstallLayer<'a> {
     pub(crate) env: Env,
     pub(crate) without: BundleWithout,
     pub(crate) _section_log: &'a dyn SectionLogger,
-    pub(crate) metadata: BundleInstallLayerMetadata,
+    pub(crate) metadata: Metadata,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
-pub(crate) struct BundleInstallLayerMetadataV1 {
+pub(crate) struct MetadataV1 {
     pub(crate) stack: String,
     pub(crate) ruby_version: ResolvedRubyVersion,
     pub(crate) force_bundle_install_key: String,
@@ -50,7 +50,7 @@ pub(crate) struct BundleInstallLayerMetadataV1 {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
-pub(crate) struct BundleInstallLayerMetadataV2 {
+pub(crate) struct MetadataV2 {
     pub(crate) distro_name: String,
     pub(crate) distro_version: String,
     pub(crate) cpu_architecture: String,
@@ -72,11 +72,11 @@ pub(crate) struct BundleInstallLayerMetadataV2 {
 }
 
 try_migrate_deserializer_chain!(
-    chain: [BundleInstallLayerMetadataV1, BundleInstallLayerMetadataV2],
+    chain: [MetadataV1, MetadataV2],
     error: MetadataMigrateError,
     deserializer: toml::Deserializer::new,
 );
-pub(crate) type BundleInstallLayerMetadata = BundleInstallLayerMetadataV2;
+pub(crate) type Metadata = MetadataV2;
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum MetadataMigrateError {
@@ -86,10 +86,10 @@ pub(crate) enum MetadataMigrateError {
 
 // CNB spec moved from the concept of "stacks" (i.e. "heroku-22" which represented an OS and system dependencies) to finer
 // grained "target" which includes the OS, OS version, and architecture. This function converts the old stack id to the new target id.
-impl TryFrom<BundleInstallLayerMetadataV1> for BundleInstallLayerMetadataV2 {
+impl TryFrom<MetadataV1> for MetadataV2 {
     type Error = MetadataMigrateError;
 
-    fn try_from(v1: BundleInstallLayerMetadataV1) -> Result<Self, Self::Error> {
+    fn try_from(v1: MetadataV1) -> Result<Self, Self::Error> {
         let target_id =
             TargetId::from_stack(&v1.stack).map_err(MetadataMigrateError::UnsupportedStack)?;
 
@@ -129,7 +129,7 @@ enum UpdateState {
 /// Determines if 'bundle install' should execute on a given call to `BundleInstallLatyer::update`
 ///
 ///
-fn update_state(old: &BundleInstallLayerMetadata, now: &BundleInstallLayerMetadata) -> UpdateState {
+fn update_state(old: &Metadata, now: &Metadata) -> UpdateState {
     let forced_env = std::env::var_os(HEROKU_SKIP_BUNDLE_DIGEST);
     let old_key = &old.force_bundle_install_key;
     let now_key = &now.force_bundle_install_key;
@@ -153,7 +153,7 @@ fn update_state(old: &BundleInstallLayerMetadata, now: &BundleInstallLayerMetada
 #[allow(deprecated)]
 impl Layer for BundleInstallLayer<'_> {
     type Buildpack = RubyBuildpack;
-    type Metadata = BundleInstallLayerMetadata;
+    type Metadata = Metadata;
 
     fn types(&self) -> LayerTypes {
         LayerTypes {
@@ -308,8 +308,8 @@ enum Changed {
 
 // Compare the old metadata to current metadata to determine the state of the
 // cache. Based on that state, we can log and determine `ExistingLayerStrategy`
-fn cache_state(old: BundleInstallLayerMetadata, now: BundleInstallLayerMetadata) -> Changed {
-    let BundleInstallLayerMetadata {
+fn cache_state(old: Metadata, now: Metadata) -> Changed {
+    let Metadata {
         distro_name,
         distro_version,
         cpu_architecture,
@@ -506,7 +506,7 @@ GEM_PATH=layer_path
         std::fs::write(&gemfile, "iamagemfile").unwrap();
 
         let target_id = TargetId::from_stack("heroku-22").unwrap();
-        let metadata = BundleInstallLayerMetadata {
+        let metadata = Metadata {
             distro_name: target_id.distro_name,
             distro_version: target_id.distro_version,
             cpu_architecture: target_id.cpu_architecture,
@@ -540,7 +540,7 @@ platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3
         .to_string();
         assert_eq!(toml_string, actual.trim());
 
-        let deserialized: BundleInstallLayerMetadata = toml::from_str(&toml_string).unwrap();
+        let deserialized: Metadata = toml::from_str(&toml_string).unwrap();
 
         assert_eq!(metadata, deserialized);
     }
@@ -560,7 +560,7 @@ platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3
         };
         std::fs::write(&gemfile, "iamagemfile").unwrap();
 
-        let metadata = BundleInstallLayerMetadataV1 {
+        let metadata = MetadataV1 {
             stack: String::from("heroku-22"),
             ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
             force_bundle_install_key: String::from("v1"),
@@ -590,13 +590,12 @@ platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3
         .to_string();
         assert_eq!(toml_string, actual.trim());
 
-        let deserialized: BundleInstallLayerMetadataV2 =
-            BundleInstallLayerMetadataV2::try_from_str_migrations(&toml_string)
-                .unwrap()
-                .unwrap();
+        let deserialized: MetadataV2 = MetadataV2::try_from_str_migrations(&toml_string)
+            .unwrap()
+            .unwrap();
 
         let target_id = TargetId::from_stack(&metadata.stack).unwrap();
-        let expected = BundleInstallLayerMetadataV2 {
+        let expected = MetadataV2 {
             distro_name: target_id.distro_name,
             distro_version: target_id.distro_version,
             cpu_architecture: target_id.cpu_architecture,

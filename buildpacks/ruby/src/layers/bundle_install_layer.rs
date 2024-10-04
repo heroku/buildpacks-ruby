@@ -43,6 +43,9 @@ use crate::target_id::{TargetId, TargetIdError};
 /// run regardless of whether the `Gemfile`, `Gemfile.lock`, or platform environment
 /// variables have changed.
 const SKIP_DIGEST_ENV_KEY: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
+/// A failsafe, if a programmer made a mistake in the caching logic, rev-ing this
+/// key will force a re-run of `bundle install` to ensure the cache is correct
+/// on the next build.
 pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
 
 pub(crate) type Metadata = MetadataV2;

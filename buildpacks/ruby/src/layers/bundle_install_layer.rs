@@ -14,7 +14,9 @@
 //! must be compiled and will then be invoked via FFI. These native extensions are
 //! OS, Architecture, and Ruby version dependent. Due to this, when one of these changes
 //! we must clear the cache and re-run `bundle install`.
+use crate::layers::shared::MetadataDiff;
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
+use bullet_stream::style;
 use commons::output::{
     fmt::{self, HELP},
     section_log::{log_step, log_step_stream, SectionLogger},
@@ -54,6 +56,44 @@ try_migrate_deserializer_chain!(
     error: MetadataMigrateError,
     deserializer: toml::Deserializer::new,
 );
+
+impl MetadataDiff for Metadata {
+    fn diff(&self, old: &Self) -> Vec<String> {
+        let mut differences = Vec::new();
+        let Metadata {
+            distro_name,
+            distro_version,
+            cpu_architecture,
+            ruby_version,
+            force_bundle_install_key: _,
+            digest: _,
+        } = old;
+
+        if ruby_version != &self.ruby_version {
+            differences.push(format!(
+                "Ruby version ({old} to {now})",
+                old = style::value(ruby_version.to_string()),
+                now = style::value(self.ruby_version.to_string())
+            ));
+        }
+        if distro_name != &self.distro_name || distro_version != &self.distro_version {
+            differences.push(format!(
+                "Distribution ({old} to {now})",
+                old = style::value(format!("{distro_name} {distro_version}")),
+                now = style::value(format!("{} {}", self.distro_name, self.distro_version))
+            ));
+        }
+        if cpu_architecture != &self.cpu_architecture {
+            differences.push(format!(
+                "CPU architecture ({old} to {now})",
+                old = style::value(cpu_architecture),
+                now = style::value(&self.cpu_architecture)
+            ));
+        }
+
+        differences
+    }
+}
 
 #[derive(Debug)]
 pub(crate) struct BundleInstallLayer<'a> {

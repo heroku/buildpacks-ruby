@@ -1,5 +1,5 @@
 use bullet_stream::{style, Print};
-use commons::cache::{build, CacheError};
+use commons::cache::CacheError;
 use commons::gemfile_lock::GemfileLock;
 use commons::metadata_digest::MetadataDigest;
 #[allow(clippy::wildcard_imports)]

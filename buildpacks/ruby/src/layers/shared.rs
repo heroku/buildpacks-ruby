@@ -10,10 +10,10 @@ pub(crate) fn cached_layer_write_metadata<M, B>(
     layer_name: libcnb::data::layer::LayerName,
     context: &BuildContext<B>,
     metadata: &'_ M,
-) -> libcnb::Result<LayerRef<B, String, String>, B::Error>
+) -> libcnb::Result<LayerRef<B, Meta<M>, Meta<M>>, B::Error>
 where
     B: libcnb::Buildpack,
-    M: MetadataDiff + magic_migrate::TryMigrate + serde::ser::Serialize + std::fmt::Debug,
+    M: MetadataDiff + magic_migrate::TryMigrate + serde::ser::Serialize + std::fmt::Debug + Clone,
     <M as magic_migrate::TryMigrate>::Error: std::fmt::Display,
 {
     let layer_ref = context.cached_layer(
@@ -40,21 +40,21 @@ pub(crate) trait MetadataDiff {
 ///
 /// If the diff is empty, there are no changes and the layer is kept
 /// If the diff is not empty, the layer is deleted and the changes are listed
-pub(crate) fn restored_layer_action<M>(old: &M, now: &M) -> (RestoredLayerAction, String)
+pub(crate) fn restored_layer_action<M>(old: &M, now: &M) -> (RestoredLayerAction, Meta<M>)
 where
-    M: MetadataDiff,
+    M: MetadataDiff + Clone,
 {
     let diff = now.diff(old);
     if diff.is_empty() {
-        (RestoredLayerAction::KeepLayer, "Using cache".to_string())
+        (RestoredLayerAction::KeepLayer, Meta::Data(now.clone()))
     } else {
         (
             RestoredLayerAction::DeleteLayer,
-            format!(
+            Meta::Message(format!(
                 "Clearing cache due to {changes}: {differences}",
                 changes = if diff.len() > 1 { "changes" } else { "change" },
                 differences = SentenceList::new(&diff)
-            ),
+            )),
         )
     }
 }
@@ -64,9 +64,9 @@ where
 /// If the metadata can be migrated, it is replaced with the migrated version
 /// If an error occurs, the layer is deleted and the error displayed
 /// If no migration is possible, the layer is deleted and the invalid metadata is displayed
-pub(crate) fn invalid_metadata_action<M, S>(invalid: &S) -> (InvalidMetadataAction<M>, String)
+pub(crate) fn invalid_metadata_action<M, S>(invalid: &S) -> (InvalidMetadataAction<M>, Meta<M>)
 where
-    M: magic_migrate::TryMigrate,
+    M: magic_migrate::TryMigrate + Clone,
     S: serde::ser::Serialize + std::fmt::Debug,
     // TODO: Enforce Display + Debug in the library
     <M as magic_migrate::TryMigrate>::Error: std::fmt::Display,
@@ -75,24 +75,28 @@ where
     match invalid {
         Ok(toml) => match M::try_from_str_migrations(&toml) {
             Some(Ok(migrated)) => (
-                InvalidMetadataAction::ReplaceMetadata(migrated),
-                "Replaced metadata".to_string(),
+                InvalidMetadataAction::ReplaceMetadata(migrated.clone()),
+                Meta::Data(migrated),
             ),
             Some(Err(error)) => (
                 InvalidMetadataAction::DeleteLayer,
-                format!("Clearing cache due to metadata migration error: {error}"),
+                Meta::Message(format!(
+                    "Clearing cache due to metadata migration error: {error}"
+                )),
             ),
             None => (
                 InvalidMetadataAction::DeleteLayer,
-                format!(
+                Meta::Message(format!(
                     "Clearing cache due to invalid metadata ({toml})",
                     toml = toml.trim()
-                ),
+                )),
             ),
         },
         Err(error) => (
             InvalidMetadataAction::DeleteLayer,
-            format!("Clearing cache due to invalid metadata serialization error: {error}"),
+            Meta::Message(format!(
+                "Clearing cache due to invalid metadata serialization error: {error}"
+            )),
         ),
     }
 }
@@ -202,7 +206,7 @@ mod tests {
     use std::convert::Infallible;
 
     /// Struct for asserting the behavior of `cached_layer_write_metadata`
-    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
     struct TestMetadata {
         value: String,
     }
@@ -250,7 +254,7 @@ mod tests {
         let LayerState::Restored { cause } = &result.state else {
             panic!("Expected restored layer")
         };
-        assert_eq!(cause, "Using cache");
+        assert_eq!(cause.as_ref(), "Using cache");
 
         // Third write, change the data
         let result = cached_layer_write_metadata(
@@ -269,19 +273,19 @@ mod tests {
             panic!("Expected empty layer with restored layer action");
         };
         assert_eq!(
-            cause,
+            cause.as_ref(),
             "Clearing cache due to change: value (hello to world)"
         );
     }
 
     /// Struct for asserting the behavior of `invalid_metadata_action`
-    #[derive(serde::Deserialize, serde::Serialize, Debug)]
+    #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
     #[serde(deny_unknown_fields)]
     struct PersonV1 {
         name: String,
     }
     /// Struct for asserting the behavior of `invalid_metadata_action`
-    #[derive(serde::Deserialize, serde::Serialize, Debug)]
+    #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
     #[serde(deny_unknown_fields)]
     struct PersonV2 {
         name: String,
@@ -329,15 +333,15 @@ mod tests {
             name: "schneems".to_string(),
         });
         assert!(matches!(action, InvalidMetadataAction::ReplaceMetadata(_)));
-        assert_eq!(message, "Replaced metadata".to_string());
+        assert_eq!(message.as_ref(), "Using cache");
 
         let (action, message) = invalid_metadata_action::<PersonV2, _>(&PersonV1 {
             name: "not_richard".to_string(),
         });
         assert!(matches!(action, InvalidMetadataAction::DeleteLayer));
         assert_eq!(
-            message,
-            "Clearing cache due to metadata migration error: Not Richard".to_string()
+            message.as_ref(),
+            "Clearing cache due to metadata migration error: Not Richard"
         );
 
         let (action, message) = invalid_metadata_action::<PersonV2, _>(&TestMetadata {
@@ -345,10 +349,9 @@ mod tests {
         });
         assert!(matches!(action, InvalidMetadataAction::DeleteLayer));
         assert_eq!(
-            message,
-            "Clearing cache due to invalid metadata (value = \"world\")".to_string()
+            message.as_ref(),
+            "Clearing cache due to invalid metadata (value = \"world\")"
         );
-
         // Unable to produce this error at will: "Clearing cache due to invalid metadata serialization error: {error}"
     }
 }

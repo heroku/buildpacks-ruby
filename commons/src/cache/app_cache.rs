@@ -1,7 +1,7 @@
 use crate::cache::clean::{lru_clean, FilesWithSize};
 use crate::cache::in_app_dir_cache_layer::InAppDirCacheLayer;
 use crate::cache::{CacheConfig, CacheError, KeepPath};
-use byte_unit::{AdjustedByte, Byte};
+use byte_unit::{AdjustedByte, Byte, UnitType};
 use fs_extra::dir::CopyOptions;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
@@ -106,7 +106,7 @@ impl AppCache {
     /// The value (in adjusted bytes) of the limit for the cached directory
     #[must_use]
     pub fn limit(&self) -> AdjustedByte {
-        self.limit.get_appropriate_unit(true)
+        self.limit.get_appropriate_unit(UnitType::Binary)
     }
 
     /// The state of the cache directory when the object was created
@@ -395,7 +395,7 @@ mod tests {
         let store = AppCache {
             path: app_path.clone(),
             cache: cache_path,
-            limit: Byte::from_bytes(512),
+            limit: Byte::from_u64(512),
             keep_path: KeepPath::Runtime,
             cache_state: CacheState::NewEmpty,
         };
@@ -426,7 +426,7 @@ mod tests {
         let store = AppCache {
             path: app_path.clone(),
             cache: cache_path,
-            limit: Byte::from_bytes(512),
+            limit: Byte::from_u64(512),
             keep_path: KeepPath::BuildOnly,
             cache_state: CacheState::NewEmpty,
         };

@@ -1,5 +1,5 @@
 use crate::cache::CacheError;
-use byte_unit::{AdjustedByte, Byte};
+use byte_unit::{AdjustedByte, Byte, UnitType};
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -50,7 +50,7 @@ fn files(cache_path: &Path) -> Result<Vec<MiniPathModSize>, CacheError> {
 /// `FilesWithSize`. If later deleted, those values will reduce the total size of the directory
 /// below the limit.
 fn lru_files_above_limit(cache_path: &Path, limit: Byte) -> Result<FilesWithSize, CacheError> {
-    let max_bytes = limit.get_bytes();
+    let max_bytes = limit.as_u128();
     let mut files = files(cache_path)?;
     let bytes = files.iter().map(|p| u128::from(p.size)).sum::<u128>();
 
@@ -87,7 +87,7 @@ pub struct FilesWithSize {
 impl FilesWithSize {
     #[must_use]
     pub fn to_byte(&self) -> Byte {
-        Byte::from_bytes(self.bytes)
+        Byte::from_u128(self.bytes).unwrap_or(Byte::MAX)
     }
 
     /// Return byte value with adjusted units.
@@ -95,7 +95,7 @@ impl FilesWithSize {
     /// When formatted the units will be included.
     #[must_use]
     pub fn adjusted_bytes(&self) -> AdjustedByte {
-        self.to_byte().get_appropriate_unit(true)
+        self.to_byte().get_appropriate_unit(UnitType::Binary)
     }
 }
 
@@ -125,6 +125,8 @@ impl MiniPathModSize {
 
 #[cfg(test)]
 mod tests {
+    use crate::cache::mib;
+
     use super::*;
 
     #[test]
@@ -144,8 +146,6 @@ mod tests {
         assert_eq!(out.len(), 1);
     }
 
-    use byte_unit::n_mib_bytes;
-
     fn touch_file(path: &PathBuf, f: impl FnOnce(&PathBuf)) {
         if let Some(parent) = path.parent() {
             if !parent.exists() {
@@ -164,19 +164,13 @@ mod tests {
 
         fs_err::create_dir_all(&dir).unwrap();
 
-        assert_eq!(
-            lru_files_above_limit(&dir, Byte::from_bytes(n_mib_bytes!(0)),)
-                .unwrap()
-                .files
-                .len(),
-            0
-        );
+        assert_eq!(lru_files_above_limit(&dir, mib(0),).unwrap().files.len(), 0);
 
         touch_file(&dir.join("a"), |file| {
-            let overage = lru_files_above_limit(&dir, Byte::from_bytes(n_mib_bytes!(0))).unwrap();
+            let overage = lru_files_above_limit(&dir, mib(0)).unwrap();
             assert_eq!(overage.files, vec![file.clone()]);
 
-            let overage = lru_files_above_limit(&dir, Byte::from_bytes(n_mib_bytes!(10))).unwrap();
+            let overage = lru_files_above_limit(&dir, mib(10)).unwrap();
             assert_eq!(overage.files.len(), 0);
         });
     }
@@ -191,8 +185,7 @@ mod tests {
                 filetime::set_file_mtime(a, filetime::FileTime::from_unix_time(0, 0)).unwrap();
                 filetime::set_file_mtime(b, filetime::FileTime::from_unix_time(1, 0)).unwrap();
 
-                let overage =
-                    lru_files_above_limit(&dir, Byte::from_bytes(n_mib_bytes!(0))).unwrap();
+                let overage = lru_files_above_limit(&dir, mib(0)).unwrap();
                 assert_eq!(overage.files, vec![a.clone(), b.clone()]);
             });
         });
@@ -203,7 +196,7 @@ mod tests {
         let tmpdir = tempfile::tempdir().unwrap();
         let dir = tmpdir.path().join("");
         fs_err::create_dir_all(dir.join("preservation_society")).unwrap();
-        let overage = lru_files_above_limit(&dir, Byte::from_bytes(n_mib_bytes!(0))).unwrap();
+        let overage = lru_files_above_limit(&dir, mib(0)).unwrap();
         assert_eq!(overage.files, Vec::<PathBuf>::new());
     }
 }

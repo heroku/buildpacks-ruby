@@ -1,4 +1,4 @@
-use byte_unit::{n_mib_bytes, Byte};
+use byte_unit::Byte;
 use std::path::PathBuf;
 
 /// Configure behavior of a cached path
@@ -28,6 +28,6 @@ pub enum KeepPath {
 /// Returns a `Byte` value containing the number
 /// of mebibytes given.
 #[must_use]
-pub fn mib(n_mebibytes: u128) -> Byte {
-    Byte::from_bytes(n_mib_bytes!(n_mebibytes))
+pub fn mib(n_mebibytes: usize) -> Byte {
+    Byte::MEBIBYTE.multiply(n_mebibytes).unwrap_or(Byte::MAX)
 }

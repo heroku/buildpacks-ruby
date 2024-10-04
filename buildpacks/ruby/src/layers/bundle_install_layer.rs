@@ -58,6 +58,7 @@ pub(crate) fn handle(
     env: &Env,
     mut bullet: Print<SubBullet<Stdout>>,
     metadata: &Metadata,
+    without: &BundleWithout,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
     let layer_ref = cached_layer_write_metadata(layer_name!("gems"), context, metadata)?;
     let install_state = match &layer_ref.state {
@@ -77,6 +78,35 @@ pub(crate) fn handle(
             }
         },
     };
+
+    let env = {
+        let layer_env = layer_env(&layer_ref.path(), &context.app_dir, without);
+        layer_ref.write_env(&layer_env)?;
+        layer_env.apply(Scope::Build, env)
+    };
+
+    match install_state {
+        InstallState::Run(reason) => {
+            if !reason.is_empty() {
+                log_step(reason);
+            }
+
+            bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
+        }
+        InstallState::Skip(checked) => {
+            let bundle_install = fmt::value("bundle install");
+
+            log_step(format!(
+                "Skipping {bundle_install} (no changes found in {sources})",
+                sources = SentenceList::new(&checked).join_str("or")
+            ));
+
+            log_step(format!(
+                "{HELP} To force run {bundle_install} set {}",
+                fmt::value(format!("{SKIP_DIGEST_ENV_KEY}=1"))
+            ));
+        }
+    }
 
     Ok((bullet, layer_ref.read_env()?))
 }

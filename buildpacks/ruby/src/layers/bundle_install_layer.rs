@@ -14,7 +14,7 @@
 //! must be compiled and will then be invoked via FFI. These native extensions are
 //! OS, Architecture, and Ruby version dependent. Due to this, when one of these changes
 //! we must clear the cache and re-run `bundle install`.
-use crate::layers::shared::{cached_layer_write_metadata, MetadataDiff};
+use crate::layers::shared::{cached_layer_write_metadata, Meta, MetadataDiff};
 use crate::target_id::{TargetId, TargetIdError};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use bullet_stream::state::SubBullet;
@@ -60,18 +60,23 @@ pub(crate) fn handle(
     metadata: &Metadata,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
     let layer_ref = cached_layer_write_metadata(layer_name!("gems"), context, metadata)?;
-    match &layer_ref.state {
+    let install_state = match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);
+            match cause {
+                Meta::Data(old) => update_state(old, metadata),
+                Meta::Message(_) => UpdateState::Run(String::new()),
+            }
         }
         LayerState::Empty { cause } => match cause {
-            EmptyLayerCause::NewlyCreated => {}
+            EmptyLayerCause::NewlyCreated => UpdateState::Run(String::new()),
             EmptyLayerCause::InvalidMetadataAction { cause }
             | EmptyLayerCause::RestoredLayerAction { cause } => {
                 bullet = bullet.sub_bullet(cause);
+                UpdateState::Run(String::new())
             }
         },
-    }
+    };
 
     Ok((bullet, layer_ref.read_env()?))
 }

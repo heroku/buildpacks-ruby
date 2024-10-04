@@ -21,7 +21,7 @@ use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use commons::output::{
     fmt::{self, HELP},
-    section_log::{log_step, log_step_stream, SectionLogger},
+    section_log::{log_step, log_step_stream},
 };
 use commons::{
     display::SentenceList, gemfile_lock::ResolvedRubyVersion, metadata_digest::MetadataDigest,
@@ -30,11 +30,7 @@ use fun_run::CommandWithName;
 use fun_run::{self, CmdError};
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
-#[allow(deprecated)]
-use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
 use libcnb::{
-    build::BuildContext,
-    data::layer_content_metadata::LayerTypes,
     layer_env::{LayerEnv, ModificationBehavior, Scope},
     Env,
 };

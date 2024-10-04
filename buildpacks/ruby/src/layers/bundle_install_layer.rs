@@ -1,3 +1,10 @@
+//! Mostly runs 'bundle install'
+//!
+//! Creates the cache where gems live. We want 'bundle install'
+//! to execute on every build (as opposed to only when the cache is empty)
+//!
+//! To help achieve this the logic inside of `BundleInstallLayer::update` and
+//! `BundleInstallLayer::create` are the same.
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use commons::output::{
     fmt::{self, HELP},
@@ -26,13 +33,6 @@ use crate::target_id::{TargetId, TargetIdError};
 const HEROKU_SKIP_BUNDLE_DIGEST: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
 pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
 
-/// Mostly runs 'bundle install'
-///
-/// Creates the cache where gems live. We want 'bundle install'
-/// to execute on every build (as opposed to only when the cache is empty)
-///
-/// To help achieve this the logic inside of `BundleInstallLayer::update` and
-/// `BundleInstallLayer::create` are the same.
 #[derive(Debug)]
 pub(crate) struct BundleInstallLayer<'a> {
     pub(crate) env: Env,

@@ -19,15 +19,10 @@ use crate::target_id::{TargetId, TargetIdError};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
-use commons::output::{
-    fmt::{self, HELP},
-    section_log::{log_step, log_step_stream},
-};
 use commons::{
     display::SentenceList, gemfile_lock::ResolvedRubyVersion, metadata_digest::MetadataDigest,
 };
-use fun_run::CommandWithName;
-use fun_run::{self, CmdError};
+use fun_run::{self, CommandWithName};
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::{
@@ -84,7 +79,7 @@ pub(crate) fn handle(
     match install_state {
         InstallState::Run(reason) => {
             if !reason.is_empty() {
-                log_step(reason);
+                bullet = bullet.sub_bullet(reason);
             }
 
             let mut cmd = Command::new("bundle");
@@ -92,26 +87,29 @@ pub(crate) fn handle(
                 .env_clear() // Current process env vars already merged into env
                 .envs(&env);
             let mut cmd = cmd.named_fn(|cmd| display_name(cmd, &env));
-            log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
-                cmd.stream_output(stream.io(), stream.io())
-            })
-            .map_err(|error| {
-                fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
-            })
-            .map_err(RubyBuildpackError::BundleInstallCommandError)?;
+            bullet
+                .stream_with(
+                    format!("Running {}", style::command(cmd.name())),
+                    |stdout, stderr| cmd.stream_output(stdout, stderr),
+                )
+                .map_err(|error| {
+                    fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
+                })
+                .map_err(RubyBuildpackError::BundleInstallCommandError)?;
         }
         InstallState::Skip(checked) => {
-            let bundle_install = fmt::value("bundle install");
+            let bundle_install = style::value("bundle install");
+            let help = style::important("HELP");
 
-            log_step(format!(
-                "Skipping {bundle_install} (no changes found in {sources})",
-                sources = SentenceList::new(&checked).join_str("or")
-            ));
-
-            log_step(format!(
-                "{HELP} To force run {bundle_install} set {}",
-                fmt::value(format!("{SKIP_DIGEST_ENV_KEY}=1"))
-            ));
+            bullet = bullet
+                .sub_bullet(format!(
+                    "Skipping {bundle_install} (no changes found in {sources})",
+                    sources = SentenceList::new(&checked).join_str("or")
+                ))
+                .sub_bullet(format!(
+                    "{help} To force run {bundle_install} set {}",
+                    style::value(format!("{SKIP_DIGEST_ENV_KEY}=1"))
+                ));
         }
     }
 

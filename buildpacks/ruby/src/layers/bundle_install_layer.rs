@@ -65,7 +65,7 @@ pub(crate) fn handle(
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);
             match cause {
-                Meta::Data(old) => update_state(old, metadata),
+                Meta::Data(old) => install_state(old, metadata),
                 Meta::Message(_) => InstallState::Run(String::new()),
             }
         }
@@ -223,8 +223,7 @@ enum InstallState {
 
 /// Determines if 'bundle install' should execute on a given call to `BundleInstallLatyer::update`
 ///
-///
-fn update_state(old: &Metadata, now: &Metadata) -> InstallState {
+fn install_state(old: &Metadata, now: &Metadata) -> InstallState {
     let forced_env = std::env::var_os(SKIP_DIGEST_ENV_KEY);
     let old_key = &old.force_bundle_install_key;
     let now_key = &now.force_bundle_install_key;

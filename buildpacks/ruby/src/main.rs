@@ -113,7 +113,8 @@ impl Buildpack for RubyBuildpack {
     #[allow(clippy::too_many_lines)]
     #[allow(deprecated)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
-        let mut logger = BuildLog::new(stdout()).buildpack_name("Heroku Ruby Buildpack");
+        let mut build_output = Print::new(stdout()).h2("Heroku Ruby Buildpack");
+        let logger = BuildLog::new(stdout()).without_buildpack_name();
         let warn_later = WarnGuard::new(stdout());
 
         // ## Set default environment
@@ -128,7 +129,6 @@ impl Buildpack for RubyBuildpack {
         let bundler_version = gemfile_lock.resolve_bundler("2.4.5");
         let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
 
-        let mut build_output = Print::new(stdout()).without_header();
         // ## Install metrics agent
         build_output = {
             let bullet = build_output.bullet("Metrics agent");

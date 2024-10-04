@@ -64,16 +64,16 @@ where
 /// If the metadata can be migrated, it is replaced with the migrated version
 /// If an error occurs, the layer is deleted and the error displayed
 /// If no migration is possible, the layer is deleted and the invalid metadata is displayed
-pub(crate) fn invalid_metadata_action<T, S>(invalid: &S) -> (InvalidMetadataAction<T>, String)
+pub(crate) fn invalid_metadata_action<M, S>(invalid: &S) -> (InvalidMetadataAction<M>, String)
 where
-    T: magic_migrate::TryMigrate,
+    M: magic_migrate::TryMigrate,
     S: serde::ser::Serialize + std::fmt::Debug,
     // TODO: Enforce Display + Debug in the library
-    <T as magic_migrate::TryMigrate>::Error: std::fmt::Display,
+    <M as magic_migrate::TryMigrate>::Error: std::fmt::Display,
 {
     let invalid = toml::to_string(invalid);
     match invalid {
-        Ok(toml) => match T::try_from_str_migrations(&toml) {
+        Ok(toml) => match M::try_from_str_migrations(&toml) {
             Some(Ok(migrated)) => (
                 InvalidMetadataAction::ReplaceMetadata(migrated),
                 "Replaced metadata".to_string(),

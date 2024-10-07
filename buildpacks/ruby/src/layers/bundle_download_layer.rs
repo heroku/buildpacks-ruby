@@ -1,161 +1,163 @@
+//! # Install the bundler gem
+//!
+//! ## Layer dir: Install bundler to disk
+//!
+//! Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
+//! `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
+use crate::layers::shared::{cached_layer_write_metadata, MetadataDiff};
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
+use bullet_stream::state::SubBullet;
+use bullet_stream::{style, Print};
 use commons::gemfile_lock::ResolvedBundlerVersion;
-use commons::output::{
-    fmt,
-    section_log::{log_step, log_step_timed, SectionLogger},
-};
 use fun_run::{self, CommandWithName};
-use libcnb::build::BuildContext;
-use libcnb::data::layer_content_metadata::LayerTypes;
-#[allow(deprecated)]
-use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
+use libcnb::data::layer_name;
+use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Env;
-use serde::{Deserialize, Serialize};
+use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
+use serde::{Deserialize, Deserializer, Serialize};
+use std::convert::Infallible;
+use std::io::Stdout;
 use std::path::Path;
 use std::process::Command;
 
+pub(crate) fn handle(
+    context: &libcnb::build::BuildContext<RubyBuildpack>,
+    env: &Env,
+    mut bullet: Print<SubBullet<Stdout>>,
+    metadata: &Metadata,
+) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
+    let layer_ref = cached_layer_write_metadata(layer_name!("bundler"), context, metadata)?;
+    match &layer_ref.state {
+        LayerState::Restored { cause } => {
+            bullet = bullet.sub_bullet(cause);
+            Ok((bullet, layer_ref.read_env()?))
+        }
+        LayerState::Empty { cause } => {
+            match cause {
+                EmptyLayerCause::NewlyCreated => {}
+                EmptyLayerCause::InvalidMetadataAction { cause }
+                | EmptyLayerCause::RestoredLayerAction { cause } => {
+                    bullet = bullet.sub_bullet(cause);
+                }
+            }
+            let (bullet, layer_env) = download_bundler(bullet, env, metadata, &layer_ref.path())?;
+            layer_ref.write_env(&layer_env)?;
+
+            Ok((bullet, layer_ref.read_env()?))
+        }
+    }
+}
+
+pub(crate) type Metadata = MetadataV1;
+try_migrate_deserializer_chain!(
+    deserializer: toml::Deserializer::new,
+    error: MetadataError,
+    chain: [MetadataV1],
+);
+
+impl MetadataDiff for Metadata {
+    fn diff(&self, other: &Self) -> Vec<String> {
+        let mut differences = Vec::new();
+        if self.version != other.version {
+            differences.push(format!(
+                "Bundler version ({old} to {now})",
+                old = style::value(other.version.to_string()),
+                now = style::value(self.version.to_string())
+            ));
+        }
+        differences
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub(crate) struct BundleDownloadLayerMetadata {
+pub(crate) struct MetadataV1 {
     pub(crate) version: ResolvedBundlerVersion,
 }
 
-/// # Install the bundler gem
-///
-/// ## Layer dir: Install bundler to disk
-///
-/// Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
-/// `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
-pub(crate) struct BundleDownloadLayer<'a> {
-    pub(crate) env: Env,
-    pub(crate) metadata: BundleDownloadLayerMetadata,
-    pub(crate) _section_logger: &'a dyn SectionLogger,
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum MetadataError {
+    // Update if migrating between a metadata version can error
 }
 
-#[allow(deprecated)]
-impl<'a> Layer for BundleDownloadLayer<'a> {
-    type Buildpack = RubyBuildpack;
-    type Metadata = BundleDownloadLayerMetadata;
+fn download_bundler(
+    bullet: Print<SubBullet<Stdout>>,
+    env: &Env,
+    metadata: &Metadata,
+    path: &Path,
+) -> Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
+    let bin_dir = path.join("bin");
+    let gem_path = path;
 
-    fn types(&self) -> LayerTypes {
-        LayerTypes {
-            build: true,
-            launch: true,
-            cache: true,
-        }
-    }
-
-    fn create(
-        &mut self,
-        _context: &BuildContext<Self::Buildpack>,
-        layer_path: &Path,
-    ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let bin_dir = layer_path.join("bin");
-        let gem_path = layer_path;
-
-        let mut cmd = Command::new("gem");
-        cmd.args([
-            "install",
-            "bundler",
-            "--version", // Specify exact version to install
-            &self.metadata.version.to_string(),
-        ])
+    let mut cmd = Command::new("gem");
+    cmd.args(["install", "bundler"]);
+    cmd.args(["--version", &metadata.version.to_string()]) // Specify exact version to install
         .env_clear()
-        .envs(&self.env);
+        .envs(env);
 
-        // Format `gem install --version <version>` without other content for display
-        let short_name = fun_run::display(&mut cmd);
+    let short_name = fun_run::display(&mut cmd); // Format `gem install --version <version>` without other content for display
 
-        // Arguments we don't need in the output
-        cmd.args([
-            "--install-dir", // Directory where bundler's contents will live
-            &layer_path.to_string_lossy(),
-            "--bindir", // Directory where `bundle` executable lives
-            &bin_dir.to_string_lossy(),
-            "--force",       // Overwrite if it already exists
-            "--no-document", // Don't install ri or rdoc documentation, which takes extra time
-            "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
-        ]);
+    cmd.args(["--install-dir", &format!("{}", gem_path.display())]); // Directory where bundler's contents will live
+    cmd.args(["--bindir", &format!("{}", bin_dir.display())]); // Directory where `bundle` executable lives
+    cmd.args([
+        "--force",       // Overwrite if it already exists
+        "--no-document", // Don't install ri or rdoc documentation, which takes extra time
+        "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
+    ]);
 
-        log_step_timed(format!("Running {}", fmt::command(short_name)), || {
-            cmd.named_output().map_err(|error| {
-                fun_run::map_which_problem(error, cmd.mut_cmd(), self.env.get("PATH").cloned())
-            })
-        })
+    let timer = bullet.start_timer(format!("Running {}", style::command(short_name)));
+
+    cmd.named_output()
+        .map_err(|error| fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned()))
         .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
 
-        LayerResultBuilder::new(self.metadata.clone())
-            .env(
-                LayerEnv::new()
-                    .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
-                    .chainable_insert(
-                        Scope::All,
-                        ModificationBehavior::Prepend,
-                        "PATH", // Ensure this path comes before default bundler that ships with ruby, don't rely on the lifecycle
-                        bin_dir,
-                    )
-                    .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
-                    .chainable_insert(
-                        Scope::All,
-                        ModificationBehavior::Prepend,
-                        "GEM_PATH", // Bundler is a gem too, allow it to be required
-                        gem_path,
-                    ),
-            )
-            .build()
-    }
+    let layer_env = LayerEnv::new()
+        .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
+        .chainable_insert(
+            Scope::All,
+            ModificationBehavior::Prepend,
+            "PATH", // Ensure this path comes before default bundler that ships with ruby, don't rely on the lifecycle
+            bin_dir,
+        )
+        .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
+        .chainable_insert(
+            Scope::All,
+            ModificationBehavior::Prepend,
+            "GEM_PATH", // Bundler is a gem too, allow it to be required
+            gem_path,
+        );
 
-    fn existing_layer_strategy(
-        &mut self,
-        _context: &BuildContext<Self::Buildpack>,
-        layer_data: &LayerData<Self::Metadata>,
-    ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
-        let old = &layer_data.content_metadata.metadata;
-        let now = self.metadata.clone();
-        match cache_state(old.clone(), now) {
-            State::NothingChanged(_version) => {
-                log_step("Using cached version");
-
-                Ok(ExistingLayerStrategy::Keep)
-            }
-            State::BundlerVersionChanged(_old, _now) => {
-                log_step(format!(
-                    "Clearing cache {}",
-                    fmt::details("bundler version changed")
-                ));
-
-                Ok(ExistingLayerStrategy::Recreate)
-            }
-        }
-    }
-}
-
-// [derive(Debug)]
-enum State {
-    NothingChanged(ResolvedBundlerVersion),
-    BundlerVersionChanged(ResolvedBundlerVersion, ResolvedBundlerVersion),
-}
-
-fn cache_state(old: BundleDownloadLayerMetadata, now: BundleDownloadLayerMetadata) -> State {
-    let BundleDownloadLayerMetadata { version } = now; // Ensure all properties are checked
-
-    if old.version == version {
-        State::NothingChanged(version)
-    } else {
-        State::BundlerVersionChanged(old.version, version)
-    }
+    Ok((timer.done(), layer_env))
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::layers::shared::strip_ansi;
+
+    #[test]
+    fn test_metadata_diff() {
+        let old = Metadata {
+            version: ResolvedBundlerVersion("2.3.5".to_string()),
+        };
+        assert!(old.diff(&old).is_empty());
+
+        let diff = Metadata {
+            version: ResolvedBundlerVersion("2.3.6".to_string()),
+        }
+        .diff(&old);
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["Bundler version (`2.3.5` to `2.3.6`)"]
+        );
+    }
 
     /// If this test fails due to a change you'll need to implement
     /// `migrate_incompatible_metadata` for the Layer trait
     #[test]
     fn metadata_guard() {
-        let metadata = BundleDownloadLayerMetadata {
+        let metadata = Metadata {
             version: ResolvedBundlerVersion(String::from("2.3.6")),
         };
 

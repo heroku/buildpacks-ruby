@@ -1,48 +1,168 @@
+//! Installs Ruby gems (libraries) via `bundle install`
+//!
+//! Creates the cache where gems live. We want 'bundle install'
+//! to execute on every build (as opposed to only when the cache is empty).
+//!
+//! As a small performance optimization, it will not run if the `Gemfile.lock`,
+//! `Gemfile`, or user provided "platform" environment variable have not changed.
+//! User applications can opt out of this behavior by setting the environment
+//! variable `HEROKU_SKIP_BUNDLE_DIGEST=1`. That would be useful if the application's
+//! `Gemfile` sources logic or data from another file that is unknown to the buildpack.
+//!
+//! Gems can be plain Ruby code which are OS, Architecture, and Ruby version independent.
+//! They can also be native extensions that use Ruby's C API or contain libraries that
+//! must be compiled and will then be invoked via FFI. These native extensions are
+//! OS, Architecture, and Ruby version dependent. Due to this, when one of these changes
+//! we must clear the cache and re-run `bundle install`.
+use crate::layers::shared::{cached_layer_write_metadata, Meta, MetadataDiff};
+use crate::target_id::{TargetId, TargetIdError};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
-use commons::output::{
-    fmt::{self, HELP},
-    section_log::{log_step, log_step_stream, SectionLogger},
-};
+use bullet_stream::state::SubBullet;
+use bullet_stream::{style, Print};
 use commons::{
     display::SentenceList, gemfile_lock::ResolvedRubyVersion, metadata_digest::MetadataDigest,
 };
-use fun_run::CommandWithName;
-use fun_run::{self, CmdError};
-#[allow(deprecated)]
-use libcnb::layer::{ExistingLayerStrategy, Layer, LayerData, LayerResult, LayerResultBuilder};
+use fun_run::{self, CommandWithName};
+use libcnb::data::layer_name;
+use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::{
-    build::BuildContext,
-    data::layer_content_metadata::LayerTypes,
     layer_env::{LayerEnv, ModificationBehavior, Scope},
     Env,
 };
 use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::convert::Infallible;
+use std::io::Stdout;
 use std::{path::Path, process::Command};
 
-use crate::target_id::{TargetId, TargetIdError};
-
-const HEROKU_SKIP_BUNDLE_DIGEST: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
+/// When this environment variable is set, the `bundle install` command will always
+/// run regardless of whether the `Gemfile`, `Gemfile.lock`, or platform environment
+/// variables have changed.
+const SKIP_DIGEST_ENV_KEY: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
+/// A failsafe, if a programmer made a mistake in the caching logic, rev-ing this
+/// key will force a re-run of `bundle install` to ensure the cache is correct
+/// on the next build.
 pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
 
-/// Mostly runs 'bundle install'
-///
-/// Creates the cache where gems live. We want 'bundle install'
-/// to execute on every build (as opposed to only when the cache is empty)
-///
-/// To help achieve this the logic inside of `BundleInstallLayer::update` and
-/// `BundleInstallLayer::create` are the same.
-#[derive(Debug)]
-pub(crate) struct BundleInstallLayer<'a> {
-    pub(crate) env: Env,
-    pub(crate) without: BundleWithout,
-    pub(crate) _section_log: &'a dyn SectionLogger,
-    pub(crate) metadata: BundleInstallLayerMetadata,
+pub(crate) fn handle(
+    context: &libcnb::build::BuildContext<RubyBuildpack>,
+    env: &Env,
+    mut bullet: Print<SubBullet<Stdout>>,
+    metadata: &Metadata,
+    without: &BundleWithout,
+) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
+    let layer_ref = cached_layer_write_metadata(layer_name!("gems"), context, metadata)?;
+    let install_state = match &layer_ref.state {
+        LayerState::Restored { cause } => {
+            bullet = bullet.sub_bullet(cause);
+            match cause {
+                Meta::Data(old) => install_state(old, metadata),
+                Meta::Message(_) => InstallState::Run(String::new()),
+            }
+        }
+        LayerState::Empty { cause } => match cause {
+            EmptyLayerCause::NewlyCreated => InstallState::Run(String::new()),
+            EmptyLayerCause::InvalidMetadataAction { cause }
+            | EmptyLayerCause::RestoredLayerAction { cause } => {
+                bullet = bullet.sub_bullet(cause);
+                InstallState::Run(String::new())
+            }
+        },
+    };
+
+    let env = {
+        let layer_env = layer_env(&layer_ref.path(), &context.app_dir, without);
+        layer_ref.write_env(&layer_env)?;
+        layer_env.apply(Scope::Build, env)
+    };
+
+    match install_state {
+        InstallState::Run(reason) => {
+            if !reason.is_empty() {
+                bullet = bullet.sub_bullet(reason);
+            }
+
+            let mut cmd = Command::new("bundle");
+            cmd.args(["install"])
+                .env_clear() // Current process env vars already merged into env
+                .envs(&env);
+            let mut cmd = cmd.named_fn(|cmd| display_name(cmd, &env));
+            bullet
+                .stream_with(
+                    format!("Running {}", style::command(cmd.name())),
+                    |stdout, stderr| cmd.stream_output(stdout, stderr),
+                )
+                .map_err(|error| {
+                    fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
+                })
+                .map_err(RubyBuildpackError::BundleInstallCommandError)?;
+        }
+        InstallState::Skip(checked) => {
+            let bundle_install = style::value("bundle install");
+            let help = style::important("HELP");
+
+            bullet = bullet
+                .sub_bullet(format!(
+                    "Skipping {bundle_install} (no changes found in {sources})",
+                    sources = SentenceList::new(&checked).join_str("or")
+                ))
+                .sub_bullet(format!(
+                    "{help} To force run {bundle_install} set {}",
+                    style::value(format!("{SKIP_DIGEST_ENV_KEY}=1"))
+                ));
+        }
+    }
+
+    Ok((bullet, layer_ref.read_env()?))
+}
+
+pub(crate) type Metadata = MetadataV2;
+try_migrate_deserializer_chain!(
+    chain: [MetadataV1, MetadataV2],
+    error: MetadataMigrateError,
+    deserializer: toml::Deserializer::new,
+);
+
+impl MetadataDiff for Metadata {
+    fn diff(&self, old: &Self) -> Vec<String> {
+        let mut differences = Vec::new();
+        let Metadata {
+            distro_name,
+            distro_version,
+            cpu_architecture,
+            ruby_version,
+            force_bundle_install_key: _,
+            digest: _,
+        } = old;
+
+        if ruby_version != &self.ruby_version {
+            differences.push(format!(
+                "Ruby version ({old} to {now})",
+                old = style::value(ruby_version.to_string()),
+                now = style::value(self.ruby_version.to_string())
+            ));
+        }
+        if distro_name != &self.distro_name || distro_version != &self.distro_version {
+            differences.push(format!(
+                "Distribution ({old} to {now})",
+                old = style::value(format!("{distro_name} {distro_version}")),
+                now = style::value(format!("{} {}", self.distro_name, self.distro_version))
+            ));
+        }
+        if cpu_architecture != &self.cpu_architecture {
+            differences.push(format!(
+                "CPU architecture ({old} to {now})",
+                old = style::value(cpu_architecture),
+                now = style::value(&self.cpu_architecture)
+            ));
+        }
+
+        differences
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
-pub(crate) struct BundleInstallLayerMetadataV1 {
+pub(crate) struct MetadataV1 {
     pub(crate) stack: String,
     pub(crate) ruby_version: ResolvedRubyVersion,
     pub(crate) force_bundle_install_key: String,
@@ -50,7 +170,7 @@ pub(crate) struct BundleInstallLayerMetadataV1 {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
-pub(crate) struct BundleInstallLayerMetadataV2 {
+pub(crate) struct MetadataV2 {
     pub(crate) distro_name: String,
     pub(crate) distro_version: String,
     pub(crate) cpu_architecture: String,
@@ -71,13 +191,6 @@ pub(crate) struct BundleInstallLayerMetadataV2 {
     pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
 
-try_migrate_deserializer_chain!(
-    chain: [BundleInstallLayerMetadataV1, BundleInstallLayerMetadataV2],
-    error: MetadataMigrateError,
-    deserializer: toml::Deserializer::new,
-);
-pub(crate) type BundleInstallLayerMetadata = BundleInstallLayerMetadataV2;
-
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum MetadataMigrateError {
     #[error("Could not migrate metadata {0}")]
@@ -86,10 +199,10 @@ pub(crate) enum MetadataMigrateError {
 
 // CNB spec moved from the concept of "stacks" (i.e. "heroku-22" which represented an OS and system dependencies) to finer
 // grained "target" which includes the OS, OS version, and architecture. This function converts the old stack id to the new target id.
-impl TryFrom<BundleInstallLayerMetadataV1> for BundleInstallLayerMetadataV2 {
+impl TryFrom<MetadataV1> for MetadataV2 {
     type Error = MetadataMigrateError;
 
-    fn try_from(v1: BundleInstallLayerMetadataV1) -> Result<Self, Self::Error> {
+    fn try_from(v1: MetadataV1) -> Result<Self, Self::Error> {
         let target_id =
             TargetId::from_stack(&v1.stack).map_err(MetadataMigrateError::UnsupportedStack)?;
 
@@ -104,21 +217,8 @@ impl TryFrom<BundleInstallLayerMetadataV1> for BundleInstallLayerMetadataV2 {
     }
 }
 
-impl<'a> BundleInstallLayer<'a> {
-    #[allow(clippy::unnecessary_wraps)]
-    fn build_layer_env(
-        &self,
-        context: &BuildContext<RubyBuildpack>,
-        layer_path: &Path,
-    ) -> Result<LayerEnv, RubyBuildpackError> {
-        let out = layer_env(layer_path, &context.app_dir, &self.without);
-
-        Ok(out)
-    }
-}
-
 #[derive(Debug)]
-enum UpdateState {
+enum InstallState {
     /// Holds message indicating the reason why we want to run 'bundle install'
     Run(String),
 
@@ -128,206 +228,24 @@ enum UpdateState {
 
 /// Determines if 'bundle install' should execute on a given call to `BundleInstallLatyer::update`
 ///
-///
-fn update_state(old: &BundleInstallLayerMetadata, now: &BundleInstallLayerMetadata) -> UpdateState {
-    let forced_env = std::env::var_os(HEROKU_SKIP_BUNDLE_DIGEST);
+fn install_state(old: &Metadata, now: &Metadata) -> InstallState {
+    let forced_env = std::env::var_os(SKIP_DIGEST_ENV_KEY);
     let old_key = &old.force_bundle_install_key;
     let now_key = &now.force_bundle_install_key;
 
     if old_key != now_key {
-        UpdateState::Run(format!(
+        InstallState::Run(format!(
             "buildpack author triggered internal change {old_key} to {now_key}"
         ))
     } else if let Some(value) = forced_env {
         let value = value.to_string_lossy();
 
-        UpdateState::Run(format!("found {HEROKU_SKIP_BUNDLE_DIGEST}={value}"))
+        InstallState::Run(format!("found {SKIP_DIGEST_ENV_KEY}={value}"))
     } else if let Some(changed) = now.digest.changed(&old.digest) {
-        UpdateState::Run(format!("{changed}"))
+        InstallState::Run(format!("{changed}"))
     } else {
         let checked = now.digest.checked_list();
-        UpdateState::Skip(checked)
-    }
-}
-
-#[allow(deprecated)]
-impl Layer for BundleInstallLayer<'_> {
-    type Buildpack = RubyBuildpack;
-    type Metadata = BundleInstallLayerMetadata;
-
-    fn types(&self) -> LayerTypes {
-        LayerTypes {
-            build: true,
-            launch: true,
-            cache: true,
-        }
-    }
-
-    /// Runs with gems cache from last execution
-    fn update(
-        &mut self,
-        context: &BuildContext<Self::Buildpack>,
-        layer_data: &LayerData<Self::Metadata>,
-    ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let metadata = self.metadata.clone();
-        let layer_env = self.build_layer_env(context, &layer_data.path)?;
-        let env = layer_env.apply(Scope::Build, &self.env);
-
-        match update_state(&layer_data.content_metadata.metadata, &metadata) {
-            UpdateState::Run(reason) => {
-                log_step(reason);
-
-                bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
-            }
-            UpdateState::Skip(checked) => {
-                let bundle_install = fmt::value("bundle install");
-
-                log_step(format!(
-                    "Skipping {bundle_install} (no changes found in {sources})",
-                    sources = SentenceList::new(&checked).join_str("or")
-                ));
-
-                log_step(format!(
-                    "{HELP} To force run {bundle_install} set {}",
-                    fmt::value(format!("{HEROKU_SKIP_BUNDLE_DIGEST}=1"))
-                ));
-            }
-        }
-
-        LayerResultBuilder::new(metadata).env(layer_env).build()
-    }
-
-    /// Runs when with empty cache
-    fn create(
-        &mut self,
-        context: &BuildContext<Self::Buildpack>,
-        layer_path: &Path,
-    ) -> Result<LayerResult<Self::Metadata>, RubyBuildpackError> {
-        let layer_env = self.build_layer_env(context, layer_path)?;
-        let env = layer_env.apply(Scope::Build, &self.env);
-
-        bundle_install(&env).map_err(RubyBuildpackError::BundleInstallCommandError)?;
-
-        LayerResultBuilder::new(self.metadata.clone())
-            .env(layer_env)
-            .build()
-    }
-
-    /// When there is a cache determines if we will run:
-    /// - update (keep cache and bundle install)
-    /// - recreate (destroy cache and bundle instal)
-    ///
-    /// CAUTION: We should Should never Keep, this will prevent env vars
-    /// if a coder updates env vars they won't be set unless update or
-    /// create is run.
-    fn existing_layer_strategy(
-        &mut self,
-        _context: &BuildContext<Self::Buildpack>,
-        layer_data: &LayerData<Self::Metadata>,
-    ) -> Result<ExistingLayerStrategy, RubyBuildpackError> {
-        let old = &layer_data.content_metadata.metadata;
-        let now = self.metadata.clone();
-
-        let clear_and_run = Ok(ExistingLayerStrategy::Recreate);
-        let keep_and_run = Ok(ExistingLayerStrategy::Update);
-
-        match cache_state(old.clone(), now) {
-            Changed::Nothing => {
-                log_step("Loading cached gems");
-
-                keep_and_run
-            }
-            Changed::DistroName(old, now) => {
-                log_step(format!(
-                    "Clearing cache {}",
-                    fmt::details(format!("distro name changed: {old} to {now}"))
-                ));
-
-                clear_and_run
-            }
-            Changed::DistroVersion(old, now) => {
-                log_step(format!(
-                    "Clearing cache {}",
-                    fmt::details(format!("distro version changed: {old} to {now}"))
-                ));
-
-                clear_and_run
-            }
-            Changed::CpuArchitecture(old, now) => {
-                log_step(format!(
-                    "Clearing cache {}",
-                    fmt::details(format!("cpu architecture changed: {old} to {now}"))
-                ));
-
-                clear_and_run
-            }
-            Changed::RubyVersion(old, now) => {
-                log_step(format!(
-                    "Clearing cache {}",
-                    fmt::details(format!("Ruby version changed: {old} to {now}"))
-                ));
-
-                clear_and_run
-            }
-        }
-    }
-
-    fn migrate_incompatible_metadata(
-        &mut self,
-        _context: &BuildContext<Self::Buildpack>,
-        metadata: &libcnb::generic::GenericMetadata,
-    ) -> Result<
-        libcnb::layer::MetadataMigration<Self::Metadata>,
-        <Self::Buildpack as libcnb::Buildpack>::Error,
-    > {
-        match Self::Metadata::try_from_str_migrations(
-            &toml::to_string(&metadata).expect("TOML deserialization of GenericMetadata"),
-        ) {
-            Some(Ok(metadata)) => Ok(libcnb::layer::MetadataMigration::ReplaceMetadata(metadata)),
-            Some(Err(e)) => {
-                log_step(format!("Clearing cache (metadata migration error {e})"));
-                Ok(libcnb::layer::MetadataMigration::RecreateLayer)
-            }
-            None => {
-                log_step("Clearing cache (invalid metadata)");
-                Ok(libcnb::layer::MetadataMigration::RecreateLayer)
-            }
-        }
-    }
-}
-
-/// The possible states of the cache values, used for determining `ExistingLayerStrategy`
-#[derive(Debug)]
-enum Changed {
-    Nothing,
-    DistroName(String, String),
-    DistroVersion(String, String),
-    CpuArchitecture(String, String),
-    RubyVersion(ResolvedRubyVersion, ResolvedRubyVersion),
-}
-
-// Compare the old metadata to current metadata to determine the state of the
-// cache. Based on that state, we can log and determine `ExistingLayerStrategy`
-fn cache_state(old: BundleInstallLayerMetadata, now: BundleInstallLayerMetadata) -> Changed {
-    let BundleInstallLayerMetadata {
-        distro_name,
-        distro_version,
-        cpu_architecture,
-        ruby_version,
-        force_bundle_install_key: _,
-        digest: _, // digest state handled elsewhere
-    } = now; // ensure all values are handled or we get a clippy warning
-
-    if old.distro_name != distro_name {
-        Changed::DistroName(old.distro_name, distro_name)
-    } else if old.distro_version != distro_version {
-        Changed::DistroVersion(old.distro_version, distro_version)
-    } else if old.cpu_architecture != cpu_architecture {
-        Changed::CpuArchitecture(old.cpu_architecture, cpu_architecture)
-    } else if old.ruby_version != ruby_version {
-        Changed::RubyVersion(old.ruby_version, ruby_version)
-    } else {
-        Changed::Nothing
+        InstallState::Skip(checked)
     }
 }
 
@@ -385,44 +303,21 @@ fn layer_env(layer_path: &Path, app_dir: &Path, without_default: &BundleWithout)
     layer_env
 }
 
-/// Sets the needed environment variables to configure bundler and uses them
-/// to execute the `bundle install` command. The results are streamed to stdout/stderr.
-///
-/// # Errors
-///
-/// When the 'bundle install' command fails this function returns an error.
-///
-fn bundle_install(env: &Env) -> Result<(), CmdError> {
-    let path_env = env.get("PATH").cloned();
-    let display_with_env = |cmd: &'_ mut Command| {
-        fun_run::display_with_env_keys(
-            cmd,
-            env,
-            [
-                "BUNDLE_BIN",
-                "BUNDLE_CLEAN",
-                "BUNDLE_DEPLOYMENT",
-                "BUNDLE_GEMFILE",
-                "BUNDLE_PATH",
-                "BUNDLE_WITHOUT",
-            ],
-        )
-    };
-
-    // ## Run `$ bundle install`
-    let mut cmd = Command::new("bundle");
-    cmd.env_clear() // Current process env vars already merged into env
-        .args(["install"])
-        .envs(env);
-
-    let mut cmd = cmd.named_fn(display_with_env);
-
-    log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
-        cmd.stream_output(stream.io(), stream.io())
-    })
-    .map_err(|error| fun_run::map_which_problem(error, cmd.mut_cmd(), path_env))?;
-
-    Ok(())
+/// Displays the `bundle install` command with `BUNDLE_` environment variables
+/// that we use to configure bundler.
+fn display_name(cmd: &mut Command, env: &Env) -> String {
+    fun_run::display_with_env_keys(
+        cmd,
+        env,
+        [
+            "BUNDLE_BIN",
+            "BUNDLE_CLEAN",
+            "BUNDLE_DEPLOYMENT",
+            "BUNDLE_GEMFILE",
+            "BUNDLE_PATH",
+            "BUNDLE_WITHOUT",
+        ],
+    )
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, Default)]
@@ -434,8 +329,82 @@ pub(crate) struct BundleDigest {
 
 #[cfg(test)]
 mod test {
+    use crate::layers::shared::strip_ansi;
+
     use super::*;
     use std::path::PathBuf;
+
+    /// `MetadataDiff` logic controls cache invalidation
+    /// When the vec is empty the cache is kept, otherwise it is invalidated
+    #[test]
+    fn metadata_diff_messages() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let app_path = tmpdir.path().to_path_buf();
+        let gemfile = app_path.join("Gemfile");
+        let env = Env::new();
+        let context = FakeContext {
+            platform: FakePlatform { env },
+            app_path,
+        };
+        std::fs::write(&gemfile, "iamagemfile").unwrap();
+
+        let old = Metadata {
+            ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
+            distro_name: "ubuntu".to_string(),
+            distro_version: "20.04".to_string(),
+            cpu_architecture: "amd64".to_string(),
+            force_bundle_install_key: FORCE_BUNDLE_INSTALL_CACHE_KEY.to_string(),
+            digest: MetadataDigest::new_env_files(
+                &context.platform,
+                &[&context.app_path.join("Gemfile")],
+            )
+            .unwrap(),
+        };
+        assert_eq!(old.diff(&old), Vec::<String>::new());
+
+        let diff = Metadata {
+            ruby_version: ResolvedRubyVersion("3.5.5".to_string()),
+            distro_name: old.distro_name.clone(),
+            distro_version: old.distro_version.clone(),
+            cpu_architecture: old.cpu_architecture.clone(),
+            force_bundle_install_key: old.force_bundle_install_key.clone(),
+            digest: old.digest.clone(),
+        }
+        .diff(&old);
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["Ruby version (`3.5.3` to `3.5.5`)".to_string()]
+        );
+
+        let diff = Metadata {
+            ruby_version: old.ruby_version.clone(),
+            distro_name: "alpine".to_string(),
+            distro_version: "3.20.0".to_string(),
+            cpu_architecture: old.cpu_architecture.clone(),
+            force_bundle_install_key: old.force_bundle_install_key.clone(),
+            digest: old.digest.clone(),
+        }
+        .diff(&old);
+
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["Distribution (`ubuntu 20.04` to `alpine 3.20.0`)".to_string()]
+        );
+
+        let diff = Metadata {
+            ruby_version: old.ruby_version.clone(),
+            distro_name: old.distro_name.clone(),
+            distro_version: old.distro_version.clone(),
+            cpu_architecture: "arm64".to_string(),
+            force_bundle_install_key: old.force_bundle_install_key.clone(),
+            digest: old.digest.clone(),
+        }
+        .diff(&old);
+        assert_eq!(
+            diff.iter().map(strip_ansi).collect::<Vec<String>>(),
+            vec!["CPU architecture (`amd64` to `arm64`)".to_string()]
+        );
+    }
 
     #[cfg(test)]
     #[derive(Default, Clone)]
@@ -506,7 +475,7 @@ GEM_PATH=layer_path
         std::fs::write(&gemfile, "iamagemfile").unwrap();
 
         let target_id = TargetId::from_stack("heroku-22").unwrap();
-        let metadata = BundleInstallLayerMetadata {
+        let metadata = Metadata {
             distro_name: target_id.distro_name,
             distro_version: target_id.distro_version,
             cpu_architecture: target_id.cpu_architecture,
@@ -540,7 +509,7 @@ platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3
         .to_string();
         assert_eq!(toml_string, actual.trim());
 
-        let deserialized: BundleInstallLayerMetadata = toml::from_str(&toml_string).unwrap();
+        let deserialized: Metadata = toml::from_str(&toml_string).unwrap();
 
         assert_eq!(metadata, deserialized);
     }
@@ -560,7 +529,7 @@ platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3
         };
         std::fs::write(&gemfile, "iamagemfile").unwrap();
 
-        let metadata = BundleInstallLayerMetadataV1 {
+        let metadata = MetadataV1 {
             stack: String::from("heroku-22"),
             ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
             force_bundle_install_key: String::from("v1"),
@@ -590,13 +559,12 @@ platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3
         .to_string();
         assert_eq!(toml_string, actual.trim());
 
-        let deserialized: BundleInstallLayerMetadataV2 =
-            BundleInstallLayerMetadataV2::try_from_str_migrations(&toml_string)
-                .unwrap()
-                .unwrap();
+        let deserialized: MetadataV2 = MetadataV2::try_from_str_migrations(&toml_string)
+            .unwrap()
+            .unwrap();
 
         let target_id = TargetId::from_stack(&metadata.stack).unwrap();
-        let expected = BundleInstallLayerMetadataV2 {
+        let expected = MetadataV2 {
             distro_name: target_id.distro_name,
             distro_version: target_id.distro_version,
             cpu_architecture: target_id.cpu_architecture,

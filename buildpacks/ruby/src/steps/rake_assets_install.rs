@@ -34,9 +34,7 @@ pub(crate) fn rake_assets_install(
                 format!("Compiling assets without cache (Clean task not found via {rake_detect_cmd})"),
             ).sub_bullet(format!("{help} Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
 
-            let path_env = env.get("PATH").cloned();
             let mut cmd = Command::new("bundle");
-
             cmd.args(["exec", "rake", "assets:precompile", "--trace"])
                 .env_clear()
                 .envs(env);
@@ -45,7 +43,9 @@ pub(crate) fn rake_assets_install(
                 format!("Running {}", style::command(cmd.name())),
                 |stream| {
                     cmd.stream_output(stream.io(), stream.io())
-                        .map_err(|error| fun_run::map_which_problem(error, &mut cmd, path_env))
+                        .map_err(|error| {
+                            fun_run::map_which_problem(error, &mut cmd, env.get("PATH").cloned())
+                        })
                 },
             )
             .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;

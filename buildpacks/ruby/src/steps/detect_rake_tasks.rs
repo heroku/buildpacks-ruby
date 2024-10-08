@@ -1,30 +1,24 @@
-use std::io::Stdout;
-
-use bullet_stream::state::SubBullet;
-use bullet_stream::{style, Print};
-use commons::output::{
-    fmt::{self, HELP},
-    section_log::log_step,
-};
-
 use crate::gem_list::GemList;
 use crate::rake_status::{check_rake_ready, RakeStatus};
 use crate::rake_task_detect::{self, RakeDetect};
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
+use bullet_stream::state::SubBullet;
+use bullet_stream::{style, Print};
 use libcnb::build::BuildContext;
 use libcnb::Env;
+use std::io::Stdout;
 
 pub(crate) fn detect_rake_tasks(
-    mut bullet: Print<SubBullet<Stdout>>,
+    bullet: Print<SubBullet<Stdout>>,
     gem_list: &GemList,
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
 ) -> Result<(Print<SubBullet<Stdout>>, Option<RakeDetect>), RubyBuildpackError> {
     let help = style::important("HELP");
-    let rake = fmt::value("rake");
-    let gemfile = fmt::value("Gemfile");
-    let rakefile = fmt::value("Rakefile");
+    let rake = style::value("rake");
+    let gemfile = style::value("Gemfile");
+    let rakefile = style::value("Rakefile");
 
     match check_rake_ready(
         &context.app_dir,
@@ -38,7 +32,7 @@ pub(crate) fn detect_rake_tasks(
                 ))
                 .sub_bullet(format!(
                     "{help} Add {gem} to your {gemfile} to enable",
-                    gem = fmt::value("gem 'rake'")
+                    gem = style::value("gem 'rake'")
                 )),
             None,
         )),
@@ -51,7 +45,7 @@ pub(crate) fn detect_rake_tasks(
         RakeStatus::SkipManifestFound(paths) => {
             let manifest_files = paths
                 .iter()
-                .map(|path| fmt::value(path.to_string_lossy()))
+                .map(|path| style::value(path.to_string_lossy()))
                 .collect::<Vec<_>>()
                 .join(", ");
 
@@ -73,7 +67,7 @@ pub(crate) fn detect_rake_tasks(
             let (bullet, rake_detect) = rake_task_detect::call(
                 bullet.sub_bullet(format!(
                     "Detected rake ({rake} gem found, {rakefile} found at {path})",
-                    path = fmt::value(path.to_string_lossy())
+                    path = style::value(path.to_string_lossy())
                 )),
                 env,
                 true,

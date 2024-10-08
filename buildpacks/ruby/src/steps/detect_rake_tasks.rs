@@ -49,7 +49,7 @@ pub(crate) fn detect_rake_tasks(
             None,
         )),
         RakeStatus::SkipManifestFound(paths) => {
-            let files = paths
+            let manifest_files = paths
                 .iter()
                 .map(|path| fmt::value(path.to_string_lossy()))
                 .collect::<Vec<_>>()
@@ -58,7 +58,12 @@ pub(crate) fn detect_rake_tasks(
             Ok((
                 bullet
                     .sub_bullet(format!(
-                        "Skipping rake tasks (Manifest files found {files})"
+                        "Skipping rake tasks (Manifest {files} found {manifest_files})",
+                        files = if manifest_files.len() > 1 {
+                            "files"
+                        } else {
+                            "file"
+                        }
                     ))
                     .sub_bullet(format!("{help} Delete files to enable running rake tasks")),
                 None,

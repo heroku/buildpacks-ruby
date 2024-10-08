@@ -55,13 +55,14 @@ pub(crate) fn detect_rake_tasks(
                 .collect::<Vec<_>>()
                 .join(", ");
 
-            log_step(format!(
-                "Skipping rake tasks {}",
-                fmt::details(format!("Manifest files found {files}"))
-            ));
-            log_step(format!("{HELP} Delete files to enable running rake tasks"));
-
-            Ok((bullet, None))
+            Ok((
+                bullet
+                    .sub_bullet(format!(
+                        "Skipping rake tasks (Manifest files found {files})"
+                    ))
+                    .sub_bullet(format!("{help} Delete files to enable running rake tasks")),
+                None,
+            ))
         }
         RakeStatus::Ready(path) => {
             log_step(format!(

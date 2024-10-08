@@ -68,8 +68,24 @@ pub(crate) fn rake_assets_install(
                 });
             }
 
-            run_rake_assets_precompile_with_clean(env)
-                .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
+            let path_env = env.get("PATH").cloned();
+            let mut cmd = Command::new("bundle");
+            cmd.args([
+                "exec",
+                "rake",
+                "assets:precompile",
+                "assets:clean",
+                "--trace",
+            ])
+            .env_clear()
+            .envs(env);
+
+            log_step_stream(
+                format!("Running {}", style::command(cmd.name())),
+                |stream| cmd.stream_output(stream.io(), stream.io()),
+            )
+            .map_err(|error| fun_run::map_which_problem(error, &mut cmd, path_env))
+            .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
 
             for store in caches {
                 let path = store.path().display();
@@ -116,28 +132,6 @@ fn run_rake_assets_precompile(env: &Env) -> Result<(), CmdError> {
                 .map_err(|error| fun_run::map_which_problem(error, &mut cmd, path_env))
         },
     )?;
-
-    Ok(())
-}
-
-fn run_rake_assets_precompile_with_clean(env: &Env) -> Result<(), CmdError> {
-    let path_env = env.get("PATH").cloned();
-    let mut cmd = Command::new("bundle");
-    cmd.args([
-        "exec",
-        "rake",
-        "assets:precompile",
-        "assets:clean",
-        "--trace",
-    ])
-    .env_clear()
-    .envs(env);
-
-    log_step_stream(
-        format!("Running {}", style::command(cmd.name())),
-        |stream| cmd.stream_output(stream.io(), stream.io()),
-    )
-    .map_err(|error| fun_run::map_which_problem(error, &mut cmd, path_env))?;
 
     Ok(())
 }

@@ -1,6 +1,8 @@
 use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
+use bullet_stream::state::SubBullet;
+use bullet_stream::Print;
 use commons::cache::{mib, AppCacheCollection, CacheConfig, KeepPath};
 use commons::output::{
     fmt::{self, HELP},
@@ -9,13 +11,15 @@ use commons::output::{
 use fun_run::{self, CmdError, CommandWithName};
 use libcnb::build::BuildContext;
 use libcnb::Env;
+use std::io::Stdout;
 use std::process::Command;
 
 pub(crate) fn rake_assets_install(
+    mut bullet: Print<SubBullet<Stdout>>,
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
     rake_detect: &RakeDetect,
-) -> Result<(), RubyBuildpackError> {
+) -> Result<Print<SubBullet<Stdout>>, RubyBuildpackError> {
     let cases = asset_cases(rake_detect);
     let rake_assets_precompile = fmt::value("rake assets:precompile");
     let rake_assets_clean = fmt::value("rake assets:clean");
@@ -69,7 +73,7 @@ pub(crate) fn rake_assets_install(
         }
     }
 
-    Ok(())
+    Ok(bullet)
 }
 
 fn run_rake_assets_precompile(env: &Env) -> Result<(), CmdError> {

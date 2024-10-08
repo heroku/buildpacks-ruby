@@ -220,7 +220,7 @@ impl Buildpack for RubyBuildpack {
 
         // ## Detect gems
         let (_, gem_list, default_process) = {
-            let bullet = build_output.bullet("Setting default processes");
+            let bullet = build_output.bullet("Default process detection");
 
             let gem_list = gem_list::GemList::from_bundle_list(&env)
                 .map_err(RubyBuildpackError::GemListGetError)?;

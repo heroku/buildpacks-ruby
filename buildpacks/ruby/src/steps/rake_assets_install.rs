@@ -33,11 +33,9 @@ pub(crate) fn rake_assets_install(
             )).sub_bullet(format!("{help} Enable cleaning assets by ensuring {rake_assets_clean} is present when running the detect command locally"));
         }
         AssetCases::PrecompileOnly => {
-            log_step(format!(
-                "Compiling assets without cache {}",
-                fmt::details(format!("Clean task not found via {rake_detect_cmd}"))
-            ));
-            log_step(format!("{HELP} Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
+            bullet = bullet.sub_bullet(
+                format!("Compiling assets without cache (Clean task not found via {rake_detect_cmd})"),
+            ).sub_bullet(format!("{help} Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
 
             run_rake_assets_precompile(env)
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;

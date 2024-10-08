@@ -80,12 +80,13 @@ pub(crate) fn rake_assets_install(
             .env_clear()
             .envs(env);
 
-            log_step_stream(
-                format!("Running {}", style::command(cmd.name())),
-                |stream| cmd.stream_output(stream.io(), stream.io()),
-            )
-            .map_err(|error| fun_run::map_which_problem(error, &mut cmd, path_env))
-            .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
+            bullet
+                .stream_with(
+                    format!("Running {}", style::command(cmd.name())),
+                    |stdout, stderr| cmd.stream_output(stdout, stderr),
+                )
+                .map_err(|error| fun_run::map_which_problem(error, &mut cmd, path_env))
+                .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
 
             for store in caches {
                 let path = store.path().display();

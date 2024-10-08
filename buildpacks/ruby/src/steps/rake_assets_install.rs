@@ -2,7 +2,7 @@ use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use bullet_stream::state::SubBullet;
-use bullet_stream::Print;
+use bullet_stream::{style, Print};
 use commons::cache::{mib, AppCacheCollection, CacheConfig, KeepPath};
 use commons::output::{
     fmt::{self, HELP},
@@ -20,6 +20,7 @@ pub(crate) fn rake_assets_install(
     env: &Env,
     rake_detect: &RakeDetect,
 ) -> Result<Print<SubBullet<Stdout>>, RubyBuildpackError> {
+    let help = style::important("HELP");
     let cases = asset_cases(rake_detect);
     let rake_assets_precompile = fmt::value("rake assets:precompile");
     let rake_assets_clean = fmt::value("rake assets:clean");
@@ -27,11 +28,9 @@ pub(crate) fn rake_assets_install(
 
     match cases {
         AssetCases::None => {
-            log_step(format!(
-                "Skipping {rake_assets_precompile} {}",
-                fmt::details(format!("task not found via {rake_detect_cmd}"))
-            ));
-            log_step(format!("{HELP} Enable compiling assets by ensuring {rake_assets_precompile} is present when running the detect command locally"));
+            bullet = bullet.sub_bullet(format!(
+                "Skipping {rake_assets_clean} (task not found via {rake_detect_cmd})",
+            )).sub_bullet(format!("{help} Enable cleaning assets by ensuring {rake_assets_clean} is present when running the detect command locally"));
         }
         AssetCases::PrecompileOnly => {
             log_step(format!(

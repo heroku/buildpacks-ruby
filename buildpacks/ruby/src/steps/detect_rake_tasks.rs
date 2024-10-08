@@ -42,15 +42,12 @@ pub(crate) fn detect_rake_tasks(
                 )),
             None,
         )),
-        RakeStatus::MissingRakefile => {
-            log_step(format!(
-                "Skipping rake tasks {}",
-                fmt::details(format!("no {rakefile}"))
-            ));
-            log_step(format!("{HELP} Add {rakefile} to your project to enable",));
-
-            Ok((bullet, None))
-        }
+        RakeStatus::MissingRakefile => Ok((
+            bullet
+                .sub_bullet(format!("Skipping rake tasks ({rakefile} not found)",))
+                .sub_bullet(format!("{help} Add {rakefile} to your project to enable",)),
+            None,
+        )),
         RakeStatus::SkipManifestFound(paths) => {
             let files = paths
                 .iter()

@@ -1,7 +1,7 @@
 use std::io::Stdout;
 
 use bullet_stream::state::SubBullet;
-use bullet_stream::Print;
+use bullet_stream::{style, Print};
 use commons::output::{
     fmt::{self, HELP},
     section_log::log_step,
@@ -21,6 +21,7 @@ pub(crate) fn detect_rake_tasks(
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
 ) -> Result<(Print<SubBullet<Stdout>>, Option<RakeDetect>), RubyBuildpackError> {
+    let help = style::important("HELP");
     let rake = fmt::value("rake");
     let gemfile = fmt::value("Gemfile");
     let rakefile = fmt::value("Rakefile");
@@ -30,19 +31,17 @@ pub(crate) fn detect_rake_tasks(
         gem_list,
         [".sprockets-manifest-*.json", "manifest-*.json"],
     ) {
-        RakeStatus::MissingRakeGem => {
-            log_step(format!(
-                "Skipping rake tasks {}",
-                fmt::details(format!("no {rake} gem in {gemfile}"))
-            ));
-
-            log_step(format!(
-                "{HELP} Add {gem} to your {gemfile} to enable",
-                gem = fmt::value("gem 'rake'")
-            ));
-
-            Ok((bullet, None))
-        }
+        RakeStatus::MissingRakeGem => Ok((
+            bullet
+                .sub_bullet(format!(
+                    "Skipping rake tasks ({rake} gem not found in {gemfile})"
+                ))
+                .sub_bullet(format!(
+                    "{help} Add {gem} to your {gemfile} to enable",
+                    gem = fmt::value("gem 'rake'")
+                )),
+            None,
+        )),
         RakeStatus::MissingRakefile => {
             log_step(format!(
                 "Skipping rake tasks {}",

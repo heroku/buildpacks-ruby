@@ -1,6 +1,7 @@
-use bullet_stream::state::SubBullet;
-use bullet_stream::Print;
-use commons::output::{fmt, section_log::log_step_timed};
+use bullet_stream::{
+    state::SubBullet,
+    {style, Print},
+};
 use core::str::FromStr;
 use fun_run::{CmdError, CommandWithName};
 use std::io::Stdout;
@@ -24,7 +25,7 @@ pub(crate) struct RakeDetect {
 ///
 /// Will return `Err` if `bundle exec rake -p` command cannot be invoked by the operating system.
 pub(crate) fn call<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsStr>>(
-    mut bullet: Print<SubBullet<Stdout>>,
+    bullet: Print<SubBullet<Stdout>>,
     envs: T,
     error_on_failure: bool,
 ) -> Result<(Print<SubBullet<Stdout>>, RakeDetect), CmdError> {
@@ -33,10 +34,8 @@ pub(crate) fn call<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsS
         .env_clear()
         .envs(envs);
 
-    log_step_timed(format!("Running {}", fmt::command(cmd.name())), || {
-        cmd.named_output()
-    })
-    .or_else(|error| {
+    let timer = bullet.start_timer(format!("Running {}", style::command(cmd.name())));
+    let output = cmd.named_output().or_else(|error| {
         if error_on_failure {
             Err(error)
         } else {
@@ -46,9 +45,9 @@ pub(crate) fn call<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsS
                 | CmdError::NonZeroExitAlreadyStreamed(output) => Ok(output),
             }
         }
-    })
-    .and_then(|output| RakeDetect::from_str(&output.stdout_lossy()))
-    .map(|rake_detect| (bullet, rake_detect))
+    })?;
+
+    RakeDetect::from_str(&output.stdout_lossy()).map(|rake_detect| (timer.done(), rake_detect))
 }
 
 impl RakeDetect {

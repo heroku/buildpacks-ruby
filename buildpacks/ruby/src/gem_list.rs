@@ -15,6 +15,27 @@ pub(crate) struct GemList {
     pub(crate) gems: HashMap<String, GemVersion>,
 }
 
+/// Calls `bundle list` and returns a `GemList` struct
+///
+/// # Errors
+///
+/// Errors if the command `bundle list` is unsuccessful.
+pub(crate) fn bundle_list<T, K, V>(envs: T) -> Result<GemList, CmdError>
+where
+    T: IntoIterator<Item = (K, V)>,
+    K: AsRef<OsStr>,
+    V: AsRef<OsStr>,
+{
+    let mut cmd = Command::new("bundle");
+    cmd.arg("list").env_clear().envs(envs);
+
+    log_step_timed(format!("Running {}", fmt::command(cmd.name())), || {
+        cmd.named_output()
+            .map(|output| output.stdout_lossy())
+            .and_then(|output| GemList::from_str(&output))
+    })
+}
+
 /// Converts the output of `$ gem list` into a data structure that can be inspected and compared
 ///
 /// ```
@@ -51,27 +72,6 @@ pub(crate) struct GemList {
 ///         );
 /// ```
 impl GemList {
-    /// Calls `bundle list` and returns a `GemList` struct
-    ///
-    /// # Errors
-    ///
-    /// Errors if the command `bundle list` is unsuccessful.
-    pub(crate) fn from_bundle_list<T, K, V>(envs: T) -> Result<Self, CmdError>
-    where
-        T: IntoIterator<Item = (K, V)>,
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>,
-    {
-        let mut cmd = Command::new("bundle");
-        cmd.arg("list").env_clear().envs(envs);
-
-        log_step_timed(format!("Running {}", fmt::command(cmd.name())), || {
-            cmd.named_output()
-                .map(|output| output.stdout_lossy())
-                .and_then(|output| GemList::from_str(&output))
-        })
-    }
-
     #[must_use]
     pub(crate) fn has(&self, str: &str) -> bool {
         self.gems.contains_key(&str.trim().to_lowercase())

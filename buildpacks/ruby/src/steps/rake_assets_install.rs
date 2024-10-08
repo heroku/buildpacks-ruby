@@ -41,7 +41,7 @@ pub(crate) fn rake_assets_install(
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
         }
         AssetCases::PrecompileAndClean => {
-            log_step(format!("Compiling assets with cache {}", fmt::details(format!("detected {rake_assets_precompile} and {rake_assets_clean} via {rake_detect_cmd}"))));
+            bullet = bullet.sub_bullet(format!("Compiling assets with cache (detected {rake_assets_precompile} and {rake_assets_clean} via {rake_detect_cmd})"));
 
             let cache_config = [
                 CacheConfig {

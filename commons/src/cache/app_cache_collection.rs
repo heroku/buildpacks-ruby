@@ -13,12 +13,11 @@ use std::fmt::Debug;
 /// Default logging is provided for each operation.
 ///
 #[derive(Debug)]
-pub struct AppCacheCollection<'a> {
-    _log: &'a dyn SectionLogger,
+pub struct AppCacheCollection {
     collection: Vec<AppCache>,
 }
 
-impl<'a> AppCacheCollection<'a> {
+impl AppCacheCollection {
     /// Store multiple application paths in the cache
     ///
     /// # Errors
@@ -29,7 +28,6 @@ impl<'a> AppCacheCollection<'a> {
     pub fn new_and_load<B: Buildpack>(
         context: &BuildContext<B>,
         config: impl IntoIterator<Item = CacheConfig>,
-        log: &'a dyn SectionLogger,
     ) -> Result<Self, CacheError> {
         let caches = config
             .into_iter()
@@ -46,10 +44,7 @@ impl<'a> AppCacheCollection<'a> {
             })
             .collect::<Result<Vec<AppCache>, CacheError>>()?;
 
-        Ok(Self {
-            collection: caches,
-            _log: log,
-        })
+        Ok(Self { collection: caches })
     }
 
     /// # Errors

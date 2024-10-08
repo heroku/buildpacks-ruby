@@ -4,7 +4,7 @@ use crate::RubyBuildpackError;
 use commons::cache::{mib, AppCacheCollection, CacheConfig, KeepPath};
 use commons::output::{
     fmt::{self, HELP},
-    section_log::{log_step, log_step_stream, SectionLogger},
+    section_log::{log_step, log_step_stream},
 };
 use fun_run::{self, CmdError, CommandWithName};
 use libcnb::build::BuildContext;
@@ -12,7 +12,6 @@ use libcnb::Env;
 use std::process::Command;
 
 pub(crate) fn rake_assets_install(
-    logger: &dyn SectionLogger,
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
     rake_detect: &RakeDetect,
@@ -57,7 +56,7 @@ pub(crate) fn rake_assets_install(
             ];
 
             let cache = {
-                AppCacheCollection::new_and_load(context, cache_config, logger)
+                AppCacheCollection::new_and_load(context, cache_config)
                     .map_err(RubyBuildpackError::InAppDirCacheError)?
             };
 

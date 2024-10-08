@@ -1,10 +1,11 @@
+use bullet_stream::{state::SubBullet, style, Print};
 use commons::gem_version::GemVersion;
-use commons::output::{fmt, section_log::log_step_timed};
 use core::str::FromStr;
 use fun_run::{CmdError, CommandWithName};
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::io::Stdout;
 use std::process::Command;
 
 /// ## Gets list of an application's dependencies
@@ -20,7 +21,10 @@ pub(crate) struct GemList {
 /// # Errors
 ///
 /// Errors if the command `bundle list` is unsuccessful.
-pub(crate) fn bundle_list<T, K, V>(envs: T) -> Result<GemList, CmdError>
+pub(crate) fn bundle_list<T, K, V>(
+    bullet: Print<SubBullet<Stdout>>,
+    envs: T,
+) -> Result<(Print<SubBullet<Stdout>>, GemList), CmdError>
 where
     T: IntoIterator<Item = (K, V)>,
     K: AsRef<OsStr>,
@@ -29,11 +33,12 @@ where
     let mut cmd = Command::new("bundle");
     cmd.arg("list").env_clear().envs(envs);
 
-    log_step_timed(format!("Running {}", fmt::command(cmd.name())), || {
-        cmd.named_output()
-            .map(|output| output.stdout_lossy())
-            .and_then(|output| GemList::from_str(&output))
-    })
+    let timer = bullet.start_timer(format!("Running {}", style::command(cmd.name())));
+    let gem_list = cmd
+        .named_output()
+        .map(|output| output.stdout_lossy())
+        .and_then(|output| GemList::from_str(&output))?;
+    Ok((timer.done(), gem_list))
 }
 
 /// Converts the output of `$ gem list` into a data structure that can be inspected and compared

@@ -2,9 +2,6 @@ use bullet_stream::{style, Print};
 use commons::cache::CacheError;
 use commons::gemfile_lock::GemfileLock;
 use commons::metadata_digest::MetadataDigest;
-#[allow(clippy::wildcard_imports)]
-use commons::output::build_log::*;
-use commons::output::warn_later::WarnGuard;
 use core::str::FromStr;
 use fs_err::PathExt;
 use fun_run::CmdError;
@@ -114,8 +111,6 @@ impl Buildpack for RubyBuildpack {
     #[allow(deprecated)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         let mut build_output = Print::new(stdout()).h2("Heroku Ruby Buildpack");
-        let mut logger = BuildLog::new(stdout()).without_buildpack_name();
-        let warn_later = WarnGuard::new(stdout());
 
         // ## Set default environment
         let (mut env, store) =
@@ -246,7 +241,6 @@ impl Buildpack for RubyBuildpack {
             .done()
         };
         build_output.done();
-        warn_later.warn_now();
 
         if let Some(default_process) = default_process {
             BuildResultBuilder::new()

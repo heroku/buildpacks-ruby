@@ -70,7 +70,7 @@ pub(crate) fn detect_rake_tasks(
             ))
         }
         RakeStatus::Ready(path) => {
-            log_step(format!(
+            bullet = bullet.sub_bullet(format!(
                 "Detected rake ({rake} gem found, {rakefile} found at {path})",
                 path = fmt::value(path.to_string_lossy())
             ));

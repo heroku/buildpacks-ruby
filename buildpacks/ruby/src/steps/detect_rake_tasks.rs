@@ -1,3 +1,7 @@
+use std::io::Stdout;
+
+use bullet_stream::state::SubBullet;
+use bullet_stream::Print;
 use commons::output::{
     fmt::{self, HELP},
     section_log::log_step,
@@ -12,10 +16,11 @@ use libcnb::build::BuildContext;
 use libcnb::Env;
 
 pub(crate) fn detect_rake_tasks(
+    mut bullet: Print<SubBullet<Stdout>>,
     gem_list: &GemList,
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
-) -> Result<Option<RakeDetect>, RubyBuildpackError> {
+) -> Result<(Print<SubBullet<Stdout>>, Option<RakeDetect>), RubyBuildpackError> {
     let rake = fmt::value("rake");
     let gemfile = fmt::value("Gemfile");
     let rakefile = fmt::value("Rakefile");
@@ -36,7 +41,7 @@ pub(crate) fn detect_rake_tasks(
                 gem = fmt::value("gem 'rake'")
             ));
 
-            Ok(None)
+            Ok((bullet, None))
         }
         RakeStatus::MissingRakefile => {
             log_step(format!(
@@ -45,7 +50,7 @@ pub(crate) fn detect_rake_tasks(
             ));
             log_step(format!("{HELP} Add {rakefile} to your project to enable",));
 
-            Ok(None)
+            Ok((bullet, None))
         }
         RakeStatus::SkipManifestFound(paths) => {
             let files = paths
@@ -60,7 +65,7 @@ pub(crate) fn detect_rake_tasks(
             ));
             log_step(format!("{HELP} Delete files to enable running rake tasks"));
 
-            Ok(None)
+            Ok((bullet, None))
         }
         RakeStatus::Ready(path) => {
             log_step(format!(
@@ -71,7 +76,7 @@ pub(crate) fn detect_rake_tasks(
             let rake_detect = RakeDetect::from_rake_command(env, true)
                 .map_err(RubyBuildpackError::RakeDetectError)?;
 
-            Ok(Some(rake_detect))
+            Ok((bullet, Some(rake_detect)))
         }
     }
 }

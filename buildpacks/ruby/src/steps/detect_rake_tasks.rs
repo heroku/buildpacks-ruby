@@ -9,7 +9,7 @@ use commons::output::{
 
 use crate::gem_list::GemList;
 use crate::rake_status::{check_rake_ready, RakeStatus};
-use crate::rake_task_detect::RakeDetect;
+use crate::rake_task_detect::{self, RakeDetect};
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use libcnb::build::BuildContext;
@@ -75,8 +75,8 @@ pub(crate) fn detect_rake_tasks(
                 path = fmt::value(path.to_string_lossy())
             ));
 
-            let rake_detect = RakeDetect::from_rake_command(env, true)
-                .map_err(RubyBuildpackError::RakeDetectError)?;
+            let rake_detect =
+                rake_task_detect::call(env, true).map_err(RubyBuildpackError::RakeDetectError)?;
 
             Ok((bullet, Some(rake_detect)))
         }

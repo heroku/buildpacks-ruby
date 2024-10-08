@@ -17,40 +17,36 @@ pub(crate) struct RakeDetect {
     output: String,
 }
 
-impl RakeDetect {
-    /// # Errors
-    ///
-    /// Will return `Err` if `bundle exec rake -p` command cannot be invoked by the operating system.
-    pub(crate) fn from_rake_command<
-        T: IntoIterator<Item = (K, V)>,
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>,
-    >(
-        envs: T,
-        error_on_failure: bool,
-    ) -> Result<Self, CmdError> {
-        let mut cmd = Command::new("bundle");
-        cmd.args(["exec", "rake", "-P", "--trace"])
-            .env_clear()
-            .envs(envs);
+/// # Errors
+///
+/// Will return `Err` if `bundle exec rake -p` command cannot be invoked by the operating system.
+pub(crate) fn call<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsStr>>(
+    envs: T,
+    error_on_failure: bool,
+) -> Result<RakeDetect, CmdError> {
+    let mut cmd = Command::new("bundle");
+    cmd.args(["exec", "rake", "-P", "--trace"])
+        .env_clear()
+        .envs(envs);
 
-        log_step_timed(format!("Running {}", fmt::command(cmd.name())), || {
-            cmd.named_output()
-        })
-        .or_else(|error| {
-            if error_on_failure {
-                Err(error)
-            } else {
-                match error {
-                    CmdError::SystemError(_, _) => Err(error),
-                    CmdError::NonZeroExitNotStreamed(output)
-                    | CmdError::NonZeroExitAlreadyStreamed(output) => Ok(output),
-                }
+    log_step_timed(format!("Running {}", fmt::command(cmd.name())), || {
+        cmd.named_output()
+    })
+    .or_else(|error| {
+        if error_on_failure {
+            Err(error)
+        } else {
+            match error {
+                CmdError::SystemError(_, _) => Err(error),
+                CmdError::NonZeroExitNotStreamed(output)
+                | CmdError::NonZeroExitAlreadyStreamed(output) => Ok(output),
             }
-        })
-        .and_then(|output| RakeDetect::from_str(&output.stdout_lossy()))
-    }
+        }
+    })
+    .and_then(|output| RakeDetect::from_str(&output.stdout_lossy()))
+}
 
+impl RakeDetect {
     #[must_use]
     pub(crate) fn has_task(&self, string: &str) -> bool {
         let task_re = regex::Regex::new(&format!("\\s{string}")).expect("clippy");

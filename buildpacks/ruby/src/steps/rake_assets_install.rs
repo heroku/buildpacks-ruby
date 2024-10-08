@@ -4,8 +4,7 @@ use crate::RubyBuildpackError;
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use commons::cache::{mib, AppCache, CacheConfig, CacheError, CacheState, KeepPath, PathState};
-use commons::output::section_log::{log_step, log_step_stream};
-use fun_run::{self, CmdError, CommandWithName};
+use fun_run::{self, CommandWithName};
 use libcnb::build::BuildContext;
 use libcnb::Env;
 use std::io::Stdout;
@@ -39,16 +38,15 @@ pub(crate) fn rake_assets_install(
                 .env_clear()
                 .envs(env);
 
-            log_step_stream(
-                format!("Running {}", style::command(cmd.name())),
-                |stream| {
-                    cmd.stream_output(stream.io(), stream.io())
-                        .map_err(|error| {
-                            fun_run::map_which_problem(error, &mut cmd, env.get("PATH").cloned())
-                        })
-                },
-            )
-            .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
+            bullet
+                .stream_with(
+                    format!("Running {}", style::command(cmd.name())),
+                    |stdout, stderr| cmd.stream_output(stdout, stderr),
+                )
+                .map_err(|error| {
+                    fun_run::map_which_problem(error, &mut cmd, env.get("PATH").cloned())
+                })
+                .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
         }
         AssetCases::PrecompileAndClean => {
             bullet = bullet.sub_bullet(format!("Compiling assets with cache (detected {rake_assets_precompile} and {rake_assets_clean} via {rake_detect_cmd})"));

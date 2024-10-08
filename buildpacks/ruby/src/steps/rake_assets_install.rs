@@ -68,7 +68,6 @@ pub(crate) fn rake_assets_install(
                 });
             }
 
-            let path_env = env.get("PATH").cloned();
             let mut cmd = Command::new("bundle");
             cmd.args([
                 "exec",
@@ -85,7 +84,9 @@ pub(crate) fn rake_assets_install(
                     format!("Running {}", style::command(cmd.name())),
                     |stdout, stderr| cmd.stream_output(stdout, stderr),
                 )
-                .map_err(|error| fun_run::map_which_problem(error, &mut cmd, path_env))
+                .map_err(|error| {
+                    fun_run::map_which_problem(error, &mut cmd, env.get("PATH").cloned())
+                })
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
 
             for store in caches {

@@ -1,8 +1,7 @@
 use crate::gem_list::GemList;
 use crate::RubyBuildpack;
-use bullet_stream::state::{Bullet, SubBullet};
-use bullet_stream::Print;
-use commons::output::{fmt, section_log::log_step};
+use bullet_stream::style;
+use bullet_stream::{state::SubBullet, Print};
 use libcnb::build::BuildContext;
 use libcnb::data::launch::Process;
 use libcnb::data::launch::ProcessBuilder;
@@ -15,10 +14,10 @@ pub(crate) fn get_default_process(
     context: &BuildContext<RubyBuildpack>,
     gem_list: &GemList,
 ) -> (Print<SubBullet<Stdout>>, Option<Process>) {
-    let config_ru = fmt::value("config.ru");
-    let rails = fmt::value("rails");
-    let rack = fmt::value("rack");
-    let railties = fmt::value("railties");
+    let config_ru = style::value("config.ru");
+    let rails = style::value("rails");
+    let rack = style::value("rack");
+    let railties = style::value("railties");
     match detect_web(gem_list, &context.app_dir) {
         WebProcess::Rails => (
             bullet.sub_bullet(format!("Detected rails app ({rails} gem found)")),

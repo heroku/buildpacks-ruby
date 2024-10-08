@@ -70,13 +70,15 @@ pub(crate) fn detect_rake_tasks(
             ))
         }
         RakeStatus::Ready(path) => {
-            bullet = bullet.sub_bullet(format!(
-                "Detected rake ({rake} gem found, {rakefile} found at {path})",
-                path = fmt::value(path.to_string_lossy())
-            ));
-
-            let rake_detect =
-                rake_task_detect::call(env, true).map_err(RubyBuildpackError::RakeDetectError)?;
+            let (bullet, rake_detect) = rake_task_detect::call(
+                bullet.sub_bullet(format!(
+                    "Detected rake ({rake} gem found, {rakefile} found at {path})",
+                    path = fmt::value(path.to_string_lossy())
+                )),
+                env,
+                true,
+            )
+            .map_err(RubyBuildpackError::RakeDetectError)?;
 
             Ok((bullet, Some(rake_detect)))
         }

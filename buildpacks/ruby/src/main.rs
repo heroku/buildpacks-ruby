@@ -224,7 +224,7 @@ impl Buildpack for RubyBuildpack {
 
             let (bullet, gem_list) =
                 gem_list::bundle_list(bullet, &env).map_err(RubyBuildpackError::GemListGetError)?;
-            let default_process = steps::get_default_process(&context, &gem_list);
+            let (bullet, default_process) = steps::get_default_process(bullet, &context, &gem_list);
 
             (bullet.done(), gem_list, default_process)
         };

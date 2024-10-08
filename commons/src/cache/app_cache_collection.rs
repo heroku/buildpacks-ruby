@@ -13,11 +13,15 @@ use std::fmt::Debug;
 /// Default logging is provided for each operation.
 ///
 #[derive(Debug)]
+#[deprecated(
+    since = "0.1.0",
+    note = "Use `AppCache` directly to manage cache for a single path"
+)]
 pub struct AppCacheCollection<'a> {
     _log: &'a dyn SectionLogger,
     collection: Vec<AppCache>,
 }
-
+#[allow(deprecated)]
 impl<'a> AppCacheCollection<'a> {
     /// Store multiple application paths in the cache
     ///

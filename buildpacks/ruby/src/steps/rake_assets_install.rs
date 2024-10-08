@@ -3,7 +3,7 @@ use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
-use commons::cache::{mib, AppCacheCollection, CacheConfig, KeepPath};
+use commons::cache::{mib, AppCache, CacheConfig, CacheError, CacheState, KeepPath, PathState};
 use commons::output::{
     fmt::{self, HELP},
     section_log::{log_step, log_step_stream},
@@ -56,17 +56,48 @@ pub(crate) fn rake_assets_install(
                 },
             ];
 
-            let cache = {
-                AppCacheCollection::new_and_load(context, cache_config)
-                    .map_err(RubyBuildpackError::InAppDirCacheError)?
-            };
+            let caches = cache_config
+                .iter()
+                .map(|config| AppCache::new_and_load(context, config.to_owned()))
+                .collect::<Result<Vec<AppCache>, CacheError>>()
+                .map_err(RubyBuildpackError::InAppDirCacheError)?;
+
+            for store in &caches {
+                let path = store.path().display();
+                bullet = bullet.sub_bullet(match store.cache_state() {
+                    CacheState::NewEmpty => format!("Creating cache for {path}"),
+                    CacheState::ExistsEmpty => format!("Loading (empty) cache for {path}"),
+                    CacheState::ExistsWithContents => format!("Loading cache for {path}"),
+                });
+            }
 
             run_rake_assets_precompile_with_clean(env)
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
 
-            cache
-                .save_and_clean()
-                .map_err(RubyBuildpackError::InAppDirCacheError)?;
+            for store in caches {
+                let path = store.path().display();
+
+                bullet = bullet.sub_bullet(match store.path_state() {
+                    PathState::Empty => format!("Storing cache for (empty) {path}"),
+                    PathState::HasFiles => format!("Storing cache for {path}"),
+                });
+
+                if let Some(removed) = store
+                    .save_and_clean()
+                    .map_err(RubyBuildpackError::InAppDirCacheError)?
+                {
+                    let path = store.path().display();
+                    let limit = store.limit();
+                    let removed_len = removed.files.len();
+                    let removed_size = removed.adjusted_bytes();
+
+                    bullet = bullet.sub_bullet(format!("Detected cache size exceeded (over {limit} limit by {removed_size}) for {path}"))
+                    .sub_bullet(
+                        format!("Removed {removed_len} files from the cache for {path}"),
+
+                    );
+                }
+            }
         }
     }
 

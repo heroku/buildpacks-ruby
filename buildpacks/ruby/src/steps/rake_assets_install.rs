@@ -4,10 +4,7 @@ use crate::RubyBuildpackError;
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use commons::cache::{mib, AppCache, CacheConfig, CacheError, CacheState, KeepPath, PathState};
-use commons::output::{
-    fmt::{self, HELP},
-    section_log::{log_step, log_step_stream},
-};
+use commons::output::section_log::{log_step, log_step_stream};
 use fun_run::{self, CmdError, CommandWithName};
 use libcnb::build::BuildContext;
 use libcnb::Env;
@@ -22,9 +19,9 @@ pub(crate) fn rake_assets_install(
 ) -> Result<Print<SubBullet<Stdout>>, RubyBuildpackError> {
     let help = style::important("HELP");
     let cases = asset_cases(rake_detect);
-    let rake_assets_precompile = fmt::value("rake assets:precompile");
-    let rake_assets_clean = fmt::value("rake assets:clean");
-    let rake_detect_cmd = fmt::value("bundle exec rake -P");
+    let rake_assets_precompile = style::value("rake assets:precompile");
+    let rake_assets_clean = style::value("rake assets:clean");
+    let rake_detect_cmd = style::value("bundle exec rake -P");
 
     match cases {
         AssetCases::None => {
@@ -112,10 +109,13 @@ fn run_rake_assets_precompile(env: &Env) -> Result<(), CmdError> {
         .env_clear()
         .envs(env);
 
-    log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
-        cmd.stream_output(stream.io(), stream.io())
-            .map_err(|error| fun_run::map_which_problem(error, &mut cmd, path_env))
-    })?;
+    log_step_stream(
+        format!("Running {}", style::command(cmd.name())),
+        |stream| {
+            cmd.stream_output(stream.io(), stream.io())
+                .map_err(|error| fun_run::map_which_problem(error, &mut cmd, path_env))
+        },
+    )?;
 
     Ok(())
 }
@@ -133,9 +133,10 @@ fn run_rake_assets_precompile_with_clean(env: &Env) -> Result<(), CmdError> {
     .env_clear()
     .envs(env);
 
-    log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
-        cmd.stream_output(stream.io(), stream.io())
-    })
+    log_step_stream(
+        format!("Running {}", style::command(cmd.name())),
+        |stream| cmd.stream_output(stream.io(), stream.io()),
+    )
     .map_err(|error| fun_run::map_which_problem(error, &mut cmd, path_env))?;
 
     Ok(())

@@ -219,7 +219,7 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Detect gems
-        let (_, gem_list, default_process) = {
+        let (mut build_output, gem_list, default_process) = {
             let bullet = build_output.bullet("Default process detection");
 
             let (bullet, gem_list) =
@@ -230,18 +230,17 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Assets install
-        logger = {
-            let section = logger.section("Rake assets install");
-
+        build_output = {
+            let mut bullet = build_output.bullet("Rake assets install");
             let rake_detect = crate::steps::detect_rake_tasks(&gem_list, &context, &env)?;
 
             if let Some(rake_detect) = rake_detect {
                 crate::steps::rake_assets_install(&context, &env, &rake_detect)?;
             }
 
-            section.end_section()
+            bullet.done()
         };
-        logger.finish_logging();
+        build_output.done();
         warn_later.warn_now();
 
         if let Some(default_process) = default_process {

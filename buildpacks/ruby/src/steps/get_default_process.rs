@@ -1,9 +1,6 @@
 use crate::gem_list::GemList;
 use crate::RubyBuildpack;
-use commons::output::{
-    fmt,
-    section_log::{log_step, SectionLogger},
-};
+use commons::output::{fmt, section_log::log_step};
 use libcnb::build::BuildContext;
 use libcnb::data::launch::Process;
 use libcnb::data::launch::ProcessBuilder;
@@ -11,7 +8,6 @@ use libcnb::data::process_type;
 use std::path::Path;
 
 pub(crate) fn get_default_process(
-    _logger: &dyn SectionLogger,
     context: &BuildContext<RubyBuildpack>,
     gem_list: &GemList,
 ) -> Option<Process> {

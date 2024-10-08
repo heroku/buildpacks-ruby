@@ -114,7 +114,7 @@ impl Buildpack for RubyBuildpack {
     #[allow(deprecated)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         let mut build_output = Print::new(stdout()).h2("Heroku Ruby Buildpack");
-        let logger = BuildLog::new(stdout()).without_buildpack_name();
+        let mut logger = BuildLog::new(stdout()).without_buildpack_name();
         let warn_later = WarnGuard::new(stdout());
 
         // ## Set default environment
@@ -185,7 +185,7 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Bundle install
-        (_, env) = {
+        (build_output, env) = {
             let bullet = build_output.bullet("Bundle install gems");
             let (bullet, layer_env) = layers::bundle_install_layer::handle(
                 &context,
@@ -219,14 +219,14 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Detect gems
-        let (mut logger, gem_list, default_process) = {
-            let section = logger.section("Setting default processes");
+        let (_, gem_list, default_process) = {
+            let bullet = build_output.bullet("Setting default processes");
 
-            let gem_list = gem_list::GemList::from_bundle_list(&env, section.as_ref())
+            let gem_list = gem_list::GemList::from_bundle_list(&env)
                 .map_err(RubyBuildpackError::GemListGetError)?;
-            let default_process = steps::get_default_process(section.as_ref(), &context, &gem_list);
+            let default_process = steps::get_default_process(&context, &gem_list);
 
-            (section.end_section(), gem_list, default_process)
+            (bullet.done(), gem_list, default_process)
         };
 
         // ## Assets install

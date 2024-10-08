@@ -1,8 +1,5 @@
 use commons::gem_version::GemVersion;
-use commons::output::{
-    fmt,
-    section_log::{log_step_timed, SectionLogger},
-};
+use commons::output::{fmt, section_log::log_step_timed};
 use core::str::FromStr;
 use fun_run::{CmdError, CommandWithName};
 use regex::Regex;
@@ -59,10 +56,7 @@ impl GemList {
     /// # Errors
     ///
     /// Errors if the command `bundle list` is unsuccessful.
-    pub(crate) fn from_bundle_list<T, K, V>(
-        envs: T,
-        _logger: &dyn SectionLogger,
-    ) -> Result<Self, CmdError>
+    pub(crate) fn from_bundle_list<T, K, V>(envs: T) -> Result<Self, CmdError>
     where
         T: IntoIterator<Item = (K, V)>,
         K: AsRef<OsStr>,

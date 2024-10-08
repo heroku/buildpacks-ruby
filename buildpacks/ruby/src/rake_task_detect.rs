@@ -1,8 +1,4 @@
-use commons::output::{
-    fmt,
-    section_log::{log_step_timed, SectionLogger},
-};
-
+use commons::output::{fmt, section_log::log_step_timed};
 use core::str::FromStr;
 use fun_run::{CmdError, CommandWithName};
 use std::{ffi::OsStr, process::Command};
@@ -30,7 +26,6 @@ impl RakeDetect {
         K: AsRef<OsStr>,
         V: AsRef<OsStr>,
     >(
-        _logger: &dyn SectionLogger,
         envs: T,
         error_on_failure: bool,
     ) -> Result<Self, CmdError> {

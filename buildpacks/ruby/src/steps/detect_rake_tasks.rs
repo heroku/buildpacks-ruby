@@ -1,6 +1,6 @@
 use commons::output::{
     fmt::{self, HELP},
-    section_log::{log_step, SectionLogger},
+    section_log::log_step,
 };
 
 use crate::gem_list::GemList;
@@ -12,7 +12,6 @@ use libcnb::build::BuildContext;
 use libcnb::Env;
 
 pub(crate) fn detect_rake_tasks(
-    logger: &dyn SectionLogger,
     gem_list: &GemList,
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
@@ -69,7 +68,7 @@ pub(crate) fn detect_rake_tasks(
                 path = fmt::value(path.to_string_lossy())
             ));
 
-            let rake_detect = RakeDetect::from_rake_command(logger, env, true)
+            let rake_detect = RakeDetect::from_rake_command(env, true)
                 .map_err(RubyBuildpackError::RakeDetectError)?;
 
             Ok(Some(rake_detect))

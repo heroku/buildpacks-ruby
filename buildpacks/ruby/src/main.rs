@@ -108,7 +108,6 @@ impl Buildpack for RubyBuildpack {
     }
 
     #[allow(clippy::too_many_lines)]
-    #[allow(deprecated)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         let mut build_output = Print::new(stdout()).h2("Heroku Ruby Buildpack");
 

@@ -1,5 +1,9 @@
 # Changelog for commons features
 
+## 2024-08-15
+
+- Deprecate `AppCacheCollection` (https://github.com/heroku/buildpacks-ruby/pull/334)
+
 ## 1.0.0
 
 ### Changed

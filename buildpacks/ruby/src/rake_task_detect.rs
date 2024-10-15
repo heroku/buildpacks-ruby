@@ -1,10 +1,10 @@
-use commons::output::{
-    fmt,
-    section_log::{log_step_timed, SectionLogger},
+use bullet_stream::{
+    state::SubBullet,
+    {style, Print},
 };
-
 use core::str::FromStr;
 use fun_run::{CmdError, CommandWithName};
+use std::io::Stdout;
 use std::{ffi::OsStr, process::Command};
 
 /// Run `rake -P` and parse output to show what rake tasks an application has
@@ -21,41 +21,36 @@ pub(crate) struct RakeDetect {
     output: String,
 }
 
-impl RakeDetect {
-    /// # Errors
-    ///
-    /// Will return `Err` if `bundle exec rake -p` command cannot be invoked by the operating system.
-    pub(crate) fn from_rake_command<
-        T: IntoIterator<Item = (K, V)>,
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>,
-    >(
-        _logger: &dyn SectionLogger,
-        envs: T,
-        error_on_failure: bool,
-    ) -> Result<Self, CmdError> {
-        let mut cmd = Command::new("bundle");
-        cmd.args(["exec", "rake", "-P", "--trace"])
-            .env_clear()
-            .envs(envs);
+/// # Errors
+///
+/// Will return `Err` if `bundle exec rake -p` command cannot be invoked by the operating system.
+pub(crate) fn call<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsStr>>(
+    bullet: Print<SubBullet<Stdout>>,
+    envs: T,
+    error_on_failure: bool,
+) -> Result<(Print<SubBullet<Stdout>>, RakeDetect), CmdError> {
+    let mut cmd = Command::new("bundle");
+    cmd.args(["exec", "rake", "-P", "--trace"])
+        .env_clear()
+        .envs(envs);
 
-        log_step_timed(format!("Running {}", fmt::command(cmd.name())), || {
-            cmd.named_output()
-        })
-        .or_else(|error| {
-            if error_on_failure {
-                Err(error)
-            } else {
-                match error {
-                    CmdError::SystemError(_, _) => Err(error),
-                    CmdError::NonZeroExitNotStreamed(output)
-                    | CmdError::NonZeroExitAlreadyStreamed(output) => Ok(output),
-                }
+    let timer = bullet.start_timer(format!("Running {}", style::command(cmd.name())));
+    let output = cmd.named_output().or_else(|error| {
+        if error_on_failure {
+            Err(error)
+        } else {
+            match error {
+                CmdError::SystemError(_, _) => Err(error),
+                CmdError::NonZeroExitNotStreamed(output)
+                | CmdError::NonZeroExitAlreadyStreamed(output) => Ok(output),
             }
-        })
-        .and_then(|output| RakeDetect::from_str(&output.stdout_lossy()))
-    }
+        }
+    })?;
 
+    RakeDetect::from_str(&output.stdout_lossy()).map(|rake_detect| (timer.done(), rake_detect))
+}
+
+impl RakeDetect {
     #[must_use]
     pub(crate) fn has_task(&self, string: &str) -> bool {
         let task_re = regex::Regex::new(&format!("\\s{string}")).expect("clippy");

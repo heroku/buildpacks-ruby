@@ -1,47 +1,55 @@
 use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
-use commons::cache::{mib, AppCacheCollection, CacheConfig, KeepPath};
-use commons::output::{
-    fmt::{self, HELP},
-    section_log::{log_step, log_step_stream, SectionLogger},
-};
-use fun_run::{self, CmdError, CommandWithName};
+use bullet_stream::state::SubBullet;
+use bullet_stream::{style, Print};
+use commons::cache::{mib, AppCache, CacheConfig, CacheError, CacheState, KeepPath, PathState};
+use fun_run::{self, CommandWithName};
 use libcnb::build::BuildContext;
 use libcnb::Env;
+use std::io::Stdout;
 use std::process::Command;
 
 pub(crate) fn rake_assets_install(
-    logger: &dyn SectionLogger,
+    mut bullet: Print<SubBullet<Stdout>>,
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
     rake_detect: &RakeDetect,
-) -> Result<(), RubyBuildpackError> {
+) -> Result<Print<SubBullet<Stdout>>, RubyBuildpackError> {
+    let help = style::important("HELP");
     let cases = asset_cases(rake_detect);
-    let rake_assets_precompile = fmt::value("rake assets:precompile");
-    let rake_assets_clean = fmt::value("rake assets:clean");
-    let rake_detect_cmd = fmt::value("bundle exec rake -P");
+    let rake_assets_precompile = style::value("rake assets:precompile");
+    let rake_assets_clean = style::value("rake assets:clean");
+    let rake_detect_cmd = style::value("bundle exec rake -P");
 
     match cases {
         AssetCases::None => {
-            log_step(format!(
-                "Skipping {rake_assets_precompile} {}",
-                fmt::details(format!("task not found via {rake_detect_cmd}"))
-            ));
-            log_step(format!("{HELP} Enable compiling assets by ensuring {rake_assets_precompile} is present when running the detect command locally"));
+            bullet = bullet.sub_bullet(format!(
+                "Skipping {rake_assets_clean} (task not found via {rake_detect_cmd})",
+            )).sub_bullet(format!("{help} Enable cleaning assets by ensuring {rake_assets_clean} is present when running the detect command locally"));
         }
         AssetCases::PrecompileOnly => {
-            log_step(format!(
-                "Compiling assets without cache {}",
-                fmt::details(format!("Clean task not found via {rake_detect_cmd}"))
-            ));
-            log_step(format!("{HELP} Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
+            bullet = bullet.sub_bullet(
+                format!("Compiling assets without cache (Clean task not found via {rake_detect_cmd})"),
+            ).sub_bullet(format!("{help} Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
 
-            run_rake_assets_precompile(env)
+            let mut cmd = Command::new("bundle");
+            cmd.args(["exec", "rake", "assets:precompile", "--trace"])
+                .env_clear()
+                .envs(env);
+
+            bullet
+                .stream_with(
+                    format!("Running {}", style::command(cmd.name())),
+                    |stdout, stderr| cmd.stream_output(stdout, stderr),
+                )
+                .map_err(|error| {
+                    fun_run::map_which_problem(error, &mut cmd, env.get("PATH").cloned())
+                })
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
         }
         AssetCases::PrecompileAndClean => {
-            log_step(format!("Compiling assets with cache {}", fmt::details(format!("detected {rake_assets_precompile} and {rake_assets_clean} via {rake_detect_cmd}"))));
+            bullet = bullet.sub_bullet(format!("Compiling assets with cache (detected {rake_assets_precompile} and {rake_assets_clean} via {rake_detect_cmd})"));
 
             let cache_config = [
                 CacheConfig {
@@ -56,58 +64,70 @@ pub(crate) fn rake_assets_install(
                 },
             ];
 
-            let cache = {
-                AppCacheCollection::new_and_load(context, cache_config, logger)
-                    .map_err(RubyBuildpackError::InAppDirCacheError)?
-            };
+            let caches = cache_config
+                .into_iter()
+                .map(|config| AppCache::new_and_load(context, config))
+                .collect::<Result<Vec<AppCache>, CacheError>>()
+                .map_err(RubyBuildpackError::InAppDirCacheError)?;
 
-            run_rake_assets_precompile_with_clean(env)
+            for store in &caches {
+                let path = store.path().display();
+                bullet = bullet.sub_bullet(match store.cache_state() {
+                    CacheState::NewEmpty => format!("Creating cache for {path}"),
+                    CacheState::ExistsEmpty => format!("Loading (empty) cache for {path}"),
+                    CacheState::ExistsWithContents => format!("Loading cache for {path}"),
+                });
+            }
+
+            let mut cmd = Command::new("bundle");
+            cmd.args([
+                "exec",
+                "rake",
+                "assets:precompile",
+                "assets:clean",
+                "--trace",
+            ])
+            .env_clear()
+            .envs(env);
+
+            bullet
+                .stream_with(
+                    format!("Running {}", style::command(cmd.name())),
+                    |stdout, stderr| cmd.stream_output(stdout, stderr),
+                )
+                .map_err(|error| {
+                    fun_run::map_which_problem(error, &mut cmd, env.get("PATH").cloned())
+                })
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
 
-            cache
-                .save_and_clean()
-                .map_err(RubyBuildpackError::InAppDirCacheError)?;
+            for store in caches {
+                let path = store.path().display();
+
+                bullet = bullet.sub_bullet(match store.path_state() {
+                    PathState::Empty => format!("Storing cache for (empty) {path}"),
+                    PathState::HasFiles => format!("Storing cache for {path}"),
+                });
+
+                if let Some(removed) = store
+                    .save_and_clean()
+                    .map_err(RubyBuildpackError::InAppDirCacheError)?
+                {
+                    let path = store.path().display();
+                    let limit = store.limit();
+                    let removed_len = removed.files.len();
+                    let removed_size = removed.adjusted_bytes();
+
+                    bullet = bullet.sub_bullet(format!("Detected cache size exceeded (over {limit} limit by {removed_size}) for {path}"))
+                    .sub_bullet(
+                        format!("Removed {removed_len} files from the cache for {path}"),
+
+                    );
+                }
+            }
         }
     }
 
-    Ok(())
-}
-
-fn run_rake_assets_precompile(env: &Env) -> Result<(), CmdError> {
-    let path_env = env.get("PATH").cloned();
-    let mut cmd = Command::new("bundle");
-
-    cmd.args(["exec", "rake", "assets:precompile", "--trace"])
-        .env_clear()
-        .envs(env);
-
-    log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
-        cmd.stream_output(stream.io(), stream.io())
-            .map_err(|error| fun_run::map_which_problem(error, &mut cmd, path_env))
-    })?;
-
-    Ok(())
-}
-
-fn run_rake_assets_precompile_with_clean(env: &Env) -> Result<(), CmdError> {
-    let path_env = env.get("PATH").cloned();
-    let mut cmd = Command::new("bundle");
-    cmd.args([
-        "exec",
-        "rake",
-        "assets:precompile",
-        "assets:clean",
-        "--trace",
-    ])
-    .env_clear()
-    .envs(env);
-
-    log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
-        cmd.stream_output(stream.io(), stream.io())
-    })
-    .map_err(|error| fun_run::map_which_problem(error, &mut cmd, path_env))?;
-
-    Ok(())
+    Ok(bullet)
 }
 
 #[derive(Clone, Debug)]

@@ -1,13 +1,11 @@
+use bullet_stream::{state::SubBullet, style, Print};
 use commons::gem_version::GemVersion;
-use commons::output::{
-    fmt,
-    section_log::{log_step_timed, SectionLogger},
-};
 use core::str::FromStr;
 use fun_run::{CmdError, CommandWithName};
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::io::Stdout;
 use std::process::Command;
 
 /// ## Gets list of an application's dependencies
@@ -16,6 +14,31 @@ use std::process::Command;
 #[derive(Debug)]
 pub(crate) struct GemList {
     pub(crate) gems: HashMap<String, GemVersion>,
+}
+
+/// Calls `bundle list` and returns a `GemList` struct
+///
+/// # Errors
+///
+/// Errors if the command `bundle list` is unsuccessful.
+pub(crate) fn bundle_list<T, K, V>(
+    bullet: Print<SubBullet<Stdout>>,
+    envs: T,
+) -> Result<(Print<SubBullet<Stdout>>, GemList), CmdError>
+where
+    T: IntoIterator<Item = (K, V)>,
+    K: AsRef<OsStr>,
+    V: AsRef<OsStr>,
+{
+    let mut cmd = Command::new("bundle");
+    cmd.arg("list").env_clear().envs(envs);
+
+    let timer = bullet.start_timer(format!("Running {}", style::command(cmd.name())));
+    let gem_list = cmd
+        .named_output()
+        .map(|output| output.stdout_lossy())
+        .and_then(|output| GemList::from_str(&output))?;
+    Ok((timer.done(), gem_list))
 }
 
 /// Converts the output of `$ gem list` into a data structure that can be inspected and compared
@@ -54,30 +77,6 @@ pub(crate) struct GemList {
 ///         );
 /// ```
 impl GemList {
-    /// Calls `bundle list` and returns a `GemList` struct
-    ///
-    /// # Errors
-    ///
-    /// Errors if the command `bundle list` is unsuccessful.
-    pub(crate) fn from_bundle_list<T, K, V>(
-        envs: T,
-        _logger: &dyn SectionLogger,
-    ) -> Result<Self, CmdError>
-    where
-        T: IntoIterator<Item = (K, V)>,
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>,
-    {
-        let mut cmd = Command::new("bundle");
-        cmd.arg("list").env_clear().envs(envs);
-
-        let output = log_step_timed(format!("Running {}", fmt::command(cmd.name())), || {
-            cmd.named_output()
-        })?;
-
-        GemList::from_str(&output.stdout_lossy())
-    }
-
     #[must_use]
     pub(crate) fn has(&self, str: &str) -> bool {
         self.gems.contains_key(&str.trim().to_lowercase())

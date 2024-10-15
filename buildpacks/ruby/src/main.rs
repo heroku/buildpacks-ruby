@@ -29,6 +29,9 @@ mod user_errors;
 #[cfg(test)]
 use libcnb_test as _;
 
+#[cfg(test)]
+use filetime as _;
+
 use clap as _;
 
 struct RubyBuildpack;

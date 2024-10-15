@@ -448,4 +448,35 @@ mod tests {
         assert!(store.cache.join("lol.txt").exists());
         assert!(!store.path.join("lol.txt").exists());
     }
+
+    #[test]
+    fn mtime_preserved() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let cache_path = tmpdir.path().join("cache");
+        let app_path = tmpdir.path().join("app");
+
+        fs_err::create_dir_all(&cache_path).unwrap();
+        fs_err::create_dir_all(&app_path).unwrap();
+
+        let store = AppCache {
+            path: app_path.clone(),
+            cache: cache_path,
+            limit: Byte::from_u64(512),
+            keep_path: KeepPath::BuildOnly,
+            cache_state: CacheState::NewEmpty,
+        };
+
+        let mtime = filetime::FileTime::from_unix_time(1000, 0);
+
+        let path = app_path.join("lol.txt");
+        fs_err::write(&path, "hahaha").unwrap();
+        filetime::set_file_mtime(&path, mtime).unwrap();
+
+        store.save().unwrap();
+
+        let metadata = fs_err::metadata(store.cache.join("lol.txt")).unwrap();
+        let actual = filetime::FileTime::from_last_modification_time(&metadata);
+
+        assert_eq!(mtime, actual);
+    }
 }

@@ -65,8 +65,8 @@ pub(crate) fn rake_assets_install(
             ];
 
             let caches = cache_config
-                .iter()
-                .map(|config| AppCache::new_and_load(context, config.to_owned()))
+                .into_iter()
+                .map(|config| AppCache::new_and_load(context, config))
                 .collect::<Result<Vec<AppCache>, CacheError>>()
                 .map_err(RubyBuildpackError::InAppDirCacheError)?;
 

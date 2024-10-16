@@ -281,10 +281,10 @@ dependencies = [
  "ascii_table",
  "byte-unit",
  "const_format",
+ "cp_r",
  "fancy-regex",
  "filetime",
  "fs-err",
- "fs_extra",
  "fun_run",
  "glob",
  "indoc",
@@ -320,6 +320,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
+]
+
+[[package]]
+name = "cp_r"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "837ca07dfd27a2663ac7c4701bb35856b534c2a61dd47af06ccf65d3bec79ebc"
+dependencies = [
+ "filetime",
 ]
 
 [[package]]
@@ -574,7 +583,6 @@ dependencies = [
  "bullet_stream",
  "clap",
  "commons",
- "filetime",
  "flate2",
  "fs-err",
  "fun_run",

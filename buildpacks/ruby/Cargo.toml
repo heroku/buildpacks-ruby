@@ -33,4 +33,3 @@ toml = "0.8"
 
 [dev-dependencies]
 libcnb-test = "=0.23.0"
-filetime = "0.2.25"

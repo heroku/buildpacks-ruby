@@ -2,7 +2,6 @@ use crate::cache::clean::{lru_clean, FilesWithSize};
 use crate::cache::in_app_dir_cache_layer::InAppDirCacheLayer;
 use crate::cache::{CacheConfig, CacheError, KeepPath};
 use byte_unit::{AdjustedByte, Byte, UnitType};
-use fs_extra::dir::CopyOptions;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
 use std::path::Path;
@@ -148,22 +147,20 @@ impl AppCache {
         fs_err::create_dir_all(&self.path).map_err(CacheError::IoError)?;
         fs_err::create_dir_all(&self.cache).map_err(CacheError::IoError)?;
 
-        fs_extra::dir::move_dir(
-            &self.cache,
-            &self.path,
-            &CopyOptions {
-                overwrite: false,
-                skip_exist: true,
-                copy_inside: true,
-                content_only: true,
-                ..CopyOptions::default()
-            },
-        )
-        .map_err(|error| CacheError::CopyCacheToAppError {
-            path: self.path.clone(),
-            cache: self.cache.clone(),
-            error,
-        })?;
+        cp_r::CopyOptions::new()
+            .create_destination(true)
+            // Do not overwrite
+            .filter(|to_file, _| {
+                let destination = self.path.join(to_file);
+                let exists = destination.try_exists().unwrap_or(false);
+                Ok(!exists)
+            })
+            .copy_tree(&self.cache, &self.path)
+            .map_err(|error| CacheError::CopyCacheToAppError {
+                path: self.path.clone(),
+                cache: self.cache.clone(),
+                error,
+            })?;
 
         Ok(self)
     }
@@ -276,21 +273,14 @@ pub fn build<B: libcnb::Buildpack>(
 ///
 /// - If the copy command fails an `IoExtraError` will be raised.
 fn preserve_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
-    fs_extra::dir::copy(
-        &store.path,
-        &store.cache,
-        &CopyOptions {
-            overwrite: true,
-            copy_inside: true,  // Recursive
-            content_only: true, // Don't copy top level directory name
-            ..CopyOptions::default()
-        },
-    )
-    .map_err(|error| CacheError::CopyAppToCacheError {
-        path: store.path.clone(),
-        cache: store.cache.clone(),
-        error,
-    })?;
+    cp_r::CopyOptions::new()
+        .create_destination(true)
+        .copy_tree(&store.path, &store.cache)
+        .map_err(|error| CacheError::CopyAppToCacheError {
+            path: store.path.clone(),
+            cache: store.cache.clone(),
+            error,
+        })?;
 
     Ok(store)
 }
@@ -306,21 +296,16 @@ fn preserve_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
 ///
 /// - If the move command fails an `IoExtraError` will be raised.
 fn remove_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
-    fs_extra::dir::move_dir(
-        &store.path,
-        &store.cache,
-        &CopyOptions {
-            overwrite: true,
-            copy_inside: true,  // Recursive
-            content_only: true, // Don't copy top level directory name
-            ..CopyOptions::default()
-        },
-    )
-    .map_err(|error| CacheError::DestructiveMoveAppToCacheError {
-        path: store.path.clone(),
-        cache: store.cache.clone(),
-        error,
-    })?;
+    cp_r::CopyOptions::new()
+        .create_destination(true)
+        .copy_tree(&store.path, &store.cache)
+        .map_err(|error| CacheError::DestructiveMoveAppToCacheError {
+            path: store.path.clone(),
+            cache: store.cache.clone(),
+            error,
+        })?;
+
+    fs_err::remove_dir_all(&store.path).map_err(CacheError::IoError)?;
 
     Ok(store)
 }
@@ -475,7 +460,7 @@ mod tests {
     }
 
     #[test]
-    fn mtime_preserved() {
+    fn mtime_preserved_keep_path_build_only() {
         let tmpdir = tempfile::tempdir().unwrap();
         let cache_path = tmpdir.path().join("cache");
         let app_path = tmpdir.path().join("app");
@@ -501,7 +486,53 @@ mod tests {
 
         let metadata = fs_err::metadata(store.cache.join("lol.txt")).unwrap();
         let actual = filetime::FileTime::from_last_modification_time(&metadata);
+        assert_eq!(mtime, actual);
 
+        assert!(!store.path.join("lol.txt").exists());
+
+        store.load().unwrap();
+
+        let metadata = fs_err::metadata(store.cache.join("lol.txt")).unwrap();
+        let actual = filetime::FileTime::from_last_modification_time(&metadata);
+        assert_eq!(mtime, actual);
+    }
+
+    #[test]
+    fn mtime_preserved_keep_path_runtime() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let cache_path = tmpdir.path().join("cache");
+        let app_path = tmpdir.path().join("app");
+
+        fs_err::create_dir_all(&cache_path).unwrap();
+        fs_err::create_dir_all(&app_path).unwrap();
+
+        let store = AppCache {
+            path: app_path.clone(),
+            cache: cache_path,
+            limit: Byte::from_u64(512),
+            keep_path: KeepPath::Runtime,
+            cache_state: CacheState::NewEmpty,
+        };
+
+        let mtime = filetime::FileTime::from_unix_time(1000, 0);
+
+        let path = app_path.join("lol.txt");
+        fs_err::write(&path, "hahaha").unwrap();
+        filetime::set_file_mtime(&path, mtime).unwrap();
+
+        store.save().unwrap();
+
+        let metadata = fs_err::metadata(store.cache.join("lol.txt")).unwrap();
+        let actual = filetime::FileTime::from_last_modification_time(&metadata);
+        assert_eq!(mtime, actual);
+
+        fs_err::remove_dir_all(&app_path).unwrap();
+        assert!(!store.path.join("lol.txt").exists());
+
+        store.load().unwrap();
+
+        let metadata = fs_err::metadata(store.cache.join("lol.txt")).unwrap();
+        let actual = filetime::FileTime::from_last_modification_time(&metadata);
         assert_eq!(mtime, actual);
     }
 }

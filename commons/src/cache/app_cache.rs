@@ -148,7 +148,6 @@ impl AppCache {
         fs_err::create_dir_all(&self.cache).map_err(CacheError::IoError)?;
 
         cp_r::CopyOptions::new()
-            .create_destination(true)
             // Do not overwrite
             .filter(|to_file, _| {
                 let destination = self.path.join(to_file);
@@ -274,7 +273,6 @@ pub fn build<B: libcnb::Buildpack>(
 /// - If the copy command fails an io error will be raised.
 fn preserve_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
     cp_r::CopyOptions::new()
-        .create_destination(true)
         .copy_tree(&store.path, &store.cache)
         .map_err(|error| CacheError::CopyAppToCacheError {
             path: store.path.clone(),
@@ -296,7 +294,6 @@ fn preserve_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
 /// - If the move command fails an io error will be raised.
 fn remove_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
     cp_r::CopyOptions::new()
-        .create_destination(true)
         .copy_tree(&store.path, &store.cache)
         .map_err(|error| CacheError::DestructiveMoveAppToCacheError {
             path: store.path.clone(),

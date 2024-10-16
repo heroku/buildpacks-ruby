@@ -388,6 +388,31 @@ mod tests {
     }
 
     #[test]
+    fn test_load_does_not_clobber_files() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let cache_path = tmpdir.path().join("cache");
+        let app_path = tmpdir.path().join("app");
+        fs_err::create_dir_all(&cache_path).unwrap();
+        fs_err::create_dir_all(&app_path).unwrap();
+
+        fs_err::write(app_path.join("a.txt"), "app").unwrap();
+        fs_err::write(cache_path.join("a.txt"), "cache").unwrap();
+
+        let store = AppCache {
+            path: app_path.clone(),
+            cache: cache_path,
+            limit: Byte::from_u64(512),
+            keep_path: KeepPath::Runtime,
+            cache_state: CacheState::NewEmpty,
+        };
+
+        store.load().unwrap();
+
+        let contents = fs_err::read_to_string(app_path.join("a.txt")).unwrap();
+        assert_eq!("app", contents);
+    }
+
+    #[test]
     fn test_copying_back_to_cache() {
         let tmpdir = tempfile::tempdir().unwrap();
         let cache_path = tmpdir.path().join("cache");

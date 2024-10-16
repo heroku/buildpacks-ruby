@@ -374,11 +374,9 @@ fn is_empty_dir(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
-    use libcnb::data::layer_name;
-
     use super::*;
+    use libcnb::data::layer_name;
+    use std::str::FromStr;
 
     #[test]
     fn test_to_layer_name() {

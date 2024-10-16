@@ -21,14 +21,14 @@ pub enum CacheError {
     CopyAppToCacheError {
         path: PathBuf,
         cache: PathBuf,
-        error: fs_extra::error::Error,
+        error: cp_r::Error,
     },
 
     #[error("Could not move files out of the application to the cache.\nFrom: {path} To: {cache}\nError: {error}")]
     DestructiveMoveAppToCacheError {
         path: PathBuf,
         cache: PathBuf,
-        error: fs_extra::error::Error,
+        error: cp_r::Error,
     },
 
     #[error("IO error: {0}")]

@@ -274,22 +274,14 @@ pub fn build<B: libcnb::Buildpack>(
 ///
 /// - If the copy command fails an `IoExtraError` will be raised.
 fn preserve_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
-    fs_extra::dir::copy(
-        &store.path,
-        &store.cache,
-        &CopyOptions {
-            overwrite: true,
-            copy_inside: true,  // Recursive
-            content_only: true, // Don't copy top level directory name
-            ..CopyOptions::default()
-        },
-    )
-    .map_err(|error| CacheError::CopyAppToCacheError {
-        path: store.path.clone(),
-        cache: store.cache.clone(),
-        error,
-    })?;
-
+    cp_r::CopyOptions::new()
+        .create_destination(true)
+        .copy_tree(&store.path, &store.cache)
+        .map_err(|error| CacheError::CopyAppToCacheError {
+            path: store.path.clone(),
+            cache: store.cache.clone(),
+            error,
+        })?;
     Ok(store)
 }
 
@@ -304,21 +296,16 @@ fn preserve_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
 ///
 /// - If the move command fails an `IoExtraError` will be raised.
 fn remove_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
-    fs_extra::dir::move_dir(
-        &store.path,
-        &store.cache,
-        &CopyOptions {
-            overwrite: true,
-            copy_inside: true,  // Recursive
-            content_only: true, // Don't copy top level directory name
-            ..CopyOptions::default()
-        },
-    )
-    .map_err(|error| CacheError::DestructiveMoveAppToCacheError {
-        path: store.path.clone(),
-        cache: store.cache.clone(),
-        error,
-    })?;
+    cp_r::CopyOptions::new()
+        .create_destination(true)
+        .copy_tree(&store.path, &store.cache)
+        .map_err(|error| CacheError::DestructiveMoveAppToCacheError {
+            path: store.path.clone(),
+            cache: store.cache.clone(),
+            error,
+        })?;
+
+    fs_err::remove_dir_all(&store.path).map_err(CacheError::IoError)?;
 
     Ok(store)
 }

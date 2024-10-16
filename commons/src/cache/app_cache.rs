@@ -388,6 +388,27 @@ mod tests {
     }
 
     #[test]
+    fn test_layer_name_cache_state() {
+        let layer_name = layer_name!("name");
+        let tempdir = tempfile::tempdir().unwrap();
+        let path = tempdir.path();
+        assert_eq!(
+            CacheState::NewEmpty,
+            layer_name_cache_state(path, &layer_name)
+        );
+        fs_err::create_dir_all(path.join(layer_name.as_str())).unwrap();
+        assert_eq!(
+            CacheState::ExistsEmpty,
+            layer_name_cache_state(path, &layer_name)
+        );
+        fs_err::write(path.join(layer_name.as_str()).join("file"), "data").unwrap();
+        assert_eq!(
+            CacheState::ExistsWithContents,
+            layer_name_cache_state(path, &layer_name)
+        );
+    }
+
+    #[test]
     fn test_load_does_not_clobber_files() {
         let tmpdir = tempfile::tempdir().unwrap();
         let cache_path = tmpdir.path().join("cache");

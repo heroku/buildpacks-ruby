@@ -285,7 +285,6 @@ dependencies = [
  "fancy-regex",
  "filetime",
  "fs-err",
- "fs_extra",
  "fun_run",
  "glob",
  "indoc",

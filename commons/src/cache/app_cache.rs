@@ -2,7 +2,6 @@ use crate::cache::clean::{lru_clean, FilesWithSize};
 use crate::cache::in_app_dir_cache_layer::InAppDirCacheLayer;
 use crate::cache::{CacheConfig, CacheError, KeepPath};
 use byte_unit::{AdjustedByte, Byte, UnitType};
-use fs_extra::dir::CopyOptions;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
 use std::path::Path;

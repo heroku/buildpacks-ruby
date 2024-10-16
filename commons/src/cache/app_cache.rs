@@ -375,6 +375,7 @@ fn is_empty_dir(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use filetime::FileTime;
     use libcnb::data::layer_name;
     use std::str::FromStr;
 
@@ -491,5 +492,90 @@ mod tests {
 
         assert!(store.cache.join("lol.txt").exists());
         assert!(!store.path.join("lol.txt").exists());
+    }
+
+    #[test]
+    fn mtime_preserved_keep_path_build_only() {
+        let mtime = FileTime::from_unix_time(1000, 0);
+        let tmpdir = tempfile::tempdir().unwrap();
+        let filename = "totoro.txt";
+        let app_path = tmpdir.path().join("app");
+        let cache_path = tmpdir.path().join("cache");
+
+        fs_err::create_dir_all(&cache_path).unwrap();
+        fs_err::create_dir_all(&app_path).unwrap();
+
+        let store = AppCache {
+            path: app_path.clone(),
+            cache: cache_path.clone(),
+            limit: Byte::from_u64(512),
+            keep_path: KeepPath::BuildOnly,
+            cache_state: CacheState::NewEmpty,
+        };
+
+        fs_err::write(app_path.join(filename), "catbus").unwrap();
+        filetime::set_file_mtime(app_path.join(filename), mtime).unwrap();
+
+        store.save().unwrap();
+
+        // Cache file mtime should match app file mtime
+        let actual = fs_err::metadata(cache_path.join(filename))
+            .map(|metadata| FileTime::from_last_modification_time(&metadata))
+            .unwrap();
+        assert_eq!(mtime, actual);
+
+        // File was removed already after save
+        assert!(!store.path.join(filename).exists());
+
+        store.load().unwrap();
+
+        // App path mtime should match cache file mtime
+        let actual = fs_err::metadata(app_path.join(filename))
+            .map(|metadata| FileTime::from_last_modification_time(&metadata))
+            .unwrap();
+        assert_eq!(mtime, actual);
+    }
+
+    #[test]
+    fn mtime_preserved_keep_path_runtime() {
+        let mtime = FileTime::from_unix_time(1000, 0);
+        let tmpdir = tempfile::tempdir().unwrap();
+        let filename = "totoro.txt";
+        let app_path = tmpdir.path().join("app");
+        let cache_path = tmpdir.path().join("cache");
+
+        fs_err::create_dir_all(&cache_path).unwrap();
+        fs_err::create_dir_all(&app_path).unwrap();
+
+        let store = AppCache {
+            path: app_path.clone(),
+            cache: cache_path.clone(),
+            limit: Byte::from_u64(512),
+            keep_path: KeepPath::Runtime,
+            cache_state: CacheState::NewEmpty,
+        };
+
+        fs_err::write(app_path.join(filename), "catbus").unwrap();
+        filetime::set_file_mtime(app_path.join(filename), mtime).unwrap();
+
+        store.save().unwrap();
+
+        // Cache file mtime should match app file mtime
+        let actual = fs_err::metadata(cache_path.join(filename))
+            .map(|metadata| FileTime::from_last_modification_time(&metadata))
+            .unwrap();
+        assert_eq!(mtime, actual);
+
+        // Remove app path to test loading
+        fs_err::remove_dir_all(&app_path).unwrap();
+        assert!(!store.path.join(filename).exists());
+
+        store.load().unwrap();
+
+        // App path mtime should match cache file mtime
+        let actual = fs_err::metadata(app_path.join(filename))
+            .map(|metadata| FileTime::from_last_modification_time(&metadata))
+            .unwrap();
+        assert_eq!(mtime, actual);
     }
 }

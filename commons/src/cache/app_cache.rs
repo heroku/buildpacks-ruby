@@ -148,22 +148,20 @@ impl AppCache {
         fs_err::create_dir_all(&self.path).map_err(CacheError::IoError)?;
         fs_err::create_dir_all(&self.cache).map_err(CacheError::IoError)?;
 
-        fs_extra::dir::move_dir(
-            &self.cache,
-            &self.path,
-            &CopyOptions {
-                overwrite: false,
-                skip_exist: true,
-                copy_inside: true,
-                content_only: true,
-                ..CopyOptions::default()
-            },
-        )
-        .map_err(|error| CacheError::CopyCacheToAppError {
-            path: self.path.clone(),
-            cache: self.cache.clone(),
-            error,
-        })?;
+        cp_r::CopyOptions::new()
+            .create_destination(true)
+            // Do not overwrite
+            .filter(|to_file, _| {
+                let destination = self.path.join(to_file);
+                let exists = destination.try_exists().unwrap_or(false);
+                Ok(!exists)
+            })
+            .copy_tree(&self.cache, &self.path)
+            .map_err(|error| CacheError::CopyCacheToAppError {
+                path: self.path.clone(),
+                cache: self.cache.clone(),
+                error,
+            })?;
 
         Ok(self)
     }

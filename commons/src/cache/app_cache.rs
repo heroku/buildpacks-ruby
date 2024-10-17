@@ -306,7 +306,7 @@ fn preserve_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
 ///
 /// - If the move command fails an `IoExtraError` will be raised.
 fn remove_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
-    fs_extra::dir::move_dir(
+    fs_extra::dir::copy(
         &store.path,
         &store.cache,
         &CopyOptions {
@@ -321,6 +321,8 @@ fn remove_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
         cache: store.cache.clone(),
         error,
     })?;
+
+    fs_err::remove_dir_all(&store.path).map_err(CacheError::IoError)?;
 
     Ok(store)
 }

@@ -302,6 +302,9 @@ fn save(store: &AppCache) -> Result<&AppCache, CacheError> {
     Ok(store)
 }
 
+/// Copies the mtime information from a path to another path
+///
+/// This is information used for the LRU cleaner so that older files are removed first.
 fn copy_mtime_r(from: &Path, to_path: &Path) -> Result<(), CacheError> {
     for entry in WalkDir::new(from).into_iter().filter_map(Result::ok) {
         let relative = entry

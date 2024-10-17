@@ -5,7 +5,6 @@ use byte_unit::{AdjustedByte, Byte, UnitType};
 use fs_extra::dir::CopyOptions;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
-use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::path::PathBuf;
 use walkdir::WalkDir;
@@ -128,9 +127,12 @@ impl AppCache {
     /// - If the files cannot be moved/coppied into the cache
     ///   then then an error will be raised.
     pub fn save(&self) -> Result<&AppCache, CacheError> {
+        save(self)?;
         match self.keep_path {
-            KeepPath::Runtime => preserve_path_save(self)?,
-            KeepPath::BuildOnly => remove_path_save(self)?,
+            KeepPath::Runtime => {}
+            KeepPath::BuildOnly => {
+                fs_err::remove_dir_all(&self.path).map_err(CacheError::IoError)?;
+            }
         };
 
         Ok(self)
@@ -278,7 +280,7 @@ pub fn build<B: libcnb::Buildpack>(
 /// # Errors
 ///
 /// - If the copy command fails an `IoExtraError` will be raised.
-fn preserve_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
+fn save(store: &AppCache) -> Result<&AppCache, CacheError> {
     fs_extra::dir::copy(
         &store.path,
         &store.cache,
@@ -296,39 +298,6 @@ fn preserve_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
     })?;
 
     copy_mtime_r(&store.path, &store.cache)?;
-
-    Ok(store)
-}
-
-/// Move contents of application path into the cache
-///
-/// This action is destructive, after execution the application path
-/// will be empty. Files from the application path are considered
-/// cannonical and will overwrite files with the same name in the
-/// cache.
-///
-/// # Errors
-///
-/// - If the move command fails an `IoExtraError` will be raised.
-fn remove_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
-    fs_extra::dir::copy(
-        &store.path,
-        &store.cache,
-        &CopyOptions {
-            overwrite: true,
-            copy_inside: true,  // Recursive
-            content_only: true, // Don't copy top level directory name
-            ..CopyOptions::default()
-        },
-    )
-    .map_err(|error| CacheError::DestructiveMoveAppToCacheError {
-        path: store.path.clone(),
-        cache: store.cache.clone(),
-        error,
-    })?;
-    copy_mtime_r(&store.path, &store.cache)?;
-
-    fs_err::remove_dir_all(&store.path).map_err(CacheError::IoError)?;
 
     Ok(store)
 }

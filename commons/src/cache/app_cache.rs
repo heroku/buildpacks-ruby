@@ -5,6 +5,7 @@ use byte_unit::{AdjustedByte, Byte, UnitType};
 use fs_extra::dir::CopyOptions;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
+use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -164,6 +165,7 @@ impl AppCache {
             cache: self.cache.clone(),
             error,
         })?;
+        copy_mtime_r(&self.cache, &self.path)?;
 
         Ok(self)
     }
@@ -292,6 +294,8 @@ fn preserve_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
         error,
     })?;
 
+    copy_mtime_r(&store.path, &store.cache)?;
+
     Ok(store)
 }
 
@@ -321,10 +325,28 @@ fn remove_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
         cache: store.cache.clone(),
         error,
     })?;
+    copy_mtime_r(&store.path, &store.cache)?;
 
     fs_err::remove_dir_all(&store.path).map_err(CacheError::IoError)?;
 
     Ok(store)
+}
+
+fn copy_mtime_r(from: &Path, to_path: &Path) -> Result<(), CacheError> {
+    for entry in walkdir::WalkDir::new(from)
+        .into_iter()
+        .filter_map(Result::ok)
+    {
+        let mtime = entry
+            .metadata()
+            .map(|metadata| filetime::FileTime::from_last_modification_time(&metadata))
+            .expect("TODO Error handling");
+
+        let relative = entry.path().strip_prefix(from);
+        let target = to_path.join(relative.expect("TODO Error handling"));
+        filetime::set_file_mtime(target, mtime).expect("TODO error handling");
+    }
+    Ok(())
 }
 
 /// Converts a path inside of an app to a valid layer name for libcnb.

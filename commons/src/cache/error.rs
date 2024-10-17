@@ -31,6 +31,13 @@ pub enum CacheError {
         error: fs_extra::error::Error,
     },
 
+    #[error("Cannot copy mtime. From: {from} To: {to_path}\nError: {error}")]
+    Mtime {
+        from: PathBuf,
+        to_path: PathBuf,
+        error: std::io::Error,
+    },
+
     #[error("IO error: {0}")]
     IoError(std::io::Error),
 

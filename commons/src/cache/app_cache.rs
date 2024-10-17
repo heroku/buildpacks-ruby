@@ -8,6 +8,7 @@ use libcnb::data::layer::LayerName;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::path::PathBuf;
+use walkdir::WalkDir;
 
 use tempfile as _;
 
@@ -333,18 +334,29 @@ fn remove_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
 }
 
 fn copy_mtime_r(from: &Path, to_path: &Path) -> Result<(), CacheError> {
-    for entry in walkdir::WalkDir::new(from)
-        .into_iter()
-        .filter_map(Result::ok)
-    {
+    for entry in WalkDir::new(from).into_iter().filter_map(Result::ok) {
+        let relative = entry
+            .path()
+            .strip_prefix(from)
+            .expect("Walkdir path should return path with prefix of called root");
+
         let mtime = entry
             .metadata()
+            .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))
             .map(|metadata| filetime::FileTime::from_last_modification_time(&metadata))
-            .expect("TODO Error handling");
+            .map_err(|error| CacheError::Mtime {
+                from: entry.path().to_path_buf(),
+                to_path: to_path.join(relative),
+                error,
+            })?;
 
-        let relative = entry.path().strip_prefix(from);
-        let target = to_path.join(relative.expect("TODO Error handling"));
-        filetime::set_file_mtime(target, mtime).expect("TODO error handling");
+        filetime::set_file_mtime(to_path.join(relative), mtime).map_err(|error| {
+            CacheError::Mtime {
+                from: entry.path().to_path_buf(),
+                to_path: to_path.join(relative),
+                error,
+            }
+        })?;
     }
     Ok(())
 }

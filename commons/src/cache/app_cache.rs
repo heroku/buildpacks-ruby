@@ -152,7 +152,7 @@ impl AppCache {
         fs_err::create_dir_all(&self.path).map_err(CacheError::IoError)?;
         fs_err::create_dir_all(&self.cache).map_err(CacheError::IoError)?;
 
-        fs_extra::dir::move_dir(
+        fs_extra::dir::copy(
             &self.cache,
             &self.path,
             &CopyOptions {
@@ -169,6 +169,8 @@ impl AppCache {
             error,
         })?;
         copy_mtime_r(&self.cache, &self.path)?;
+
+        fs_err::remove_dir_all(&self.cache).map_err(CacheError::IoError)?;
 
         Ok(self)
     }

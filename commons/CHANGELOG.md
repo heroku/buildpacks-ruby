@@ -1,5 +1,11 @@
 # Changelog for commons features
 
+## 2024-08-16
+
+### Fixed
+
+- `AppCache` will now preserve mtime of files when copying them to/from the cache (https://github.com/heroku/buildpacks-ruby/pull/336)
+
 ## 2024-08-15
 
 ### Changed

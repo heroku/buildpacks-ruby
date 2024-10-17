@@ -7,6 +7,7 @@ use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
 use std::path::Path;
 use std::path::PathBuf;
+use walkdir::WalkDir;
 
 use tempfile as _;
 
@@ -126,9 +127,12 @@ impl AppCache {
     /// - If the files cannot be moved/coppied into the cache
     ///   then then an error will be raised.
     pub fn save(&self) -> Result<&AppCache, CacheError> {
+        save(self)?;
         match self.keep_path {
-            KeepPath::Runtime => preserve_path_save(self)?,
-            KeepPath::BuildOnly => remove_path_save(self)?,
+            KeepPath::Runtime => {}
+            KeepPath::BuildOnly => {
+                fs_err::remove_dir_all(&self.path).map_err(CacheError::IoError)?;
+            }
         };
 
         Ok(self)
@@ -148,7 +152,7 @@ impl AppCache {
         fs_err::create_dir_all(&self.path).map_err(CacheError::IoError)?;
         fs_err::create_dir_all(&self.cache).map_err(CacheError::IoError)?;
 
-        fs_extra::dir::move_dir(
+        fs_extra::dir::copy(
             &self.cache,
             &self.path,
             &CopyOptions {
@@ -164,6 +168,9 @@ impl AppCache {
             cache: self.cache.clone(),
             error,
         })?;
+        copy_mtime_r(&self.cache, &self.path)?;
+
+        fs_err::remove_dir_all(&self.cache).map_err(CacheError::IoError)?;
 
         Ok(self)
     }
@@ -275,7 +282,7 @@ pub fn build<B: libcnb::Buildpack>(
 /// # Errors
 ///
 /// - If the copy command fails an `IoExtraError` will be raised.
-fn preserve_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
+fn save(store: &AppCache) -> Result<&AppCache, CacheError> {
     fs_extra::dir::copy(
         &store.path,
         &store.cache,
@@ -292,37 +299,40 @@ fn preserve_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
         error,
     })?;
 
+    copy_mtime_r(&store.path, &store.cache)?;
+
     Ok(store)
 }
 
-/// Move contents of application path into the cache
+/// Copies the mtime information from a path to another path
 ///
-/// This action is destructive, after execution the application path
-/// will be empty. Files from the application path are considered
-/// cannonical and will overwrite files with the same name in the
-/// cache.
-///
-/// # Errors
-///
-/// - If the move command fails an `IoExtraError` will be raised.
-fn remove_path_save(store: &AppCache) -> Result<&AppCache, CacheError> {
-    fs_extra::dir::move_dir(
-        &store.path,
-        &store.cache,
-        &CopyOptions {
-            overwrite: true,
-            copy_inside: true,  // Recursive
-            content_only: true, // Don't copy top level directory name
-            ..CopyOptions::default()
-        },
-    )
-    .map_err(|error| CacheError::DestructiveMoveAppToCacheError {
-        path: store.path.clone(),
-        cache: store.cache.clone(),
-        error,
-    })?;
+/// This is information used for the LRU cleaner so that older files are removed first.
+fn copy_mtime_r(from: &Path, to_path: &Path) -> Result<(), CacheError> {
+    for entry in WalkDir::new(from).into_iter().filter_map(Result::ok) {
+        let relative = entry
+            .path()
+            .strip_prefix(from)
+            .expect("Walkdir path should return path with prefix of called root");
 
-    Ok(store)
+        let mtime = entry
+            .metadata()
+            .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))
+            .map(|metadata| filetime::FileTime::from_last_modification_time(&metadata))
+            .map_err(|error| CacheError::Mtime {
+                from: entry.path().to_path_buf(),
+                to_path: to_path.join(relative),
+                error,
+            })?;
+
+        filetime::set_file_mtime(to_path.join(relative), mtime).map_err(|error| {
+            CacheError::Mtime {
+                from: entry.path().to_path_buf(),
+                to_path: to_path.join(relative),
+                error,
+            }
+        })?;
+    }
+    Ok(())
 }
 
 /// Converts a path inside of an app to a valid layer name for libcnb.
@@ -374,17 +384,62 @@ fn is_empty_dir(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
-    use libcnb::data::layer_name;
-
     use super::*;
+    use filetime::FileTime;
+    use libcnb::data::layer_name;
+    use std::str::FromStr;
 
     #[test]
     fn test_to_layer_name() {
         let dir = PathBuf::from_str("muh_base").unwrap();
         let layer = create_layer_name(&dir, &dir.join("my").join("input")).unwrap();
         assert_eq!(layer_name!("cache_my_input"), layer);
+    }
+
+    #[test]
+    fn test_layer_name_cache_state() {
+        let layer_name = layer_name!("name");
+        let tempdir = tempfile::tempdir().unwrap();
+        let path = tempdir.path();
+        assert_eq!(
+            CacheState::NewEmpty,
+            layer_name_cache_state(path, &layer_name)
+        );
+        fs_err::create_dir_all(path.join(layer_name.as_str())).unwrap();
+        assert_eq!(
+            CacheState::ExistsEmpty,
+            layer_name_cache_state(path, &layer_name)
+        );
+        fs_err::write(path.join(layer_name.as_str()).join("file"), "data").unwrap();
+        assert_eq!(
+            CacheState::ExistsWithContents,
+            layer_name_cache_state(path, &layer_name)
+        );
+    }
+
+    #[test]
+    fn test_load_does_not_clobber_files() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let cache_path = tmpdir.path().join("cache");
+        let app_path = tmpdir.path().join("app");
+        fs_err::create_dir_all(&cache_path).unwrap();
+        fs_err::create_dir_all(&app_path).unwrap();
+
+        fs_err::write(app_path.join("a.txt"), "app").unwrap();
+        fs_err::write(cache_path.join("a.txt"), "cache").unwrap();
+
+        let store = AppCache {
+            path: app_path.clone(),
+            cache: cache_path,
+            limit: Byte::from_u64(512),
+            keep_path: KeepPath::Runtime,
+            cache_state: CacheState::NewEmpty,
+        };
+
+        store.load().unwrap();
+
+        let contents = fs_err::read_to_string(app_path.join("a.txt")).unwrap();
+        assert_eq!("app", contents);
     }
 
     #[test]
@@ -447,5 +502,90 @@ mod tests {
 
         assert!(store.cache.join("lol.txt").exists());
         assert!(!store.path.join("lol.txt").exists());
+    }
+
+    #[test]
+    fn mtime_preserved_keep_path_build_only() {
+        let mtime = FileTime::from_unix_time(1000, 0);
+        let tmpdir = tempfile::tempdir().unwrap();
+        let filename = "totoro.txt";
+        let app_path = tmpdir.path().join("app");
+        let cache_path = tmpdir.path().join("cache");
+
+        fs_err::create_dir_all(&cache_path).unwrap();
+        fs_err::create_dir_all(&app_path).unwrap();
+
+        let store = AppCache {
+            path: app_path.clone(),
+            cache: cache_path.clone(),
+            limit: Byte::from_u64(512),
+            keep_path: KeepPath::BuildOnly,
+            cache_state: CacheState::NewEmpty,
+        };
+
+        fs_err::write(app_path.join(filename), "catbus").unwrap();
+        filetime::set_file_mtime(app_path.join(filename), mtime).unwrap();
+
+        store.save().unwrap();
+
+        // Cache file mtime should match app file mtime
+        let actual = fs_err::metadata(cache_path.join(filename))
+            .map(|metadata| FileTime::from_last_modification_time(&metadata))
+            .unwrap();
+        assert_eq!(mtime, actual);
+
+        // File was removed already after save
+        assert!(!store.path.join(filename).exists());
+
+        store.load().unwrap();
+
+        // App path mtime should match cache file mtime
+        let actual = fs_err::metadata(app_path.join(filename))
+            .map(|metadata| FileTime::from_last_modification_time(&metadata))
+            .unwrap();
+        assert_eq!(mtime, actual);
+    }
+
+    #[test]
+    fn mtime_preserved_keep_path_runtime() {
+        let mtime = FileTime::from_unix_time(1000, 0);
+        let tmpdir = tempfile::tempdir().unwrap();
+        let filename = "totoro.txt";
+        let app_path = tmpdir.path().join("app");
+        let cache_path = tmpdir.path().join("cache");
+
+        fs_err::create_dir_all(&cache_path).unwrap();
+        fs_err::create_dir_all(&app_path).unwrap();
+
+        let store = AppCache {
+            path: app_path.clone(),
+            cache: cache_path.clone(),
+            limit: Byte::from_u64(512),
+            keep_path: KeepPath::Runtime,
+            cache_state: CacheState::NewEmpty,
+        };
+
+        fs_err::write(app_path.join(filename), "catbus").unwrap();
+        filetime::set_file_mtime(app_path.join(filename), mtime).unwrap();
+
+        store.save().unwrap();
+
+        // Cache file mtime should match app file mtime
+        let actual = fs_err::metadata(cache_path.join(filename))
+            .map(|metadata| FileTime::from_last_modification_time(&metadata))
+            .unwrap();
+        assert_eq!(mtime, actual);
+
+        // Remove app path to test loading
+        fs_err::remove_dir_all(&app_path).unwrap();
+        assert!(!store.path.join(filename).exists());
+
+        store.load().unwrap();
+
+        // App path mtime should match cache file mtime
+        let actual = fs_err::metadata(app_path.join(filename))
+            .map(|metadata| FileTime::from_last_modification_time(&metadata))
+            .unwrap();
+        assert_eq!(mtime, actual);
     }
 }

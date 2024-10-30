@@ -28,9 +28,9 @@ pub(crate) struct InAppDirCacheLayer<B> {
     buildpack: PhantomData<B>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Metadata {
-    app_dir_path: PathBuf,
+    pub(crate) app_dir_path: PathBuf,
 }
 
 impl<B> InAppDirCacheLayer<B> {

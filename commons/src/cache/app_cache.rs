@@ -1,10 +1,11 @@
 use crate::cache::clean::{lru_clean, FilesWithSize};
-use crate::cache::in_app_dir_cache_layer::InAppDirCacheLayer;
+use crate::cache::in_app_dir_cache_layer;
 use crate::cache::{CacheConfig, CacheError, KeepPath};
 use byte_unit::{AdjustedByte, Byte, UnitType};
 use fs_extra::dir::CopyOptions;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
+use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, RestoredLayerAction};
 use std::path::Path;
 use std::path::PathBuf;
 use walkdir::WalkDir;
@@ -257,11 +258,27 @@ pub fn build<B: libcnb::Buildpack>(
     let layer_name = create_layer_name(&context.app_dir, &path)?;
     let create_state = layer_name_cache_state(&context.layers_dir, &layer_name);
 
-    let layer = context
-        .handle_layer(layer_name, InAppDirCacheLayer::new(path.clone()))
-        .map_err(|error| CacheError::InternalLayerError(format!("{error:?}")))?;
-
-    let cache = layer.path;
+    let metadata = in_app_dir_cache_layer::Metadata {
+        app_dir_path: path.clone(),
+    };
+    let cache = context
+        .cached_layer(
+            layer_name,
+            CachedLayerDefinition {
+                build: true,
+                launch: true,
+                invalid_metadata_action: &|_| InvalidMetadataAction::DeleteLayer,
+                restored_layer_action: &|old: &in_app_dir_cache_layer::Metadata, _| {
+                    if old == &metadata {
+                        RestoredLayerAction::KeepLayer
+                    } else {
+                        RestoredLayerAction::DeleteLayer
+                    }
+                },
+            },
+        )
+        .map_err(|error| CacheError::InternalLayerError(format!("{error:?}")))
+        .map(|layer_ref| layer_ref.path())?;
 
     Ok(AppCache {
         path,

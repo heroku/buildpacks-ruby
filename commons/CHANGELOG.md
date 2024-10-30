@@ -1,5 +1,11 @@
 # Changelog for commons features
 
+## 2024-10-30
+
+## Changed
+
+- Deprecate `layers` including `layers::ConfigureEnvLayer` and `layers::DefaultEnvLayer` ()
+
 ## 2024-08-16
 
 ### Fixed

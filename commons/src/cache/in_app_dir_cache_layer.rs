@@ -29,7 +29,7 @@ pub(crate) struct InAppDirCacheLayer<B> {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub(crate) struct InAppDirCacheLayerMetadata {
+pub(crate) struct Metadata {
     app_dir_path: PathBuf,
 }
 
@@ -48,7 +48,7 @@ where
     B: Buildpack,
 {
     type Buildpack = B;
-    type Metadata = InAppDirCacheLayerMetadata;
+    type Metadata = Metadata;
 
     fn types(&self) -> LayerTypes {
         LayerTypes {
@@ -63,7 +63,7 @@ where
         _context: &BuildContext<Self::Buildpack>,
         _layer_path: &Path,
     ) -> Result<LayerResult<Self::Metadata>, B::Error> {
-        LayerResultBuilder::new(InAppDirCacheLayerMetadata {
+        LayerResultBuilder::new(Metadata {
             app_dir_path: self.app_dir_path.clone(),
         })
         .build()

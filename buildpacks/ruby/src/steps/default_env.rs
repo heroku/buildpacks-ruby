@@ -1,5 +1,4 @@
 use crate::{RubyBuildpack, RubyBuildpackError};
-use commons::layer::DefaultEnvLayer;
 use libcnb::layer::UncachedLayerDefinition;
 use libcnb::layer_env::{LayerEnv, ModificationBehavior};
 use libcnb::{

@@ -5,6 +5,7 @@
 ## Changed
 
 - Deprecate `layers` including `layers::ConfigureEnvLayer` and `layers::DefaultEnvLayer` ()
+- Remove `AppCacheCollection` ()
 
 ## 2024-08-16
 

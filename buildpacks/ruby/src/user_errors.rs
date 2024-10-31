@@ -141,10 +141,9 @@ fn log_our_error(
             // Future:
             // - In the future use a manifest file to list if version is available on a different stack
             // - In the future add a "did you mean" Levenshtein distance to see if they typoed like "3.6.0" when they meant "3.0.6"
-            log.section(&debug_info)
-                .step(&error.to_string())
-                .announce()
-                .error(&formatdoc! {"
+            output.bullet(debug_info)
+                .sub_bullet(error.to_string())
+                .error(formatdoc! {"
                     Error installing Ruby
 
                     Could not install the detected Ruby version. Ensure that you're using a supported
@@ -155,14 +154,14 @@ fn log_our_error(
                 "});
         }
         RubyBuildpackError::GemInstallBundlerCommandError(error) => {
-            log = log
-                .section(&debug_info)
-                .step(&error.to_string())
-                .end_section();
+            output = output
+                .bullet(&debug_info)
+                .sub_bullet(error.to_string())
+                .done();
 
             log = debug_cmd(log.section(&debug_info), Command::new("gem").arg("env"));
 
-            log.announce().error(&formatdoc! {"
+            output.error(formatdoc! {"
                 Error installing bundler
 
                 The ruby package managment tool, `bundler`, failed to install. Bundler is required

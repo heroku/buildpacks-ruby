@@ -1,22 +1,24 @@
 use std::process::Command;
 
+use crate::{DetectError, RubyBuildpackError};
+use bullet_stream::{state::Bullet, state::SubBullet, style, Print};
 #[allow(clippy::wildcard_imports)]
 use commons::output::{
     build_log::*,
-    fmt::{self, DEBUG_INFO},
+    fmt::{self},
 };
-
-use crate::{DetectError, RubyBuildpackError};
 use fun_run::{CmdError, CommandWithName};
 use indoc::formatdoc;
+const DEBUG_INFO_STR: &str = "Debug info";
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
     let log = BuildLog::new(std::io::stdout()).without_buildpack_name();
+    let debug_info = style::important(DEBUG_INFO_STR);
     match cause(err) {
         Cause::OurError(error) => log_our_error(log, error),
         Cause::FrameworkError(error) =>
             log
-            .section(DEBUG_INFO)
+            .section(&debug_info)
             .step(&error.to_string())
             .announce()
             .error(&formatdoc! {"
@@ -43,6 +45,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
     let ruby_versions_url =
         fmt::url("https://devcenter.heroku.com/articles/ruby-support#ruby-versions");
     let rubygems_status_url = fmt::url("https://status.rubygems.org/");
+    let debug_info = style::important(DEBUG_INFO_STR);
 
     match error {
         RubyBuildpackError::BuildpackDetectionError(DetectError::Gemfile(error)) => {
@@ -113,7 +116,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             if let Some(dir) = path.parent() {
                 log = debug_cmd(
                     log.section(&format!(
-                        "{DEBUG_INFO} Contents of the {} directory",
+                        "{debug_info} Contents of the {} directory",
                         fmt::value(dir.to_string_lossy())
                     )),
                     Command::new("ls").args(["la", &dir.to_string_lossy()]),
@@ -136,7 +139,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             // Future:
             // - In the future use a manifest file to list if version is available on a different stack
             // - In the future add a "did you mean" Levenshtein distance to see if they typoed like "3.6.0" when they meant "3.0.6"
-            log.section(DEBUG_INFO)
+            log.section(&debug_info)
                 .step(&error.to_string())
                 .announce()
                 .error(&formatdoc! {"
@@ -151,11 +154,11 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
         }
         RubyBuildpackError::GemInstallBundlerCommandError(error) => {
             log = log
-                .section(DEBUG_INFO)
+                .section(&debug_info)
                 .step(&error.to_string())
                 .end_section();
 
-            log = debug_cmd(log.section(DEBUG_INFO), Command::new("gem").arg("env"));
+            log = debug_cmd(log.section(&debug_info), Command::new("gem").arg("env"));
 
             log.announce().error(&formatdoc! {"
                 Error installing bundler
@@ -174,7 +177,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             // - Grep error output for common things like using sqlite3, use classic buildpack
             let local_command = local_command_debug(&error);
             log
-                .section(DEBUG_INFO)
+                .section(&debug_info)
                 .step(&error.to_string())
                 .end_section()
                 .announce()
@@ -195,14 +198,14 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
         }
         RubyBuildpackError::BundleInstallDigestError(path, error) => {
             log = log
-                .section(DEBUG_INFO)
+                .section(&debug_info)
                 .step(&error.to_string())
                 .end_section();
 
             if let Some(dir) = path.parent() {
                 log = debug_cmd(
                     log.section(&format!(
-                        "{DEBUG_INFO} Contents of the {} directory",
+                        "{debug_info} Contents of the {} directory",
                         fmt::value(dir.to_string_lossy())
                     )),
                     Command::new("ls").args(["la", &dir.to_string_lossy()]),
@@ -230,7 +233,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             // - Annotate with information on requiring test or development only gems in the Rakefile
             let local_command = local_command_debug(&error);
             log = log
-                .section(DEBUG_INFO)
+                .section(&debug_info)
                 .step(&error.to_string())
                 .end_section();
 
@@ -248,7 +251,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
         RubyBuildpackError::RakeAssetsPrecompileFailed(error) => {
             let local_command = local_command_debug(&error);
             log = log
-                .section(DEBUG_INFO)
+                .section(&debug_info)
                 .step(&error.to_string())
                 .end_section();
 
@@ -267,7 +270,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             // - Separate between failures in layer dirs or in app dirs, if we can isolate to an app dir we could debug more
             // to determine if there's bad permissions or bad file symlink
             log = log
-                .section(DEBUG_INFO)
+                .section(&debug_info)
                 .step(&error.to_string())
                 .end_section();
 
@@ -283,13 +286,13 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
         }
         RubyBuildpackError::GemListGetError(error) => {
             log = log
-                .section(DEBUG_INFO)
+                .section(&debug_info)
                 .step(&error.to_string())
                 .end_section();
 
-            log = debug_cmd(log.section(DEBUG_INFO), Command::new("gem").arg("env"));
+            log = debug_cmd(log.section(&debug_info), Command::new("gem").arg("env"));
 
-            log = debug_cmd(log.section(DEBUG_INFO), Command::new("bundle").arg("env"));
+            log = debug_cmd(log.section(&debug_info), Command::new("bundle").arg("env"));
 
             log.announce().error(&formatdoc! {"
                 Error detecting dependencies
@@ -301,7 +304,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             "});
         }
         RubyBuildpackError::MetricsAgentError(error) => {
-            log.section(DEBUG_INFO)
+            log.section(&debug_info)
                 .step(&error.to_string())
                 .end_section()
                 .announce()

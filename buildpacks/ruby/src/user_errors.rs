@@ -10,15 +10,15 @@ const DEBUG_INFO_STR: &str = "Debug info";
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
     let log = BuildLog::new(std::io::stdout()).without_buildpack_name();
+    let output = Print::new(std::io::stdout()).without_header();
     let debug_info = style::important(DEBUG_INFO_STR);
     match cause(err) {
         Cause::OurError(error) => log_our_error(log, error),
         Cause::FrameworkError(error) =>
-            log
-            .section(&debug_info)
-            .step(&error.to_string())
-            .announce()
-            .error(&formatdoc! {"
+            output
+            .bullet(&debug_info)
+            .sub_bullet(error.to_string())
+            .error(formatdoc! {"
                 Error: heroku/buildpack-ruby internal buildpack error
 
                 The framework used by this buildpack encountered an unexpected error.

@@ -177,12 +177,11 @@ fn log_our_error(
             // Future:
             // - Grep error output for common things like using sqlite3, use classic buildpack
             let local_command = local_command_debug(&error);
-            log
-                .section(&debug_info)
-                .step(&error.to_string())
-                .end_section()
-                .announce()
-                .error(&formatdoc! {"
+            output
+                .bullet(&debug_info)
+                .sub_bullet(error.to_string())
+                .done()
+                .error(formatdoc! {"
                     Error installing your applications's dependencies
 
                     Could not install gems to the system via bundler. Gems are dependencies

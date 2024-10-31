@@ -116,8 +116,8 @@ fn log_our_error(
                 .done();
 
             if let Some(dir) = path.parent() {
-                log = debug_cmd_original(
-                    log.section(&format!(
+                output = debug_cmd(
+                    output.bullet(format!(
                         "{debug_info} Contents of the {} directory",
                         style::value(dir.to_string_lossy())
                     )),
@@ -159,7 +159,7 @@ fn log_our_error(
                 .sub_bullet(error.to_string())
                 .done();
 
-            log = debug_cmd_original(log.section(&debug_info), Command::new("gem").arg("env"));
+            output = debug_cmd(output.bullet(&debug_info), Command::new("gem").arg("env"));
 
             output.error(formatdoc! {"
                 Error installing bundler
@@ -203,8 +203,8 @@ fn log_our_error(
                 .done();
 
             if let Some(dir) = path.parent() {
-                log = debug_cmd_original(
-                    log.section(&format!(
+                output = debug_cmd(
+                    output.bullet(format!(
                         "{debug_info} Contents of the {} directory",
                         style::value(dir.to_string_lossy())
                     )),

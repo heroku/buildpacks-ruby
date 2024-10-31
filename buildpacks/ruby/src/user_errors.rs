@@ -265,14 +265,14 @@ fn log_our_error(mut output: Print<Bullet<Stdout>>, error: RubyBuildpackError) {
                 .sub_bullet(error.to_string())
                 .done()
                 .error(formatdoc! {"
-                Error caching frontend assets
+                    Error caching frontend assets
 
-                An error occurred while attempting to cache frontend assets, and the Ruby buildpack
-                cannot continue.
+                    An error occurred while attempting to cache frontend assets, and the Ruby buildpack
+                    cannot continue.
 
-                Ensure that the permissions on the files in your application directory are correct and that
-                all symlinks correctly resolve.
-            "});
+                    Ensure that the permissions on the files in your application directory are correct and that
+                    all symlinks correctly resolve.
+                "});
         }
         RubyBuildpackError::GemListGetError(error) => {
             output = output

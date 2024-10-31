@@ -232,12 +232,11 @@ fn log_our_error(
             // Future:
             // - Annotate with information on requiring test or development only gems in the Rakefile
             let local_command = local_command_debug(&error);
-            log = log
-                .section(&debug_info)
-                .step(&error.to_string())
-                .end_section();
-
-            log.announce().error(&formatdoc! {"
+            output
+                .bullet(debug_info)
+                .sub_bullet(error.to_string())
+                .done()
+                .error(formatdoc! {"
                 Error detecting rake tasks
 
                 The Ruby buildpack uses rake task information from your application to guide
@@ -250,12 +249,11 @@ fn log_our_error(
         }
         RubyBuildpackError::RakeAssetsPrecompileFailed(error) => {
             let local_command = local_command_debug(&error);
-            log = log
-                .section(&debug_info)
-                .step(&error.to_string())
-                .end_section();
-
-            log.announce().error(&formatdoc! {"
+            output
+                .bullet(debug_info)
+                .sub_bullet(error.to_string())
+                .done()
+                .error(formatdoc! {"
                 Error compiling assets
 
                 An error occured while compiling assets via rake command.

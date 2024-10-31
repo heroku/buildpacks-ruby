@@ -230,15 +230,15 @@ fn log_our_error(mut output: Print<Bullet<Stdout>>, error: RubyBuildpackError) {
                 .sub_bullet(error.to_string())
                 .done()
                 .error(formatdoc! {"
-                Error detecting rake tasks
+                    Error detecting rake tasks
 
-                The Ruby buildpack uses rake task information from your application to guide
-                build logic. Without this information, the Ruby buildpack cannot continue.
+                    The Ruby buildpack uses rake task information from your application to guide
+                    build logic. Without this information, the Ruby buildpack cannot continue.
 
-                {local_command}
+                    {local_command}
 
-                Use the information above to debug further.
-            "});
+                    Use the information above to debug further.
+                "});
         }
         RubyBuildpackError::RakeAssetsPrecompileFailed(error) => {
             let local_command = local_command_debug(&error);

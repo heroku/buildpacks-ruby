@@ -3,8 +3,6 @@ use std::process::Command;
 
 use crate::{DetectError, RubyBuildpackError};
 use bullet_stream::{state::Bullet, state::SubBullet, style, Print};
-#[allow(clippy::wildcard_imports)]
-use commons::output::build_log::*;
 use fun_run::{CmdError, CommandWithName};
 use indoc::formatdoc;
 const DEBUG_INFO_STR: &str = "Debug info";

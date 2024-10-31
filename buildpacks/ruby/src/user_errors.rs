@@ -305,7 +305,7 @@ fn log_our_error(mut output: Print<Bullet<Stdout>>, error: RubyBuildpackError) {
 
                     An error occured while downloading and installing the metrics agent
                     the buildpack cannot continue.
-            "});
+                "});
         }
     }
 }

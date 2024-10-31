@@ -3,10 +3,7 @@ use std::process::Command;
 use crate::{DetectError, RubyBuildpackError};
 use bullet_stream::{state::Bullet, state::SubBullet, style, Print};
 #[allow(clippy::wildcard_imports)]
-use commons::output::{
-    build_log::*,
-    fmt::{self},
-};
+use commons::output::build_log::*;
 use fun_run::{CmdError, CommandWithName};
 use indoc::formatdoc;
 const DEBUG_INFO_STR: &str = "Debug info";
@@ -41,10 +38,10 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
 #[allow(clippy::too_many_lines)]
 fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
     let git_branch_url =
-        fmt::url("https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main");
+        style::url("https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main");
     let ruby_versions_url =
-        fmt::url("https://devcenter.heroku.com/articles/ruby-support#ruby-versions");
-    let rubygems_status_url = fmt::url("https://status.rubygems.org/");
+        style::url("https://devcenter.heroku.com/articles/ruby-support#ruby-versions");
+    let rubygems_status_url = style::url("https://status.rubygems.org/");
     let debug_info = style::important(DEBUG_INFO_STR);
 
     match error {
@@ -108,7 +105,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             log = log
                 .section(&format!(
                     "Could not find {}, details:",
-                    fmt::value(path.to_string_lossy())
+                    style::value(path.to_string_lossy())
                 ))
                 .step(&error.to_string())
                 .end_section();
@@ -117,7 +114,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
                 log = debug_cmd(
                     log.section(&format!(
                         "{debug_info} Contents of the {} directory",
-                        fmt::value(dir.to_string_lossy())
+                        style::value(dir.to_string_lossy())
                     )),
                     Command::new("ls").args(["la", &dir.to_string_lossy()]),
                 );
@@ -206,7 +203,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
                 log = debug_cmd(
                     log.section(&format!(
                         "{debug_info} Contents of the {} directory",
-                        fmt::value(dir.to_string_lossy())
+                        style::value(dir.to_string_lossy())
                     )),
                     Command::new("ls").args(["la", &dir.to_string_lossy()]),
                 );
@@ -332,7 +329,7 @@ fn cause(err: libcnb::Error<RubyBuildpackError>) -> Cause {
 }
 
 fn local_command_debug(error: &CmdError) -> String {
-    let cmd_name = replace_app_path_with_relative(fmt::command(error.name()));
+    let cmd_name = replace_app_path_with_relative(style::command(error.name()));
 
     formatdoc! {"
         Ensure you can run the following command locally with no errors before attempting another build:
@@ -351,7 +348,7 @@ fn replace_app_path_with_relative(contents: impl AsRef<str>) -> String {
 fn debug_cmd(log: Box<dyn SectionLogger>, command: &mut Command) -> Box<dyn StartedLogger> {
     let mut stream = log.step_timed_stream(&format!(
         "Running debug command {}",
-        fmt::command(command.name())
+        style::command(command.name())
     ));
 
     match command.stream_output(stream.io(), stream.io()) {

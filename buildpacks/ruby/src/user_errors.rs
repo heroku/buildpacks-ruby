@@ -267,12 +267,11 @@ fn log_our_error(
             // Future:
             // - Separate between failures in layer dirs or in app dirs, if we can isolate to an app dir we could debug more
             // to determine if there's bad permissions or bad file symlink
-            log = log
-                .section(&debug_info)
-                .step(&error.to_string())
-                .end_section();
-
-            log.announce().error(&formatdoc! {"
+            output
+                .bullet(debug_info)
+                .sub_bullet(error.to_string())
+                .done()
+                .error(formatdoc! {"
                 Error caching frontend assets
 
                 An error occurred while attempting to cache frontend assets, and the Ruby buildpack
@@ -283,16 +282,16 @@ fn log_our_error(
             "});
         }
         RubyBuildpackError::GemListGetError(error) => {
-            log = log
-                .section(&debug_info)
-                .step(&error.to_string())
-                .end_section();
+            output = output
+                .bullet(&debug_info)
+                .sub_bullet(error.to_string())
+                .done();
 
             log = debug_cmd(log.section(&debug_info), Command::new("gem").arg("env"));
 
             log = debug_cmd(log.section(&debug_info), Command::new("bundle").arg("env"));
 
-            log.announce().error(&formatdoc! {"
+            output.error(formatdoc! {"
                 Error detecting dependencies
 
                 The Ruby buildpack requires information about your application’s dependencies to
@@ -302,11 +301,11 @@ fn log_our_error(
             "});
         }
         RubyBuildpackError::MetricsAgentError(error) => {
-            log.section(&debug_info)
-                .step(&error.to_string())
-                .end_section()
-                .announce()
-                .error(&formatdoc! {"
+            output
+                .bullet(debug_info)
+                .sub_bullet(error.to_string())
+                .done()
+                .error(formatdoc! {"
                     Error: Could not install Statsd agent
 
                     An error occured while downloading and installing the metrics agent

@@ -10,11 +10,10 @@ use indoc::formatdoc;
 const DEBUG_INFO_STR: &str = "Debug info";
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
-    let log = BuildLog::new(std::io::stdout()).without_buildpack_name();
     let output = Print::new(std::io::stdout()).without_header();
     let debug_info = style::important(DEBUG_INFO_STR);
     match cause(err) {
-        Cause::OurError(error) => log_our_error(output, log, error),
+        Cause::OurError(error) => log_our_error(output, error),
         Cause::FrameworkError(error) =>
             output
             .bullet(&debug_info)
@@ -37,11 +36,7 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
 }
 
 #[allow(clippy::too_many_lines)]
-fn log_our_error(
-    mut output: Print<Bullet<Stdout>>,
-    mut log: Box<dyn StartedLogger>,
-    error: RubyBuildpackError,
-) {
+fn log_our_error(mut output: Print<Bullet<Stdout>>, error: RubyBuildpackError) {
     let git_branch_url =
         style::url("https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main");
     let ruby_versions_url =

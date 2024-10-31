@@ -197,10 +197,10 @@ fn log_our_error(
                 "});
         }
         RubyBuildpackError::BundleInstallDigestError(path, error) => {
-            log = log
-                .section(&debug_info)
-                .step(&error.to_string())
-                .end_section();
+            output = output
+                .bullet(&debug_info)
+                .sub_bullet(&error.to_string())
+                .done();
 
             if let Some(dir) = path.parent() {
                 log = debug_cmd(
@@ -212,7 +212,7 @@ fn log_our_error(
                 );
             }
 
-            log.announce().error(&formatdoc! {"
+            output.error(formatdoc! {"
                 Error generating file digest
 
                 An error occurred while generating a file digest. To provide the fastest possible

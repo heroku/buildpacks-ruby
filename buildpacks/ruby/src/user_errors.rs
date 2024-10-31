@@ -38,7 +38,7 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
 
 #[allow(clippy::too_many_lines)]
 fn log_our_error(
-    output: Print<Bullet<Stdout>>,
+    mut output: Print<Bullet<Stdout>>,
     mut log: Box<dyn StartedLogger>,
     error: RubyBuildpackError,
 ) {
@@ -107,13 +107,13 @@ fn log_our_error(
             "});
         }
         RubyBuildpackError::MissingGemfileLock(path, error) => {
-            log = log
-                .section(&format!(
+            output = output
+                .bullet(format!(
                     "Could not find {}, details:",
                     style::value(path.to_string_lossy())
                 ))
-                .step(&error.to_string())
-                .end_section();
+                .sub_bullet(error.to_string())
+                .done();
 
             if let Some(dir) = path.parent() {
                 log = debug_cmd(
@@ -125,7 +125,7 @@ fn log_our_error(
                 );
             }
 
-            log.announce().error(&formatdoc! {"
+            output.error(formatdoc! {"
                 Error: `Gemfile.lock` not found
 
                 A `Gemfile.lock` file is required and was not found in the root of your application.

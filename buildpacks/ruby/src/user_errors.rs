@@ -116,7 +116,7 @@ fn log_our_error(
                 .done();
 
             if let Some(dir) = path.parent() {
-                log = debug_cmd(
+                log = debug_cmd_original(
                     log.section(&format!(
                         "{debug_info} Contents of the {} directory",
                         style::value(dir.to_string_lossy())
@@ -159,7 +159,7 @@ fn log_our_error(
                 .sub_bullet(error.to_string())
                 .done();
 
-            log = debug_cmd(log.section(&debug_info), Command::new("gem").arg("env"));
+            log = debug_cmd_original(log.section(&debug_info), Command::new("gem").arg("env"));
 
             output.error(formatdoc! {"
                 Error installing bundler
@@ -203,7 +203,7 @@ fn log_our_error(
                 .done();
 
             if let Some(dir) = path.parent() {
-                log = debug_cmd(
+                log = debug_cmd_original(
                     log.section(&format!(
                         "{debug_info} Contents of the {} directory",
                         style::value(dir.to_string_lossy())
@@ -287,9 +287,9 @@ fn log_our_error(
                 .sub_bullet(error.to_string())
                 .done();
 
-            log = debug_cmd(log.section(&debug_info), Command::new("gem").arg("env"));
+            log = debug_cmd_original(log.section(&debug_info), Command::new("gem").arg("env"));
 
-            log = debug_cmd(log.section(&debug_info), Command::new("bundle").arg("env"));
+            log = debug_cmd_original(log.section(&debug_info), Command::new("bundle").arg("env"));
 
             output.error(formatdoc! {"
                 Error detecting dependencies
@@ -345,7 +345,21 @@ fn replace_app_path_with_relative(contents: impl AsRef<str>) -> String {
     app_path_re.replace_all(contents.as_ref(), "./").to_string()
 }
 
-fn debug_cmd(log: Box<dyn SectionLogger>, command: &mut Command) -> Box<dyn StartedLogger> {
+fn debug_cmd(mut log: Print<SubBullet<Stdout>>, command: &mut Command) -> Print<Bullet<Stdout>> {
+    let result = log.stream_with(
+        format!("Running debug command {}", style::command(command.name())),
+        |stdout, stderr| command.stream_output(stdout, stderr),
+    );
+    match result {
+        Ok(_) => log.done(),
+        Err(e) => log.sub_bullet(e.to_string()).done(),
+    }
+}
+
+fn debug_cmd_original(
+    log: Box<dyn SectionLogger>,
+    command: &mut Command,
+) -> Box<dyn StartedLogger> {
     let mut stream = log.step_timed_stream(&format!(
         "Running debug command {}",
         style::command(command.name())

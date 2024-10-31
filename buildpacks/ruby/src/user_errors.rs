@@ -247,14 +247,14 @@ fn log_our_error(mut output: Print<Bullet<Stdout>>, error: RubyBuildpackError) {
                 .sub_bullet(error.to_string())
                 .done()
                 .error(formatdoc! {"
-                Error compiling assets
+                    Error compiling assets
 
-                An error occured while compiling assets via rake command.
+                    An error occured while compiling assets via rake command.
 
-                {local_command}
+                    {local_command}
 
-                Use the information above to debug further.
-            "});
+                    Use the information above to debug further.
+                "});
         }
         RubyBuildpackError::InAppDirCacheError(error) => {
             // Future:

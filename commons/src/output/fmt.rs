@@ -5,25 +5,30 @@ use std::fmt::Write;
 /// Helpers for formatting and colorizing your output
 
 /// Decorated str for prefixing "Help:"
+#[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
 pub const HELP: &str = formatcp!("{IMPORTANT_COLOR}! HELP{RESET}");
 
 /// Decorated str for prefixing "Debug info:"
+#[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
 pub const DEBUG_INFO: &str = formatcp!("{IMPORTANT_COLOR}Debug info{RESET}");
 
 /// Decorate a URL for the build output
 #[must_use]
+#[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
 pub fn url(contents: impl AsRef<str>) -> String {
     colorize(URL_COLOR, contents)
 }
 
 /// Decorate the name of a command being run i.e. `bundle install`
 #[must_use]
+#[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
 pub fn command(contents: impl AsRef<str>) -> String {
     value(colorize(COMMAND_COLOR, contents.as_ref()))
 }
 
 /// Decorate an important value i.e. `2.3.4`
 #[must_use]
+#[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
 pub fn value(contents: impl AsRef<str>) -> String {
     let contents = colorize(VALUE_COLOR, contents.as_ref());
     format!("`{contents}`")
@@ -31,6 +36,7 @@ pub fn value(contents: impl AsRef<str>) -> String {
 
 /// Decorate additional information at the end of a line
 #[must_use]
+#[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
 pub fn details(contents: impl AsRef<str>) -> String {
     let contents = contents.as_ref();
     format!("({contents})")

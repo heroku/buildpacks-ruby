@@ -6,6 +6,7 @@
 
 - Deprecate `layers` including `layers::ConfigureEnvLayer` and `layers::DefaultEnvLayer` ()
 - Remove `AppCacheCollection` ()
+- Deprecate `output` module in favor of the `bullet_stream` crate ()
 
 ## 2024-08-16
 

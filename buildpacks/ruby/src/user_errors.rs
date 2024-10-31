@@ -1,3 +1,4 @@
+use std::io::Stdout;
 use std::process::Command;
 
 use crate::{DetectError, RubyBuildpackError};
@@ -13,7 +14,7 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
     let output = Print::new(std::io::stdout()).without_header();
     let debug_info = style::important(DEBUG_INFO_STR);
     match cause(err) {
-        Cause::OurError(error) => log_our_error(log, error),
+        Cause::OurError(error) => log_our_error(output, log, error),
         Cause::FrameworkError(error) =>
             output
             .bullet(&debug_info)
@@ -36,7 +37,11 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
 }
 
 #[allow(clippy::too_many_lines)]
-fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
+fn log_our_error(
+    output: Print<Bullet<Stdout>>,
+    mut log: Box<dyn StartedLogger>,
+    error: RubyBuildpackError,
+) {
     let git_branch_url =
         style::url("https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main");
     let ruby_versions_url =

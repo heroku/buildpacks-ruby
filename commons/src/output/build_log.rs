@@ -32,6 +32,7 @@ use std::time::{Duration, Instant};
 /// For usage details run `cargo run --bin print_style_guide`
 
 #[derive(Debug)]
+#[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
 pub struct BuildLog<T, W: Debug> {
     pub(crate) io: W,
     pub(crate) data: BuildData,

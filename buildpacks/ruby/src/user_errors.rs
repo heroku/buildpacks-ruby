@@ -47,8 +47,8 @@ fn log_our_error(mut output: Print<Bullet<Stdout>>, error: RubyBuildpackError) {
             output.error(formatdoc! {"
                 Error: `Gemfile` found with error
 
-              There was an error trying to read the contents of the application's Gemfile. \
-              The buildpack cannot continue if the Gemfile is unreadable.
+                There was an error trying to read the contents of the application's Gemfile. \
+                The buildpack cannot continue if the Gemfile is unreadable.
 
                 {error}
 

@@ -192,7 +192,7 @@ fn log_our_error(mut output: Print<Bullet<Stdout>>, error: RubyBuildpackError) {
         RubyBuildpackError::BundleInstallDigestError(path, error) => {
             output = output
                 .bullet(&debug_info)
-                .sub_bullet(&error.to_string())
+                .sub_bullet(error.to_string())
                 .done();
 
             if let Some(dir) = path.parent() {

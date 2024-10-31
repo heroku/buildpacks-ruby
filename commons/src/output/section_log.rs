@@ -17,8 +17,6 @@ use std::marker::PhantomData;
 /// - Ensuring that you are not attempting to log while already logging i.e. calling `step()` within a
 ///   `step_timed()` call.
 ///
-/// For usage details run `cargo run --bin print_style_guide`
-///
 /// ## Use
 ///
 /// The main use case is logging inside of a layer:

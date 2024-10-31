@@ -51,7 +51,7 @@ fn log_our_error(
 
     match error {
         RubyBuildpackError::BuildpackDetectionError(DetectError::Gemfile(error)) => {
-            log.announce().error(&formatdoc! {"
+            output.error(formatdoc! {"
                 Error: `Gemfile` found with error
 
               There was an error trying to read the contents of the application's Gemfile. \
@@ -63,7 +63,7 @@ fn log_our_error(
             "});
         }
         RubyBuildpackError::BuildpackDetectionError(DetectError::PackageJson(error)) => {
-            log.announce().error(&formatdoc! {"
+            output.error(formatdoc! {"
                 Error: `package.json` found with error
 
                 The Ruby buildpack detected a package.json file but it is not readable \
@@ -79,7 +79,7 @@ fn log_our_error(
             "});
         }
         RubyBuildpackError::BuildpackDetectionError(DetectError::GemfileLock(error)) => {
-            log.announce().error(&formatdoc! {"
+            output.error(formatdoc! {"
                 Error: `Gemfile.lock` found with error
 
                 There was an error trying to read the contents of the application's Gemfile.lock. \
@@ -91,7 +91,7 @@ fn log_our_error(
             "});
         }
         RubyBuildpackError::BuildpackDetectionError(DetectError::YarnLock(error)) => {
-            log.announce().error(&formatdoc! {"
+            output.error(formatdoc! {"
                 Error: `yarn.lock` found with error
 
                 The Ruby buildpack detected a yarn.lock file but it is not readable \

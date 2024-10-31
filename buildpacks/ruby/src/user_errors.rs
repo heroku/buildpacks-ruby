@@ -287,9 +287,11 @@ fn log_our_error(
                 .sub_bullet(error.to_string())
                 .done();
 
-            log = debug_cmd_original(log.section(&debug_info), Command::new("gem").arg("env"));
-
-            log = debug_cmd_original(log.section(&debug_info), Command::new("bundle").arg("env"));
+            output = debug_cmd(output.bullet(&debug_info), Command::new("gem").arg("env"));
+            output = debug_cmd(
+                output.bullet(&debug_info),
+                Command::new("bundle").arg("env"),
+            );
 
             output.error(formatdoc! {"
                 Error detecting dependencies
@@ -353,24 +355,6 @@ fn debug_cmd(mut log: Print<SubBullet<Stdout>>, command: &mut Command) -> Print<
     match result {
         Ok(_) => log.done(),
         Err(e) => log.sub_bullet(e.to_string()).done(),
-    }
-}
-
-fn debug_cmd_original(
-    log: Box<dyn SectionLogger>,
-    command: &mut Command,
-) -> Box<dyn StartedLogger> {
-    let mut stream = log.step_timed_stream(&format!(
-        "Running debug command {}",
-        style::command(command.name())
-    ));
-
-    match command.stream_output(stream.io(), stream.io()) {
-        Ok(_) => stream.finish_timed_stream().end_section(),
-        Err(e) => stream
-            .finish_timed_stream()
-            .step(&e.to_string())
-            .end_section(),
     }
 }
 

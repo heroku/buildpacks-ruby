@@ -71,23 +71,6 @@ pub fn log_step_timed<T>(s: impl AsRef<str>, f: impl FnOnce() -> T) -> T {
     out
 }
 
-/// Will print the input string and yield a `Box<dyn StreamLogger>` that can be used to print
-/// to the output. The main use case is running commands
-///
-/// ```no_run
-/// use fun_run::CommandWithName;
-/// use commons::output::section_log::log_step_stream;
-/// use commons::output::fmt;
-///
-/// let mut cmd = std::process::Command::new("bundle");
-/// cmd.arg("install");
-///
-/// log_step_stream(format!("Running {}", fmt::command(cmd.name())), |stream| {
-///     cmd.stream_output(stream.io(), stream.io()).unwrap()
-/// });
-/// ```
-///
-/// Timing information will be output at the end of the step.
 #[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
 pub fn log_step_stream<T>(
     s: impl AsRef<str>,

@@ -41,16 +41,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 
 [[package]]
-name = "ascii_table"
-version = "4.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed8a80a95ab122e7cc43bfde1d51949c89ff67e0c76eb795dc045003418473e2"
-dependencies = [
- "lazy_static",
- "regex",
-]
-
-[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -278,14 +268,12 @@ checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 name = "commons"
 version = "0.0.0"
 dependencies = [
- "ascii_table",
  "byte-unit",
  "const_format",
  "fancy-regex",
  "filetime",
  "fs-err",
  "fs_extra",
- "fun_run",
  "glob",
  "indoc",
  "lazy_static",

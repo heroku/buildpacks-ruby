@@ -1,7 +1,3 @@
-// Used in the style guide
-use ascii_table as _;
-use fun_run as _;
-
 pub mod cache;
 pub mod display;
 pub mod gem_version;

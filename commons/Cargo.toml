@@ -7,14 +7,12 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
-ascii_table = { version = "4", features = ["color_codes"] }
 byte-unit = "5"
 const_format = "0.2"
 # TODO: Consolidate on either the regex crate or the fancy-regex crate, since this repo currently uses both.
 fancy-regex = "0.13"
 fs_extra = "1"
 fs-err = "3"
-fun_run = "0.2"
 glob = "0.3"
 indoc = "2"
 lazy_static = "1"

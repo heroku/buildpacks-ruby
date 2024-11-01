@@ -3,9 +3,7 @@ mod clean;
 mod config;
 mod error;
 
-pub use self::app_cache::{build, PathState};
-pub use self::app_cache::{AppCache, CacheState};
+pub use self::app_cache::{build, AppCache, CacheState, PathState};
 pub use self::clean::FilesWithSize;
-pub use self::config::CacheConfig;
-pub use self::config::{mib, KeepPath};
+pub use self::config::{mib, CacheConfig, KeepPath};
 pub use self::error::CacheError;

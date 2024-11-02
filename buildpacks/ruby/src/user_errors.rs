@@ -1,10 +1,9 @@
-use std::io::Stdout;
-use std::process::Command;
-
 use crate::{DetectError, RubyBuildpackError};
 use bullet_stream::{state::Bullet, state::SubBullet, style, Print};
 use fun_run::{CmdError, CommandWithName};
 use indoc::formatdoc;
+use std::io::Stdout;
+use std::process::Command;
 const DEBUG_INFO_STR: &str = "Debug info";
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {

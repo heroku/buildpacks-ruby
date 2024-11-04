@@ -1,5 +1,6 @@
 use crate::{RubyBuildpack, RubyBuildpackError};
-use commons::layer::DefaultEnvLayer;
+use libcnb::layer::UncachedLayerDefinition;
+use libcnb::layer_env::{LayerEnv, ModificationBehavior};
 use libcnb::{
     build::BuildContext,
     data::{layer_name, store::Store},
@@ -9,7 +10,6 @@ use libcnb::{
 use rand::Rng;
 
 // Set default environment values
-#[allow(deprecated)]
 pub(crate) fn default_env(
     context: &BuildContext<RubyBuildpack>,
     platform_env: &Env,
@@ -24,25 +24,32 @@ pub(crate) fn default_env(
     }
 
     let (default_secret_key_base, store) = fetch_secret_key_base_from_store(&context.store);
-
-    let env_defaults_layer = context //
-        .handle_layer(
-            layer_name!("env_defaults"),
-            DefaultEnvLayer::new(
-                [
-                    ("SECRET_KEY_BASE", default_secret_key_base.as_str()),
-                    ("JRUBY_OPTS", "-Xcompile.invokedynamic=false"),
-                    ("RACK_ENV", "production"),
-                    ("RAILS_ENV", "production"),
-                    ("RAILS_SERVE_STATIC_FILES", "enabled"),
-                    ("RAILS_LOG_TO_STDOUT", "enabled"),
-                    ("MALLOC_ARENA_MAX", "2"),
-                    ("DISABLE_SPRING", "1"),
-                ]
-                .into_iter(),
-            ),
-        )?;
-    env = env_defaults_layer.env.apply(Scope::Build, &env);
+    let layer_ref = context.uncached_layer(
+        layer_name!("env_defaults"),
+        UncachedLayerDefinition {
+            build: true,
+            launch: true,
+        },
+    )?;
+    let env = layer_ref
+        .write_env({
+            [
+                ("SECRET_KEY_BASE", default_secret_key_base.as_str()),
+                ("JRUBY_OPTS", "-Xcompile.invokedynamic=false"),
+                ("RACK_ENV", "production"),
+                ("RAILS_ENV", "production"),
+                ("RAILS_SERVE_STATIC_FILES", "enabled"),
+                ("RAILS_LOG_TO_STDOUT", "enabled"),
+                ("MALLOC_ARENA_MAX", "2"),
+                ("DISABLE_SPRING", "1"),
+            ]
+            .iter()
+            .fold(LayerEnv::new(), |layer_env, (name, value)| {
+                layer_env.chainable_insert(Scope::All, ModificationBehavior::Default, name, value)
+            })
+        })
+        .and_then(|()| layer_ref.read_env())?
+        .apply(Scope::Build, &env);
 
     Ok((env, store))
 }

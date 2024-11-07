@@ -1,25 +1,21 @@
-use std::process::Command;
-
-#[allow(clippy::wildcard_imports)]
-use commons::output::{
-    build_log::*,
-    fmt::{self, DEBUG_INFO},
-};
-
 use crate::{DetectError, RubyBuildpackError};
+use bullet_stream::{state::Bullet, state::SubBullet, style, Print};
 use fun_run::{CmdError, CommandWithName};
 use indoc::formatdoc;
+use std::io::Stdout;
+use std::process::Command;
+const DEBUG_INFO_STR: &str = "Debug info";
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
-    let log = BuildLog::new(std::io::stdout()).without_buildpack_name();
+    let output = Print::new(std::io::stdout()).without_header();
+    let debug_info = style::important(DEBUG_INFO_STR);
     match cause(err) {
-        Cause::OurError(error) => log_our_error(log, error),
+        Cause::OurError(error) => log_our_error(output, error),
         Cause::FrameworkError(error) =>
-            log
-            .section(DEBUG_INFO)
-            .step(&error.to_string())
-            .announce()
-            .error(&formatdoc! {"
+            output
+            .bullet(&debug_info)
+            .sub_bullet(error.to_string())
+            .error(formatdoc! {"
                 Error: heroku/buildpack-ruby internal buildpack error
 
                 The framework used by this buildpack encountered an unexpected error.
@@ -37,20 +33,21 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
 }
 
 #[allow(clippy::too_many_lines)]
-fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
+fn log_our_error(mut output: Print<Bullet<Stdout>>, error: RubyBuildpackError) {
     let git_branch_url =
-        fmt::url("https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main");
+        style::url("https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main");
     let ruby_versions_url =
-        fmt::url("https://devcenter.heroku.com/articles/ruby-support#ruby-versions");
-    let rubygems_status_url = fmt::url("https://status.rubygems.org/");
+        style::url("https://devcenter.heroku.com/articles/ruby-support#ruby-versions");
+    let rubygems_status_url = style::url("https://status.rubygems.org/");
+    let debug_info = style::important(DEBUG_INFO_STR);
 
     match error {
         RubyBuildpackError::BuildpackDetectionError(DetectError::Gemfile(error)) => {
-            log.announce().error(&formatdoc! {"
+            output.error(formatdoc! {"
                 Error: `Gemfile` found with error
 
-              There was an error trying to read the contents of the application's Gemfile. \
-              The buildpack cannot continue if the Gemfile is unreadable.
+                There was an error trying to read the contents of the application's Gemfile. \
+                The buildpack cannot continue if the Gemfile is unreadable.
 
                 {error}
 
@@ -58,7 +55,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             "});
         }
         RubyBuildpackError::BuildpackDetectionError(DetectError::PackageJson(error)) => {
-            log.announce().error(&formatdoc! {"
+            output.error(formatdoc! {"
                 Error: `package.json` found with error
 
                 The Ruby buildpack detected a package.json file but it is not readable \
@@ -74,7 +71,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             "});
         }
         RubyBuildpackError::BuildpackDetectionError(DetectError::GemfileLock(error)) => {
-            log.announce().error(&formatdoc! {"
+            output.error(formatdoc! {"
                 Error: `Gemfile.lock` found with error
 
                 There was an error trying to read the contents of the application's Gemfile.lock. \
@@ -86,7 +83,7 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             "});
         }
         RubyBuildpackError::BuildpackDetectionError(DetectError::YarnLock(error)) => {
-            log.announce().error(&formatdoc! {"
+            output.error(formatdoc! {"
                 Error: `yarn.lock` found with error
 
                 The Ruby buildpack detected a yarn.lock file but it is not readable \
@@ -102,25 +99,25 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             "});
         }
         RubyBuildpackError::MissingGemfileLock(path, error) => {
-            log = log
-                .section(&format!(
+            output = output
+                .bullet(format!(
                     "Could not find {}, details:",
-                    fmt::value(path.to_string_lossy())
+                    style::value(path.to_string_lossy())
                 ))
-                .step(&error.to_string())
-                .end_section();
+                .sub_bullet(error.to_string())
+                .done();
 
             if let Some(dir) = path.parent() {
-                log = debug_cmd(
-                    log.section(&format!(
-                        "{DEBUG_INFO} Contents of the {} directory",
-                        fmt::value(dir.to_string_lossy())
+                output = debug_cmd(
+                    output.bullet(format!(
+                        "{debug_info} Contents of the {} directory",
+                        style::value(dir.to_string_lossy())
                     )),
                     Command::new("ls").args(["la", &dir.to_string_lossy()]),
                 );
             }
 
-            log.announce().error(&formatdoc! {"
+            output.error(formatdoc! {"
                 Error: `Gemfile.lock` not found
 
                 A `Gemfile.lock` file is required and was not found in the root of your application.
@@ -136,10 +133,9 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             // Future:
             // - In the future use a manifest file to list if version is available on a different stack
             // - In the future add a "did you mean" Levenshtein distance to see if they typoed like "3.6.0" when they meant "3.0.6"
-            log.section(DEBUG_INFO)
-                .step(&error.to_string())
-                .announce()
-                .error(&formatdoc! {"
+            output.bullet(debug_info)
+                .sub_bullet(error.to_string())
+                .error(formatdoc! {"
                     Error installing Ruby
 
                     Could not install the detected Ruby version. Ensure that you're using a supported
@@ -150,14 +146,14 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
                 "});
         }
         RubyBuildpackError::GemInstallBundlerCommandError(error) => {
-            log = log
-                .section(DEBUG_INFO)
-                .step(&error.to_string())
-                .end_section();
+            output = output
+                .bullet(&debug_info)
+                .sub_bullet(error.to_string())
+                .done();
 
-            log = debug_cmd(log.section(DEBUG_INFO), Command::new("gem").arg("env"));
+            output = debug_cmd(output.bullet(&debug_info), Command::new("gem").arg("env"));
 
-            log.announce().error(&formatdoc! {"
+            output.error(formatdoc! {"
                 Error installing bundler
 
                 The ruby package managment tool, `bundler`, failed to install. Bundler is required
@@ -173,12 +169,11 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             // Future:
             // - Grep error output for common things like using sqlite3, use classic buildpack
             let local_command = local_command_debug(&error);
-            log
-                .section(DEBUG_INFO)
-                .step(&error.to_string())
-                .end_section()
-                .announce()
-                .error(&formatdoc! {"
+            output
+                .bullet(&debug_info)
+                .sub_bullet(error.to_string())
+                .done()
+                .error(formatdoc! {"
                     Error installing your applications's dependencies
 
                     Could not install gems to the system via bundler. Gems are dependencies
@@ -194,22 +189,22 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
                 "});
         }
         RubyBuildpackError::BundleInstallDigestError(path, error) => {
-            log = log
-                .section(DEBUG_INFO)
-                .step(&error.to_string())
-                .end_section();
+            output = output
+                .bullet(&debug_info)
+                .sub_bullet(error.to_string())
+                .done();
 
             if let Some(dir) = path.parent() {
-                log = debug_cmd(
-                    log.section(&format!(
-                        "{DEBUG_INFO} Contents of the {} directory",
-                        fmt::value(dir.to_string_lossy())
+                output = debug_cmd(
+                    output.bullet(format!(
+                        "{debug_info} Contents of the {} directory",
+                        style::value(dir.to_string_lossy())
                     )),
                     Command::new("ls").args(["la", &dir.to_string_lossy()]),
                 );
             }
 
-            log.announce().error(&formatdoc! {"
+            output.error(formatdoc! {"
                 Error generating file digest
 
                 An error occurred while generating a file digest. To provide the fastest possible
@@ -229,69 +224,68 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             // Future:
             // - Annotate with information on requiring test or development only gems in the Rakefile
             let local_command = local_command_debug(&error);
-            log = log
-                .section(DEBUG_INFO)
-                .step(&error.to_string())
-                .end_section();
+            output
+                .bullet(debug_info)
+                .sub_bullet(error.to_string())
+                .done()
+                .error(formatdoc! {"
+                    Error detecting rake tasks
 
-            log.announce().error(&formatdoc! {"
-                Error detecting rake tasks
+                    The Ruby buildpack uses rake task information from your application to guide
+                    build logic. Without this information, the Ruby buildpack cannot continue.
 
-                The Ruby buildpack uses rake task information from your application to guide
-                build logic. Without this information, the Ruby buildpack cannot continue.
+                    {local_command}
 
-                {local_command}
-
-                Use the information above to debug further.
-            "});
+                    Use the information above to debug further.
+                "});
         }
         RubyBuildpackError::RakeAssetsPrecompileFailed(error) => {
             let local_command = local_command_debug(&error);
-            log = log
-                .section(DEBUG_INFO)
-                .step(&error.to_string())
-                .end_section();
+            output
+                .bullet(debug_info)
+                .sub_bullet(error.to_string())
+                .done()
+                .error(formatdoc! {"
+                    Error compiling assets
 
-            log.announce().error(&formatdoc! {"
-                Error compiling assets
+                    An error occured while compiling assets via rake command.
 
-                An error occured while compiling assets via rake command.
+                    {local_command}
 
-                {local_command}
-
-                Use the information above to debug further.
-            "});
+                    Use the information above to debug further.
+                "});
         }
         RubyBuildpackError::InAppDirCacheError(error) => {
             // Future:
             // - Separate between failures in layer dirs or in app dirs, if we can isolate to an app dir we could debug more
             // to determine if there's bad permissions or bad file symlink
-            log = log
-                .section(DEBUG_INFO)
-                .step(&error.to_string())
-                .end_section();
+            output
+                .bullet(debug_info)
+                .sub_bullet(error.to_string())
+                .done()
+                .error(formatdoc! {"
+                    Error caching frontend assets
 
-            log.announce().error(&formatdoc! {"
-                Error caching frontend assets
+                    An error occurred while attempting to cache frontend assets, and the Ruby buildpack
+                    cannot continue.
 
-                An error occurred while attempting to cache frontend assets, and the Ruby buildpack
-                cannot continue.
-
-                Ensure that the permissions on the files in your application directory are correct and that
-                all symlinks correctly resolve.
-            "});
+                    Ensure that the permissions on the files in your application directory are correct and that
+                    all symlinks correctly resolve.
+                "});
         }
         RubyBuildpackError::GemListGetError(error) => {
-            log = log
-                .section(DEBUG_INFO)
-                .step(&error.to_string())
-                .end_section();
+            output = output
+                .bullet(&debug_info)
+                .sub_bullet(error.to_string())
+                .done();
 
-            log = debug_cmd(log.section(DEBUG_INFO), Command::new("gem").arg("env"));
+            output = debug_cmd(output.bullet(&debug_info), Command::new("gem").arg("env"));
+            output = debug_cmd(
+                output.bullet(&debug_info),
+                Command::new("bundle").arg("env"),
+            );
 
-            log = debug_cmd(log.section(DEBUG_INFO), Command::new("bundle").arg("env"));
-
-            log.announce().error(&formatdoc! {"
+            output.error(formatdoc! {"
                 Error detecting dependencies
 
                 The Ruby buildpack requires information about your application’s dependencies to
@@ -301,16 +295,16 @@ fn log_our_error(mut log: Box<dyn StartedLogger>, error: RubyBuildpackError) {
             "});
         }
         RubyBuildpackError::MetricsAgentError(error) => {
-            log.section(DEBUG_INFO)
-                .step(&error.to_string())
-                .end_section()
-                .announce()
-                .error(&formatdoc! {"
+            output
+                .bullet(debug_info)
+                .sub_bullet(error.to_string())
+                .done()
+                .error(formatdoc! {"
                     Error: Could not install Statsd agent
 
                     An error occured while downloading and installing the metrics agent
                     the buildpack cannot continue.
-            "});
+                "});
         }
     }
 }
@@ -329,7 +323,7 @@ fn cause(err: libcnb::Error<RubyBuildpackError>) -> Cause {
 }
 
 fn local_command_debug(error: &CmdError) -> String {
-    let cmd_name = replace_app_path_with_relative(fmt::command(error.name()));
+    let cmd_name = replace_app_path_with_relative(style::command(error.name()));
 
     formatdoc! {"
         Ensure you can run the following command locally with no errors before attempting another build:
@@ -345,18 +339,14 @@ fn replace_app_path_with_relative(contents: impl AsRef<str>) -> String {
     app_path_re.replace_all(contents.as_ref(), "./").to_string()
 }
 
-fn debug_cmd(log: Box<dyn SectionLogger>, command: &mut Command) -> Box<dyn StartedLogger> {
-    let mut stream = log.step_timed_stream(&format!(
-        "Running debug command {}",
-        fmt::command(command.name())
-    ));
-
-    match command.stream_output(stream.io(), stream.io()) {
-        Ok(_) => stream.finish_timed_stream().end_section(),
-        Err(e) => stream
-            .finish_timed_stream()
-            .step(&e.to_string())
-            .end_section(),
+fn debug_cmd(mut log: Print<SubBullet<Stdout>>, command: &mut Command) -> Print<Bullet<Stdout>> {
+    let result = log.stream_with(
+        format!("Running debug command {}", style::command(command.name())),
+        |stdout, stderr| command.stream_output(stdout, stderr),
+    );
+    match result {
+        Ok(_) => log.done(),
+        Err(e) => log.sub_bullet(e.to_string()).done(),
     }
 }
 

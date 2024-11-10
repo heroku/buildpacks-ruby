@@ -1,12 +1,12 @@
 # Changelog for commons features
 
-## 2024-10-30
+## 2024-11-11
 
 ## Changed
 
-- Deprecate `layers` including `layers::ConfigureEnvLayer` and `layers::DefaultEnvLayer` ()
-- Remove `AppCacheCollection` ()
-- Deprecate `output` module in favor of the `bullet_stream` crate ()
+- Deprecate `layers` including `layers::ConfigureEnvLayer` and `layers::DefaultEnvLayer` (https://github.com/heroku/buildpacks-ruby/pull/345)
+- Remove `AppCacheCollection` (https://github.com/heroku/buildpacks-ruby/pull/345)
+- Deprecate `output` module in favor of the `bullet_stream` crate (https://github.com/heroku/buildpacks-ruby/pull/345)
 
 ## 2024-08-16
 

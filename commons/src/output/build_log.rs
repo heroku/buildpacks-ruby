@@ -1,6 +1,8 @@
 use crate::output::background_timer::{start_timer, StopJoinGuard, StopTimer};
+#[allow(deprecated)]
 use crate::output::fmt;
 #[allow(clippy::wildcard_imports)]
+#[allow(deprecated)]
 pub use crate::output::interface::*;
 use std::fmt::Debug;
 use std::io::Write;
@@ -28,10 +30,9 @@ use std::time::{Duration, Instant};
 /// ```
 ///
 /// To log inside of a layer see [`section_log`].
-///
-/// For usage details run `cargo run --bin print_style_guide`
 
 #[derive(Debug)]
+#[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
 pub struct BuildLog<T, W: Debug> {
     pub(crate) io: W,
     pub(crate) data: BuildData,

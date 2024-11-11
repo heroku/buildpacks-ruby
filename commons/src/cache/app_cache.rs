@@ -1,10 +1,11 @@
 use crate::cache::clean::{lru_clean, FilesWithSize};
-use crate::cache::in_app_dir_cache_layer::InAppDirCacheLayer;
 use crate::cache::{CacheConfig, CacheError, KeepPath};
 use byte_unit::{AdjustedByte, Byte, UnitType};
 use fs_extra::dir::CopyOptions;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
+use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, RestoredLayerAction};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::path::PathBuf;
 use walkdir::WalkDir;
@@ -235,6 +236,25 @@ pub enum PathState {
     HasFiles,
 }
 
+/// # Caches a folder in the application directory
+///
+/// Layers are used for caching, however layers cannot be inside of the app directory.
+/// This layer can be used to hold a directory's contents so they are preserved
+/// between deploys.
+///
+/// The primary usecase of this is for caching assets. After `rake assets:precompile` runs
+/// file in `<app-dir>/public/assets` need to be preserved between deploys. This allows
+/// for faster deploys, and also allows for prior generated assets to remain on the system
+///  until "cleaned."
+///
+///  Historically, sprockets will keep 3 versions of old files on disk. This
+///  allows for emails, that might live a long time, to reference a specific SHA of an
+///  asset.
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Metadata {
+    pub(crate) app_dir_path: PathBuf,
+}
+
 /// Converts a `CacheConfig` into an `AppCache`
 ///
 /// Same as `AppCache::new_and_load` without loading
@@ -243,7 +263,6 @@ pub enum PathState {
 /// # Errors
 ///
 /// - If the layer cannot be created
-#[allow(deprecated)]
 pub fn build<B: libcnb::Buildpack>(
     context: &BuildContext<B>,
     config: CacheConfig,
@@ -257,11 +276,27 @@ pub fn build<B: libcnb::Buildpack>(
     let layer_name = create_layer_name(&context.app_dir, &path)?;
     let create_state = layer_name_cache_state(&context.layers_dir, &layer_name);
 
-    let layer = context
-        .handle_layer(layer_name, InAppDirCacheLayer::new(path.clone()))
-        .map_err(|error| CacheError::InternalLayerError(format!("{error:?}")))?;
-
-    let cache = layer.path;
+    let metadata = Metadata {
+        app_dir_path: path.clone(),
+    };
+    let cache = context
+        .cached_layer(
+            layer_name,
+            CachedLayerDefinition {
+                build: true,
+                launch: true,
+                invalid_metadata_action: &|_| InvalidMetadataAction::DeleteLayer,
+                restored_layer_action: &|old: &Metadata, _| {
+                    if old == &metadata {
+                        RestoredLayerAction::KeepLayer
+                    } else {
+                        RestoredLayerAction::DeleteLayer
+                    }
+                },
+            },
+        )
+        .map_err(|error| CacheError::InternalLayerError(format!("{error:?}")))
+        .map(|layer_ref| layer_ref.path())?;
 
     Ok(AppCache {
         path,

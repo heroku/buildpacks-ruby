@@ -30,6 +30,14 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
                 buildpack or framework, please visit the buildpack's GitHub repository at
                 https://github.com/heroku/buildpacks-ruby/issues. Search for any existing issues
                 related to this error. If none are found, please consider opening a new issue.
+
+                For more details on expected behavior, see the application contract at
+                https://github.com/heroku/buildpacks-ruby/blob/main/docs/application_contract.md
+                If you notice a difference between the contract and actual buildpack behavior,
+                please open an issue with a minimal application to reproduce the problem.
+
+                For application-specific support, consider asking on official Heroku support
+                channels or Stack Overflow.
             "}),
     };
 }

@@ -285,6 +285,7 @@ impl From<RubyBuildpackError> for libcnb::Error<RubyBuildpackError> {
 buildpack_main!(RubyBuildpack);
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct BundleWithout(String);
 
 impl BundleWithout {

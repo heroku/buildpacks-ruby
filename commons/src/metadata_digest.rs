@@ -20,6 +20,7 @@ const PLATFORM_ENV_VAR: &str = "user configured environment variables";
 /// use commons::metadata_digest::MetadataDigest;
 ///
 /// #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+/// #[serde(deny_unknown_fields)]
 /// pub(crate) struct BundleInstallLayerMetadata {
 ///     ruby_version: String,
 ///     force_bundle_install_key: String,
@@ -82,6 +83,7 @@ const PLATFORM_ENV_VAR: &str = "user configured environment variables";
 /// # }
 /// #
 /// # #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+/// # #[serde(deny_unknown_fields)]
 /// # struct FakeLayerMetadata {
 /// #     digest: MetadataDigest,
 /// # }
@@ -148,6 +150,7 @@ const PLATFORM_ENV_VAR: &str = "user configured environment variables";
 /// add logic to your buildpack to re-run that command similar to the "escape valve" discussed
 /// above, but triggered by buildpack author instead of the end user.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
+#[serde(deny_unknown_fields)]
 pub struct MetadataDigest {
     platform_env: Option<PlatformEnvDigest>,
     files: Option<PathsDigest>, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
@@ -235,9 +238,11 @@ impl MetadataDigest {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct ShaString(String);
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct PlatformEnvDigest(ShaString);
 impl PlatformEnvDigest {
     fn new(platform: &impl Platform) -> Self {
@@ -248,6 +253,7 @@ impl PlatformEnvDigest {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
+#[serde(deny_unknown_fields)]
 struct PathsDigest(HashMap<PathBuf, ShaString>);
 
 /// Main struct for detecting changes between two iterations

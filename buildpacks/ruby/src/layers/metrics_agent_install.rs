@@ -30,6 +30,7 @@ const DOWNLOAD_URL: &str =
 const DOWNLOAD_SHA: &str = "f9bf9f33c949e15ffed77046ca38f8dae9307b6a0181c6af29a25dec46eb2dac";
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Metadata {
     download_url: String,
 }

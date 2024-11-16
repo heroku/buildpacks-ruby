@@ -207,6 +207,7 @@ mod tests {
 
     /// Struct for asserting the behavior of `cached_layer_write_metadata`
     #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+    #[serde(deny_unknown_fields)]
     struct TestMetadata {
         value: String,
     }

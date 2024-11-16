@@ -74,12 +74,14 @@ fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyBuildp
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV1 {
     pub(crate) stack: String,
     pub(crate) version: ResolvedRubyVersion,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV2 {
     pub(crate) distro_name: String,
     pub(crate) distro_version: String,

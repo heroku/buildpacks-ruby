@@ -81,6 +81,7 @@ impl GemfileLock {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct ResolvedRubyVersion(pub String);
 
 impl Display for ResolvedRubyVersion {
@@ -90,6 +91,7 @@ impl Display for ResolvedRubyVersion {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct ResolvedBundlerVersion(pub String);
 
 impl Display for ResolvedBundlerVersion {

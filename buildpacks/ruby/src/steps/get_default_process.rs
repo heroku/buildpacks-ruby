@@ -72,7 +72,7 @@ fn default_rack() -> Process {
             &[
                 "bundle exec rackup",
                 "--port \"${PORT:?Error: PORT env var is not set!}\"",
-                "--host \"0.0.0.0\"",
+                "--host \"::\"",
             ]
             .join(" "),
         ])
@@ -88,6 +88,7 @@ fn default_rails() -> Process {
                 "bin/rails server",
                 "--port \"${PORT:?Error: PORT env var is not set!}\"",
                 "--environment \"$RAILS_ENV\"",
+                "--binding \"::\"",
             ]
             .join(" "),
         ])

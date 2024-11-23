@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Default process types defined by the Ruby buildpack now use IPv6 host `::` which is equivalent of IPv4 host `0.0.0.0`. This will only affect applications that do not define a `web` process type via the `Procfile` and [Procfile Cloud Native Buildpack](https://github.com/heroku/buildpacks-procfile). Those applications must make sure to update their configuration to bind to an IPv6 host. ([]())
+
+### Added
+
 - The buildpack now warns the user when environmental variables used in running the default process are not defined. ([#307](https://github.com/heroku/buildpacks-ruby/pull/307))
 
 ## [3.0.0] - 2024-05-17

@@ -1,14 +1,22 @@
 GEM
   remote: https://rubygems.org/
   specs:
+    nio4r (2.7.4)
+    puma (6.5.0)
+      nio4r (~> 2.0)
     rack (3.1.8)
+    rackup (2.2.1)
+      rack (>= 3)
     rake (13.2.1)
-    webrick (1.9.0)
 
 PLATFORMS
   ruby
 
 DEPENDENCIES
+  puma
   rack
+  rackup
   rake
-  webrick
+
+BUNDLED WITH
+   2.5.23

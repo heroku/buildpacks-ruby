@@ -55,7 +55,7 @@ fn test_default_app_ubuntu20() {
                 context.pack_stdout,
                 r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
 
-            assert_contains!(context.pack_stdout, "Installing webrick");
+            assert_contains!(context.pack_stdout, "Installing puma");
         },
     );
 }
@@ -72,7 +72,7 @@ fn test_default_app_ubuntu22() {
                 context.pack_stdout,
                 r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
 
-            assert_contains!(context.pack_stdout, "Installing webrick");
+            assert_contains!(context.pack_stdout, "Installing puma");
         },
     );
 }
@@ -91,7 +91,7 @@ fn test_default_app_latest_distro() {
                 context.pack_stdout,
                 r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
 
-            assert_contains!(context.pack_stdout, "Installing webrick");
+            assert_contains!(context.pack_stdout, "Installing puma");
 
             let config = context.config.clone();
             context.rebuild(config, |rebuild_context| {
@@ -107,8 +107,9 @@ fn test_default_app_latest_distro() {
                         let body = response.into_string().unwrap();
 
                         let server_logs = container.logs_now();
-                        assert_contains!(server_logs.stderr, "WEBrick::HTTPServer#start");
-                        assert_empty!(server_logs.stdout);
+
+                        assert_contains!(server_logs.stdout, "Puma starting");
+                        assert_empty!(server_logs.stderr);
 
                         assert_contains!(body, "ruby_version");
                     },

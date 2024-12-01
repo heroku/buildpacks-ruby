@@ -25,7 +25,7 @@ regex = "1"
 serde = "1"
 tar = { version = "0.4", default-features = false }
 tempfile = "3"
-thiserror = "1"
+thiserror = "2"
 ureq = { version = "2", default-features = false, features = ["tls"] }
 url = "2"
 magic_migrate = "0.2"

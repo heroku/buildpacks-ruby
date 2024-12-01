@@ -24,7 +24,7 @@ regex = "1"
 serde = "1"
 sha2 = "0.10"
 tempfile = "3"
-thiserror = "1"
+thiserror = "2"
 walkdir = "2"
 filetime = "0.2"
 

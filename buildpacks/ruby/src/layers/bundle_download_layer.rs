@@ -72,6 +72,7 @@ impl MetadataDiff for Metadata {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV1 {
     pub(crate) version: ResolvedBundlerVersion,
 }

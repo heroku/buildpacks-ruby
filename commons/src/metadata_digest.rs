@@ -20,6 +20,7 @@ const PLATFORM_ENV_VAR: &str = "user configured environment variables";
 /// use commons::metadata_digest::MetadataDigest;
 ///
 /// #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+/// #[serde(deny_unknown_fields)]
 /// pub(crate) struct BundleInstallLayerMetadata {
 ///     ruby_version: String,
 ///     force_bundle_install_key: String,
@@ -82,6 +83,7 @@ const PLATFORM_ENV_VAR: &str = "user configured environment variables";
 /// # }
 /// #
 /// # #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+/// # #[serde(deny_unknown_fields)]
 /// # struct FakeLayerMetadata {
 /// #     digest: MetadataDigest,
 /// # }

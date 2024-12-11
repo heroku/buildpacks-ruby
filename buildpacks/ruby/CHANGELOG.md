@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- A bug introduced in 4.0.0 would result in incorrectly skipping running `bundle install` when the `Gemfile` or `Gemfile.lock` or environment variables had changed. The bug is now fixed. ([#364](https://github.com/heroku/buildpacks-ruby/pull/364))
+
 ## [4.0.0] - 2024-11-27
 
 ### Changed

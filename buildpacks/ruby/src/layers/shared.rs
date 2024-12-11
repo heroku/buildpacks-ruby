@@ -38,7 +38,7 @@ pub(crate) trait MetadataDiff {
 
 /// Standardizes formatting for layer cache clearing behavior
 ///
-/// If the diff is empty, there are no changes and the layer is kept
+/// If the diff is empty, there are no changes and the layer is kept and the old data is returned
 /// If the diff is not empty, the layer is deleted and the changes are listed
 pub(crate) fn restored_layer_action<M>(old: &M, now: &M) -> (RestoredLayerAction, Meta<M>)
 where
@@ -46,7 +46,7 @@ where
 {
     let diff = now.diff(old);
     if diff.is_empty() {
-        (RestoredLayerAction::KeepLayer, Meta::Data(now.clone()))
+        (RestoredLayerAction::KeepLayer, Meta::Data(old.clone()))
     } else {
         (
             RestoredLayerAction::DeleteLayer,
@@ -221,6 +221,35 @@ mod tests {
         }
     }
     migrate_toml_chain! {TestMetadata}
+
+    #[test]
+    fn test_restored_layer_action_returns_old_data() {
+        #[derive(Debug, Clone)]
+        struct AlwaysNoDiff {
+            value: String,
+        }
+
+        impl MetadataDiff for AlwaysNoDiff {
+            fn diff(&self, _: &Self) -> Vec<String> {
+                vec![]
+            }
+        }
+
+        let old = AlwaysNoDiff {
+            value: "old".to_string(),
+        };
+        let now = AlwaysNoDiff {
+            value: "now".to_string(),
+        };
+
+        let result = restored_layer_action(&old, &now);
+        match result {
+            (RestoredLayerAction::KeepLayer, Meta::Data(data)) => {
+                assert_eq!(data.value, "old");
+            }
+            _ => panic!("Expected to keep layer"),
+        }
+    }
 
     #[test]
     fn test_cached_layer_write_metadata_restored_layer_action() {

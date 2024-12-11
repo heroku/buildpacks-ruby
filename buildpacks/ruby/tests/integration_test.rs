@@ -93,6 +93,9 @@ fn test_default_app_latest_distro() {
 
             assert_contains!(context.pack_stdout, "Installing puma");
 
+            let secret_key_base = context.run_shell_command("echo \"${SECRET_KEY_BASE:?No SECRET_KEY_BASE set}\"").stdout;
+            assert!(!secret_key_base.trim().is_empty(), "Expected {secret_key_base:?} to not be empty but it is");
+
             let config = context.config.clone();
             context.rebuild(config, |rebuild_context| {
                 println!("{}", rebuild_context.pack_stdout);
@@ -113,6 +116,12 @@ fn test_default_app_latest_distro() {
 
                         assert_contains!(body, "ruby_version");
                     },
+                );
+
+                // Assert SECRET_KEY_BASE is preserved between invocations
+                assert_eq!(
+                    secret_key_base,
+                    rebuild_context.run_shell_command("echo \"${SECRET_KEY_BASE:?No SECRET_KEY_BASE set}\"").stdout
                 );
             });
         },

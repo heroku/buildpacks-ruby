@@ -1,8 +1,7 @@
+//! Helpers for formatting and colorizing your output
 use crate::output::util::LinesWithEndings;
 use const_format::formatcp;
 use std::fmt::Write;
-
-/// Helpers for formatting and colorizing your output
 
 /// Decorated str for prefixing "Help:"
 #[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]

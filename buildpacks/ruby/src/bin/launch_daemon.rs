@@ -1,3 +1,5 @@
+//! Schedules agentmon to run as a background daemon
+
 // Required due to: https://github.com/rust-lang/rust/issues/95513
 #![allow(unused_crate_dependencies)]
 
@@ -7,8 +9,6 @@ use std::process::exit;
 use std::process::Command;
 
 static AGENTMON_DEBUG: &str = "AGENTMON_DEBUG";
-
-/// Schedules agentmon to run as a background daemon
 
 /// CLI argument parser
 ///

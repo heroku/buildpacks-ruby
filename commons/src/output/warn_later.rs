@@ -1,3 +1,69 @@
+//! Queue a warning for later
+//!
+//! Build logs can be quite large and people don't always scroll back up to read every line. Delaying
+//! a warning and emitting it right before the end of the build can increase the chances the app
+//! developer will read it.
+//!
+//! ## Use - Setup a `WarnGuard` in your buildpack
+//!
+//! To ensure warnings are printed, even in the event of errors, you must create a `WarnGuard`
+//! in your buildpack that will print any delayed warnings when dropped:
+//!
+//! ```no_run
+//! // src/main.rs
+//! use commons::output::warn_later::WarnGuard;
+//!
+//! // fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
+//!     let warn_later = WarnGuard::new(std::io::stdout());
+//!     // ...
+//!
+//!     // Warnings will be emitted when the warn guard is dropped
+//!     drop(warn_later);
+//! // }
+//! ```
+//!
+//! Alternatively you can manually print delayed warnings:
+//!
+//! ```no_run
+//! use commons::output::warn_later::WarnGuard;
+//!
+//! // fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
+//!     let warn_later = WarnGuard::new(std::io::stdout());
+//!     // ...
+//!
+//!     // Consumes the guard, prints and clears any delayed warnings.
+//!     warn_later.warn_now();
+//! // }
+//! ```
+//!
+//! ## Use - Issue a delayed warning
+//!
+//! Once a warn guard is in place you can queue a warning using `section_log::log_warning_later` or `build_log::*`:
+//!
+//! ```
+//! use commons::output::warn_later::WarnGuard;
+//! use commons::output::build_log::*;
+//!
+//! // src/main.rs
+//! let warn_later = WarnGuard::new(std::io::stdout());
+//!
+//! BuildLog::new(std::io::stdout())
+//!     .buildpack_name("Julius Caesar")
+//!     .announce()
+//!     .warn_later("Beware the ides of march");
+//! ```
+//!
+//! ```
+//! use commons::output::warn_later::WarnGuard;
+//! use commons::output::section_log::log_warning_later;
+//!
+//! // src/main.rs
+//! let warn_later = WarnGuard::new(std::io::stdout());
+//!
+//! // src/layers/greenday.rs
+//! log_warning_later("WARNING: Live without warning");
+//! ```
+
 use indoc::formatdoc;
 use std::cell::RefCell;
 use std::fmt::{Debug, Display};
@@ -9,72 +75,6 @@ use std::thread::ThreadId;
 pub type PhantomUnsync = PhantomData<Rc<()>>;
 
 thread_local!(static WARN_LATER: RefCell<Option<Vec<String>>> = const { RefCell::new(None) });
-
-/// Queue a warning for later
-///
-/// Build logs can be quite large and people don't always scroll back up to read every line. Delaying
-/// a warning and emitting it right before the end of the build can increase the chances the app
-/// developer will read it.
-///
-/// ## Use - Setup a `WarnGuard` in your buildpack
-///
-/// To ensure warnings are printed, even in the event of errors, you must create a `WarnGuard`
-/// in your buildpack that will print any delayed warnings when dropped:
-///
-/// ```no_run
-/// // src/main.rs
-/// use commons::output::warn_later::WarnGuard;
-///
-/// // fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
-///     let warn_later = WarnGuard::new(std::io::stdout());
-///     // ...
-///
-///     // Warnings will be emitted when the warn guard is dropped
-///     drop(warn_later);
-/// // }
-/// ```
-///
-/// Alternatively you can manually print delayed warnings:
-///
-/// ```no_run
-/// use commons::output::warn_later::WarnGuard;
-///
-/// // fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
-///     let warn_later = WarnGuard::new(std::io::stdout());
-///     // ...
-///
-///     // Consumes the guard, prints and clears any delayed warnings.
-///     warn_later.warn_now();
-/// // }
-/// ```
-///
-/// ## Use - Issue a delayed warning
-///
-/// Once a warn guard is in place you can queue a warning using `section_log::log_warning_later` or `build_log::*`:
-///
-/// ```
-/// use commons::output::warn_later::WarnGuard;
-/// use commons::output::build_log::*;
-///
-/// // src/main.rs
-/// let warn_later = WarnGuard::new(std::io::stdout());
-///
-/// BuildLog::new(std::io::stdout())
-///     .buildpack_name("Julius Caesar")
-///     .announce()
-///     .warn_later("Beware the ides of march");
-/// ```
-///
-/// ```
-/// use commons::output::warn_later::WarnGuard;
-/// use commons::output::section_log::log_warning_later;
-///
-/// // src/main.rs
-/// let warn_later = WarnGuard::new(std::io::stdout());
-///
-/// // src/layers/greenday.rs
-/// log_warning_later("WARNING: Live without warning");
-/// ```
 
 /// Pushes a string to a thread local warning vec for to be emitted later
 ///

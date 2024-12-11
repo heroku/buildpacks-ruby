@@ -1,43 +1,42 @@
+//! Write to the build output in a `Box<dyn SectionLogger>` format with functions
+//!
+//! ## What
+//!
+//! Logging from within a layer can be difficult because calls to the layer interface are not
+//! mutable nor consumable. Functions can be used at any time with no restrictions. The
+//! only downside is that the buildpack author (you) is now responsible for:
+//!
+//! - Ensuring that `Box<dyn StartedLogger>::section()` was called right before any of these
+//!   functions are called.
+//! - Ensuring that you are not attempting to log while already logging i.e. calling `step()` within a
+//!   `step_timed()` call.
+//!
+//! ## Use
+//!
+//! The main use case is logging inside of a layer:
+//!
+//! ```no_run
+//! use commons::output::section_log::log_step_timed;
+//!
+//! // fn create(
+//! //     &self,
+//! //     context: &libcnb::build::BuildContext<Self::Buildpack>,
+//! //     layer_path: &std::path::Path,
+//! // ) -> Result<
+//! //     libcnb::layer::LayerResult<Self::Metadata>,
+//! //     <Self::Buildpack as libcnb::Buildpack>::Error,
+//! // > {
+//! log_step_timed("Installing", || {
+//!         // Install logic here
+//!         todo!()
+//!     })
+//! // }
+//! ```
 use crate::output::build_log::{state, BuildData, BuildLog};
 #[allow(clippy::wildcard_imports)]
 pub use crate::output::interface::*;
 use std::io::Stdout;
 use std::marker::PhantomData;
-
-/// Write to the build output in a `Box<dyn SectionLogger>` format with functions
-///
-/// ## What
-///
-/// Logging from within a layer can be difficult because calls to the layer interface are not
-/// mutable nor consumable. Functions can be used at any time with no restrictions. The
-/// only downside is that the buildpack author (you) is now responsible for:
-///
-/// - Ensuring that `Box<dyn StartedLogger>::section()` was called right before any of these
-///   functions are called.
-/// - Ensuring that you are not attempting to log while already logging i.e. calling `step()` within a
-///   `step_timed()` call.
-///
-/// ## Use
-///
-/// The main use case is logging inside of a layer:
-///
-/// ```no_run
-/// use commons::output::section_log::log_step_timed;
-///
-/// // fn create(
-/// //     &self,
-/// //     context: &libcnb::build::BuildContext<Self::Buildpack>,
-/// //     layer_path: &std::path::Path,
-/// // ) -> Result<
-/// //     libcnb::layer::LayerResult<Self::Metadata>,
-/// //     <Self::Buildpack as libcnb::Buildpack>::Error,
-/// // > {
-/// log_step_timed("Installing", || {
-///         // Install logic here
-///         todo!()
-///     })
-/// // }
-/// ```
 
 /// Output a message as a single step, ideally a short message
 ///

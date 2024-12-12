@@ -1,3 +1,4 @@
+use cache_diff::CacheDiff;
 use commons::display::SentenceList;
 use libcnb::build::BuildContext;
 use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, LayerRef, RestoredLayerAction};
@@ -211,13 +212,18 @@ mod tests {
     struct TestMetadata {
         value: String,
     }
-    impl MetadataDiff for TestMetadata {
+    impl CacheDiff for TestMetadata {
         fn diff(&self, old: &Self) -> Vec<String> {
             if self.value == old.value {
                 vec![]
             } else {
                 vec![format!("value ({} to {})", old.value, self.value)]
             }
+        }
+    }
+    impl MetadataDiff for TestMetadata {
+        fn diff(&self, old: &Self) -> Vec<String> {
+            <Self as CacheDiff>::diff(self, old)
         }
     }
     migrate_toml_chain! {TestMetadata}
@@ -229,9 +235,14 @@ mod tests {
             value: String,
         }
 
-        impl MetadataDiff for AlwaysNoDiff {
+        impl CacheDiff for AlwaysNoDiff {
             fn diff(&self, _: &Self) -> Vec<String> {
                 vec![]
+            }
+        }
+        impl MetadataDiff for AlwaysNoDiff {
+            fn diff(&self, _: &Self) -> Vec<String> {
+                <Self as CacheDiff>::diff(self, self)
             }
         }
 

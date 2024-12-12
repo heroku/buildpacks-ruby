@@ -19,6 +19,7 @@ use crate::target_id::{TargetId, TargetIdError};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
+use cache_diff::CacheDiff;
 use commons::{
     display::SentenceList, gemfile_lock::ResolvedRubyVersion, metadata_digest::MetadataDigest,
 };
@@ -125,38 +126,7 @@ try_migrate_deserializer_chain!(
 
 impl MetadataDiff for Metadata {
     fn diff(&self, old: &Self) -> Vec<String> {
-        let mut differences = Vec::new();
-        let Metadata {
-            os_distribution,
-            cpu_architecture,
-            ruby_version,
-            force_bundle_install_key: _,
-            digest: _,
-        } = old;
-
-        if ruby_version != &self.ruby_version {
-            differences.push(format!(
-                "Ruby version ({old} to {now})",
-                old = style::value(ruby_version.to_string()),
-                now = style::value(self.ruby_version.to_string())
-            ));
-        }
-        if os_distribution != &self.os_distribution {
-            differences.push(format!(
-                "Distribution ({old} to {now})",
-                old = style::value(os_distribution),
-                now = style::value(&self.os_distribution)
-            ));
-        }
-        if cpu_architecture != &self.cpu_architecture {
-            differences.push(format!(
-                "CPU architecture ({old} to {now})",
-                old = style::value(cpu_architecture),
-                now = style::value(&self.cpu_architecture)
-            ));
-        }
-
-        differences
+        <Self as CacheDiff>::diff(self, old)
     }
 }
 
@@ -178,11 +148,15 @@ pub(crate) struct MetadataV2 {
     pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff)]
 pub(crate) struct MetadataV3 {
+    #[cache_diff(rename = "OS Distribution")]
     pub(crate) os_distribution: String,
+    #[cache_diff(rename = "CPU Architecture")]
     pub(crate) cpu_architecture: String,
+    #[cache_diff(rename = "Ruby version")]
     pub(crate) ruby_version: ResolvedRubyVersion,
+    #[cache_diff(ignore)]
     pub(crate) force_bundle_install_key: String,
 
     /// A struct that holds the cryptographic hash of components that can
@@ -196,6 +170,7 @@ pub(crate) struct MetadataV3 {
     /// This value is cached with metadata, so changing the struct
     /// may cause metadata to be invalidated (and the cache cleared).
     ///
+    #[cache_diff(ignore)]
     pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
 

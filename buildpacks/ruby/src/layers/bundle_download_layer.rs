@@ -9,6 +9,7 @@ use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
+use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedBundlerVersion;
 use fun_run::{self, CommandWithName};
 use libcnb::data::layer_name;
@@ -71,8 +72,9 @@ impl MetadataDiff for Metadata {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, CacheDiff)]
 pub(crate) struct MetadataV1 {
+    #[cache_diff(rename = "Bundler version")]
     pub(crate) version: ResolvedBundlerVersion,
 }
 

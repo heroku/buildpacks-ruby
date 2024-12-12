@@ -14,7 +14,7 @@ pub(crate) fn cached_layer_write_metadata<M, B>(
 ) -> libcnb::Result<LayerRef<B, Meta<M>, Meta<M>>, B::Error>
 where
     B: libcnb::Buildpack,
-    M: MetadataDiff + magic_migrate::TryMigrate + serde::ser::Serialize + std::fmt::Debug + Clone,
+    M: CacheDiff + magic_migrate::TryMigrate + serde::ser::Serialize + std::fmt::Debug + Clone,
     <M as magic_migrate::TryMigrate>::Error: std::fmt::Display,
 {
     let layer_ref = context.cached_layer(
@@ -43,7 +43,7 @@ pub(crate) trait MetadataDiff {
 /// If the diff is not empty, the layer is deleted and the changes are listed
 pub(crate) fn restored_layer_action<M>(old: &M, now: &M) -> (RestoredLayerAction, Meta<M>)
 where
-    M: MetadataDiff + Clone,
+    M: CacheDiff + Clone,
 {
     let diff = now.diff(old);
     if diff.is_empty() {

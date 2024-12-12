@@ -356,52 +356,48 @@ mod test {
             )
             .unwrap(),
         };
-        assert_eq!(CacheDiff::diff(&old, &old), Vec::<String>::new());
+        assert_eq!(old.diff(&old), Vec::<String>::new());
 
-        let diff = CacheDiff::diff(
-            &Metadata {
-                ruby_version: ResolvedRubyVersion("3.5.5".to_string()),
-                os_distribution: old.os_distribution.clone(),
-                cpu_architecture: old.cpu_architecture.clone(),
-                force_bundle_install_key: old.force_bundle_install_key.clone(),
-                digest: old.digest.clone(),
-            },
-            &old,
-        );
+        let diff = Metadata {
+            ruby_version: ResolvedRubyVersion("3.5.5".to_string()),
+            os_distribution: old.os_distribution.clone(),
+            cpu_architecture: old.cpu_architecture.clone(),
+            force_bundle_install_key: old.force_bundle_install_key.clone(),
+            digest: old.digest.clone(),
+        }
+        .diff(&old);
+
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
             vec!["Ruby version (`3.5.3` to `3.5.5`)".to_string()]
         );
 
-        let diff = CacheDiff::diff(
-            &Metadata {
-                ruby_version: old.ruby_version.clone(),
-                os_distribution: OsDistribution {
-                    name: "alpine".to_string(),
-                    version: "3.20.0".to_string(),
-                },
-                cpu_architecture: old.cpu_architecture.clone(),
-                force_bundle_install_key: old.force_bundle_install_key.clone(),
-                digest: old.digest.clone(),
+        let diff = Metadata {
+            ruby_version: old.ruby_version.clone(),
+            os_distribution: OsDistribution {
+                name: "alpine".to_string(),
+                version: "3.20.0".to_string(),
             },
-            &old,
-        );
+            cpu_architecture: old.cpu_architecture.clone(),
+            force_bundle_install_key: old.force_bundle_install_key.clone(),
+            digest: old.digest.clone(),
+        }
+        .diff(&old);
 
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
             vec!["OS Distribution (`ubuntu 20.04` to `alpine 3.20.0`)".to_string()]
         );
 
-        let diff = CacheDiff::diff(
-            &Metadata {
-                ruby_version: old.ruby_version.clone(),
-                os_distribution: old.os_distribution.clone(),
-                cpu_architecture: "arm64".to_string(),
-                force_bundle_install_key: old.force_bundle_install_key.clone(),
-                digest: old.digest.clone(),
-            },
-            &old,
-        );
+        let diff = Metadata {
+            ruby_version: old.ruby_version.clone(),
+            os_distribution: old.os_distribution.clone(),
+            cpu_architecture: "arm64".to_string(),
+            force_bundle_install_key: old.force_bundle_install_key.clone(),
+            digest: old.digest.clone(),
+        }
+        .diff(&old);
+
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
             vec!["CPU Architecture (`amd64` to `arm64`)".to_string()]

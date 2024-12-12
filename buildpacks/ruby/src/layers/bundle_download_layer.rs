@@ -129,14 +129,12 @@ mod test {
         let old = Metadata {
             version: ResolvedBundlerVersion("2.3.5".to_string()),
         };
-        assert!(CacheDiff::diff(&old, &old).is_empty());
+        assert!(old.diff(&old).is_empty());
 
-        let diff = CacheDiff::diff(
-            &Metadata {
-                version: ResolvedBundlerVersion("2.3.6".to_string()),
-            },
-            &old,
-        );
+        let diff = Metadata {
+            version: ResolvedBundlerVersion("2.3.6".to_string()),
+        }
+        .diff(&old);
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
             vec!["Bundler version (`2.3.5` to `2.3.6`)"]

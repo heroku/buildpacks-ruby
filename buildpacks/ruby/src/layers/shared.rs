@@ -1,21 +1,25 @@
 use cache_diff::CacheDiff;
 use commons::display::SentenceList;
 use libcnb::build::BuildContext;
+use libcnb::data::layer::LayerName;
 use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, LayerRef, RestoredLayerAction};
+use magic_migrate::TryMigrate;
+use serde::ser::Serialize;
+use std::fmt::Debug;
 
 /// Default behavior for a cached layer, ensures new metadata is always written
 ///
 /// The metadadata must implement `MetadataDiff` and `TryMigrate` in addition
 /// to the typical `Serialize` and `Debug` traits
 pub(crate) fn cached_layer_write_metadata<M, B>(
-    layer_name: libcnb::data::layer::LayerName,
+    layer_name: LayerName,
     context: &BuildContext<B>,
     metadata: &'_ M,
 ) -> libcnb::Result<LayerRef<B, Meta<M>, Meta<M>>, B::Error>
 where
     B: libcnb::Buildpack,
-    M: CacheDiff + magic_migrate::TryMigrate + serde::ser::Serialize + std::fmt::Debug + Clone,
-    <M as magic_migrate::TryMigrate>::Error: std::fmt::Display,
+    M: CacheDiff + TryMigrate + Serialize + Debug + Clone,
+    <M as TryMigrate>::Error: std::fmt::Display,
 {
     let layer_ref = context.cached_layer(
         layer_name,
@@ -67,10 +71,10 @@ where
 /// If no migration is possible, the layer is deleted and the invalid metadata is displayed
 pub(crate) fn invalid_metadata_action<M, S>(invalid: &S) -> (InvalidMetadataAction<M>, Meta<M>)
 where
-    M: magic_migrate::TryMigrate + Clone,
-    S: serde::ser::Serialize + std::fmt::Debug,
+    M: TryMigrate + Clone,
+    S: Serialize + Debug,
     // TODO: Enforce Display + Debug in the library
-    <M as magic_migrate::TryMigrate>::Error: std::fmt::Display,
+    <M as TryMigrate>::Error: std::fmt::Display,
 {
     let invalid = toml::to_string(invalid);
     match invalid {

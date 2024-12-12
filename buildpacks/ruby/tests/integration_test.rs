@@ -4,8 +4,8 @@
 #![allow(clippy::unwrap_used)]
 
 use libcnb_test::{
-    assert_contains, assert_empty, BuildConfig, BuildpackReference, ContainerConfig,
-    ContainerContext, TestRunner,
+    assert_contains, assert_contains_match, assert_empty, BuildConfig, BuildpackReference,
+    ContainerConfig, ContainerContext, TestRunner,
 };
 use std::thread;
 use std::time::{Duration, Instant};
@@ -36,8 +36,18 @@ fn test_migrating_metadata() {
                 |rebuild_context| {
                     println!("{}", rebuild_context.pack_stdout);
 
-                    assert_contains!(rebuild_context.pack_stdout, "Using cached Ruby version");
-                    assert_contains!(rebuild_context.pack_stdout, "Loading cached gems");
+                    assert_contains_match!(
+                        rebuild_context.pack_stdout,
+                        r"^- Ruby version[^\n]*\n  - Using cache"
+                    );
+                    assert_contains_match!(
+                        rebuild_context.pack_stdout,
+                        r"^- Bundler version[^\n]*\n  - Using cache"
+                    );
+                    assert_contains_match!(
+                        rebuild_context.pack_stdout,
+                        r"^- Bundle install gems[^\n]*\n  - Using cache"
+                    );
                 },
             );
         },

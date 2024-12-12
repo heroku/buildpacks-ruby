@@ -18,7 +18,7 @@ use crate::{
     RubyBuildpack, RubyBuildpackError,
 };
 use bullet_stream::state::SubBullet;
-use bullet_stream::{style, Print};
+use bullet_stream::Print;
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedRubyVersion;
 use flate2::read::GzDecoder;
@@ -328,46 +328,52 @@ version = "3.1.3"
             },
             cpu_architecture: "amd64".to_string(),
         };
-        assert_eq!(old.diff(&old), Vec::<String>::new());
+        assert_eq!(CacheDiff::diff(&old, &old), Vec::<String>::new());
 
-        let diff = Metadata {
-            ruby_version: ResolvedRubyVersion("3.5.5".to_string()),
-            os_distribution: OsDistribution {
-                name: "ubuntu".to_string(),
-                version: "20.04".to_string(),
+        let diff = CacheDiff::diff(
+            &Metadata {
+                ruby_version: ResolvedRubyVersion("3.5.5".to_string()),
+                os_distribution: OsDistribution {
+                    name: "ubuntu".to_string(),
+                    version: "20.04".to_string(),
+                },
+                cpu_architecture: old.cpu_architecture.clone(),
             },
-            cpu_architecture: old.cpu_architecture.clone(),
-        }
-        .diff(&old);
+            &old,
+        );
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
             vec!["Ruby version (`3.5.3` to `3.5.5`)".to_string()]
         );
 
-        let diff = Metadata {
-            ruby_version: old.ruby_version.clone(),
-            os_distribution: OsDistribution {
-                name: "alpine".to_string(),
-                version: "3.20.0".to_string(),
+        let diff = CacheDiff::diff(
+            &Metadata {
+                ruby_version: old.ruby_version.clone(),
+                os_distribution: OsDistribution {
+                    name: "alpine".to_string(),
+                    version: "3.20.0".to_string(),
+                },
+                cpu_architecture: old.cpu_architecture.clone(),
             },
-            cpu_architecture: old.cpu_architecture.clone(),
-        }
-        .diff(&old);
+            &old,
+        );
 
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
             vec!["OS Distribution (`ubuntu 20.04` to `alpine 3.20.0`)".to_string()]
         );
 
-        let diff = Metadata {
-            ruby_version: old.ruby_version.clone(),
-            os_distribution: OsDistribution {
-                name: old.os_distribution.name.clone(),
-                version: old.os_distribution.version.clone(),
+        let diff = CacheDiff::diff(
+            &Metadata {
+                ruby_version: old.ruby_version.clone(),
+                os_distribution: OsDistribution {
+                    name: old.os_distribution.name.clone(),
+                    version: old.os_distribution.version.clone(),
+                },
+                cpu_architecture: "arm64".to_string(),
             },
-            cpu_architecture: "arm64".to_string(),
-        }
-        .diff(&old);
+            &old,
+        );
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
             vec!["CPU architecture (`amd64` to `arm64`)".to_string()]
@@ -386,7 +392,7 @@ version = "3.1.3"
             },
             cpu_architecture: "x86_64".to_string(),
         };
-        let differences = old.diff(&old);
+        let differences = CacheDiff::diff(&old, &old);
         assert_eq!(differences, Vec::<String>::new());
 
         cached_layer_write_metadata(layer_name!("ruby"), &context, &old).unwrap();
@@ -398,7 +404,7 @@ version = "3.1.3"
             ruby_version: ResolvedRubyVersion("3.0.0".to_string()),
             ..old.clone()
         };
-        let differences = now.diff(&old);
+        let differences = CacheDiff::diff(&now, &old);
         assert_eq!(differences.len(), 1);
 
         let result = cached_layer_write_metadata(layer_name!("ruby"), &context, &now).unwrap();

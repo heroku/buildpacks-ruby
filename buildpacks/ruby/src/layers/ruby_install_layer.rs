@@ -275,18 +275,22 @@ mod tests {
     #[test]
     fn metadata_guard() {
         let metadata = Metadata {
-            distro_name: String::from("ubuntu"),
-            distro_version: String::from("22.04"),
+            os_distribution: OsDistribution {
+                name: String::from("ubuntu"),
+                version: String::from("22.04"),
+            },
             cpu_architecture: String::from("amd64"),
             ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
         };
 
         let actual = toml::to_string(&metadata).unwrap();
         let expected = r#"
-distro_name = "ubuntu"
-distro_version = "22.04"
 cpu_architecture = "amd64"
 ruby_version = "3.1.3"
+
+[os_distribution]
+name = "ubuntu"
+version = "22.04"
 "#
         .trim();
         assert_eq!(expected, actual.trim());
@@ -342,16 +346,20 @@ version = "3.1.3"
     fn metadata_diff_messages() {
         let old = Metadata {
             ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
-            distro_name: "ubuntu".to_string(),
-            distro_version: "20.04".to_string(),
+            os_distribution: OsDistribution {
+                name: "ubuntu".to_string(),
+                version: "20.04".to_string(),
+            },
             cpu_architecture: "amd64".to_string(),
         };
         assert_eq!(old.diff(&old), Vec::<String>::new());
 
         let diff = Metadata {
             ruby_version: ResolvedRubyVersion("3.5.5".to_string()),
-            distro_name: old.distro_name.clone(),
-            distro_version: old.distro_version.clone(),
+            os_distribution: OsDistribution {
+                name: "ubuntu".to_string(),
+                version: "20.04".to_string(),
+            },
             cpu_architecture: old.cpu_architecture.clone(),
         }
         .diff(&old);
@@ -362,21 +370,25 @@ version = "3.1.3"
 
         let diff = Metadata {
             ruby_version: old.ruby_version.clone(),
-            distro_name: "alpine".to_string(),
-            distro_version: "3.20.0".to_string(),
+            os_distribution: OsDistribution {
+                name: "alpine".to_string(),
+                version: "3.20.0".to_string(),
+            },
             cpu_architecture: old.cpu_architecture.clone(),
         }
         .diff(&old);
 
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
-            vec!["Distribution (`ubuntu 20.04` to `alpine 3.20.0`)".to_string()]
+            vec!["OS Distribution (`ubuntu 20.04` to `alpine 3.20.0`)".to_string()]
         );
 
         let diff = Metadata {
             ruby_version: old.ruby_version.clone(),
-            distro_name: old.distro_name.clone(),
-            distro_version: old.distro_version.clone(),
+            os_distribution: OsDistribution {
+                name: old.os_distribution.name.clone(),
+                version: old.os_distribution.version.clone(),
+            },
             cpu_architecture: "arm64".to_string(),
         }
         .diff(&old);
@@ -392,8 +404,10 @@ version = "3.1.3"
         let context = temp_build_context::<RubyBuildpack>(temp.path());
         let old = Metadata {
             ruby_version: ResolvedRubyVersion("2.7.2".to_string()),
-            distro_name: "ubuntu".to_string(),
-            distro_version: "20.04".to_string(),
+            os_distribution: OsDistribution {
+                name: "ubuntu".to_string(),
+                version: "20.04".to_string(),
+            },
             cpu_architecture: "x86_64".to_string(),
         };
         let differences = old.diff(&old);

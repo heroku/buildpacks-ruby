@@ -151,8 +151,10 @@ impl Buildpack for RubyBuildpack {
                 &context,
                 bullet,
                 &layers::ruby_install_layer::Metadata {
-                    distro_name: context.target.distro_name.clone(),
-                    distro_version: context.target.distro_version.clone(),
+                    os_distribution: OsDistribution {
+                        name: context.target.distro_name.clone(),
+                        version: context.target.distro_version.clone(),
+                    },
                     cpu_architecture: context.target.arch.clone(),
                     ruby_version: ruby_version.clone(),
                 },

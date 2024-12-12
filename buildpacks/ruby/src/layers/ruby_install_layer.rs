@@ -12,6 +12,7 @@
 //! When the Ruby version changes, invalidate and re-run.
 //!
 use crate::layers::shared::{cached_layer_write_metadata, MetadataDiff};
+use crate::target_id::OsDistribution;
 use crate::{
     target_id::{TargetId, TargetIdError},
     RubyBuildpack, RubyBuildpackError,
@@ -86,20 +87,27 @@ pub(crate) struct MetadataV2 {
     pub(crate) cpu_architecture: String,
     pub(crate) ruby_version: ResolvedRubyVersion,
 }
-pub(crate) type Metadata = MetadataV2;
 
-impl MetadataV2 {
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+pub(crate) struct MetadataV3 {
+    pub(crate) os_distribution: OsDistribution,
+    pub(crate) cpu_architecture: String,
+    pub(crate) ruby_version: ResolvedRubyVersion,
+}
+
+impl MetadataV3 {
     pub(crate) fn target_id(&self) -> TargetId {
         TargetId {
             cpu_architecture: self.cpu_architecture.clone(),
-            distro_name: self.distro_name.clone(),
-            distro_version: self.distro_version.clone(),
+            distro_name: self.os_distribution.name.clone(),
+            distro_version: self.os_distribution.version.clone(),
         }
     }
 }
 
+pub(crate) type Metadata = MetadataV3;
 try_migrate_deserializer_chain!(
-    chain: [MetadataV1, MetadataV2],
+    chain: [MetadataV1, MetadataV2, MetadataV3],
     error: MetadataMigrateError,
     deserializer: toml::Deserializer::new,
 );
@@ -126,12 +134,26 @@ impl TryFrom<MetadataV1> for MetadataV2 {
     }
 }
 
+impl TryFrom<MetadataV2> for MetadataV3 {
+    type Error = MetadataMigrateError;
+
+    fn try_from(v2: MetadataV2) -> Result<Self, Self::Error> {
+        Ok(Self {
+            os_distribution: OsDistribution {
+                name: v2.distro_name,
+                version: v2.distro_version,
+            },
+            cpu_architecture: v2.cpu_architecture,
+            ruby_version: v2.ruby_version,
+        })
+    }
+}
+
 impl MetadataDiff for Metadata {
     fn diff(&self, old: &Self) -> Vec<String> {
         let mut differences = Vec::new();
         let Metadata {
-            distro_name,
-            distro_version,
+            os_distribution,
             cpu_architecture,
             ruby_version,
         } = old;
@@ -142,11 +164,11 @@ impl MetadataDiff for Metadata {
                 now = style::value(self.ruby_version.to_string())
             ));
         }
-        if distro_name != &self.distro_name || distro_version != &self.distro_version {
+        if os_distribution != &self.os_distribution {
             differences.push(format!(
-                "Distribution ({old} to {now})",
-                old = style::value(format!("{distro_name} {distro_version}")),
-                now = style::value(format!("{} {}", self.distro_name, self.distro_version))
+                "OS Distribution ({old} to {now})",
+                old = style::value(os_distribution.to_string()),
+                now = style::value(&self.os_distribution.to_string())
             ));
         }
         if cpu_architecture != &self.cpu_architecture {

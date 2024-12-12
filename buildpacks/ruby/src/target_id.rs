@@ -1,3 +1,7 @@
+use std::fmt::{Display, Formatter};
+
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TargetId {
     pub(crate) distro_name: String,
@@ -48,6 +52,18 @@ impl TargetId {
                 distro_version: version.to_owned(),
             })
             .ok_or_else(|| TargetIdError::UnknownStack(stack_id.to_owned()))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub(crate) struct OsDistribution {
+    pub(crate) name: String,
+    pub(crate) version: String,
+}
+
+impl Display for OsDistribution {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.name, self.version)
     }
 }
 

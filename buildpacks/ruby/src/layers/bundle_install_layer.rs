@@ -15,7 +15,7 @@
 //! OS, Architecture, and Ruby version dependent. Due to this, when one of these changes
 //! we must clear the cache and re-run `bundle install`.
 use crate::layers::shared::{cached_layer_write_metadata, Meta, MetadataDiff};
-use crate::target_id::{TargetId, TargetIdError};
+use crate::target_id::{OsDistribution, TargetId, TargetIdError};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
@@ -151,7 +151,7 @@ pub(crate) struct MetadataV2 {
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff)]
 pub(crate) struct MetadataV3 {
     #[cache_diff(rename = "OS Distribution")]
-    pub(crate) os_distribution: String,
+    pub(crate) os_distribution: OsDistribution,
     #[cache_diff(rename = "CPU Architecture")]
     pub(crate) cpu_architecture: String,
     #[cache_diff(rename = "Ruby version")]
@@ -205,7 +205,10 @@ impl TryFrom<MetadataV2> for MetadataV3 {
 
     fn try_from(v2: MetadataV2) -> Result<Self, Self::Error> {
         Ok(Self {
-            os_distribution: format!("{} {}", v2.distro_name, v2.distro_version),
+            os_distribution: OsDistribution {
+                name: v2.distro_name,
+                version: v2.distro_version,
+            },
             cpu_architecture: v2.cpu_architecture,
             ruby_version: v2.ruby_version,
             force_bundle_install_key: v2.force_bundle_install_key,
@@ -347,7 +350,10 @@ mod test {
 
         let old = Metadata {
             ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
-            os_distribution: "ubuntu 20.04".to_string(),
+            os_distribution: OsDistribution {
+                name: "ubuntu".to_string(),
+                version: "20.04".to_string(),
+            },
             cpu_architecture: "amd64".to_string(),
             force_bundle_install_key: FORCE_BUNDLE_INSTALL_CACHE_KEY.to_string(),
             digest: MetadataDigest::new_env_files(
@@ -376,7 +382,10 @@ mod test {
         let diff = CacheDiff::diff(
             &Metadata {
                 ruby_version: old.ruby_version.clone(),
-                os_distribution: "alpine 3.20.0".to_string(),
+                os_distribution: OsDistribution {
+                    name: "alpine".to_string(),
+                    version: "3.20.0".to_string(),
+                },
                 cpu_architecture: old.cpu_architecture.clone(),
                 force_bundle_install_key: old.force_bundle_install_key.clone(),
                 digest: old.digest.clone(),
@@ -475,7 +484,10 @@ GEM_PATH=layer_path
 
         let target_id = TargetId::from_stack("heroku-22").unwrap();
         let metadata = Metadata {
-            os_distribution: format!("{} {}", target_id.distro_name, target_id.distro_version),
+            os_distribution: OsDistribution {
+                name: target_id.distro_name.clone(),
+                version: target_id.distro_version.clone(),
+            },
             cpu_architecture: target_id.cpu_architecture,
             ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
             force_bundle_install_key: String::from("v1"),
@@ -490,10 +502,13 @@ GEM_PATH=layer_path
         let gemfile_path = gemfile.display();
         let toml_string = format!(
             r#"
-os_distribution = "ubuntu 22.04"
 cpu_architecture = "amd64"
 ruby_version = "3.1.3"
 force_bundle_install_key = "v1"
+
+[os_distribution]
+name = "ubuntu"
+version = "22.04"
 
 [digest]
 platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3"

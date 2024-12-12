@@ -19,14 +19,15 @@ fn test_migrating_metadata() {
     // This test is a placeholder for when a change modifies metadata structures.
     // Remove the return and update the `buildpack-ruby` reference to the latest version.
     #![allow(unreachable_code)]
-    return;
+    // Test v4.0.2 compatible with v4.0.1
+    // return;
 
-    let builder = "heroku/builder:22";
+    let builder = "heroku/builder:24";
     let app_dir = "tests/fixtures/default_ruby";
 
     TestRunner::default().build(
         BuildConfig::new(builder, app_dir).buildpacks([BuildpackReference::Other(
-            "docker://docker.io/heroku/buildpack-ruby:2.1.2".to_string(),
+            "docker://docker.io/heroku/buildpack-ruby:4.0.1".to_string(),
         )]),
         |context| {
             println!("{}", context.pack_stdout);

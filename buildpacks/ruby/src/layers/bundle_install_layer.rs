@@ -116,7 +116,7 @@ pub(crate) fn handle(
     Ok((bullet, layer_ref.read_env()?))
 }
 
-pub(crate) type Metadata = MetadataV2;
+pub(crate) type Metadata = MetadataV3;
 try_migrate_deserializer_chain!(
     chain: [MetadataV1, MetadataV2, MetadataV3],
     error: MetadataMigrateError,
@@ -127,8 +127,7 @@ impl MetadataDiff for Metadata {
     fn diff(&self, old: &Self) -> Vec<String> {
         let mut differences = Vec::new();
         let Metadata {
-            distro_name,
-            distro_version,
+            os_distribution,
             cpu_architecture,
             ruby_version,
             force_bundle_install_key: _,
@@ -142,11 +141,11 @@ impl MetadataDiff for Metadata {
                 now = style::value(self.ruby_version.to_string())
             ));
         }
-        if distro_name != &self.distro_name || distro_version != &self.distro_version {
+        if os_distribution != &self.os_distribution {
             differences.push(format!(
                 "Distribution ({old} to {now})",
-                old = style::value(format!("{distro_name} {distro_version}")),
-                now = style::value(format!("{} {}", self.distro_name, self.distro_version))
+                old = style::value(os_distribution),
+                now = style::value(&self.os_distribution)
             ));
         }
         if cpu_architecture != &self.cpu_architecture {
@@ -373,8 +372,7 @@ mod test {
 
         let old = Metadata {
             ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
-            distro_name: "ubuntu".to_string(),
-            distro_version: "20.04".to_string(),
+            os_distribution: "ubuntu 20.04".to_string(),
             cpu_architecture: "amd64".to_string(),
             force_bundle_install_key: FORCE_BUNDLE_INSTALL_CACHE_KEY.to_string(),
             digest: MetadataDigest::new_env_files(
@@ -387,8 +385,7 @@ mod test {
 
         let diff = Metadata {
             ruby_version: ResolvedRubyVersion("3.5.5".to_string()),
-            distro_name: old.distro_name.clone(),
-            distro_version: old.distro_version.clone(),
+            os_distribution: old.os_distribution.clone(),
             cpu_architecture: old.cpu_architecture.clone(),
             force_bundle_install_key: old.force_bundle_install_key.clone(),
             digest: old.digest.clone(),
@@ -401,8 +398,7 @@ mod test {
 
         let diff = Metadata {
             ruby_version: old.ruby_version.clone(),
-            distro_name: "alpine".to_string(),
-            distro_version: "3.20.0".to_string(),
+            os_distribution: "alpine 3.20.0".to_string(),
             cpu_architecture: old.cpu_architecture.clone(),
             force_bundle_install_key: old.force_bundle_install_key.clone(),
             digest: old.digest.clone(),
@@ -416,8 +412,7 @@ mod test {
 
         let diff = Metadata {
             ruby_version: old.ruby_version.clone(),
-            distro_name: old.distro_name.clone(),
-            distro_version: old.distro_version.clone(),
+            os_distribution: old.os_distribution.clone(),
             cpu_architecture: "arm64".to_string(),
             force_bundle_install_key: old.force_bundle_install_key.clone(),
             digest: old.digest.clone(),
@@ -499,8 +494,7 @@ GEM_PATH=layer_path
 
         let target_id = TargetId::from_stack("heroku-22").unwrap();
         let metadata = Metadata {
-            distro_name: target_id.distro_name,
-            distro_version: target_id.distro_version,
+            os_distribution: format!("{} {}", target_id.distro_name, target_id.distro_version),
             cpu_architecture: target_id.cpu_architecture,
             ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
             force_bundle_install_key: String::from("v1"),
@@ -515,8 +509,7 @@ GEM_PATH=layer_path
         let gemfile_path = gemfile.display();
         let toml_string = format!(
             r#"
-distro_name = "ubuntu"
-distro_version = "22.04"
+os_distribution = "ubuntu 22.04"
 cpu_architecture = "amd64"
 ruby_version = "3.1.3"
 force_bundle_install_key = "v1"

@@ -11,7 +11,7 @@
 //!
 //! When the Ruby version changes, invalidate and re-run.
 //!
-use crate::layers::shared::{cached_layer_write_metadata, MetadataDiff};
+use crate::layers::shared::cached_layer_write_metadata;
 use crate::target_id::OsDistribution;
 use crate::{
     target_id::{TargetId, TargetIdError},
@@ -150,12 +150,6 @@ impl TryFrom<MetadataV2> for MetadataV3 {
             cpu_architecture: v2.cpu_architecture,
             ruby_version: v2.ruby_version,
         })
-    }
-}
-
-impl MetadataDiff for Metadata {
-    fn diff(&self, old: &Self) -> Vec<String> {
-        <Self as CacheDiff>::diff(self, old)
     }
 }
 

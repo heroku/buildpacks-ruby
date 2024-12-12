@@ -9,7 +9,7 @@ use std::fmt::Debug;
 
 /// Default behavior for a cached layer, ensures new metadata is always written
 ///
-/// The metadadata must implement `MetadataDiff` and `TryMigrate` in addition
+/// The metadadata must implement `CacheDiff` and `TryMigrate` in addition
 /// to the typical `Serialize` and `Debug` traits
 pub(crate) fn cached_layer_write_metadata<M, B>(
     layer_name: LayerName,
@@ -32,13 +32,6 @@ where
     )?;
     layer_ref.write_metadata(metadata)?;
     Ok(layer_ref)
-}
-
-/// Given another metadata object, returns a list of differences between the two
-///
-/// If no differences, return an empty list
-pub(crate) trait MetadataDiff {
-    fn diff(&self, old: &Self) -> Vec<String>;
 }
 
 /// Standardizes formatting for layer cache clearing behavior
@@ -225,11 +218,6 @@ mod tests {
             }
         }
     }
-    impl MetadataDiff for TestMetadata {
-        fn diff(&self, old: &Self) -> Vec<String> {
-            <Self as CacheDiff>::diff(self, old)
-        }
-    }
     migrate_toml_chain! {TestMetadata}
 
     #[test]
@@ -238,15 +226,9 @@ mod tests {
         struct AlwaysNoDiff {
             value: String,
         }
-
         impl CacheDiff for AlwaysNoDiff {
             fn diff(&self, _: &Self) -> Vec<String> {
                 vec![]
-            }
-        }
-        impl MetadataDiff for AlwaysNoDiff {
-            fn diff(&self, _: &Self) -> Vec<String> {
-                <Self as CacheDiff>::diff(self, self)
             }
         }
 

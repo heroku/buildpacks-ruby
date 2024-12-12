@@ -4,7 +4,7 @@
 //!
 //! Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
 //! `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
-use crate::layers::shared::{cached_layer_write_metadata, MetadataDiff};
+use crate::layers::shared::cached_layer_write_metadata;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use bullet_stream::state::SubBullet;
@@ -57,12 +57,6 @@ try_migrate_deserializer_chain!(
     error: MetadataError,
     chain: [MetadataV1],
 );
-
-impl MetadataDiff for Metadata {
-    fn diff(&self, other: &Self) -> Vec<String> {
-        <Self as CacheDiff>::diff(self, other)
-    }
-}
 
 #[derive(Deserialize, Serialize, Debug, Clone, CacheDiff)]
 pub(crate) struct MetadataV1 {

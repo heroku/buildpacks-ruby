@@ -14,7 +14,7 @@
 //! must be compiled and will then be invoked via FFI. These native extensions are
 //! OS, Architecture, and Ruby version dependent. Due to this, when one of these changes
 //! we must clear the cache and re-run `bundle install`.
-use crate::layers::shared::{cached_layer_write_metadata, Meta, MetadataDiff};
+use crate::layers::shared::{cached_layer_write_metadata, Meta};
 use crate::target_id::{OsDistribution, TargetId, TargetIdError};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use bullet_stream::state::SubBullet;
@@ -123,12 +123,6 @@ try_migrate_deserializer_chain!(
     error: MetadataMigrateError,
     deserializer: toml::Deserializer::new,
 );
-
-impl MetadataDiff for Metadata {
-    fn diff(&self, old: &Self) -> Vec<String> {
-        <Self as CacheDiff>::diff(self, old)
-    }
-}
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
 pub(crate) struct MetadataV1 {
@@ -334,7 +328,7 @@ mod test {
     use super::*;
     use std::path::PathBuf;
 
-    /// `MetadataDiff` logic controls cache invalidation
+    /// `CacheDiff` logic controls cache invalidation
     /// When the vec is empty the cache is kept, otherwise it is invalidated
     #[test]
     fn metadata_diff_messages() {

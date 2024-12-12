@@ -1,6 +1,5 @@
-use std::fmt::{Display, Formatter};
-
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TargetId {

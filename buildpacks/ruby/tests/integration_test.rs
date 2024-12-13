@@ -4,8 +4,8 @@
 #![allow(clippy::unwrap_used)]
 
 use libcnb_test::{
-    assert_contains, assert_empty, BuildConfig, BuildpackReference, ContainerConfig,
-    ContainerContext, TestRunner,
+    assert_contains, assert_contains_match, assert_empty, BuildConfig, BuildpackReference,
+    ContainerConfig, ContainerContext, TestRunner,
 };
 use std::thread;
 use std::time::{Duration, Instant};
@@ -19,14 +19,15 @@ fn test_migrating_metadata() {
     // This test is a placeholder for when a change modifies metadata structures.
     // Remove the return and update the `buildpack-ruby` reference to the latest version.
     #![allow(unreachable_code)]
-    return;
+    // Test v4.0.2 compatible with v4.0.1
+    // return;
 
-    let builder = "heroku/builder:22";
+    let builder = "heroku/builder:24";
     let app_dir = "tests/fixtures/default_ruby";
 
     TestRunner::default().build(
         BuildConfig::new(builder, app_dir).buildpacks([BuildpackReference::Other(
-            "docker://docker.io/heroku/buildpack-ruby:2.1.2".to_string(),
+            "docker://docker.io/heroku/buildpack-ruby:4.0.1".to_string(),
         )]),
         |context| {
             println!("{}", context.pack_stdout);
@@ -35,8 +36,18 @@ fn test_migrating_metadata() {
                 |rebuild_context| {
                     println!("{}", rebuild_context.pack_stdout);
 
-                    assert_contains!(rebuild_context.pack_stdout, "Using cached Ruby version");
-                    assert_contains!(rebuild_context.pack_stdout, "Loading cached gems");
+                    assert_contains_match!(
+                        rebuild_context.pack_stdout,
+                        r"^- Ruby version[^\n]*\n  - Using cache"
+                    );
+                    assert_contains_match!(
+                        rebuild_context.pack_stdout,
+                        r"^- Bundler version[^\n]*\n  - Using cache"
+                    );
+                    assert_contains_match!(
+                        rebuild_context.pack_stdout,
+                        r"^- Bundle install gems[^\n]*\n  - Using cache"
+                    );
                 },
             );
         },
@@ -55,7 +66,7 @@ fn test_default_app_ubuntu20() {
                 context.pack_stdout,
                 r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
 
-            assert_contains!(context.pack_stdout, "Installing webrick");
+            assert_contains!(context.pack_stdout, "Installing puma");
         },
     );
 }
@@ -72,7 +83,7 @@ fn test_default_app_ubuntu22() {
                 context.pack_stdout,
                 r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
 
-            assert_contains!(context.pack_stdout, "Installing webrick");
+            assert_contains!(context.pack_stdout, "Installing puma");
         },
     );
 }
@@ -91,7 +102,10 @@ fn test_default_app_latest_distro() {
                 context.pack_stdout,
                 r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
 
-            assert_contains!(context.pack_stdout, "Installing webrick");
+            assert_contains!(context.pack_stdout, "Installing puma");
+
+            let secret_key_base = context.run_shell_command("echo \"${SECRET_KEY_BASE:?No SECRET_KEY_BASE set}\"").stdout;
+            assert!(!secret_key_base.trim().is_empty(), "Expected {secret_key_base:?} to not be empty but it is");
 
             let config = context.config.clone();
             context.rebuild(config, |rebuild_context| {
@@ -107,11 +121,18 @@ fn test_default_app_latest_distro() {
                         let body = response.into_string().unwrap();
 
                         let server_logs = container.logs_now();
-                        assert_contains!(server_logs.stderr, "WEBrick::HTTPServer#start");
-                        assert_empty!(server_logs.stdout);
+
+                        assert_contains!(server_logs.stdout, "Puma starting");
+                        assert_empty!(server_logs.stderr);
 
                         assert_contains!(body, "ruby_version");
                     },
+                );
+
+                // Assert SECRET_KEY_BASE is preserved between invocations
+                assert_eq!(
+                    secret_key_base,
+                    rebuild_context.run_shell_command("echo \"${SECRET_KEY_BASE:?No SECRET_KEY_BASE set}\"").stdout
                 );
             });
         },

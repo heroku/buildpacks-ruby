@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.1] - 2024-12-11
+
+### Fixed
+
+- A bug introduced in 4.0.0 would result in incorrectly skipping running `bundle install` when the `Gemfile` or `Gemfile.lock` or environment variables had changed. The bug is now fixed. ([#364](https://github.com/heroku/buildpacks-ruby/pull/364))
+
+## [4.0.0] - 2024-11-27
+
+### Changed
+
+- Default process types defined by the Ruby buildpack now use IPv6 host `::` which is equivalent of IPv4 host `0.0.0.0`. This will only affect applications that do not define a `web` process type via the `Procfile` and [Procfile Cloud Native Buildpack](https://github.com/heroku/buildpacks-procfile). Those applications must make sure to update their configuration to bind to an IPv6 host. ([#354](https://github.com/heroku/buildpacks-ruby/pull/354))
+
+### Added
+
 - The buildpack now warns the user when environmental variables used in running the default process are not defined. ([#307](https://github.com/heroku/buildpacks-ruby/pull/307))
 
 ## [3.0.0] - 2024-05-17
@@ -59,7 +73,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial version of Ruby buildpack in Rust (https://github.com/heroku/buildpacks-ruby/pull/93)
 - Version 2.0.0 for the first release is not a typo. There was an issue in pack where a builder with the same name and version number would reuse artifacts left on image from [prior runs which caused issues](https://github.com/buildpacks/pack/issues/1322#issuecomment-1038241038). There were prior releases of `heroku/ruby` CNB from different sources that triggered this problem. To ensure no one would encounter that issue we developed and released using a version we know has not been used before. Version 2.0 was the first major version without a prior release of `heroku/ruby` CNB from any source.
 
-[unreleased]: https://github.com/heroku/buildpacks-ruby/compare/v3.0.0...HEAD
+[unreleased]: https://github.com/heroku/buildpacks-ruby/compare/v4.0.1...HEAD
+[4.0.1]: https://github.com/heroku/buildpacks-ruby/compare/v4.0.0...v4.0.1
+[4.0.0]: https://github.com/heroku/buildpacks-ruby/compare/v3.0.0...v4.0.0
 [3.0.0]: https://github.com/heroku/buildpacks-ruby/compare/v2.1.3...v3.0.0
 [2.1.3]: https://github.com/heroku/buildpacks-ruby/compare/v2.1.2...v2.1.3
 [2.1.2]: https://github.com/heroku/buildpacks-ruby/compare/v2.1.1...v2.1.2

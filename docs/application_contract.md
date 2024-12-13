@@ -61,9 +61,9 @@ Once an application has passed the detect phase, the build phase will execute to
         - We will delete the least recently used (LRU) files first. Detected via file mtime.
 - Process types:
   - Given an application with the `railties` gem:
-    - We will default the web process to `bin/rails server` while specifying `-p $PORT` and `-e $RAILS_ENV"`. Use the `Procfile` to override this default.
+    - We will default the web process to `bin/rails server` while specifying `--port $PORT`, `--environment $RAILS_ENV"` and an IPv6 host with `--binding "::"` (equivalent of IPv4 host `0.0.0.0`). Use the `Procfile` to override this default.
   - If `railties` gem is not found but `rack` gem is present and a `config.ru` file exists on root:
-    - We will default the web process to `rackup` while specifying `-p $PORT` and `-h 0.0.0.0`. Use the `Procfile` to override this default. .
+    - We will default the web process to `rackup` while specifying `--port $PORT` and IPv6 host with `--host "::"` (equivalent of IPv4 host `0.0.0.0`). Use the `Procfile` to override this default. .
 - Environment variable defaults - We will set a default for the following environment variables:
   - `JRUBY_OPTS="-Xcompile.invokedynamic=false"` - Invoke dynamic is a feature of the JVM intended to enhance support for dynamicaly typed languages (such as Ruby). This caused issues with Physion Passenger 4.0.16 and was disabled [details](https://github.com/heroku/heroku-buildpack-ruby/issues/145). You can override this value.
   - `RACK_ENV=${RACK_ENV:-"production"}` - An environment variable that may affect the behavior of Rack based webservers and webapps. You can override this value.

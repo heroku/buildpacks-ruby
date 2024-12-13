@@ -1,20 +1,25 @@
+use cache_diff::CacheDiff;
 use commons::display::SentenceList;
 use libcnb::build::BuildContext;
+use libcnb::data::layer::LayerName;
 use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, LayerRef, RestoredLayerAction};
+use magic_migrate::TryMigrate;
+use serde::ser::Serialize;
+use std::fmt::Debug;
 
 /// Default behavior for a cached layer, ensures new metadata is always written
 ///
-/// The metadadata must implement `MetadataDiff` and `TryMigrate` in addition
+/// The metadadata must implement `CacheDiff` and `TryMigrate` in addition
 /// to the typical `Serialize` and `Debug` traits
 pub(crate) fn cached_layer_write_metadata<M, B>(
-    layer_name: libcnb::data::layer::LayerName,
+    layer_name: LayerName,
     context: &BuildContext<B>,
     metadata: &'_ M,
 ) -> libcnb::Result<LayerRef<B, Meta<M>, Meta<M>>, B::Error>
 where
     B: libcnb::Buildpack,
-    M: MetadataDiff + magic_migrate::TryMigrate + serde::ser::Serialize + std::fmt::Debug + Clone,
-    <M as magic_migrate::TryMigrate>::Error: std::fmt::Display,
+    M: CacheDiff + TryMigrate + Serialize + Debug + Clone,
+    <M as TryMigrate>::Error: std::fmt::Display,
 {
     let layer_ref = context.cached_layer(
         layer_name,
@@ -29,24 +34,17 @@ where
     Ok(layer_ref)
 }
 
-/// Given another metadata object, returns a list of differences between the two
-///
-/// If no differences, return an empty list
-pub(crate) trait MetadataDiff {
-    fn diff(&self, old: &Self) -> Vec<String>;
-}
-
 /// Standardizes formatting for layer cache clearing behavior
 ///
-/// If the diff is empty, there are no changes and the layer is kept
+/// If the diff is empty, there are no changes and the layer is kept and the old data is returned
 /// If the diff is not empty, the layer is deleted and the changes are listed
 pub(crate) fn restored_layer_action<M>(old: &M, now: &M) -> (RestoredLayerAction, Meta<M>)
 where
-    M: MetadataDiff + Clone,
+    M: CacheDiff + Clone,
 {
     let diff = now.diff(old);
     if diff.is_empty() {
-        (RestoredLayerAction::KeepLayer, Meta::Data(now.clone()))
+        (RestoredLayerAction::KeepLayer, Meta::Data(old.clone()))
     } else {
         (
             RestoredLayerAction::DeleteLayer,
@@ -66,10 +64,10 @@ where
 /// If no migration is possible, the layer is deleted and the invalid metadata is displayed
 pub(crate) fn invalid_metadata_action<M, S>(invalid: &S) -> (InvalidMetadataAction<M>, Meta<M>)
 where
-    M: magic_migrate::TryMigrate + Clone,
-    S: serde::ser::Serialize + std::fmt::Debug,
+    M: TryMigrate + Clone,
+    S: Serialize + Debug,
     // TODO: Enforce Display + Debug in the library
-    <M as magic_migrate::TryMigrate>::Error: std::fmt::Display,
+    <M as TryMigrate>::Error: std::fmt::Display,
 {
     let invalid = toml::to_string(invalid);
     match invalid {
@@ -211,7 +209,7 @@ mod tests {
     struct TestMetadata {
         value: String,
     }
-    impl MetadataDiff for TestMetadata {
+    impl CacheDiff for TestMetadata {
         fn diff(&self, old: &Self) -> Vec<String> {
             if self.value == old.value {
                 vec![]
@@ -221,6 +219,34 @@ mod tests {
         }
     }
     migrate_toml_chain! {TestMetadata}
+
+    #[test]
+    fn test_restored_layer_action_returns_old_data() {
+        #[derive(Debug, Clone)]
+        struct AlwaysNoDiff {
+            value: String,
+        }
+        impl CacheDiff for AlwaysNoDiff {
+            fn diff(&self, _: &Self) -> Vec<String> {
+                vec![]
+            }
+        }
+
+        let old = AlwaysNoDiff {
+            value: "old".to_string(),
+        };
+        let now = AlwaysNoDiff {
+            value: "now".to_string(),
+        };
+
+        let result = restored_layer_action(&old, &now);
+        match result {
+            (RestoredLayerAction::KeepLayer, Meta::Data(data)) => {
+                assert_eq!(data.value, "old");
+            }
+            _ => panic!("Expected to keep layer"),
+        }
+    }
 
     #[test]
     fn test_cached_layer_write_metadata_restored_layer_action() {

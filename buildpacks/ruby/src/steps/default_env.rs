@@ -23,7 +23,20 @@ pub(crate) fn default_env(
         env.insert(k, v);
     }
 
-    let (default_secret_key_base, store) = fetch_secret_key_base_from_store(&context.store);
+    let mut store = context.store.clone().unwrap_or_default();
+    let default_secret_key_base = store
+        .metadata
+        .entry("SECRET_KEY_BASE")
+        .or_insert_with(|| {
+            let mut rng = rand::thread_rng();
+
+            (0..64)
+                .map(|_| rng.sample(rand::distributions::Alphanumeric) as char)
+                .collect::<String>()
+                .into()
+        })
+        .to_string();
+
     let layer_ref = context.uncached_layer(
         layer_name!("env_defaults"),
         UncachedLayerDefinition {
@@ -52,22 +65,4 @@ pub(crate) fn default_env(
         .apply(Scope::Build, &env);
 
     Ok((env, store))
-}
-
-fn fetch_secret_key_base_from_store(store: &Option<Store>) -> (String, Store) {
-    let mut store = store.clone().unwrap_or_default();
-    let default_secret_key_base = store
-        .metadata
-        .entry("SECRET_KEY_BASE")
-        .or_insert_with(|| {
-            let mut rng = rand::thread_rng();
-
-            (0..64)
-                .map(|_| rng.sample(rand::distributions::Alphanumeric) as char)
-                .collect::<String>()
-                .into()
-        })
-        .to_string();
-
-    (default_secret_key_base, store)
 }

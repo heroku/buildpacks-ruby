@@ -19,11 +19,11 @@ To build a Ruby application codebase into a production image:
 
 ```bash
 $ cd ~/workdir/sample-ruby-app
-$ pack build sample-app --builder heroku/builder:22
+$ pack build sample-app --builder heroku/builder:24
 ```
 
 > [!NOTE]
-> You can skip needing to pass the `--builder` flag by setting a default builder with `pack config default-builder heroku/builder:22`.
+> You can skip needing to pass the `--builder` flag by setting a default builder with `pack config default-builder heroku/builder:24`.
 
 Then run the image:
 

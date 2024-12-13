@@ -53,7 +53,7 @@ impl<'a, L: AsRef<str>> SentenceList<'a, L> {
     }
 }
 
-impl<'a, L: AsRef<str>> Default for SentenceList<'a, L> {
+impl<L: AsRef<str>> Default for SentenceList<'_, L> {
     fn default() -> Self {
         Self {
             list: Default::default(),
@@ -63,7 +63,7 @@ impl<'a, L: AsRef<str>> Default for SentenceList<'a, L> {
     }
 }
 
-impl<'a, L: AsRef<str>> Display for SentenceList<'a, L> {
+impl<L: AsRef<str>> Display for SentenceList<'_, L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let SentenceList {
             list,

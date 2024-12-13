@@ -1,11 +1,11 @@
+//! This module is responsible for the logic involved in the printing to output while
+//! other work is being performed.
+//!
 use std::io::Write;
 use std::sync::mpsc::Sender;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
-
-/// This module is responsible for the logic involved in the printing to output while
-/// other work is being performed.
 
 /// Prints a start, then a tick every second, and an end to the given `Write` value.
 ///

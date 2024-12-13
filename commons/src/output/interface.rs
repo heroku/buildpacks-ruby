@@ -1,12 +1,12 @@
+//! Consuming stateful logger interface
+//!
+//! The log pattern used by `BuildLog` is a consuming state machine that is designed to minimize
+//! the amount of mistakes that can result in malformed build output.
+//!
+//! The interface isn't stable and may need to change.
+//!
 use std::fmt::Debug;
 use std::io::Write;
-
-/// Consuming stateful logger interface
-///
-/// The log pattern used by `BuildLog` is a consuming state machine that is designed to minimize
-/// the amount of mistakes that can result in malformed build output.
-///
-/// The interface isn't stable and may need to change.
 
 pub trait Logger: Debug {
     fn buildpack_name(self, s: &str) -> Box<dyn StartedLogger>;

@@ -1,3 +1,13 @@
+//! Agentmon Loop
+//!
+//! Boots agentmon (a statsd server) in a loop
+//!
+//! Example:
+//!
+//! ```shell
+//! $ cargo run --bin agentmon_loop -- --path <path/to/agentmon/binary>
+//! ```
+
 // Required due to: https://github.com/rust-lang/rust/issues/95513
 #![allow(unused_crate_dependencies)]
 
@@ -18,16 +28,6 @@ static AGENTMON_DEBUG: &str = "AGENTMON_DEBUG";
 static HEROKU_METRICS_URL: &str = "HEROKU_METRICS_URL";
 
 const SLEEP_FOR: Duration = Duration::from_secs(1);
-
-/// Agentmon Loop
-///
-/// Boots agentmon (a statsd server) in a loop
-///
-/// Example:
-///
-/// ```shell
-/// $ cargo run --bin agentmon_loop -- --path <path/to/agentmon/binary>
-/// ```
 
 /// Turn CLI arguments into a Rust struct
 #[derive(Parser, Debug)]

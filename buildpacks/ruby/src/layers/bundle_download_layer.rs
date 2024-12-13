@@ -4,11 +4,12 @@
 //!
 //! Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
 //! `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
-use crate::layers::shared::{cached_layer_write_metadata, MetadataDiff};
+use crate::layers::shared::cached_layer_write_metadata;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
+use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedBundlerVersion;
 use fun_run::{self, CommandWithName};
 use libcnb::data::layer_name;
@@ -57,23 +58,10 @@ try_migrate_deserializer_chain!(
     chain: [MetadataV1],
 );
 
-impl MetadataDiff for Metadata {
-    fn diff(&self, other: &Self) -> Vec<String> {
-        let mut differences = Vec::new();
-        if self.version != other.version {
-            differences.push(format!(
-                "Bundler version ({old} to {now})",
-                old = style::value(other.version.to_string()),
-                now = style::value(self.version.to_string())
-            ));
-        }
-        differences
-    }
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, CacheDiff)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV1 {
+    #[cache_diff(rename = "Bundler version")]
     pub(crate) version: ResolvedBundlerVersion,
 }
 

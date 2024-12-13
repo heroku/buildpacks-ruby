@@ -316,14 +316,6 @@ fn display_name(cmd: &mut Command, env: &Env) -> String {
     )
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, Default)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct BundleDigest {
-    env: String,
-    gemfile: String,
-    lockfile: String,
-}
-
 #[cfg(test)]
 mod test {
     use crate::layers::shared::strip_ansi;

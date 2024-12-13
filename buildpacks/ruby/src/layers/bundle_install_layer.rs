@@ -14,11 +14,12 @@
 //! must be compiled and will then be invoked via FFI. These native extensions are
 //! OS, Architecture, and Ruby version dependent. Due to this, when one of these changes
 //! we must clear the cache and re-run `bundle install`.
-use crate::layers::shared::{cached_layer_write_metadata, Meta, MetadataDiff};
-use crate::target_id::{TargetId, TargetIdError};
+use crate::layers::shared::{cached_layer_write_metadata, Meta};
+use crate::target_id::{OsDistribution, TargetId, TargetIdError};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
+use cache_diff::CacheDiff;
 use commons::{
     display::SentenceList, gemfile_lock::ResolvedRubyVersion, metadata_digest::MetadataDigest,
 };
@@ -116,50 +117,12 @@ pub(crate) fn handle(
     Ok((bullet, layer_ref.read_env()?))
 }
 
-pub(crate) type Metadata = MetadataV2;
+pub(crate) type Metadata = MetadataV3;
 try_migrate_deserializer_chain!(
-    chain: [MetadataV1, MetadataV2],
+    chain: [MetadataV1, MetadataV2, MetadataV3],
     error: MetadataMigrateError,
     deserializer: toml::Deserializer::new,
 );
-
-impl MetadataDiff for Metadata {
-    fn diff(&self, old: &Self) -> Vec<String> {
-        let mut differences = Vec::new();
-        let Metadata {
-            distro_name,
-            distro_version,
-            cpu_architecture,
-            ruby_version,
-            force_bundle_install_key: _,
-            digest: _,
-        } = old;
-
-        if ruby_version != &self.ruby_version {
-            differences.push(format!(
-                "Ruby version ({old} to {now})",
-                old = style::value(ruby_version.to_string()),
-                now = style::value(self.ruby_version.to_string())
-            ));
-        }
-        if distro_name != &self.distro_name || distro_version != &self.distro_version {
-            differences.push(format!(
-                "Distribution ({old} to {now})",
-                old = style::value(format!("{distro_name} {distro_version}")),
-                now = style::value(format!("{} {}", self.distro_name, self.distro_version))
-            ));
-        }
-        if cpu_architecture != &self.cpu_architecture {
-            differences.push(format!(
-                "CPU architecture ({old} to {now})",
-                old = style::value(cpu_architecture),
-                now = style::value(&self.cpu_architecture)
-            ));
-        }
-
-        differences
-    }
-}
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
 pub(crate) struct MetadataV1 {
@@ -176,6 +139,19 @@ pub(crate) struct MetadataV2 {
     pub(crate) cpu_architecture: String,
     pub(crate) ruby_version: ResolvedRubyVersion,
     pub(crate) force_bundle_install_key: String,
+    pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff)]
+pub(crate) struct MetadataV3 {
+    #[cache_diff(rename = "OS Distribution")]
+    pub(crate) os_distribution: OsDistribution,
+    #[cache_diff(rename = "CPU Architecture")]
+    pub(crate) cpu_architecture: String,
+    #[cache_diff(rename = "Ruby version")]
+    pub(crate) ruby_version: ResolvedRubyVersion,
+    #[cache_diff(ignore)]
+    pub(crate) force_bundle_install_key: String,
 
     /// A struct that holds the cryptographic hash of components that can
     /// affect the result of `bundle install`. When these values do not
@@ -188,6 +164,7 @@ pub(crate) struct MetadataV2 {
     /// This value is cached with metadata, so changing the struct
     /// may cause metadata to be invalidated (and the cache cleared).
     ///
+    #[cache_diff(ignore)]
     pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
 
@@ -213,6 +190,23 @@ impl TryFrom<MetadataV1> for MetadataV2 {
             ruby_version: v1.ruby_version,
             force_bundle_install_key: v1.force_bundle_install_key,
             digest: v1.digest,
+        })
+    }
+}
+
+impl TryFrom<MetadataV2> for MetadataV3 {
+    type Error = Infallible;
+
+    fn try_from(v2: MetadataV2) -> Result<Self, Self::Error> {
+        Ok(Self {
+            os_distribution: OsDistribution {
+                name: v2.distro_name,
+                version: v2.distro_version,
+            },
+            cpu_architecture: v2.cpu_architecture,
+            ruby_version: v2.ruby_version,
+            force_bundle_install_key: v2.force_bundle_install_key,
+            digest: v2.digest,
         })
     }
 }
@@ -334,7 +328,7 @@ mod test {
     use super::*;
     use std::path::PathBuf;
 
-    /// `MetadataDiff` logic controls cache invalidation
+    /// `CacheDiff` logic controls cache invalidation
     /// When the vec is empty the cache is kept, otherwise it is invalidated
     #[test]
     fn metadata_diff_messages() {
@@ -350,8 +344,10 @@ mod test {
 
         let old = Metadata {
             ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
-            distro_name: "ubuntu".to_string(),
-            distro_version: "20.04".to_string(),
+            os_distribution: OsDistribution {
+                name: "ubuntu".to_string(),
+                version: "20.04".to_string(),
+            },
             cpu_architecture: "amd64".to_string(),
             force_bundle_install_key: FORCE_BUNDLE_INSTALL_CACHE_KEY.to_string(),
             digest: MetadataDigest::new_env_files(
@@ -364,13 +360,13 @@ mod test {
 
         let diff = Metadata {
             ruby_version: ResolvedRubyVersion("3.5.5".to_string()),
-            distro_name: old.distro_name.clone(),
-            distro_version: old.distro_version.clone(),
+            os_distribution: old.os_distribution.clone(),
             cpu_architecture: old.cpu_architecture.clone(),
             force_bundle_install_key: old.force_bundle_install_key.clone(),
             digest: old.digest.clone(),
         }
         .diff(&old);
+
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
             vec!["Ruby version (`3.5.3` to `3.5.5`)".to_string()]
@@ -378,8 +374,10 @@ mod test {
 
         let diff = Metadata {
             ruby_version: old.ruby_version.clone(),
-            distro_name: "alpine".to_string(),
-            distro_version: "3.20.0".to_string(),
+            os_distribution: OsDistribution {
+                name: "alpine".to_string(),
+                version: "3.20.0".to_string(),
+            },
             cpu_architecture: old.cpu_architecture.clone(),
             force_bundle_install_key: old.force_bundle_install_key.clone(),
             digest: old.digest.clone(),
@@ -388,21 +386,21 @@ mod test {
 
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
-            vec!["Distribution (`ubuntu 20.04` to `alpine 3.20.0`)".to_string()]
+            vec!["OS Distribution (`ubuntu 20.04` to `alpine 3.20.0`)".to_string()]
         );
 
         let diff = Metadata {
             ruby_version: old.ruby_version.clone(),
-            distro_name: old.distro_name.clone(),
-            distro_version: old.distro_version.clone(),
+            os_distribution: old.os_distribution.clone(),
             cpu_architecture: "arm64".to_string(),
             force_bundle_install_key: old.force_bundle_install_key.clone(),
             digest: old.digest.clone(),
         }
         .diff(&old);
+
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
-            vec!["CPU architecture (`amd64` to `arm64`)".to_string()]
+            vec!["CPU Architecture (`amd64` to `arm64`)".to_string()]
         );
     }
 
@@ -476,8 +474,10 @@ GEM_PATH=layer_path
 
         let target_id = TargetId::from_stack("heroku-22").unwrap();
         let metadata = Metadata {
-            distro_name: target_id.distro_name,
-            distro_version: target_id.distro_version,
+            os_distribution: OsDistribution {
+                name: target_id.distro_name.clone(),
+                version: target_id.distro_version.clone(),
+            },
             cpu_architecture: target_id.cpu_architecture,
             ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
             force_bundle_install_key: String::from("v1"),
@@ -492,11 +492,13 @@ GEM_PATH=layer_path
         let gemfile_path = gemfile.display();
         let toml_string = format!(
             r#"
-distro_name = "ubuntu"
-distro_version = "22.04"
 cpu_architecture = "amd64"
 ruby_version = "3.1.3"
 force_bundle_install_key = "v1"
+
+[os_distribution]
+name = "ubuntu"
+version = "22.04"
 
 [digest]
 platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3"

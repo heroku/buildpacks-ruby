@@ -31,6 +31,8 @@ use libcnb_test as _;
 
 use clap as _;
 
+use crate::target_id::OsDistribution;
+
 struct RubyBuildpack;
 
 #[derive(Debug, thiserror::Error)]
@@ -149,8 +151,10 @@ impl Buildpack for RubyBuildpack {
                 &context,
                 bullet,
                 &layers::ruby_install_layer::Metadata {
-                    distro_name: context.target.distro_name.clone(),
-                    distro_version: context.target.distro_version.clone(),
+                    os_distribution: OsDistribution {
+                        name: context.target.distro_name.clone(),
+                        version: context.target.distro_version.clone(),
+                    },
                     cpu_architecture: context.target.arch.clone(),
                     ruby_version: ruby_version.clone(),
                 },
@@ -186,8 +190,10 @@ impl Buildpack for RubyBuildpack {
                 &env,
                 bullet,
                 &layers::bundle_install_layer::Metadata {
-                    distro_name: context.target.distro_name.clone(),
-                    distro_version: context.target.distro_version.clone(),
+                    os_distribution: OsDistribution {
+                        name: context.target.distro_name.clone(),
+                        version: context.target.distro_version.clone(),
+                    },
                     cpu_architecture: context.target.arch.clone(),
                     ruby_version: ruby_version.clone(),
                     force_bundle_install_key: String::from(

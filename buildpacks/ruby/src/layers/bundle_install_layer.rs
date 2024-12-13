@@ -145,6 +145,7 @@ pub(crate) struct MetadataV2 {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV3 {
     #[cache_diff(rename = "OS Distribution")]
     pub(crate) os_distribution: OsDistribution,

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Layer metadata deserialization to Rust structs is now using `#[serde(deny_unknown_fields)]` this prevents the accidental scenario where metadata containing a superset of fields could accidentally be deserialized to the wrong struct. It's unlikely this is currently happening with the current buildpack, but it's a possibly-observable difference so it's being listed ([#371](https://github.com/heroku/buildpacks-ruby/pull/371))
+
 ## [4.0.1] - 2024-12-11
 
 ### Fixed

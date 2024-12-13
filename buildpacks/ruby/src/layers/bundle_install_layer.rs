@@ -145,6 +145,7 @@ pub(crate) struct MetadataV2 {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV3 {
     #[cache_diff(rename = "OS Distribution")]
     pub(crate) os_distribution: OsDistribution,
@@ -314,14 +315,6 @@ fn display_name(cmd: &mut Command, env: &Env) -> String {
             "BUNDLE_WITHOUT",
         ],
     )
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, Default)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct BundleDigest {
-    env: String,
-    gemfile: String,
-    lockfile: String,
 }
 
 #[cfg(test)]

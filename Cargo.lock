@@ -224,7 +224,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "thiserror 2.0.6",
+ "thiserror",
 ]
 
 [[package]]
@@ -307,7 +307,7 @@ dependencies = [
  "serde",
  "sha2",
  "tempfile",
- "thiserror 1.0.66",
+ "thiserror",
  "toml",
  "walkdir",
 ]
@@ -610,7 +610,7 @@ dependencies = [
  "serde",
  "tar",
  "tempfile",
- "thiserror 1.0.66",
+ "thiserror",
  "toml",
  "ureq",
  "url",
@@ -842,7 +842,7 @@ dependencies = [
  "libcnb-data",
  "libcnb-proc-macros",
  "serde",
- "thiserror 2.0.6",
+ "thiserror",
  "toml",
 ]
 
@@ -853,7 +853,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "837b27a670357054c97b755e948c17b0c7178779cd184ab829ee3b1509dff9e1"
 dependencies = [
  "serde",
- "thiserror 2.0.6",
+ "thiserror",
  "toml",
 ]
 
@@ -866,7 +866,7 @@ dependencies = [
  "fancy-regex",
  "libcnb-proc-macros",
  "serde",
- "thiserror 2.0.6",
+ "thiserror",
  "toml",
  "uriparse",
 ]
@@ -883,7 +883,7 @@ dependencies = [
  "libcnb-common",
  "libcnb-data",
  "petgraph",
- "thiserror 2.0.6",
+ "thiserror",
  "uriparse",
  "which",
 ]
@@ -913,7 +913,7 @@ dependencies = [
  "libcnb-package",
  "regex",
  "tempfile",
- "thiserror 2.0.6",
+ "thiserror",
 ]
 
 [[package]]
@@ -1558,31 +1558,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.66"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d171f59dbaa811dbbb1aee1e73db92ec2b122911a48e1390dfe327a821ddede"
-dependencies = [
- "thiserror-impl 1.0.66",
-]
-
-[[package]]
-name = "thiserror"
 version = "2.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fec2a1820ebd077e2b90c4df007bebf344cd394098a13c563957d0afc83ea47"
 dependencies = [
- "thiserror-impl 2.0.6",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "1.0.66"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b08be0f17bd307950653ce45db00cd31200d82b624b36e181337d9c7d92765b5"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.90",
+ "thiserror-impl",
 ]
 
 [[package]]

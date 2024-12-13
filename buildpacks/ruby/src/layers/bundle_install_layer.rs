@@ -125,6 +125,7 @@ try_migrate_deserializer_chain!(
 );
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV1 {
     pub(crate) stack: String,
     pub(crate) ruby_version: ResolvedRubyVersion,
@@ -133,6 +134,7 @@ pub(crate) struct MetadataV1 {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV2 {
     pub(crate) distro_name: String,
     pub(crate) distro_version: String,
@@ -315,6 +317,7 @@ fn display_name(cmd: &mut Command, env: &Env) -> String {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, Default)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct BundleDigest {
     env: String,
     gemfile: String,

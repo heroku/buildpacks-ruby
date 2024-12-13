@@ -59,6 +59,7 @@ try_migrate_deserializer_chain!(
 );
 
 #[derive(Deserialize, Serialize, Debug, Clone, CacheDiff)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV1 {
     #[cache_diff(rename = "Bundler version")]
     pub(crate) version: ResolvedBundlerVersion,

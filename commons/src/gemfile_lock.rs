@@ -116,13 +116,12 @@ impl FromStr for GemfileLock {
     type Err = std::convert::Infallible;
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
-        let bundled_with_re = Regex::new("BUNDLED WITH\\s   (\\d+\\.\\d+\\.\\d+)")
-            .expect("Internal error: Bad regex"); // Checked via clippy
+        let bundled_with_re =
+            Regex::new("BUNDLED WITH\\s   (\\d+\\.\\d+\\.\\d+)").expect("Clippy checked");
         let main_ruby_version_re =
             Regex::new("RUBY VERSION\\s   ruby (\\d+\\.\\d+\\.\\d+((-|\\.)\\S*\\d+)?)")
-                .expect("Internal error: Bad regex"); // Checked via clippy
-        let jruby_version_re =
-            Regex::new("\\(jruby ((\\d+|\\.)+)\\)").expect("Internal error: Bad regex"); // Checked via clippy
+                .expect("Clippy checked");
+        let jruby_version_re = Regex::new("\\(jruby ((\\d+|\\.)+)\\)").expect("Clippy checked");
 
         let bundler_version = match bundled_with_re.captures(string).and_then(|c| c.get(1)) {
             Some(result) => BundlerVersion::Explicit(result.as_str().to_string()),

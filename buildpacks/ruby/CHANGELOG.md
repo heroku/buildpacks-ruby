@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Default Ruby version is now 3.2.6 ([#374](https://github.com/heroku/buildpacks-ruby/pull/374))
+- Default Bundler version is now 2.5.6 ([#374](https://github.com/heroku/buildpacks-ruby/pull/374))
+
 ## [4.0.2] - 2024-12-16
 
 ### Fixed

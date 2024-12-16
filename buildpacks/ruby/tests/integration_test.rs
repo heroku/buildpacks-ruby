@@ -20,7 +20,7 @@ fn test_migrating_metadata() {
     // Remove the return and update the `buildpack-ruby` reference to the latest version.
     #![allow(unreachable_code)]
     // Test v4.0.2 compatible with v4.0.1
-    // return;
+    return;
 
     let builder = "heroku/builder:24";
     let app_dir = "tests/fixtures/default_ruby";
@@ -148,7 +148,7 @@ fn test_jruby_app() {
         r#"
         source "https://rubygems.org"
 
-        ruby '2.6.8', engine: 'jruby', engine_version: '9.3.6.0'
+        ruby '3.1.4', engine: 'jruby', engine_version: '9.4.8.0'
     "#,
     )
     .unwrap();
@@ -162,7 +162,7 @@ GEM
 PLATFORMS
   java
 RUBY VERSION
-   ruby 2.6.8p001 (jruby 9.3.6.0)
+   ruby 3.1.4p001 (jruby 9.4.8.0)
 DEPENDENCIES
 ",
     )
@@ -183,7 +183,7 @@ DEPENDENCIES
                 context.pack_stdout,
                 r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#
             );
-            assert_contains!(context.pack_stdout, "Ruby version `2.6.8-jruby-9.3.6.0` from `Gemfile.lock`");
+            assert_contains!(context.pack_stdout, "Ruby version `3.1.4-jruby-9.4.8.0` from `Gemfile.lock`");
             });
 }
 

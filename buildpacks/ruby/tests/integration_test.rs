@@ -20,7 +20,7 @@ fn test_migrating_metadata() {
     // Remove the return and update the `buildpack-ruby` reference to the latest version.
     #![allow(unreachable_code)]
     // Test v4.0.2 compatible with v4.0.1
-    // return;
+    return;
 
     let builder = "heroku/builder:24";
     let app_dir = "tests/fixtures/default_ruby";

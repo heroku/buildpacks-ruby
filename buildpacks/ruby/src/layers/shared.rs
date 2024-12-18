@@ -1,38 +1,5 @@
-use cache_diff::CacheDiff;
+pub(crate) use commons::layer::cache_buddy::cached_layer_write_metadata;
 pub(crate) use commons::layer::cache_buddy::Meta;
-use commons::layer::cache_buddy::{invalid_metadata_action, restored_layer_action};
-use libcnb::build::BuildContext;
-use libcnb::data::layer::LayerName;
-use libcnb::layer::{CachedLayerDefinition, LayerRef};
-use magic_migrate::TryMigrate;
-use serde::ser::Serialize;
-use std::fmt::Debug;
-
-/// Default behavior for a cached layer, ensures new metadata is always written
-///
-/// The metadadata must implement `CacheDiff` and `TryMigrate` in addition
-/// to the typical `Serialize` and `Debug` traits
-pub(crate) fn cached_layer_write_metadata<M, B>(
-    layer_name: LayerName,
-    context: &BuildContext<B>,
-    metadata: &'_ M,
-) -> libcnb::Result<LayerRef<B, Meta<M>, Meta<M>>, B::Error>
-where
-    B: libcnb::Buildpack,
-    M: CacheDiff + TryMigrate + Serialize + Debug + Clone,
-{
-    let layer_ref = context.cached_layer(
-        layer_name,
-        CachedLayerDefinition {
-            build: true,
-            launch: true,
-            invalid_metadata_action: &invalid_metadata_action,
-            restored_layer_action: &|old: &M, _| restored_layer_action(old, metadata),
-        },
-    )?;
-    layer_ref.write_metadata(metadata)?;
-    Ok(layer_ref)
-}
 
 /// Removes ANSI control characters from a string
 #[cfg(test)]
@@ -47,7 +14,7 @@ pub(crate) fn strip_ansi(input: impl AsRef<str>) -> String {
 #[cfg(test)]
 pub(crate) fn temp_build_context<B: libcnb::Buildpack>(
     from_dir: impl AsRef<std::path::Path>,
-) -> BuildContext<B> {
+) -> libcnb::build::BuildContext<B> {
     let base_dir = from_dir.as_ref().to_path_buf();
     let layers_dir = base_dir.join("layers");
     let app_dir = base_dir.join("app_dir");
@@ -75,7 +42,7 @@ pub(crate) fn temp_build_context<B: libcnb::Buildpack>(
     };
     let store = None;
 
-    BuildContext {
+    libcnb::build::BuildContext {
         layers_dir,
         app_dir,
         buildpack_dir,
@@ -91,6 +58,8 @@ pub(crate) fn temp_build_context<B: libcnb::Buildpack>(
 mod tests {
     use super::*;
     use crate::RubyBuildpack;
+    use cache_diff::CacheDiff;
+    use commons::layer::cache_buddy::{invalid_metadata_action, restored_layer_action};
     use core::panic;
     use libcnb::data::layer_name;
     use libcnb::layer::{EmptyLayerCause, InvalidMetadataAction, LayerState, RestoredLayerAction};

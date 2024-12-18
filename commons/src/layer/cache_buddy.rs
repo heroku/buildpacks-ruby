@@ -1,10 +1,37 @@
+use crate::display::SentenceList;
 use cache_diff::CacheDiff;
-use libcnb::layer::{InvalidMetadataAction, RestoredLayerAction};
+use libcnb::build::BuildContext;
+use libcnb::data::layer::LayerName;
+use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, LayerRef, RestoredLayerAction};
 use magic_migrate::TryMigrate;
 use serde::ser::Serialize;
 use std::fmt::Debug;
 
-use crate::display::SentenceList;
+/// Default behavior for a cached layer, ensures new metadata is always written
+///
+/// The metadadata must implement `CacheDiff` and `TryMigrate` in addition
+/// to the typical `Serialize` and `Debug` traits
+pub fn cached_layer_write_metadata<M, B>(
+    layer_name: LayerName,
+    context: &BuildContext<B>,
+    metadata: &'_ M,
+) -> libcnb::Result<LayerRef<B, Meta<M>, Meta<M>>, B::Error>
+where
+    B: libcnb::Buildpack,
+    M: CacheDiff + TryMigrate + Serialize + Debug + Clone,
+{
+    let layer_ref = context.cached_layer(
+        layer_name,
+        CachedLayerDefinition {
+            build: true,
+            launch: true,
+            invalid_metadata_action: &invalid_metadata_action,
+            restored_layer_action: &|old: &M, _| restored_layer_action(old, metadata),
+        },
+    )?;
+    layer_ref.write_metadata(metadata)?;
+    Ok(layer_ref)
+}
 
 /// Standardizes formatting for layer cache clearing behavior
 ///

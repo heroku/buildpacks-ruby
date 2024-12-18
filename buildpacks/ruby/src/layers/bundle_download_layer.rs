@@ -4,13 +4,13 @@
 //!
 //! Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
 //! `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
-use crate::layers::shared::cached_layer_write_metadata;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedBundlerVersion;
+use commons::layer::cache_buddy::cached_layer_write_metadata;
 use fun_run::{self, CommandWithName};
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};

@@ -14,12 +14,12 @@
 //! must be compiled and will then be invoked via FFI. These native extensions are
 //! OS, Architecture, and Ruby version dependent. Due to this, when one of these changes
 //! we must clear the cache and re-run `bundle install`.
-use crate::layers::shared::{cached_layer_write_metadata, Meta};
 use crate::target_id::{OsDistribution, TargetId, TargetIdError};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use cache_diff::CacheDiff;
+use commons::layer::cache_buddy::{cached_layer_write_metadata, Meta};
 use commons::{
     display::SentenceList, gemfile_lock::ResolvedRubyVersion, metadata_digest::MetadataDigest,
 };

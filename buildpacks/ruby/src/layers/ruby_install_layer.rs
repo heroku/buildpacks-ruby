@@ -11,7 +11,6 @@
 //!
 //! When the Ruby version changes, invalidate and re-run.
 //!
-use crate::layers::shared::cached_layer_write_metadata;
 use crate::target_id::OsDistribution;
 use crate::{
     target_id::{TargetId, TargetIdError},
@@ -21,6 +20,7 @@ use bullet_stream::state::SubBullet;
 use bullet_stream::Print;
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedRubyVersion;
+use commons::layer::cache_buddy::cached_layer_write_metadata;
 use flate2::read::GzDecoder;
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};

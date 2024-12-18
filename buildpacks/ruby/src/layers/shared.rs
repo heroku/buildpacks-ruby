@@ -1,6 +1,3 @@
-pub(crate) use commons::layer::cache_buddy::cached_layer_write_metadata;
-pub(crate) use commons::layer::cache_buddy::Meta;
-
 /// Takes in a directory and returns a minimal build context for use in testing shared caching behavior
 ///
 /// Intented only for use with this buildpack, but meant to be used by multiple layers to assert caching behavior.

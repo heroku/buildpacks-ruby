@@ -7,10 +7,68 @@ use magic_migrate::TryMigrate;
 use serde::ser::Serialize;
 use std::fmt::Debug;
 
+/// Handle caching behavior for a layer
+///
+/// Guarantees that new metadata is always written (prevents accidentally reading one struct type and
+/// writing a different one). It also provides a standard interface to define caching behavior via
+/// the `CacheDiff` and `TryMigrate` traits:
+///
+/// - The `TryMigrate` trait is for handling invalid metadata:
+///   When old metadata from cache is invalid, we try to load it into a known older version and then migrate it
+///   to the latest via `TryMigrate`. If that fails, the layer is deleted and the error is returned. If it
+///   succeeds, then the logic in `CacheDiff` below is applied.
+///
+/// The `CacheDiff` trait defines cache invalidation behavior when metadata is valid:
+///   When a `CacheDiff::diff` is empty, the layer is kept and the old data is returned. Otherwise,
+///   the layer is deleted and the changes are returned.
+///
+#[derive(Default, Debug, Clone, Eq, PartialEq)]
+pub struct CacheBuddy {
+    pub build: Option<bool>,
+    pub launch: Option<bool>,
+}
+
+impl CacheBuddy {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// # Errors
+    ///
+    /// Returns an error if libcnb cannot read or write the metadata.
+    pub fn layer<B, M>(
+        self,
+        layer_name: LayerName,
+        context: &BuildContext<B>,
+        metadata: &M,
+    ) -> libcnb::Result<LayerRef<B, Meta<M>, Meta<M>>, B::Error>
+    where
+        B: libcnb::Buildpack,
+        M: CacheDiff + TryMigrate + Serialize + Debug + Clone,
+    {
+        let layer_ref = context.cached_layer(
+            layer_name,
+            CachedLayerDefinition {
+                build: self.build.unwrap_or(true),
+                launch: self.launch.unwrap_or(true),
+                invalid_metadata_action: &invalid_metadata_action,
+                restored_layer_action: &|old: &M, _| restored_layer_action(old, metadata),
+            },
+        )?;
+        layer_ref.write_metadata(metadata)?;
+        Ok(layer_ref)
+    }
+}
+
 /// Default behavior for a cached layer, ensures new metadata is always written
 ///
 /// The metadadata must implement `CacheDiff` and `TryMigrate` in addition
 /// to the typical `Serialize` and `Debug` traits
+///
+/// # Errors
+///
+/// Returns an error if libcnb cannot read or write the metadata.
 pub fn cached_layer_write_metadata<M, B>(
     layer_name: LayerName,
     context: &BuildContext<B>,
@@ -20,23 +78,14 @@ where
     B: libcnb::Buildpack,
     M: CacheDiff + TryMigrate + Serialize + Debug + Clone,
 {
-    let layer_ref = context.cached_layer(
-        layer_name,
-        CachedLayerDefinition {
-            build: true,
-            launch: true,
-            invalid_metadata_action: &invalid_metadata_action,
-            restored_layer_action: &|old: &M, _| restored_layer_action(old, metadata),
-        },
-    )?;
-    layer_ref.write_metadata(metadata)?;
-    Ok(layer_ref)
+    CacheBuddy::new().layer(layer_name, context, metadata)
 }
 
 /// Standardizes formatting for layer cache clearing behavior
 ///
 /// If the diff is empty, there are no changes and the layer is kept and the old data is returned
 /// If the diff is not empty, the layer is deleted and the changes are listed
+///
 pub fn restored_layer_action<M>(old: &M, now: &M) -> (RestoredLayerAction, Meta<M>)
 where
     M: CacheDiff + Clone,

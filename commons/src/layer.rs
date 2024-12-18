@@ -1,3 +1,4 @@
+pub mod cache_buddy;
 mod configure_env_layer;
 mod default_env_layer;
 

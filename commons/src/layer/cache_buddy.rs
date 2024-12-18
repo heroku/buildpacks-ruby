@@ -61,26 +61,6 @@ impl CacheBuddy {
     }
 }
 
-/// Default behavior for a cached layer, ensures new metadata is always written
-///
-/// The metadadata must implement `CacheDiff` and `TryMigrate` in addition
-/// to the typical `Serialize` and `Debug` traits
-///
-/// # Errors
-///
-/// Returns an error if libcnb cannot read or write the metadata.
-pub fn cached_layer_write_metadata<M, B>(
-    layer_name: LayerName,
-    context: &BuildContext<B>,
-    metadata: &'_ M,
-) -> libcnb::Result<LayerRef<B, Meta<M>, Meta<M>>, B::Error>
-where
-    B: libcnb::Buildpack,
-    M: CacheDiff + TryMigrate + Serialize + Debug + Clone,
-{
-    CacheBuddy::new().layer(layer_name, context, metadata)
-}
-
 /// Standardizes formatting for layer cache clearing behavior
 ///
 /// If the diff is empty, there are no changes and the layer is kept and the old data is returned
@@ -240,7 +220,7 @@ mod tests {
     use magic_migrate::{migrate_toml_chain, try_migrate_deserializer_chain, Migrate, TryMigrate};
     use serde::Deserializer;
     use std::convert::Infallible;
-    /// Struct for asserting the behavior of `cached_layer_write_metadata`
+    /// Struct for asserting the behavior of `CacheBuddy`
     #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
     #[serde(deny_unknown_fields)]
     struct TestMetadata {
@@ -280,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cached_layer_write_metadata_restored_layer_action() {
+    fn test_cache_buddy() {
         let temp = tempfile::tempdir().unwrap();
         let context = temp_build_context::<FakeBuildpack>(
             temp.path(),
@@ -288,14 +268,15 @@ mod tests {
         );
 
         // First write
-        let result = cached_layer_write_metadata(
-            layer_name!("testing"),
-            &context,
-            &TestMetadata {
-                value: "hello".to_string(),
-            },
-        )
-        .unwrap();
+        let result = CacheBuddy::new()
+            .layer(
+                layer_name!("testing"),
+                &context,
+                &TestMetadata {
+                    value: "hello".to_string(),
+                },
+            )
+            .unwrap();
         assert!(matches!(
             result.state,
             LayerState::Empty {
@@ -304,28 +285,30 @@ mod tests {
         ));
 
         // Second write, preserve the contents
-        let result = cached_layer_write_metadata(
-            layer_name!("testing"),
-            &context,
-            &TestMetadata {
-                value: "hello".to_string(),
-            },
-        )
-        .unwrap();
+        let result = CacheBuddy::new()
+            .layer(
+                layer_name!("testing"),
+                &context,
+                &TestMetadata {
+                    value: "hello".to_string(),
+                },
+            )
+            .unwrap();
         let LayerState::Restored { cause } = &result.state else {
             panic!("Expected restored layer")
         };
         assert_eq!(cause.as_ref(), "Using cache");
 
         // Third write, change the data
-        let result = cached_layer_write_metadata(
-            layer_name!("testing"),
-            &context,
-            &TestMetadata {
-                value: "world".to_string(),
-            },
-        )
-        .unwrap();
+        let result = CacheBuddy::new()
+            .layer(
+                layer_name!("testing"),
+                &context,
+                &TestMetadata {
+                    value: "world".to_string(),
+                },
+            )
+            .unwrap();
 
         let LayerState::Empty {
             cause: EmptyLayerCause::RestoredLayerAction { cause },

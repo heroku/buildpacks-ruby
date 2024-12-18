@@ -46,34 +46,3 @@ pub(crate) fn temp_build_context<B: libcnb::Buildpack>(
         store,
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::RubyBuildpack;
-    use cache_diff::CacheDiff;
-    use commons::layer::cache_buddy::{invalid_metadata_action, restored_layer_action};
-    use core::panic;
-    use libcnb::data::layer_name;
-    use libcnb::layer::{EmptyLayerCause, InvalidMetadataAction, LayerState, RestoredLayerAction};
-    use magic_migrate::{migrate_toml_chain, try_migrate_deserializer_chain, Migrate, TryMigrate};
-    use serde::Deserializer;
-    use std::convert::Infallible;
-
-    /// Struct for asserting the behavior of `cached_layer_write_metadata`
-    #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
-    #[serde(deny_unknown_fields)]
-    struct TestMetadata {
-        value: String,
-    }
-    impl CacheDiff for TestMetadata {
-        fn diff(&self, old: &Self) -> Vec<String> {
-            if self.value == old.value {
-                vec![]
-            } else {
-                vec![format!("value ({} to {})", old.value, self.value)]
-            }
-        }
-    }
-    migrate_toml_chain! {TestMetadata}
-}

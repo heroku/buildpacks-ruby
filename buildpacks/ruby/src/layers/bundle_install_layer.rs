@@ -14,12 +14,12 @@
 //! must be compiled and will then be invoked via FFI. These native extensions are
 //! OS, Architecture, and Ruby version dependent. Due to this, when one of these changes
 //! we must clear the cache and re-run `bundle install`.
-use crate::layers::shared::{cached_layer_write_metadata, Meta};
 use crate::target_id::{OsDistribution, TargetId, TargetIdError};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use cache_diff::CacheDiff;
+use commons::layer::cache_buddy::{CacheBuddy, Meta};
 use commons::{
     display::SentenceList, gemfile_lock::ResolvedRubyVersion, metadata_digest::MetadataDigest,
 };
@@ -52,7 +52,7 @@ pub(crate) fn handle(
     metadata: &Metadata,
     without: &BundleWithout,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = cached_layer_write_metadata(layer_name!("gems"), context, metadata)?;
+    let layer_ref = CacheBuddy::new().layer(layer_name!("gems"), context, metadata)?;
     let install_state = match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);
@@ -319,7 +319,7 @@ fn display_name(cmd: &mut Command, env: &Env) -> String {
 
 #[cfg(test)]
 mod test {
-    use crate::layers::shared::strip_ansi;
+    use bullet_stream::strip_ansi;
 
     use super::*;
     use std::path::PathBuf;

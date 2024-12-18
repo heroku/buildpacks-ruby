@@ -28,7 +28,7 @@ tempfile = "3"
 thiserror = "2"
 ureq = { version = "2", default-features = false, features = ["tls"] }
 url = "2"
-magic_migrate = "0.2"
+magic_migrate = "1.0"
 toml = "0.8"
 cache_diff = { version = "1.0.0", features = ["bullet_stream"] }
 

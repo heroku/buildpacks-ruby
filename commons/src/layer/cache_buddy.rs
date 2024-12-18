@@ -186,6 +186,7 @@ mod tests {
     use cache_diff::CacheDiff;
     use core::panic;
     use libcnb::data::layer_name;
+    use libcnb::generic::{GenericMetadata, GenericPlatform};
     use libcnb::layer::{EmptyLayerCause, InvalidMetadataAction, LayerState, RestoredLayerAction};
     use magic_migrate::{migrate_toml_chain, try_migrate_deserializer_chain, Migrate, TryMigrate};
     use serde::Deserializer;
@@ -206,6 +207,88 @@ mod tests {
         }
     }
     migrate_toml_chain! {TestMetadata}
+
+    struct FakeBuildpack;
+
+    impl libcnb::Buildpack for FakeBuildpack {
+        type Platform = GenericPlatform;
+        type Metadata = GenericMetadata;
+        type Error = Infallible;
+
+        fn detect(
+            &self,
+            _context: libcnb::detect::DetectContext<Self>,
+        ) -> libcnb::Result<libcnb::detect::DetectResult, Self::Error> {
+            todo!()
+        }
+
+        fn build(
+            &self,
+            _context: BuildContext<Self>,
+        ) -> libcnb::Result<libcnb::build::BuildResult, Self::Error> {
+            todo!()
+        }
+    }
+
+    #[test]
+    fn test_cached_layer_write_metadata_restored_layer_action() {
+        let temp = tempfile::tempdir().unwrap();
+        let context = temp_build_context::<FakeBuildpack>(
+            temp.path(),
+            include_str!("../../../buildpacks/ruby/buildpack.toml"),
+        );
+
+        // First write
+        let result = cached_layer_write_metadata(
+            layer_name!("testing"),
+            &context,
+            &TestMetadata {
+                value: "hello".to_string(),
+            },
+        )
+        .unwrap();
+        assert!(matches!(
+            result.state,
+            LayerState::Empty {
+                cause: EmptyLayerCause::NewlyCreated
+            }
+        ));
+
+        // Second write, preserve the contents
+        let result = cached_layer_write_metadata(
+            layer_name!("testing"),
+            &context,
+            &TestMetadata {
+                value: "hello".to_string(),
+            },
+        )
+        .unwrap();
+        let LayerState::Restored { cause } = &result.state else {
+            panic!("Expected restored layer")
+        };
+        assert_eq!(cause.as_ref(), "Using cache");
+
+        // Third write, change the data
+        let result = cached_layer_write_metadata(
+            layer_name!("testing"),
+            &context,
+            &TestMetadata {
+                value: "world".to_string(),
+            },
+        )
+        .unwrap();
+
+        let LayerState::Empty {
+            cause: EmptyLayerCause::RestoredLayerAction { cause },
+        } = &result.state
+        else {
+            panic!("Expected empty layer with restored layer action");
+        };
+        assert_eq!(
+            cause.as_ref(),
+            "Clearing cache due to change: value (hello to world)"
+        );
+    }
 
     #[test]
     fn test_restored_layer_action_returns_old_data() {

@@ -1,5 +1,13 @@
 # Changelog for commons features
 
+### Added
+
+- Introduced `layer::cache_buddy::CacheBuddy` for public cache use (https://github.com/heroku/buildpacks-ruby/pull/376)
+
+### Changed
+
+- The `layer` module is no longer deprecated, only `layer::ConfigureEnvLayer` and `layer::DefaultEnvLayer` (https://github.com/heroku/buildpacks-ruby/pull/376)
+
 ## 2024-11-11
 
 ## Changed

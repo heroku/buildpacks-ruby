@@ -1,3 +1,48 @@
+use libcnb::layer::InvalidMetadataAction;
+use magic_migrate::TryMigrate;
+use serde::ser::Serialize;
+use std::fmt::Debug;
+
+/// Standardizes formatting for invalid metadata behavior
+///
+/// If the metadata can be migrated, it is replaced with the migrated version
+/// If an error occurs, the layer is deleted and the error displayed
+/// If no migration is possible, the layer is deleted and the invalid metadata is displayed
+pub fn invalid_metadata_action<M, S>(invalid: &S) -> (InvalidMetadataAction<M>, Meta<M>)
+where
+    M: TryMigrate + Clone,
+    S: Serialize + Debug,
+{
+    let invalid = toml::to_string(invalid);
+    match invalid {
+        Ok(toml) => match M::try_from_str_migrations(&toml) {
+            Some(Ok(migrated)) => (
+                InvalidMetadataAction::ReplaceMetadata(migrated.clone()),
+                Meta::Data(migrated),
+            ),
+            Some(Err(error)) => (
+                InvalidMetadataAction::DeleteLayer,
+                Meta::Message(format!(
+                    "Clearing cache due to metadata migration error: {error}"
+                )),
+            ),
+            None => (
+                InvalidMetadataAction::DeleteLayer,
+                Meta::Message(format!(
+                    "Clearing cache due to invalid metadata ({toml})",
+                    toml = toml.trim()
+                )),
+            ),
+        },
+        Err(error) => (
+            InvalidMetadataAction::DeleteLayer,
+            Meta::Message(format!(
+                "Clearing cache due to invalid metadata serialization error: {error}"
+            )),
+        ),
+    }
+}
+
 /// Either contains metadata or a message describing the state
 ///
 /// Why: The `CachedLayerDefinition` allows returning information about the cache state

@@ -1,9 +1,10 @@
 use cache_diff::CacheDiff;
 use commons::display::SentenceList;
+use commons::layer::cache_buddy::invalid_metadata_action;
 pub(crate) use commons::layer::cache_buddy::Meta;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
-use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, LayerRef, RestoredLayerAction};
+use libcnb::layer::{CachedLayerDefinition, LayerRef, RestoredLayerAction};
 use magic_migrate::TryMigrate;
 use serde::ser::Serialize;
 use std::fmt::Debug;
@@ -54,46 +55,6 @@ where
                 differences = SentenceList::new(&diff)
             )),
         )
-    }
-}
-
-/// Standardizes formatting for invalid metadata behavior
-///
-/// If the metadata can be migrated, it is replaced with the migrated version
-/// If an error occurs, the layer is deleted and the error displayed
-/// If no migration is possible, the layer is deleted and the invalid metadata is displayed
-pub(crate) fn invalid_metadata_action<M, S>(invalid: &S) -> (InvalidMetadataAction<M>, Meta<M>)
-where
-    M: TryMigrate + Clone,
-    S: Serialize + Debug,
-{
-    let invalid = toml::to_string(invalid);
-    match invalid {
-        Ok(toml) => match M::try_from_str_migrations(&toml) {
-            Some(Ok(migrated)) => (
-                InvalidMetadataAction::ReplaceMetadata(migrated.clone()),
-                Meta::Data(migrated),
-            ),
-            Some(Err(error)) => (
-                InvalidMetadataAction::DeleteLayer,
-                Meta::Message(format!(
-                    "Clearing cache due to metadata migration error: {error}"
-                )),
-            ),
-            None => (
-                InvalidMetadataAction::DeleteLayer,
-                Meta::Message(format!(
-                    "Clearing cache due to invalid metadata ({toml})",
-                    toml = toml.trim()
-                )),
-            ),
-        },
-        Err(error) => (
-            InvalidMetadataAction::DeleteLayer,
-            Meta::Message(format!(
-                "Clearing cache due to invalid metadata serialization error: {error}"
-            )),
-        ),
     }
 }
 
@@ -156,7 +117,7 @@ mod tests {
     use crate::RubyBuildpack;
     use core::panic;
     use libcnb::data::layer_name;
-    use libcnb::layer::{EmptyLayerCause, LayerState};
+    use libcnb::layer::{EmptyLayerCause, InvalidMetadataAction, LayerState};
     use magic_migrate::{migrate_toml_chain, try_migrate_deserializer_chain, Migrate, TryMigrate};
     use serde::Deserializer;
     use std::convert::Infallible;

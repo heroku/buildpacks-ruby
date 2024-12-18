@@ -4,7 +4,7 @@
 
 ## Changed
 
-- Deprecate `layers` including `layers::ConfigureEnvLayer` and `layers::DefaultEnvLayer` (https://github.com/heroku/buildpacks-ruby/pull/345)
+- Deprecate `layer` including `layer::ConfigureEnvLayer` and `layer::DefaultEnvLayer` (https://github.com/heroku/buildpacks-ruby/pull/345)
 - Remove `AppCacheCollection` (https://github.com/heroku/buildpacks-ruby/pull/345)
 - Deprecate `output` module in favor of the `bullet_stream` crate (https://github.com/heroku/buildpacks-ruby/pull/345)
 

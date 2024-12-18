@@ -20,7 +20,7 @@ use bullet_stream::state::SubBullet;
 use bullet_stream::Print;
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedRubyVersion;
-use commons::layer::cache_buddy::cached_layer_write_metadata;
+use commons::layer::cache_buddy::CacheBuddy;
 use flate2::read::GzDecoder;
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
@@ -39,7 +39,7 @@ pub(crate) fn handle(
     mut bullet: Print<SubBullet<Stdout>>,
     metadata: &Metadata,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = cached_layer_write_metadata(layer_name!("ruby"), context, metadata)?;
+    let layer_ref = CacheBuddy::new().layer(layer_name!("ruby"), context, metadata)?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);
@@ -388,8 +388,12 @@ version = "3.1.3"
         let differences = old.diff(&old);
         assert_eq!(differences, Vec::<String>::new());
 
-        cached_layer_write_metadata(layer_name!("ruby"), &context, &old).unwrap();
-        let result = cached_layer_write_metadata(layer_name!("ruby"), &context, &old).unwrap();
+        CacheBuddy::new()
+            .layer(layer_name!("ruby"), &context, &old)
+            .unwrap();
+        let result = CacheBuddy::new()
+            .layer(layer_name!("ruby"), &context, &old)
+            .unwrap();
         let actual = result.state;
         assert!(matches!(actual, LayerState::Restored { .. }));
 
@@ -400,7 +404,9 @@ version = "3.1.3"
         let differences = now.diff(&old);
         assert_eq!(differences.len(), 1);
 
-        let result = cached_layer_write_metadata(layer_name!("ruby"), &context, &now).unwrap();
+        let result = CacheBuddy::new()
+            .layer(layer_name!("ruby"), &context, &now)
+            .unwrap();
         assert!(matches!(
             result.state,
             LayerState::Empty {

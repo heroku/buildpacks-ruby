@@ -40,6 +40,8 @@
 //! build output. If the cache is cleared for any reason, then a user readable message is returned. This message should
 //! be printed to the buildpack user so they can understand what caused the cache to clear.
 //!
+#![doc = include_str!("./fixtures/cache_buddy_example.md")]
+
 use crate::display::SentenceList;
 use cache_diff::CacheDiff;
 use libcnb::build::BuildContext;
@@ -64,6 +66,7 @@ use std::fmt::Debug;
 ///   When a `CacheDiff::diff` is empty, the layer is kept and the old data is returned. Otherwise,
 ///   the layer is deleted and the changes are returned.
 ///
+#[doc = include_str!("./fixtures/cache_buddy_example.md")]
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 pub struct CacheBuddy {
     pub build: Option<bool>,
@@ -212,6 +215,12 @@ impl<M> AsRef<str> for Meta<M> {
 }
 
 /// Takes in a directory and returns a minimal build context for use in testing caching behavior
+///
+/// Public for use in doc tests, but the interface is not stable.
+///
+/// # Panics
+///
+/// - If a context cannot be created
 #[cfg(test)]
 fn temp_build_context<B: libcnb::Buildpack>(
     from_dir: impl AsRef<std::path::Path>,
@@ -284,7 +293,6 @@ mod tests {
     migrate_toml_chain! {TestMetadata}
 
     struct FakeBuildpack;
-
     impl libcnb::Buildpack for FakeBuildpack {
         type Platform = GenericPlatform;
         type Metadata = GenericMetadata;

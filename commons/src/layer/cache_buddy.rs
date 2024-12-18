@@ -1,7 +1,33 @@
-use libcnb::layer::InvalidMetadataAction;
+use cache_diff::CacheDiff;
+use libcnb::layer::{InvalidMetadataAction, RestoredLayerAction};
 use magic_migrate::TryMigrate;
 use serde::ser::Serialize;
 use std::fmt::Debug;
+
+use crate::display::SentenceList;
+
+/// Standardizes formatting for layer cache clearing behavior
+///
+/// If the diff is empty, there are no changes and the layer is kept and the old data is returned
+/// If the diff is not empty, the layer is deleted and the changes are listed
+pub fn restored_layer_action<M>(old: &M, now: &M) -> (RestoredLayerAction, Meta<M>)
+where
+    M: CacheDiff + Clone,
+{
+    let diff = now.diff(old);
+    if diff.is_empty() {
+        (RestoredLayerAction::KeepLayer, Meta::Data(old.clone()))
+    } else {
+        (
+            RestoredLayerAction::DeleteLayer,
+            Meta::Message(format!(
+                "Clearing cache due to {changes}: {differences}",
+                changes = if diff.len() > 1 { "changes" } else { "change" },
+                differences = SentenceList::new(&diff)
+            )),
+        )
+    }
+}
 
 /// Standardizes formatting for invalid metadata behavior
 ///

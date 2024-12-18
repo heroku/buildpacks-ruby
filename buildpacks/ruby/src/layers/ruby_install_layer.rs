@@ -237,9 +237,9 @@ pub(crate) enum RubyInstallError {
 
 #[cfg(test)]
 mod tests {
-    use crate::layers::shared::{strip_ansi, temp_build_context};
-
     use super::*;
+    use crate::layers::shared::temp_build_context;
+    use bullet_stream::strip_ansi;
 
     /// If this test fails due to a change you'll need to
     /// implement `TryMigrate` for the new layer data and add

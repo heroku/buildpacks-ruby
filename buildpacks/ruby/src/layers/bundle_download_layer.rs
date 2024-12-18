@@ -123,7 +123,7 @@ fn download_bundler(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::layers::shared::strip_ansi;
+    use bullet_stream::strip_ansi;
 
     #[test]
     fn test_metadata_diff() {

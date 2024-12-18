@@ -319,7 +319,7 @@ fn display_name(cmd: &mut Command, env: &Env) -> String {
 
 #[cfg(test)]
 mod test {
-    use crate::layers::shared::strip_ansi;
+    use bullet_stream::strip_ansi;
 
     use super::*;
     use std::path::PathBuf;

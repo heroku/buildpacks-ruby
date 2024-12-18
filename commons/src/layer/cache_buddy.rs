@@ -135,3 +135,59 @@ impl<M> AsRef<str> for Meta<M> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cache_diff::CacheDiff;
+    use core::panic;
+    use libcnb::data::layer_name;
+    use libcnb::layer::{EmptyLayerCause, InvalidMetadataAction, LayerState, RestoredLayerAction};
+    use magic_migrate::{migrate_toml_chain, try_migrate_deserializer_chain, Migrate, TryMigrate};
+    use serde::Deserializer;
+    use std::convert::Infallible;
+    /// Struct for asserting the behavior of `cached_layer_write_metadata`
+    #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+    #[serde(deny_unknown_fields)]
+    struct TestMetadata {
+        value: String,
+    }
+    impl CacheDiff for TestMetadata {
+        fn diff(&self, old: &Self) -> Vec<String> {
+            if self.value == old.value {
+                vec![]
+            } else {
+                vec![format!("value ({} to {})", old.value, self.value)]
+            }
+        }
+    }
+    migrate_toml_chain! {TestMetadata}
+
+    #[test]
+    fn test_restored_layer_action_returns_old_data() {
+        #[derive(Debug, Clone)]
+        struct AlwaysNoDiff {
+            value: String,
+        }
+        impl CacheDiff for AlwaysNoDiff {
+            fn diff(&self, _: &Self) -> Vec<String> {
+                vec![]
+            }
+        }
+
+        let old = AlwaysNoDiff {
+            value: "old".to_string(),
+        };
+        let now = AlwaysNoDiff {
+            value: "now".to_string(),
+        };
+
+        let result = restored_layer_action(&old, &now);
+        match result {
+            (RestoredLayerAction::KeepLayer, Meta::Data(data)) => {
+                assert_eq!(data.value, "old");
+            }
+            _ => panic!("Expected to keep layer"),
+        }
+    }
+}

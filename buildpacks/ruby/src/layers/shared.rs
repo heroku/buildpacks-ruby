@@ -19,7 +19,6 @@ pub(crate) fn cached_layer_write_metadata<M, B>(
 where
     B: libcnb::Buildpack,
     M: CacheDiff + TryMigrate + Serialize + Debug + Clone,
-    <M as TryMigrate>::Error: std::fmt::Display,
 {
     let layer_ref = context.cached_layer(
         layer_name,
@@ -66,8 +65,6 @@ pub(crate) fn invalid_metadata_action<M, S>(invalid: &S) -> (InvalidMetadataActi
 where
     M: TryMigrate + Clone,
     S: Serialize + Debug,
-    // TODO: Enforce Display + Debug in the library
-    <M as TryMigrate>::Error: std::fmt::Display,
 {
     let invalid = toml::to_string(invalid);
     match invalid {

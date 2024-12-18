@@ -1,3 +1,45 @@
+//! Your layer cache invalidation pal
+//!
+//! Cache invalidation is one of the "famously" difficult problems in computer science. This module
+//! provides a clean, yet opinonated interface for handling cache invalidation and migrating invalid
+//! metadata.
+//!
+//! - Declarative interface for defining cache invalidation behavior (via [`CacheDiff`])
+//! - Declarative interface for defining invalid metadata migration behavior (via [`TryMigrate`])
+//! - Prevent accidentally reading one struct type and writing a different one
+//!
+//! The primary interface is [`CacheBuddy`].
+//!
+//! ## Cache invalidation logic ([`CacheDiff`])
+//!
+//! The `CacheDiff` derive macro from `cache_diff` allows you to tell `CacheBuddy` which fields in your
+//! metadata struct act as cache keys and how to compare them. If a difference is reported, the cache
+//! is cleared.
+//!
+//! Importantly, when the cache is cleared, a clear message stating why the cache was cleared is returned
+//! in a user readable format.
+//!
+//! ## Invalid metadata migration ([`TryMigrate`])
+//!
+//! If previously serialized metadata cannot be deserialized into the current struct then usually the
+//! only thing a buildpack can do is discard the cache. However, that may involve needing to re-do an
+//! expensive operation such as re-compiling native libraries. Buildpack authors should feel free to
+//! refactor and update their metadata structs without fear of busting the cache. Users should not
+//! have to suffer slower builds due to internal only buildpack changes.
+//!
+//! The `TryMigrate` trait from `magic_migrate` allows buildpack authors to define how to migrate an
+//! older struct into a newer one. If the migration fails, the cache is cleared and the reason is returned.
+//! If the migration succeeds, then the regular logic in `CacheDiff` is applied.
+//!
+//! ## Read your write, or (read) why you can't ([`Meta`])
+//!
+//! If non-cache data is stored in the Metadata, then your buildpack may want to read that data back.
+//! When the cache is not cleared then the old metadata is returned. This allows you to read your write.
+//!
+//! A buildpack cache should never be cleared without explaining why to a user via printing to the
+//! build output. If the cache is cleared for any reason, then a user readable message is returned. This message should
+//! be printed to the buildpack user so they can understand what caused the cache to clear.
+//!
 use crate::display::SentenceList;
 use cache_diff::CacheDiff;
 use libcnb::build::BuildContext;
@@ -11,14 +53,14 @@ use std::fmt::Debug;
 ///
 /// Guarantees that new metadata is always written (prevents accidentally reading one struct type and
 /// writing a different one). It also provides a standard interface to define caching behavior via
-/// the `CacheDiff` and `TryMigrate` traits:
+/// the [`CacheDiff`] and [`TryMigrate`] traits:
 ///
-/// - The `TryMigrate` trait is for handling invalid metadata:
+/// - The [`TryMigrate`] trait is for handling invalid metadata:
 ///   When old metadata from cache is invalid, we try to load it into a known older version and then migrate it
 ///   to the latest via `TryMigrate`. If that fails, the layer is deleted and the error is returned. If it
 ///   succeeds, then the logic in `CacheDiff` below is applied.
 ///
-/// The `CacheDiff` trait defines cache invalidation behavior when metadata is valid:
+/// The [`CacheDiff`] trait defines cache invalidation behavior when metadata is valid:
 ///   When a `CacheDiff::diff` is empty, the layer is kept and the old data is returned. Otherwise,
 ///   the layer is deleted and the changes are returned.
 ///
@@ -34,6 +76,10 @@ impl CacheBuddy {
         Self::default()
     }
 
+    /// Writes metadata to a layer and returns a layer reference with info about prior cache state
+    ///
+    /// See the struct documentation for more information.
+    ///
     /// # Errors
     ///
     /// Returns an error if libcnb cannot read or write the metadata.

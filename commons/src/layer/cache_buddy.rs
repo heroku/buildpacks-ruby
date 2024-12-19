@@ -73,13 +73,49 @@ pub struct CacheBuddy {
     pub launch: bool,
 }
 
-#[bon::builder]
-pub fn diff_migrate_cached_layer<B, M>(
-    build: Option<bool>,
-    launch: Option<bool>,
+type RestoredLayerFn<'a, M> = &'a dyn Fn(&M, &std::path::Path) -> (RestoredLayerAction, Meta<M>);
+type InvalidMetaFn<'a, M> =
+    &'a dyn Fn(&libcnb::generic::GenericMetadata) -> (InvalidMetadataAction<M>, Meta<M>);
+
+use bon::builder;
+
+/// Creates a cached layer, potentially re-using a previously cached version.
+///
+/// <TODO>
+#[builder]
+pub fn cache_layer_builder<'a, B, M>(
+    /// Name of the layer
     layer_name: LayerName,
+    /// Buildpack context
     context: &BuildContext<B>,
+    /// Metadata to be used in the comparison
     metadata: &M,
+
+    /// Write the provided metadata to disk
+    #[builder(default = true)]
+    update_metadata: bool,
+
+    /// Whether the layer is intended for build.
+    #[builder(default = true)]
+    build: bool,
+
+    /// Whether the layer is intended for launch.
+    #[builder(default = true)]
+    launch: bool,
+    /// Callback for when the metadata of a restored layer cannot be parsed as `M`.
+    ///
+    /// Allows replacing the metadata before continuing (i.e. migration to a newer version) or
+    /// deleting the layer.
+    ///
+    /// TODO default docs
+    #[builder(default = &invalid_metadata_action)]
+    on_invalid_metadata: InvalidMetaFn<'a, M>,
+
+    /// Callback when the layer was restored from cache to validate the contents and metadata.
+    /// Can be used to delete existing cached layers.
+    ///
+    /// TODO default docs
+    on_restored_layer: Option<RestoredLayerFn<'a, M>>,
 ) -> libcnb::Result<LayerRef<B, Meta<M>, Meta<M>>, B::Error>
 where
     B: libcnb::Buildpack,
@@ -88,13 +124,16 @@ where
     let layer_ref = context.cached_layer(
         layer_name,
         CachedLayerDefinition {
-            build: build.unwrap_or(true),
-            launch: launch.unwrap_or(true),
-            invalid_metadata_action: &invalid_metadata_action,
-            restored_layer_action: &|old: &M, _| restored_layer_action(old, metadata),
+            build,
+            launch,
+            invalid_metadata_action: on_invalid_metadata,
+            restored_layer_action: on_restored_layer
+                .unwrap_or(&|old: &M, _| restored_layer_action(old, metadata)),
         },
     )?;
-    layer_ref.write_metadata(metadata)?;
+    if update_metadata {
+        layer_ref.write_metadata(metadata)?;
+    }
     Ok(layer_ref)
 }
 

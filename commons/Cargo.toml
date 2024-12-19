@@ -30,6 +30,7 @@ filetime = "0.2"
 magic_migrate = "1.0"
 toml = "0.8"
 cache_diff = "1.0"
+bon = "3.3.0"
 
 [dev-dependencies]
 filetime = "0.2"

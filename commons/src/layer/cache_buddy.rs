@@ -73,6 +73,31 @@ pub struct CacheBuddy {
     pub launch: bool,
 }
 
+#[bon::builder]
+pub fn diff_migrate_cached_layer<B, M>(
+    build: Option<bool>,
+    launch: Option<bool>,
+    layer_name: LayerName,
+    context: &BuildContext<B>,
+    metadata: &M,
+) -> libcnb::Result<LayerRef<B, Meta<M>, Meta<M>>, B::Error>
+where
+    B: libcnb::Buildpack,
+    M: CacheDiff + TryMigrate + Serialize + Debug + Clone,
+{
+    let layer_ref = context.cached_layer(
+        layer_name,
+        CachedLayerDefinition {
+            build: build.unwrap_or(true),
+            launch: launch.unwrap_or(true),
+            invalid_metadata_action: &invalid_metadata_action,
+            restored_layer_action: &|old: &M, _| restored_layer_action(old, metadata),
+        },
+    )?;
+    layer_ref.write_metadata(metadata)?;
+    Ok(layer_ref)
+}
+
 impl CacheBuddy {
     /// Writes metadata to a layer and returns a layer reference with info about prior cache state
     ///

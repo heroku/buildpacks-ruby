@@ -20,7 +20,7 @@ use bullet_stream::state::SubBullet;
 use bullet_stream::Print;
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedRubyVersion;
-use commons::layer::cache_buddy::CacheBuddy;
+use commons::layer::cache_buddy::{diff_migrate_cached_layer, CacheBuddy};
 use flate2::read::GzDecoder;
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
@@ -39,11 +39,13 @@ pub(crate) fn handle(
     mut bullet: Print<SubBullet<Stdout>>,
     metadata: &Metadata,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = CacheBuddy {
-        build: true,
-        launch: true,
-    }
-    .layer(layer_name!("ruby"), context, metadata)?;
+    let layer_ref = diff_migrate_cached_layer()
+        .build(true)
+        .launch(true)
+        .layer_name(layer_name!("ruby"))
+        .metadata(metadata)
+        .context(context)
+        .call()?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);

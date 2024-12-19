@@ -52,7 +52,11 @@ pub(crate) fn handle(
     metadata: &Metadata,
     without: &BundleWithout,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = CacheBuddy::new().layer(layer_name!("gems"), context, metadata)?;
+    let layer_ref = CacheBuddy {
+        build: true,
+        launch: true,
+    }
+    .layer(layer_name!("gems"), context, metadata)?;
     let install_state = match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);

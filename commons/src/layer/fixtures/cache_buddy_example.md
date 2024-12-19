@@ -48,7 +48,11 @@ use libcnb::data::layer_name;
 # ) -> libcnb::Result<(), <FakeBuildpack as libcnb::Buildpack>::Error> {
 # let metadata_owned = TestMetadata { value: "Hello".to_string() };
 # let metadata = &metadata_owned;
-let layer_ref = CacheBuddy::new().layer(layer_name!("ruby"), context, metadata)?;
+let layer_ref = CacheBuddy {
+    build: true,
+    launch: true,
+}
+.layer(layer_name!("ruby"), context, metadata)?;
 match &layer_ref.state {
     // CacheDiff reported no difference, cache was kept
     LayerState::Restored { cause } => {

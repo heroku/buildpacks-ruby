@@ -67,18 +67,13 @@ use std::fmt::Debug;
 ///   the layer is deleted and the changes are returned.
 ///
 #[doc = include_str!("./fixtures/cache_buddy_example.md")]
-#[derive(Default, Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CacheBuddy {
-    pub build: Option<bool>,
-    pub launch: Option<bool>,
+    pub build: bool,
+    pub launch: bool,
 }
 
 impl CacheBuddy {
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     /// Writes metadata to a layer and returns a layer reference with info about prior cache state
     ///
     /// See the struct documentation for more information.
@@ -99,8 +94,8 @@ impl CacheBuddy {
         let layer_ref = context.cached_layer(
             layer_name,
             CachedLayerDefinition {
-                build: self.build.unwrap_or(true),
-                launch: self.launch.unwrap_or(true),
+                build: self.build,
+                launch: self.launch,
                 invalid_metadata_action: &invalid_metadata_action,
                 restored_layer_action: &|old: &M, _| restored_layer_action(old, metadata),
             },
@@ -271,15 +266,18 @@ mod tests {
         );
 
         // First write
-        let result = CacheBuddy::new()
-            .layer(
-                layer_name!("testing"),
-                &context,
-                &TestMetadata {
-                    value: "hello".to_string(),
-                },
-            )
-            .unwrap();
+        let result = CacheBuddy {
+            build: true,
+            launch: true,
+        }
+        .layer(
+            layer_name!("testing"),
+            &context,
+            &TestMetadata {
+                value: "hello".to_string(),
+            },
+        )
+        .unwrap();
         assert!(matches!(
             result.state,
             LayerState::Empty {
@@ -288,30 +286,36 @@ mod tests {
         ));
 
         // Second write, preserve the contents
-        let result = CacheBuddy::new()
-            .layer(
-                layer_name!("testing"),
-                &context,
-                &TestMetadata {
-                    value: "hello".to_string(),
-                },
-            )
-            .unwrap();
+        let result = CacheBuddy {
+            build: true,
+            launch: true,
+        }
+        .layer(
+            layer_name!("testing"),
+            &context,
+            &TestMetadata {
+                value: "hello".to_string(),
+            },
+        )
+        .unwrap();
         let LayerState::Restored { cause } = &result.state else {
             panic!("Expected restored layer")
         };
         assert_eq!(cause.as_ref(), "Using cache");
 
         // Third write, change the data
-        let result = CacheBuddy::new()
-            .layer(
-                layer_name!("testing"),
-                &context,
-                &TestMetadata {
-                    value: "world".to_string(),
-                },
-            )
-            .unwrap();
+        let result = CacheBuddy {
+            build: true,
+            launch: true,
+        }
+        .layer(
+            layer_name!("testing"),
+            &context,
+            &TestMetadata {
+                value: "world".to_string(),
+            },
+        )
+        .unwrap();
 
         let LayerState::Empty {
             cause: EmptyLayerCause::RestoredLayerAction { cause },

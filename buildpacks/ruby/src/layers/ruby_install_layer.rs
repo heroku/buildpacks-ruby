@@ -39,7 +39,11 @@ pub(crate) fn handle(
     mut bullet: Print<SubBullet<Stdout>>,
     metadata: &Metadata,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = CacheBuddy::new().layer(layer_name!("ruby"), context, metadata)?;
+    let layer_ref = CacheBuddy {
+        build: true,
+        launch: true,
+    }
+    .layer(layer_name!("ruby"), context, metadata)?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);
@@ -388,12 +392,18 @@ version = "3.1.3"
         let differences = old.diff(&old);
         assert_eq!(differences, Vec::<String>::new());
 
-        CacheBuddy::new()
-            .layer(layer_name!("ruby"), &context, &old)
-            .unwrap();
-        let result = CacheBuddy::new()
-            .layer(layer_name!("ruby"), &context, &old)
-            .unwrap();
+        CacheBuddy {
+            build: true,
+            launch: true,
+        }
+        .layer(layer_name!("ruby"), &context, &old)
+        .unwrap();
+        let result = CacheBuddy {
+            build: true,
+            launch: true,
+        }
+        .layer(layer_name!("ruby"), &context, &old)
+        .unwrap();
         let actual = result.state;
         assert!(matches!(actual, LayerState::Restored { .. }));
 
@@ -404,9 +414,12 @@ version = "3.1.3"
         let differences = now.diff(&old);
         assert_eq!(differences.len(), 1);
 
-        let result = CacheBuddy::new()
-            .layer(layer_name!("ruby"), &context, &now)
-            .unwrap();
+        let result = CacheBuddy {
+            build: true,
+            launch: true,
+        }
+        .layer(layer_name!("ruby"), &context, &now)
+        .unwrap();
         assert!(matches!(
             result.state,
             LayerState::Empty {

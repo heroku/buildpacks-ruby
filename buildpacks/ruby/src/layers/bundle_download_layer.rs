@@ -29,7 +29,11 @@ pub(crate) fn handle(
     mut bullet: Print<SubBullet<Stdout>>,
     metadata: &Metadata,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = CacheBuddy::new().layer(layer_name!("bundler"), context, metadata)?;
+    let layer_ref = CacheBuddy {
+        build: true,
+        launch: true,
+    }
+    .layer(layer_name!("bundler"), context, metadata)?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);

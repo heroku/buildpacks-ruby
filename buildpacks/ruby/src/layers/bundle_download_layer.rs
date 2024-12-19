@@ -4,13 +4,13 @@
 //!
 //! Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
 //! `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
-use crate::layers::shared::cached_layer_write_metadata;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedBundlerVersion;
+use commons::layer::cache_buddy::CacheBuddy;
 use fun_run::{self, CommandWithName};
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
@@ -29,7 +29,11 @@ pub(crate) fn handle(
     mut bullet: Print<SubBullet<Stdout>>,
     metadata: &Metadata,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = cached_layer_write_metadata(layer_name!("bundler"), context, metadata)?;
+    let layer_ref = CacheBuddy {
+        build: true,
+        launch: true,
+    }
+    .layer(layer_name!("bundler"), context, metadata)?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);
@@ -123,7 +127,7 @@ fn download_bundler(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::layers::shared::strip_ansi;
+    use bullet_stream::strip_ansi;
 
     #[test]
     fn test_metadata_diff() {

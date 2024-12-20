@@ -20,7 +20,7 @@ use bullet_stream::state::SubBullet;
 use bullet_stream::Print;
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedRubyVersion;
-use commons::layer::cache_buddy::CacheBuddy;
+use commons::layer::cache_buddy::DiffMigrateLayer;
 use flate2::read::GzDecoder;
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
@@ -39,7 +39,7 @@ pub(crate) fn handle(
     mut bullet: Print<SubBullet<Stdout>>,
     metadata: &Metadata,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = CacheBuddy {
+    let layer_ref = DiffMigrateLayer {
         build: true,
         launch: true,
     }
@@ -392,13 +392,13 @@ version = "3.1.3"
         let differences = old.diff(&old);
         assert_eq!(differences, Vec::<String>::new());
 
-        CacheBuddy {
+        DiffMigrateLayer {
             build: true,
             launch: true,
         }
         .cached_layer(layer_name!("ruby"), &context, &old)
         .unwrap();
-        let result = CacheBuddy {
+        let result = DiffMigrateLayer {
             build: true,
             launch: true,
         }
@@ -414,7 +414,7 @@ version = "3.1.3"
         let differences = now.diff(&old);
         assert_eq!(differences.len(), 1);
 
-        let result = CacheBuddy {
+        let result = DiffMigrateLayer {
             build: true,
             launch: true,
         }

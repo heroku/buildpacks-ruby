@@ -1,7 +1,7 @@
 # Example
 
 ```
-use commons::layer::cache_buddy::CacheBuddy;
+use commons::layer::cache_buddy::DiffMigrateLayer;
 use commons::layer::cache_buddy::Meta;
 use cache_diff::CacheDiff;
 use magic_migrate::TryMigrate;
@@ -48,7 +48,7 @@ use libcnb::data::layer_name;
 # ) -> libcnb::Result<(), <FakeBuildpack as libcnb::Buildpack>::Error> {
 # let metadata_owned = TestMetadata { value: "Hello".to_string() };
 # let metadata = &metadata_owned;
-let layer_ref = CacheBuddy {
+let layer_ref = DiffMigrateLayer {
     build: true,
     launch: true,
 }

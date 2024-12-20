@@ -19,7 +19,7 @@ use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use cache_diff::CacheDiff;
-use commons::layer::cache_buddy::{CacheBuddy, Meta};
+use commons::layer::cache_buddy::{DiffMigrateLayer, Meta};
 use commons::{
     display::SentenceList, gemfile_lock::ResolvedRubyVersion, metadata_digest::MetadataDigest,
 };
@@ -52,7 +52,7 @@ pub(crate) fn handle(
     metadata: &Metadata,
     without: &BundleWithout,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = CacheBuddy {
+    let layer_ref = DiffMigrateLayer {
         build: true,
         launch: true,
     }

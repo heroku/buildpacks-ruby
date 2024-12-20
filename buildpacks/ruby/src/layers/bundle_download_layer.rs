@@ -10,7 +10,7 @@ use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedBundlerVersion;
-use commons::layer::cache_buddy::CacheBuddy;
+use commons::layer::cache_buddy::DiffMigrateLayer;
 use fun_run::{self, CommandWithName};
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
@@ -29,7 +29,7 @@ pub(crate) fn handle(
     mut bullet: Print<SubBullet<Stdout>>,
     metadata: &Metadata,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = CacheBuddy {
+    let layer_ref = DiffMigrateLayer {
         build: true,
         launch: true,
     }

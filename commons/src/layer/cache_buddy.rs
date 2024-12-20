@@ -68,12 +68,14 @@ use std::fmt::Debug;
 ///
 #[doc = include_str!("./fixtures/cache_buddy_example.md")]
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct CacheBuddy {
+pub struct DiffMigrateLayer {
+    /// Whether the layer is intended for build.
     pub build: bool,
+    /// Whether the layer is intended for launch.
     pub launch: bool,
 }
 
-impl CacheBuddy {
+impl DiffMigrateLayer {
     /// Writes metadata to a layer and returns a layer reference with info about prior cache state
     ///
     /// See the struct documentation for more information.
@@ -266,7 +268,7 @@ mod tests {
         );
 
         // First write
-        let result = CacheBuddy {
+        let result = DiffMigrateLayer {
             build: true,
             launch: true,
         }
@@ -286,7 +288,7 @@ mod tests {
         ));
 
         // Second write, preserve the contents
-        let result = CacheBuddy {
+        let result = DiffMigrateLayer {
             build: true,
             launch: true,
         }
@@ -304,7 +306,7 @@ mod tests {
         assert_eq!(cause.as_ref(), "Using cache");
 
         // Third write, change the data
-        let result = CacheBuddy {
+        let result = DiffMigrateLayer {
             build: true,
             launch: true,
         }

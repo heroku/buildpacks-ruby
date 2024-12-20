@@ -10,7 +10,7 @@ use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedBundlerVersion;
-use commons::layer::cache_buddy::DiffMigrateLayer;
+use commons::layer::diff_migrate::DiffMigrateLayer;
 use fun_run::{self, CommandWithName};
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};

@@ -19,7 +19,7 @@ use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use cache_diff::CacheDiff;
-use commons::layer::cache_buddy::{DiffMigrateLayer, Meta};
+use commons::layer::diff_migrate::{DiffMigrateLayer, Meta};
 use commons::{
     display::SentenceList, gemfile_lock::ResolvedRubyVersion, metadata_digest::MetadataDigest,
 };

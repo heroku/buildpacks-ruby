@@ -40,7 +40,7 @@
 //! build output. If the cache is cleared for any reason, then a user readable message is returned. This message should
 //! be printed to the buildpack user so they can understand what caused the cache to clear.
 //!
-#![doc = include_str!("./fixtures/cache_buddy_example.md")]
+#![doc = include_str!("./fixtures/diff_migrate_example.md")]
 
 use crate::display::SentenceList;
 use cache_diff::CacheDiff;
@@ -66,7 +66,7 @@ use std::fmt::Debug;
 ///   When a `CacheDiff::diff` is empty, the layer is kept and the old data is returned. Otherwise,
 ///   the layer is deleted and the changes are returned.
 ///
-#[doc = include_str!("./fixtures/cache_buddy_example.md")]
+#[doc = include_str!("./fixtures/diff_migrate_example.md")]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DiffMigrateLayer {
     /// Whether the layer is intended for build.
@@ -260,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cache_buddy() {
+    fn test_diff_migrate() {
         let temp = tempfile::tempdir().unwrap();
         let context = temp_build_context::<FakeBuildpack>(
             temp.path(),

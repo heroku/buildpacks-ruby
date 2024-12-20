@@ -1,8 +1,7 @@
 # Example
 
 ```
-use commons::layer::cache_buddy::DiffMigrateLayer;
-use commons::layer::cache_buddy::Meta;
+use commons::layer::diff_migrate::{DiffMigrateLayer, Meta};
 use cache_diff::CacheDiff;
 use magic_migrate::TryMigrate;
 use serde::Deserializer;

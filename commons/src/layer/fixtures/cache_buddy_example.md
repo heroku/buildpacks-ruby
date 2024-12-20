@@ -52,7 +52,7 @@ let layer_ref = CacheBuddy {
     build: true,
     launch: true,
 }
-.layer(layer_name!("ruby"), context, metadata)?;
+.cached_layer(layer_name!("ruby"), context, metadata)?;
 match &layer_ref.state {
     // CacheDiff reported no difference, cache was kept
     LayerState::Restored { cause } => {

@@ -43,7 +43,7 @@ pub(crate) fn handle(
         build: true,
         launch: true,
     }
-    .layer(layer_name!("ruby"), context, metadata)?;
+    .cached_layer(layer_name!("ruby"), context, metadata)?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);
@@ -396,13 +396,13 @@ version = "3.1.3"
             build: true,
             launch: true,
         }
-        .layer(layer_name!("ruby"), &context, &old)
+        .cached_layer(layer_name!("ruby"), &context, &old)
         .unwrap();
         let result = CacheBuddy {
             build: true,
             launch: true,
         }
-        .layer(layer_name!("ruby"), &context, &old)
+        .cached_layer(layer_name!("ruby"), &context, &old)
         .unwrap();
         let actual = result.state;
         assert!(matches!(actual, LayerState::Restored { .. }));
@@ -418,7 +418,7 @@ version = "3.1.3"
             build: true,
             launch: true,
         }
-        .layer(layer_name!("ruby"), &context, &now)
+        .cached_layer(layer_name!("ruby"), &context, &now)
         .unwrap();
         assert!(matches!(
             result.state,

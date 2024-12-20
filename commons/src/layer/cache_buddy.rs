@@ -81,7 +81,7 @@ impl CacheBuddy {
     /// # Errors
     ///
     /// Returns an error if libcnb cannot read or write the metadata.
-    pub fn layer<B, M>(
+    pub fn cached_layer<B, M>(
         self,
         layer_name: LayerName,
         context: &BuildContext<B>,
@@ -270,7 +270,7 @@ mod tests {
             build: true,
             launch: true,
         }
-        .layer(
+        .cached_layer(
             layer_name!("testing"),
             &context,
             &TestMetadata {
@@ -290,7 +290,7 @@ mod tests {
             build: true,
             launch: true,
         }
-        .layer(
+        .cached_layer(
             layer_name!("testing"),
             &context,
             &TestMetadata {
@@ -308,7 +308,7 @@ mod tests {
             build: true,
             launch: true,
         }
-        .layer(
+        .cached_layer(
             layer_name!("testing"),
             &context,
             &TestMetadata {

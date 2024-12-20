@@ -33,7 +33,7 @@ pub(crate) fn handle(
         build: true,
         launch: true,
     }
-    .layer(layer_name!("bundler"), context, metadata)?;
+    .cached_layer(layer_name!("bundler"), context, metadata)?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);

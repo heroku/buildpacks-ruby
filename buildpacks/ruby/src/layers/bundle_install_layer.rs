@@ -56,7 +56,7 @@ pub(crate) fn handle(
         build: true,
         launch: true,
     }
-    .layer(layer_name!("gems"), context, metadata)?;
+    .cached_layer(layer_name!("gems"), context, metadata)?;
     let install_state = match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);

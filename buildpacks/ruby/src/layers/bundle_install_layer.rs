@@ -31,8 +31,7 @@ use libcnb::{
     Env,
 };
 use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
-use serde::{Deserialize, Deserializer, Serialize};
-use std::convert::Infallible;
+use serde::{Deserialize, Serialize};
 use std::io::Stdout;
 use std::{path::Path, process::Command};
 
@@ -202,7 +201,7 @@ impl TryFrom<MetadataV1> for MetadataV2 {
 }
 
 impl TryFrom<MetadataV2> for MetadataV3 {
-    type Error = Infallible;
+    type Error = std::convert::Infallible;
 
     fn try_from(v2: MetadataV2) -> Result<Self, Self::Error> {
         Ok(Self {

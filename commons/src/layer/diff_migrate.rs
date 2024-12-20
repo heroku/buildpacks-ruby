@@ -219,7 +219,6 @@ mod tests {
     use libcnb::generic::{GenericMetadata, GenericPlatform};
     use libcnb::layer::{EmptyLayerCause, InvalidMetadataAction, LayerState, RestoredLayerAction};
     use magic_migrate::{migrate_toml_chain, try_migrate_deserializer_chain, Migrate, TryMigrate};
-    use serde::Deserializer;
     use std::convert::Infallible;
     /// Struct for asserting the behavior of `CacheBuddy`
     #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]

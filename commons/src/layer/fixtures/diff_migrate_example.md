@@ -4,7 +4,6 @@
 use commons::layer::diff_migrate::{DiffMigrateLayer, Meta};
 use cache_diff::CacheDiff;
 use magic_migrate::TryMigrate;
-use serde::Deserializer;
 
 use libcnb::layer::{LayerState, EmptyLayerCause};
 use libcnb::data::layer_name;

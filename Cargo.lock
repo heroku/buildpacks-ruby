@@ -175,9 +175,9 @@ checksum = "428d9aa8fbc0670b7b8d6030a7fadd0f86151cae55e4dbbece15f3780a3dfaf3"
 
 [[package]]
 name = "cache_diff"
-version = "1.0.0"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2afc054cd5e2f8a0fb0122db671c3731849b1fcc86ec664e1031834a0828b84b"
+checksum = "84b58ba1160088b5306b19fa156e9be5736043243ee6197346bf8ecd55e5366c"
 dependencies = [
  "bullet_stream",
  "cache_diff_derive",

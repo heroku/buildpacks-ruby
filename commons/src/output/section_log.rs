@@ -45,7 +45,7 @@ use std::marker::PhantomData;
 ///
 /// log_step("Clearing cache (ruby version changed)");
 /// ```
-#[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
+#[deprecated(note = "Use `bullet_stream` instead")]
 pub fn log_step(s: impl AsRef<str>) {
     logger().step(s.as_ref());
 }
@@ -62,7 +62,7 @@ pub fn log_step(s: impl AsRef<str>) {
 /// ```
 ///
 /// Timing information will be output at the end of the step.
-#[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
+#[deprecated(note = "Use `bullet_stream` instead")]
 pub fn log_step_timed<T>(s: impl AsRef<str>, f: impl FnOnce() -> T) -> T {
     let timer = logger().step_timed(s.as_ref());
     let out = f();
@@ -70,7 +70,7 @@ pub fn log_step_timed<T>(s: impl AsRef<str>, f: impl FnOnce() -> T) -> T {
     out
 }
 
-#[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
+#[deprecated(note = "Use `bullet_stream` instead")]
 pub fn log_step_stream<T>(
     s: impl AsRef<str>,
     f: impl FnOnce(&mut Box<dyn StreamLogger>) -> T,
@@ -82,25 +82,25 @@ pub fn log_step_stream<T>(
 }
 
 /// Print an error block to the output
-#[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
+#[deprecated(note = "Use `bullet_stream` instead")]
 pub fn log_error(s: impl AsRef<str>) {
     logger().announce().error(s.as_ref());
 }
 
 /// Print an warning block to the output
-#[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
+#[deprecated(note = "Use `bullet_stream` instead")]
 pub fn log_warning(s: impl AsRef<str>) {
     logger().announce().warning(s.as_ref());
 }
 
 /// Print an warning block to the output at a later time
-#[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
+#[deprecated(note = "Use `bullet_stream` instead")]
 pub fn log_warning_later(s: impl AsRef<str>) {
     logger().announce().warn_later(s.as_ref());
 }
 
 /// Print an important block to the output
-#[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
+#[deprecated(note = "Use `bullet_stream` instead")]
 pub fn log_important(s: impl AsRef<str>) {
     logger().announce().important(s.as_ref());
 }

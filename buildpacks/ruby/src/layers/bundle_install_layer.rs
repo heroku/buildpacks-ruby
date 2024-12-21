@@ -14,12 +14,12 @@
 //! must be compiled and will then be invoked via FFI. These native extensions are
 //! OS, Architecture, and Ruby version dependent. Due to this, when one of these changes
 //! we must clear the cache and re-run `bundle install`.
-use crate::layers::shared::{cached_layer_write_metadata, Meta};
 use crate::target_id::{OsDistribution, TargetId, TargetIdError};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use cache_diff::CacheDiff;
+use commons::layer::diff_migrate::{DiffMigrateLayer, Meta};
 use commons::{
     display::SentenceList, gemfile_lock::ResolvedRubyVersion, metadata_digest::MetadataDigest,
 };
@@ -31,8 +31,7 @@ use libcnb::{
     Env,
 };
 use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
-use serde::{Deserialize, Deserializer, Serialize};
-use std::convert::Infallible;
+use serde::{Deserialize, Serialize};
 use std::io::Stdout;
 use std::{path::Path, process::Command};
 
@@ -52,7 +51,11 @@ pub(crate) fn handle(
     metadata: &Metadata,
     without: &BundleWithout,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = cached_layer_write_metadata(layer_name!("gems"), context, metadata)?;
+    let layer_ref = DiffMigrateLayer {
+        build: true,
+        launch: true,
+    }
+    .cached_layer(layer_name!("gems"), context, metadata)?;
     let install_state = match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);
@@ -198,7 +201,7 @@ impl TryFrom<MetadataV1> for MetadataV2 {
 }
 
 impl TryFrom<MetadataV2> for MetadataV3 {
-    type Error = Infallible;
+    type Error = std::convert::Infallible;
 
     fn try_from(v2: MetadataV2) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -319,7 +322,7 @@ fn display_name(cmd: &mut Command, env: &Env) -> String {
 
 #[cfg(test)]
 mod test {
-    use crate::layers::shared::strip_ansi;
+    use bullet_stream::strip_ansi;
 
     use super::*;
     use std::path::PathBuf;

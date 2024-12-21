@@ -290,6 +290,7 @@ checksum = "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6"
 name = "commons"
 version = "0.0.0"
 dependencies = [
+ "bullet_stream",
  "byte-unit",
  "cache_diff",
  "const_format",

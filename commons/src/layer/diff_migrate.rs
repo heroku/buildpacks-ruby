@@ -1,25 +1,25 @@
-//! Your layer cache invalidation pal
+//! Declarative Layer Cache invalidation logic.
 //!
 //! Cache invalidation is one of the "famously" difficult problems in computer science. This module
 //! provides a clean, yet opinonated interface for handling cache invalidation and migrating invalid
 //! metadata.
 //!
-//! - Declarative interface for defining cache invalidation behavior (via [`CacheDiff`])
-//! - Declarative interface for defining invalid metadata migration behavior (via [`TryMigrate`])
+//! - Declarative interface for defining cache invalidation behavior (via [`cache_diff::CacheDiff`])
+//! - Declarative interface for defining invalid metadata migration behavior (via [`magic_migrate::TryMigrate`])
 //! - Prevent accidentally reading one struct type and writing a different one
 //!
-//! The primary interface is [`CacheBuddy`].
+//! The primary interface is [`DiffMigrateLayer`].
 //!
-//! ## Cache invalidation logic ([`CacheDiff`])
+//! ## Cache invalidation logic ([`cache_diff::CacheDiff`])
 //!
-//! The `CacheDiff` derive macro from `cache_diff` allows you to tell `CacheBuddy` which fields in your
+//! The `CacheDiff` derive macro from `cache_diff` allows you to tell [`DiffMigrateLayer`] which fields in your
 //! metadata struct act as cache keys and how to compare them. If a difference is reported, the cache
 //! is cleared.
 //!
 //! Importantly, when the cache is cleared, a clear message stating why the cache was cleared is returned
 //! in a user readable format.
 //!
-//! ## Invalid metadata migration ([`TryMigrate`])
+//! ## Invalid metadata migration ([`magic_migrate::TryMigrate`])
 //!
 //! If previously serialized metadata cannot be deserialized into the current struct then usually the
 //! only thing a buildpack can do is discard the cache. However, that may involve needing to re-do an
@@ -40,7 +40,7 @@
 //! build output. If the cache is cleared for any reason, then a user readable message is returned. This message should
 //! be printed to the buildpack user so they can understand what caused the cache to clear.
 //!
-#![doc = include_str!("./fixtures/diff_migrate_example.md")]
+#![doc = include_str!("fixtures/metadata_migration_example.md")]
 
 use crate::display::SentenceList;
 use cache_diff::CacheDiff;
@@ -51,7 +51,30 @@ use magic_migrate::TryMigrate;
 use serde::ser::Serialize;
 use std::fmt::Debug;
 
-/// Handle caching behavior for a layer
+#[cfg(test)]
+use bullet_stream as _;
+
+/// Creates a cached layer, potentially re-using a previously cached version with default invalidation and migration logic.
+///
+/// Like [`BuildContext::cached_layer`], this allows Buildpack code to create a cached layer and get
+/// back a reference to the layer directory on disk. Intricacies of the CNB spec are automatically handled
+/// such as the maintenance of TOML files.
+///
+/// In addition it provides default behavior for cache invalidation, automatic invalid metadata migration,
+/// as well as ensuring that the latest metadata is set on the layer.
+///
+/// Uses [`BuildContext::cached_layer`] with declarative traits [`CacheDiff`] for invalidation and [`TryMigrate`]
+/// for migration logic.
+/// The behavior here can be manually assembled using the provided struct [`Meta`] and functions:
+///
+/// - [`invalid_metadata_action`]
+/// - [`restored_layer_action`]
+///
+/// In addition to default behavior it also ensures that the metadata is updated.
+///
+/// The return is a [`LayerRef`] as if you had manually assembled your own [`BuildContext::cached_layer`]
+/// call. This allows users to be flexible in how and when the layer is modified and to abstract layer
+/// creation away if necessary.
 ///
 /// Guarantees that new metadata is always written (prevents accidentally reading one struct type and
 /// writing a different one). It also provides a standard interface to define caching behavior via
@@ -66,7 +89,7 @@ use std::fmt::Debug;
 ///   When a `CacheDiff::diff` is empty, the layer is kept and the old data is returned. Otherwise,
 ///   the layer is deleted and the changes are returned.
 ///
-#[doc = include_str!("./fixtures/diff_migrate_example.md")]
+/// **TUTORIAL:** In the [`diff_migrate`] module docs
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DiffMigrateLayer {
     /// Whether the layer is intended for build.

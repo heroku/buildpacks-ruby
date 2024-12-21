@@ -2,7 +2,7 @@
 
 ### Added
 
-- Introduced `layer::cache_buddy::CacheBuddy` for public cache use (https://github.com/heroku/buildpacks-ruby/pull/376)
+- Introduced `layer::diff_migrate` and `DiffMigrateLayer` for public cache use (https://github.com/heroku/buildpacks-ruby/pull/376)
 
 ### Changed
 

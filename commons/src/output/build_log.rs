@@ -32,7 +32,7 @@ use std::time::{Duration, Instant};
 /// To log inside of a layer see [`section_log`].
 
 #[derive(Debug)]
-#[deprecated(since = "0.0.0", note = "Use `bullet_stream` instead")]
+#[deprecated(note = "Use `bullet_stream` instead")]
 pub struct BuildLog<T, W: Debug> {
     pub(crate) io: W,
     pub(crate) data: BuildData,

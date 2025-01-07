@@ -11,7 +11,6 @@
 //!
 //! When the Ruby version changes, invalidate and re-run.
 //!
-use crate::layers::shared::cached_layer_write_metadata;
 use crate::target_id::OsDistribution;
 use crate::{
     target_id::{TargetId, TargetIdError},
@@ -21,13 +20,13 @@ use bullet_stream::state::SubBullet;
 use bullet_stream::Print;
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedRubyVersion;
+use commons::layer::diff_migrate::DiffMigrateLayer;
 use flate2::read::GzDecoder;
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::layer_env::LayerEnv;
 use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
-use serde::{Deserialize, Deserializer, Serialize};
-use std::convert::Infallible;
+use serde::{Deserialize, Serialize};
 use std::io::{self, Stdout};
 use std::path::Path;
 use tar::Archive;
@@ -39,7 +38,11 @@ pub(crate) fn handle(
     mut bullet: Print<SubBullet<Stdout>>,
     metadata: &Metadata,
 ) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = cached_layer_write_metadata(layer_name!("ruby"), context, metadata)?;
+    let layer_ref = DiffMigrateLayer {
+        build: true,
+        launch: true,
+    }
+    .cached_layer(layer_name!("ruby"), context, metadata)?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);
@@ -237,9 +240,9 @@ pub(crate) enum RubyInstallError {
 
 #[cfg(test)]
 mod tests {
-    use crate::layers::shared::{strip_ansi, temp_build_context};
-
     use super::*;
+    use crate::layers::shared::temp_build_context;
+    use bullet_stream::strip_ansi;
 
     /// If this test fails due to a change you'll need to
     /// implement `TryMigrate` for the new layer data and add
@@ -388,8 +391,18 @@ version = "3.1.3"
         let differences = old.diff(&old);
         assert_eq!(differences, Vec::<String>::new());
 
-        cached_layer_write_metadata(layer_name!("ruby"), &context, &old).unwrap();
-        let result = cached_layer_write_metadata(layer_name!("ruby"), &context, &old).unwrap();
+        DiffMigrateLayer {
+            build: true,
+            launch: true,
+        }
+        .cached_layer(layer_name!("ruby"), &context, &old)
+        .unwrap();
+        let result = DiffMigrateLayer {
+            build: true,
+            launch: true,
+        }
+        .cached_layer(layer_name!("ruby"), &context, &old)
+        .unwrap();
         let actual = result.state;
         assert!(matches!(actual, LayerState::Restored { .. }));
 
@@ -400,7 +413,12 @@ version = "3.1.3"
         let differences = now.diff(&old);
         assert_eq!(differences.len(), 1);
 
-        let result = cached_layer_write_metadata(layer_name!("ruby"), &context, &now).unwrap();
+        let result = DiffMigrateLayer {
+            build: true,
+            launch: true,
+        }
+        .cached_layer(layer_name!("ruby"), &context, &now)
+        .unwrap();
         assert!(matches!(
             result.state,
             LayerState::Empty {

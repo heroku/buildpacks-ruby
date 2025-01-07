@@ -175,9 +175,9 @@ checksum = "428d9aa8fbc0670b7b8d6030a7fadd0f86151cae55e4dbbece15f3780a3dfaf3"
 
 [[package]]
 name = "cache_diff"
-version = "1.0.0"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2afc054cd5e2f8a0fb0122db671c3731849b1fcc86ec664e1031834a0828b84b"
+checksum = "84b58ba1160088b5306b19fa156e9be5736043243ee6197346bf8ecd55e5366c"
 dependencies = [
  "bullet_stream",
  "cache_diff_derive",
@@ -290,7 +290,9 @@ checksum = "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6"
 name = "commons"
 version = "0.0.0"
 dependencies = [
+ "bullet_stream",
  "byte-unit",
+ "cache_diff",
  "const_format",
  "fancy-regex",
  "filetime",
@@ -302,6 +304,7 @@ dependencies = [
  "libcnb",
  "libcnb-test",
  "libherokubuildpack",
+ "magic_migrate",
  "pretty_assertions",
  "regex",
  "serde",
@@ -968,9 +971,9 @@ checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
 
 [[package]]
 name = "magic_migrate"
-version = "0.2.1"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3995455690a60dcbb8688d0f0e84eee5322eb1cdd5e9a9bf0ac7b2aa56250291"
+checksum = "5a173b20fd1f2e55ecc1fe680c88e039f9962dcf84b2531009bcdf6f2d589186"
 dependencies = [
  "serde",
 ]

@@ -130,6 +130,15 @@ impl DiffMigrateLayer {
     }
 }
 
+/// Represents when we want to move contents from one (or more) layer names
+///
+pub struct LayerRename {
+    /// The desired layer name
+    pub to: LayerName,
+    /// A list of prior, possibly layer names
+    pub from: Vec<LayerName>,
+}
+
 /// Standardizes formatting for layer cache clearing behavior
 ///
 /// If the diff is empty, there are no changes and the layer is kept and the old data is returned

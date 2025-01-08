@@ -53,7 +53,7 @@ use libcnb::layer::{
 use magic_migrate::TryMigrate;
 use serde::ser::Serialize;
 use std::fmt::Debug;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 use bullet_stream as _;
@@ -131,6 +131,52 @@ impl DiffMigrateLayer {
         )?;
         layer_ref.write_metadata(metadata)?;
         Ok(layer_ref)
+    }
+
+    /// Renames cached layer while writing metadata to a layer
+    ///
+    /// When given a prior [`LayerRename::from`] that exists, but the [`LayerRename::to`]
+    /// does not, then the contents of the prior layer will be copied before being deleted.
+    ///
+    /// After that this function callse [`cached_layer`] on the new layer.
+    ///
+    /// # Panics
+    ///
+    /// This function should not panic unless there's an internal bug.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if libcnb cannot read or write the metadata. Or if
+    /// there's an error while copying from one path to another.
+    pub fn cached_layer_rename<B, M>(
+        self,
+        layer_rename: LayerRename,
+        context: &BuildContext<B>,
+        metadata: &M,
+    ) -> libcnb::Result<LayerRef<B, Meta<M>, Meta<M>>, B::Error>
+    where
+        B: libcnb::Buildpack,
+        M: CacheDiff + TryMigrate + Serialize + Debug + Clone,
+    {
+        let LayerRename {
+            to: to_layer,
+            from: prior_layers,
+        } = layer_rename;
+
+        if let (Some(prior_dir), None) = (
+            prior_layers
+                .iter()
+                .map(|layer_name| is_layer_on_disk(layer_name, context))
+                .collect::<Result<Vec<Option<PathBuf>>, _>>()?
+                .iter()
+                .find_map(std::borrow::ToOwned::to_owned),
+            is_layer_on_disk(&to_layer, context)?,
+        ) {
+            copy_recursive_from_to(&prior_dir, &context.layers_dir.join(to_layer.as_str()))
+                .map_err(LayerError::IoError)?;
+            fs_err::remove_dir_all(prior_dir).map_err(LayerError::IoError)?;
+        }
+        self.cached_layer(to_layer, context, metadata)
     }
 }
 

@@ -44,12 +44,16 @@
 
 use crate::display::SentenceList;
 use cache_diff::CacheDiff;
+use fs_err::PathExt;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
-use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, LayerRef, RestoredLayerAction};
+use libcnb::layer::{
+    CachedLayerDefinition, InvalidMetadataAction, LayerError, LayerRef, RestoredLayerAction,
+};
 use magic_migrate::TryMigrate;
 use serde::ser::Serialize;
 use std::fmt::Debug;
+use std::path::PathBuf;
 
 #[cfg(test)]
 use bullet_stream as _;
@@ -137,6 +141,21 @@ pub struct LayerRename {
     pub to: LayerName,
     /// A list of prior, possibly layer names
     pub from: Vec<LayerName>,
+}
+
+/// Returns Some(PathBuf) when the layer exists on disk
+fn is_layer_on_disk<B>(
+    layer_name: &LayerName,
+    context: &BuildContext<B>,
+) -> libcnb::Result<Option<PathBuf>, B::Error>
+where
+    B: libcnb::Buildpack,
+{
+    let path = context.layers_dir.join(layer_name.as_str());
+
+    path.fs_err_try_exists()
+        .map_err(|error| libcnb::Error::LayerError(LayerError::IoError(error)))
+        .map(|exists| exists.then_some(path))
 }
 
 /// Standardizes formatting for layer cache clearing behavior

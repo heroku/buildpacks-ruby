@@ -3,6 +3,7 @@
 // Required due to: https://github.com/rust-lang/rust-clippy/issues/11119
 #![allow(clippy::unwrap_used)]
 
+use indoc::{formatdoc, indoc};
 use libcnb_test::{
     assert_contains, assert_contains_match, assert_empty, BuildConfig, BuildpackReference,
     ContainerConfig, ContainerContext, TestRunner,
@@ -15,19 +16,18 @@ use ureq::Response;
 // - Cached data "stack" is preserved and will be successfully migrated to "targets"
 #[test]
 #[ignore = "integration test"]
-fn test_migrating_metadata() {
+fn test_migrating_metadata_or_layer_names() {
     // This test is a placeholder for when a change modifies metadata structures.
     // Remove the return and update the `buildpack-ruby` reference to the latest version.
     #![allow(unreachable_code)]
-    // Test v4.0.2 compatible with v4.0.1
-    return;
+    // Test v5.0.1 compatible with v5.0.0
 
     let builder = "heroku/builder:24";
     let app_dir = "tests/fixtures/default_ruby";
 
     TestRunner::default().build(
         BuildConfig::new(builder, app_dir).buildpacks([BuildpackReference::Other(
-            "docker://docker.io/heroku/buildpack-ruby:4.0.1".to_string(),
+            "docker://docker.io/heroku/buildpack-ruby:5.0.0".to_string(),
         )]),
         |context| {
             println!("{}", context.pack_stdout);
@@ -67,6 +67,37 @@ fn test_default_app_ubuntu20() {
                 r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
 
             assert_contains!(context.pack_stdout, "Installing puma");
+
+        // Check that at run-time:
+        // - The correct env vars are set.
+        let command_output = context.run_shell_command(
+            indoc! {"
+                set -euo pipefail
+                printenv | sort | grep -vE '(_|HOME|HOSTNAME|OLDPWD|PWD|SHLVL|SECRET_KEY_BASE)='
+            "}
+        );
+        assert_empty!(command_output.stderr);
+        assert_eq!(
+            command_output.stdout,
+            formatdoc! {"
+                BUNDLE_BIN=/layers/heroku_ruby/gems/bin
+                BUNDLE_CLEAN=1
+                BUNDLE_DEPLOYMENT=1
+                BUNDLE_GEMFILE=/workspace/Gemfile
+                BUNDLE_PATH=/layers/heroku_ruby/gems
+                BUNDLE_WITHOUT=development:test
+                DISABLE_SPRING=1
+                GEM_PATH=/layers/heroku_ruby/gems:/layers/heroku_ruby/bundler
+                JRUBY_OPTS=-Xcompile.invokedynamic=false
+                LD_LIBRARY_PATH=/layers/heroku_ruby/binruby/lib
+                MALLOC_ARENA_MAX=2
+                PATH=/layers/heroku_ruby/bundler/bin:/layers/heroku_ruby/gems/bin:/layers/heroku_ruby/bundler/bin:/layers/heroku_ruby/binruby/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+                RACK_ENV=production
+                RAILS_ENV=production
+                RAILS_LOG_TO_STDOUT=enabled
+                RAILS_SERVE_STATIC_FILES=enabled
+            "}
+        );
         },
     );
 }

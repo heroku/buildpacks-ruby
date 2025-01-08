@@ -53,7 +53,7 @@ use libcnb::layer::{
 use magic_migrate::TryMigrate;
 use serde::ser::Serialize;
 use std::fmt::Debug;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[cfg(test)]
 use bullet_stream as _;
@@ -172,9 +172,14 @@ impl DiffMigrateLayer {
                 .find_map(std::borrow::ToOwned::to_owned),
             is_layer_on_disk(&to_layer, context)?,
         ) {
-            copy_recursive_from_to(&prior_dir, &context.layers_dir.join(to_layer.as_str()))
-                .map_err(LayerError::IoError)?;
-            fs_err::remove_dir_all(prior_dir).map_err(LayerError::IoError)?;
+            let to_dir = context.layers_dir.join(to_layer.as_str());
+            std::fs::create_dir_all(&to_dir).map_err(LayerError::IoError)?;
+            std::fs::rename(&prior_dir, &to_dir).map_err(LayerError::IoError)?;
+            std::fs::rename(
+                prior_dir.with_extension("toml"),
+                to_dir.with_extension("toml"),
+            )
+            .map_err(LayerError::IoError)?;
         }
         self.cached_layer(to_layer, context, metadata)
     }
@@ -187,24 +192,6 @@ pub struct LayerRename {
     pub to: LayerName,
     /// A list of prior, possibly layer names
     pub from: Vec<LayerName>,
-}
-
-fn copy_recursive_from_to(from_dir: &Path, to_path: &Path) -> Result<(), std::io::Error> {
-    fs_err::create_dir_all(&to_path)?;
-
-    for prior in walkdir::WalkDir::new(&from_dir)
-        .follow_links(true)
-        .into_iter()
-        .filter_map(Result::ok)
-    {
-        let relative = prior
-            .path()
-            .strip_prefix(&from_dir)
-            .expect("path is within given directory");
-
-        fs_err::copy(prior.path(), to_path.join(relative))?;
-    }
-    Ok(())
 }
 
 /// Returns Some(PathBuf) when the layer exists on disk

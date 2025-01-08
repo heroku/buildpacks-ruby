@@ -143,6 +143,24 @@ pub struct LayerRename {
     pub from: Vec<LayerName>,
 }
 
+fn copy_recursive_from_to(from_dir: &Path, to_path: &Path) -> Result<(), std::io::Error> {
+    fs_err::create_dir_all(&to_path)?;
+
+    for prior in walkdir::WalkDir::new(&from_dir)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(Result::ok)
+    {
+        let relative = prior
+            .path()
+            .strip_prefix(&from_dir)
+            .expect("path is within given directory");
+
+        fs_err::copy(prior.path(), to_path.join(relative))?;
+    }
+    Ok(())
+}
+
 /// Returns Some(PathBuf) when the layer exists on disk
 fn is_layer_on_disk<B>(
     layer_name: &LayerName,

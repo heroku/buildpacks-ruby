@@ -361,6 +361,100 @@ mod tests {
     }
 
     #[test]
+    fn test_migrate_layer_name_works_if_prior_dir_does_not_exist() {
+        let temp = tempfile::tempdir().unwrap();
+        let context = temp_build_context::<FakeBuildpack>(
+            temp.path(),
+            include_str!("../../../buildpacks/ruby/buildpack.toml"),
+        );
+
+        let result = DiffMigrateLayer {
+            build: true,
+            launch: true,
+        }
+        .cached_layer_rename(
+            LayerRename {
+                to: layer_name!("new"),
+                from: vec![layer_name!("does_not_exist")],
+            },
+            &context,
+            &TestMetadata {
+                value: "hello".to_string(),
+            },
+        )
+        .unwrap();
+
+        assert!(matches!(result.state, LayerState::Empty { cause: _ }));
+    }
+
+    #[test]
+    fn test_migrate_layer_name_copies_old_data() {
+        let temp = tempfile::tempdir().unwrap();
+        let old_layer_name = layer_name!("old");
+        let new_layer_name = layer_name!("new");
+        let context = temp_build_context::<FakeBuildpack>(
+            temp.path(),
+            include_str!("../../../buildpacks/ruby/buildpack.toml"),
+        );
+
+        // First write
+        let result = DiffMigrateLayer {
+            build: true,
+            launch: true,
+        }
+        .cached_layer(
+            old_layer_name.clone(),
+            &context,
+            &TestMetadata {
+                value: "hello".to_string(),
+            },
+        )
+        .unwrap();
+
+        assert!(matches!(
+            result.state,
+            LayerState::Empty {
+                cause: EmptyLayerCause::NewlyCreated
+            }
+        ));
+
+        assert!(context
+            .layers_dir
+            .join(old_layer_name.as_str())
+            .fs_err_try_exists()
+            .unwrap());
+
+        assert!(!context
+            .layers_dir
+            .join(new_layer_name.as_str())
+            .fs_err_try_exists()
+            .unwrap());
+
+        let result = DiffMigrateLayer {
+            build: true,
+            launch: true,
+        }
+        .cached_layer_rename(
+            LayerRename {
+                to: new_layer_name.clone(),
+                from: vec![old_layer_name],
+            },
+            &context,
+            &TestMetadata {
+                value: "hello".to_string(),
+            },
+        )
+        .unwrap();
+
+        assert!(matches!(result.state, LayerState::Restored { cause: _ }));
+        assert!(context
+            .layers_dir
+            .join(new_layer_name.as_str())
+            .fs_err_try_exists()
+            .unwrap());
+    }
+
+    #[test]
     fn test_diff_migrate() {
         let temp = tempfile::tempdir().unwrap();
         let context = temp_build_context::<FakeBuildpack>(

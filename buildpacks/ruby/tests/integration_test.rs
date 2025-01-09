@@ -74,6 +74,11 @@ fn test_default_app_ubuntu20() {
             indoc! {"
                 set -euo pipefail
                 printenv | sort | grep -vE '(_|HOME|HOSTNAME|OLDPWD|PWD|SHLVL|SECRET_KEY_BASE)='
+
+                # Output command + output to stdout
+                export BASH_XTRACEFD=1; set -o xtrace
+                which -a rake
+                which -a ruby
             "}
         );
         assert_empty!(command_output.stderr);
@@ -96,6 +101,15 @@ fn test_default_app_ubuntu20() {
                 RAILS_ENV=production
                 RAILS_LOG_TO_STDOUT=enabled
                 RAILS_SERVE_STATIC_FILES=enabled
+                + which -a rake
+                /layers/heroku_ruby/gems/bin/rake
+                /layers/heroku_ruby/binruby/bin/rake
+                /usr/bin/rake
+                /bin/rake
+                + which -a ruby
+                /layers/heroku_ruby/binruby/bin/ruby
+                /usr/bin/ruby
+                /bin/ruby
             "}
         );
         },

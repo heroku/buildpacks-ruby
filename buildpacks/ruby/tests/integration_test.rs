@@ -98,7 +98,6 @@ fn test_default_app_ubuntu20() {
         );
         assert_empty!(command_output.stderr);
         assert_eq!(
-            command_output.stdout,
             formatdoc! {"
                 BUNDLE_BIN=/layers/heroku_ruby/gems/bin
                 BUNDLE_CLEAN=1
@@ -125,7 +124,8 @@ fn test_default_app_ubuntu20() {
                 /layers/heroku_ruby/binruby/bin/ruby
                 /usr/bin/ruby
                 /bin/ruby
-            "}
+            "},
+            command_output.stdout,
         );
 
         fs_err::create_dir_all(app_dir.join("bin")).unwrap();
@@ -150,7 +150,6 @@ fn test_default_app_ubuntu20() {
             );
             assert_empty!(command_output.stderr);
             assert_eq!(
-                command_output.stdout,
                 formatdoc! {"
                     + which -a rake
                     /workspace/bin/rake
@@ -158,7 +157,8 @@ fn test_default_app_ubuntu20() {
                     /layers/heroku_ruby/binruby/bin/rake
                     /usr/bin/rake
                     /bin/rake
-                "}
+                "},
+                command_output.stdout,
             );
         });
         },

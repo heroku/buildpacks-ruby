@@ -8,6 +8,8 @@ use libcnb_test::{
     assert_contains, assert_contains_match, assert_empty, BuildConfig, BuildpackReference,
     ContainerConfig, ContainerContext, TestRunner,
 };
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
 use ureq::Response;
@@ -57,8 +59,20 @@ fn test_migrating_metadata_or_layer_names() {
 #[test]
 #[ignore = "integration test"]
 fn test_default_app_ubuntu20() {
+    let temp = tempfile::tempdir().unwrap();
+    let app_dir = temp.path();
+
+    copy_dir_all(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("default_ruby"),
+        app_dir,
+    )
+    .unwrap();
+    let config = BuildConfig::new("heroku/builder:20", app_dir);
     TestRunner::default().build(
-        BuildConfig::new("heroku/builder:20", "tests/fixtures/default_ruby"),
+        config.clone(),
         |context| {
             println!("{}", context.pack_stdout);
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
@@ -96,7 +110,7 @@ fn test_default_app_ubuntu20() {
                 JRUBY_OPTS=-Xcompile.invokedynamic=false
                 LD_LIBRARY_PATH=/layers/heroku_ruby/binruby/lib
                 MALLOC_ARENA_MAX=2
-                PATH=/layers/heroku_ruby/bundler/bin:/layers/heroku_ruby/gems/bin:/layers/heroku_ruby/bundler/bin:/layers/heroku_ruby/binruby/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+                PATH=/workspace/bin:/layers/heroku_ruby/bundler/bin:/layers/heroku_ruby/gems/bin:/layers/heroku_ruby/bundler/bin:/layers/heroku_ruby/binruby/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
                 RACK_ENV=production
                 RAILS_ENV=production
                 RAILS_LOG_TO_STDOUT=enabled
@@ -112,6 +126,40 @@ fn test_default_app_ubuntu20() {
                 /bin/ruby
             "}
         );
+
+        fs_err::create_dir_all(app_dir.join("bin")).unwrap();
+        fs_err::write(app_dir.join("bin").join("rake"), formatdoc!{"
+            #!/usr/bin/env ruby
+            require_relative '../config/boot'
+            require 'rake'
+            Rake.application.run
+        "}).unwrap();
+        chmod_plus_x(&app_dir.join("bin").join("rake")).unwrap();
+
+        context.rebuild(config, |rebuild_context| {
+            println!("{}", rebuild_context.pack_stdout);
+            assert_contains!(rebuild_context.pack_stdout, "Skipping `bundle install` (no changes found in /workspace/Gemfile, /workspace/Gemfile.lock, or user configured environment variables)");
+
+            let command_output = rebuild_context.run_shell_command(
+                indoc! {"
+                    # Output command + output to stdout
+                    export BASH_XTRACEFD=1; set -o xtrace
+                    which -a rake
+                "}
+            );
+            assert_empty!(command_output.stderr);
+            assert_eq!(
+                command_output.stdout,
+                formatdoc! {"
+                    + which -a rake
+                    /workspace/bin/rake
+                    /layers/heroku_ruby/gems/bin/rake
+                    /layers/heroku_ruby/binruby/bin/rake
+                    /usr/bin/rake
+                    /bin/rake
+                "}
+            );
+        });
         },
     );
 }
@@ -362,4 +410,34 @@ fn amd_arm_builder_config(builder_name: &str, app_dir: &str) -> BuildConfig {
         _ => config.target_triple("x86_64-unknown-linux-musl"),
     };
     config
+}
+
+/// Sets file permissions on the given path to 7xx (similar to `chmod +x <path>`)
+///
+/// i.e. chmod +x will ensure that the first digit
+/// of the file permission is 7 on unix so if you pass
+/// in 0o455 it would be mutated to 0o755
+fn chmod_plus_x(path: &Path) -> Result<(), std::io::Error> {
+    let mut perms = fs_err::metadata(path)?.permissions();
+    let mut mode = perms.mode();
+    mode |= 0o700;
+    perms.set_mode(mode);
+
+    fs_err::set_permissions(path, perms)
+}
+
+fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), std::io::Error> {
+    let src = src.as_ref();
+    let dst = dst.as_ref();
+    fs_err::create_dir_all(&dst)?;
+    for entry in fs_err::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            copy_dir_all(entry.path(), dst.join(entry.file_name()))?;
+        } else {
+            fs_err::copy(entry.path(), dst.join(entry.file_name()))?;
+        }
+    }
+    Ok(())
 }

@@ -38,12 +38,20 @@ pub(crate) fn default_env(
         .to_string();
 
     let layer_ref = context.uncached_layer(
-        layer_name!("env_defaults"),
+        layer_name!("venv"),
         UncachedLayerDefinition {
             build: true,
             launch: true,
         },
     )?;
+    let update_env = LayerEnv::new()
+        .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
+        .chainable_insert(
+            Scope::All,
+            ModificationBehavior::Prepend,
+            "PATH",
+            context.app_dir.join("bin"),
+        );
     let env = layer_ref
         .write_env({
             [
@@ -57,7 +65,7 @@ pub(crate) fn default_env(
                 ("DISABLE_SPRING", "1"),
             ]
             .iter()
-            .fold(LayerEnv::new(), |layer_env, (name, value)| {
+            .fold(update_env, |layer_env, (name, value)| {
                 layer_env.chainable_insert(Scope::All, ModificationBehavior::Default, name, value)
             })
         })

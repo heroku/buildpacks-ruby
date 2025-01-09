@@ -28,6 +28,8 @@ mod user_errors;
 
 #[cfg(test)]
 use libcnb_test as _;
+#[cfg(test)]
+use pretty_assertions as _;
 
 use clap as _;
 

@@ -430,7 +430,7 @@ fn chmod_plus_x(path: &Path) -> Result<(), std::io::Error> {
 fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), std::io::Error> {
     let src = src.as_ref();
     let dst = dst.as_ref();
-    fs_err::create_dir_all(&dst)?;
+    fs_err::create_dir_all(dst)?;
     for entry in fs_err::read_dir(src)? {
         let entry = entry?;
         let ty = entry.file_type()?;

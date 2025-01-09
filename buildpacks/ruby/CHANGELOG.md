@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Binaries from user installed gems will be placed on the path before binaries that ship with Ruby ([#382](https://github.com/heroku/buildpacks-ruby/pull/382))
+- Executables from the applications `bin` directory will be placed on the path before dependencies installed via bundler ([#383](https://github.com/heroku/buildpacks-ruby/pull/383))
+- Binaries from user installed gems will be placed on the path before binaries that ship with Ruby ([#383](https://github.com/heroku/buildpacks-ruby/pull/383))
 
 ## [5.0.0] - 2024-12-17
 

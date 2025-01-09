@@ -2,7 +2,7 @@
 
 ### Added
 
-- Introduce `DiffMigrateLayer::cached_layer_rename` and `layer::diff_migrate::LayerRename` (https://github.com/heroku/buildpacks-ruby/pull/382)
+- Introduce `DiffMigrateLayer::cached_layer_rename` and `layer::diff_migrate::LayerRename` (https://github.com/heroku/buildpacks-ruby/pull/383)
 
 ## 2024-01-08
 

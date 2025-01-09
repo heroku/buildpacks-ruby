@@ -608,6 +608,7 @@ dependencies = [
  "libcnb-test",
  "libherokubuildpack",
  "magic_migrate",
+ "pretty_assertions",
  "rand",
  "regex",
  "serde",

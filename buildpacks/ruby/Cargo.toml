@@ -34,3 +34,4 @@ cache_diff = { version = "1.0.0", features = ["bullet_stream"] }
 
 [dev-dependencies]
 libcnb-test = "=0.26.1"
+pretty_assertions = "1.4.1"

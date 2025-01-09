@@ -8,6 +8,7 @@ use libcnb_test::{
     assert_contains, assert_contains_match, assert_empty, BuildConfig, BuildpackReference,
     ContainerConfig, ContainerContext, TestRunner,
 };
+use pretty_assertions::assert_eq;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::thread;

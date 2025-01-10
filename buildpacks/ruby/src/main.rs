@@ -11,9 +11,11 @@ use layers::{
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
 use libcnb::data::launch::LaunchBuilder;
+use libcnb::data::layer_name;
 use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
 use libcnb::generic::{GenericMetadata, GenericPlatform};
-use libcnb::layer_env::Scope;
+use libcnb::layer::UncachedLayerDefinition;
+use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
 use std::io::stdout;
@@ -218,6 +220,28 @@ impl Buildpack for RubyBuildpack {
             )?;
 
             (bullet.done(), layer_env.apply(Scope::Build, &env))
+        };
+
+        env = {
+            let user_binstubs = context.uncached_layer(
+                layer_name!("user_binstubs"),
+                UncachedLayerDefinition {
+                    build: true,
+                    launch: true,
+                },
+            )?;
+            user_binstubs.write_env(
+                LayerEnv::new()
+                    .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
+                    .chainable_insert(
+                        Scope::All,
+                        ModificationBehavior::Prepend,
+                        "PATH",
+                        context.app_dir.join("bin"),
+                    ),
+            )?;
+
+            user_binstubs.read_env()?.apply(Scope::Build, &env)
         };
 
         // ## Detect gems

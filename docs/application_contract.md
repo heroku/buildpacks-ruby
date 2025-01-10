@@ -80,7 +80,7 @@ Once an application has passed the detect phase, the build phase will execute to
   - `GEM_PATH=<bundle-path-dir>` - Tells Ruby where gems are located.
   - `MALLOC_ARENA_MAX=2` - Controls glibc memory allocation behavior with the goal of decreasing overall memory allocated by Ruby [details](https://devcenter.heroku.com/changelog-items/1683).
   - `PATH` - Various executables are installed and the `PATH` env var will be modified so they can be executed at the system level. This is mostly done via interfaces provided by `libcnb` and CNB layers rather than directly.
-    - Executables in the application `bin` directory will take precedence over gem installed executables.
+    - Executables in the application `bin` directory will take precedence over gem installed executables. Note that some commands like `bundle exec` may alter the `PATH` to change this order.
     - Executables from gems will take precedence over executables that ship with Ruby (for example `rake` installed from `bundle install` should be loaded before `rake` that come with the compiled Ruby binary).
   - `RAILS_LOG_TO_STDOUT="enabled"` - Sets the default logging target to STDOUT for Rails 5+ apps. [details](https://blog.heroku.com/container_ready_rails_5)
   - `RAILS_SERVE_STATIC_FILES="enabled"` - Enables the `ActionDispatch::Static` middleware for Rails 5+ apps so that static files such as those in `public/assets` are served by the Ruby webserver such as Puma [details](https://blog.heroku.com/container_ready_rails_5).

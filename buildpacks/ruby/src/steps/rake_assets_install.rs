@@ -20,7 +20,7 @@ pub(crate) fn rake_assets_install(
     let cases = asset_cases(rake_detect);
     let rake_assets_precompile = style::value("rake assets:precompile");
     let rake_assets_clean = style::value("rake assets:clean");
-    let rake_detect_cmd = style::value("bundle exec rake -P");
+    let rake_detect_cmd = style::value("rake -P");
 
     match cases {
         AssetCases::None => {
@@ -33,8 +33,8 @@ pub(crate) fn rake_assets_install(
                 format!("Compiling assets without cache (Clean task not found via {rake_detect_cmd})"),
             ).sub_bullet(format!("{help} Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
 
-            let mut cmd = Command::new("bundle");
-            cmd.args(["exec", "rake", "assets:precompile", "--trace"])
+            let mut cmd = Command::new("rake");
+            cmd.args(["assets:precompile", "--trace"])
                 .env_clear()
                 .envs(env);
 
@@ -79,16 +79,10 @@ pub(crate) fn rake_assets_install(
                 });
             }
 
-            let mut cmd = Command::new("bundle");
-            cmd.args([
-                "exec",
-                "rake",
-                "assets:precompile",
-                "assets:clean",
-                "--trace",
-            ])
-            .env_clear()
-            .envs(env);
+            let mut cmd = Command::new("rake");
+            cmd.args(["assets:precompile", "assets:clean", "--trace"])
+                .env_clear()
+                .envs(env);
 
             bullet
                 .stream_with(

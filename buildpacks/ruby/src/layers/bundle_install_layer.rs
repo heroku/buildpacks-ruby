@@ -322,9 +322,9 @@ fn display_name(cmd: &mut Command, env: &Env) -> String {
 
 #[cfg(test)]
 mod test {
-    use bullet_stream::strip_ansi;
-
     use super::*;
+    use bullet_stream::strip_ansi;
+    use pretty_assertions::assert_eq;
     use std::path::PathBuf;
 
     /// `CacheDiff` logic controls cache invalidation

@@ -43,6 +43,8 @@
 #![doc = include_str!("fixtures/metadata_migration_example.md")]
 
 use crate::display::SentenceList;
+use crate::layer::order::contains_entry_with_name_or_pattern;
+use crate::layer::order::ordered_layer_name;
 use cache_diff::CacheDiff;
 use fs_err::PathExt;
 use libcnb::build::BuildContext;
@@ -53,7 +55,7 @@ use libcnb::layer::{
 use magic_migrate::TryMigrate;
 use serde::ser::Serialize;
 use std::fmt::Debug;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 use bullet_stream as _;
@@ -120,6 +122,19 @@ impl DiffMigrateLayer {
         B: libcnb::Buildpack,
         M: CacheDiff + TryMigrate + Serialize + Debug + Clone,
     {
+        let layer_name = if cfg!(feature = "auto_layer_ordering") {
+            let layer_name = ordered_layer_name(layer_name);
+
+            // Move NNNN_<layer_name> or `<layer_name>` to `NNNN_<layer_name>`
+            if let Some(prior) = layer_to_path(context, &layer_name)? {
+                move_layer_path(&prior, &context.layers_dir.join(layer_name.as_str()))
+                    .map_err(LayerError::IoError)?;
+            }
+            layer_name
+        } else {
+            layer_name
+        };
+
         let layer_ref = context.cached_layer(
             layer_name,
             CachedLayerDefinition {
@@ -166,23 +181,26 @@ impl DiffMigrateLayer {
         if let (Some(prior_dir), None) = (
             prior_layers
                 .iter()
-                .map(|layer_name| is_layer_on_disk(layer_name, context))
+                .map(|layer_name| layer_to_path(context, layer_name))
                 .collect::<Result<Vec<Option<PathBuf>>, _>>()?
                 .iter()
                 .find_map(std::borrow::ToOwned::to_owned),
-            is_layer_on_disk(&to_layer, context)?,
+            layer_to_path(context, &to_layer)?,
         ) {
-            let to_dir = context.layers_dir.join(to_layer.as_str());
-            std::fs::create_dir_all(&to_dir).map_err(LayerError::IoError)?;
-            std::fs::rename(&prior_dir, &to_dir).map_err(LayerError::IoError)?;
-            std::fs::rename(
-                prior_dir.with_extension("toml"),
-                to_dir.with_extension("toml"),
-            )
-            .map_err(LayerError::IoError)?;
+            move_layer_path(&prior_dir, &context.layers_dir.join(to_layer.as_str()))
+                .map_err(LayerError::IoError)?;
         }
         self.cached_layer(to_layer, context, metadata)
     }
+}
+
+fn move_layer_path(from_dir: &Path, to_dir: &Path) -> Result<(), std::io::Error> {
+    std::fs::create_dir_all(to_dir)?;
+    std::fs::rename(from_dir, to_dir)?;
+    std::fs::rename(
+        from_dir.with_extension("toml"),
+        to_dir.with_extension("toml"),
+    )
 }
 
 /// Represents when we want to move contents from one (or more) layer names
@@ -195,18 +213,24 @@ pub struct LayerRename {
 }
 
 /// Returns Some(PathBuf) when the layer exists on disk
-fn is_layer_on_disk<B>(
-    layer_name: &LayerName,
+///
+/// Is aware of auto layer-ordering and will convert `0001_my_layer` => `my_layer`  and vise-versa
+fn layer_to_path<B>(
     context: &BuildContext<B>,
+    layer_name: &LayerName,
 ) -> libcnb::Result<Option<PathBuf>, B::Error>
 where
     B: libcnb::Buildpack,
 {
-    let path = context.layers_dir.join(layer_name.as_str());
-
-    path.fs_err_try_exists()
-        .map_err(|error| libcnb::Error::LayerError(LayerError::IoError(error)))
-        .map(|exists| exists.then_some(path))
+    if cfg!(feature = "auto_layer_ordering") {
+        contains_entry_with_name_or_pattern(&context.layers_dir, layer_name.as_str())
+            .map_err(|error| libcnb::Error::LayerError(LayerError::IoError(error)))
+    } else {
+        let path = context.layers_dir.join(layer_name.as_str());
+        path.fs_err_try_exists()
+            .map_err(|error| libcnb::Error::LayerError(LayerError::IoError(error)))
+            .map(|exists| exists.then_some(path))
+    }
 }
 
 /// Standardizes formatting for layer cache clearing behavior
@@ -292,6 +316,7 @@ where
 ///
 /// - Will only ever contain metadata when the cache is retained.
 /// - Will contain a message when the cache is cleared, describing why it was cleared.
+#[derive(Debug)]
 pub enum Meta<M> {
     Message(String),
     Data(M),
@@ -322,6 +347,7 @@ mod tests {
     use libcnb::layer::{EmptyLayerCause, InvalidMetadataAction, LayerState, RestoredLayerAction};
     use magic_migrate::{migrate_toml_chain, try_migrate_deserializer_chain, Migrate, TryMigrate};
     use std::convert::Infallible;
+
     /// Struct for asserting the behavior of `CacheBuddy`
     #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
     #[serde(deny_unknown_fields)]
@@ -418,9 +444,9 @@ mod tests {
             }
         ));
 
-        assert!(context
-            .layers_dir
-            .join(old_layer_name.as_str())
+        assert!(layer_to_path(&context, &old_layer_name)
+            .unwrap()
+            .unwrap()
             .fs_err_try_exists()
             .unwrap());
 
@@ -446,10 +472,14 @@ mod tests {
         )
         .unwrap();
 
-        assert!(matches!(result.state, LayerState::Restored { cause: _ }));
-        assert!(context
-            .layers_dir
-            .join(new_layer_name.as_str())
+        assert!(
+            matches!(result.state, LayerState::Restored { cause: _ }),
+            "Does not match {:?}",
+            result.state
+        );
+        assert!(layer_to_path(&context, &new_layer_name)
+            .unwrap()
+            .unwrap()
             .fs_err_try_exists()
             .unwrap());
     }

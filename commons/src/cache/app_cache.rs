@@ -1,5 +1,6 @@
 use crate::cache::clean::{lru_clean, FilesWithSize};
 use crate::cache::{CacheConfig, CacheError, KeepPath};
+use crate::layer::order::ordered_layer_name;
 use byte_unit::{AdjustedByte, Byte, UnitType};
 use fs_extra::dir::CopyOptions;
 use libcnb::build::BuildContext;
@@ -387,9 +388,15 @@ fn create_layer_name(app_root: &Path, path: &Path) -> Result<LayerName, CacheErr
         .collect::<Vec<_>>()
         .join("_");
 
-    format!("cache_{name}")
+    let layer_name: LayerName = format!("cache_{name}")
         .parse()
-        .map_err(CacheError::InvalidLayerName)
+        .map_err(CacheError::InvalidLayerName)?;
+
+    if cfg!(feature = "auto_layer_ordering") {
+        Ok(ordered_layer_name(layer_name))
+    } else {
+        Ok(layer_name)
+    }
 }
 
 /// Determines if a cache directory in a layer previously existed or not.
@@ -420,6 +427,8 @@ fn is_empty_dir(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use crate::layer::order::strip_order_prefix;
+
     use super::*;
     use filetime::FileTime;
     use libcnb::data::layer_name;
@@ -429,7 +438,10 @@ mod tests {
     fn test_to_layer_name() {
         let dir = PathBuf::from_str("muh_base").unwrap();
         let layer = create_layer_name(&dir, &dir.join("my").join("input")).unwrap();
-        assert_eq!(layer_name!("cache_my_input"), layer);
+        assert_eq!(
+            layer_name!("cache_my_input").as_str(),
+            &strip_order_prefix(layer.as_str())
+        );
     }
 
     #[test]

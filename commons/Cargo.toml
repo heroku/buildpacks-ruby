@@ -38,3 +38,8 @@ libcnb-test = "=0.26.1"
 pretty_assertions = "1"
 toml = "0.8"
 bullet_stream = "0.3.0"
+
+[features]
+# Auto name layers in the order of their creation so that launch and build are resolved in the same order
+auto_layer_ordering = []
+default = ["auto_layer_ordering"]

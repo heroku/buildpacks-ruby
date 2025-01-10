@@ -164,11 +164,11 @@ fn test_default_app_ubuntu20() {
 
         fs_err::write(app_dir.join("Rakefile"), r#"
             task "assets:precompile" do
-              puts "Inspecting ruby via rake assets:precompile"
-              puts "=========================================="
+              puts "START RAKE TEST OUTPUT"
               run!("echo $PATH")
               run!("which -a rake")
               run!("which -a ruby")
+              puts "END RAKE TEST OUTPUT"
             end
 
             def run!(cmd)
@@ -179,14 +179,13 @@ fn test_default_app_ubuntu20() {
             end
         "#).unwrap();
 
+
         context.rebuild(config, |rebuild_context| {
             println!("{}", rebuild_context.pack_stdout);
             assert_contains!(rebuild_context.pack_stdout, "Skipping `bundle install` (no changes found in /workspace/Gemfile, /workspace/Gemfile.lock, or user configured environment variables)");
-            assert_contains!(
-                Regex::new(r"/layers/heroku_ruby/gems/ruby/\d+\.\d+\.\d+/bin").unwrap().replace_all(&rebuild_context.pack_stdout, "/layers/heroku_ruby/gems/ruby/<x.y.z>/bin")
-                , r"
-      Inspecting ruby via rake assets:precompile
-      ==========================================
+            let rake_output = Regex::new(r"(?sm)START RAKE TEST OUTPUT\n(.*)END RAKE TEST OUTPUT").unwrap().captures(&rebuild_context.pack_stdout).and_then(|captures| captures.get(1).map(|m| m.as_str().to_string())).unwrap();
+            assert_eq!(
+                r"
       $ echo $PATH
       /layers/heroku_ruby/gems/ruby/<x.y.z>/bin:/workspace/bin:/layers/heroku_ruby/gems/bin:/layers/heroku_ruby/bundler/bin:/layers/heroku_ruby/binruby/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       $ which -a rake
@@ -200,7 +199,9 @@ fn test_default_app_ubuntu20() {
       /layers/heroku_ruby/binruby/bin/ruby
       /usr/bin/ruby
       /bin/ruby
-".trim());
+            ".trim(),
+        Regex::new(r"/layers/heroku_ruby/gems/ruby/\d+\.\d+\.\d+/bin").unwrap().replace_all(&rake_output, "/layers/heroku_ruby/gems/ruby/<x.y.z>/bin").trim()
+);
 
             let command_output = rebuild_context.run_shell_command(
                 indoc! {"

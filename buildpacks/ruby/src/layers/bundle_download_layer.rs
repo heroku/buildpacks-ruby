@@ -36,6 +36,8 @@ pub(crate) fn handle(
     match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);
+
+            layer_ref.write_env(layer_env(&layer_ref.path()))?;
             Ok((bullet, layer_ref.read_env()?))
         }
         LayerState::Empty { cause } => {
@@ -46,9 +48,9 @@ pub(crate) fn handle(
                     bullet = bullet.sub_bullet(cause);
                 }
             }
-            let (bullet, layer_env) = download_bundler(bullet, env, metadata, &layer_ref.path())?;
-            layer_ref.write_env(&layer_env)?;
+            let bullet = download_bundler(bullet, env, metadata, &layer_ref.path())?;
 
+            layer_ref.write_env(layer_env(&layer_ref.path()))?;
             Ok((bullet, layer_ref.read_env()?))
         }
     }
@@ -73,15 +75,33 @@ pub(crate) enum MetadataError {
     // Update if migrating between a metadata version can error
 }
 
+fn layer_env(gem_path: &Path) -> LayerEnv {
+    let bin_dir = gem_path.join("bin");
+
+    LayerEnv::new()
+        .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
+        .chainable_insert(
+            Scope::All,
+            ModificationBehavior::Prepend,
+            "PATH", // Ensure this path comes before default bundler that ships with ruby, don't rely on the lifecycle
+            &bin_dir,
+        )
+        .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
+        .chainable_insert(
+            Scope::All,
+            ModificationBehavior::Prepend,
+            "GEM_PATH", // Bundler is a gem too, allow it to be required
+            gem_path,
+        )
+}
+
 fn download_bundler(
     bullet: Print<SubBullet<Stdout>>,
     env: &Env,
     metadata: &Metadata,
-    path: &Path,
-) -> Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let bin_dir = path.join("bin");
-    let gem_path = path;
-
+    gem_path: &Path,
+) -> Result<Print<SubBullet<Stdout>>, RubyBuildpackError> {
+    let bin_dir = gem_path.join("bin");
     let mut cmd = Command::new("gem");
     cmd.args(["install", "bundler"]);
     cmd.args(["--version", &metadata.version.to_string()]) // Specify exact version to install
@@ -104,23 +124,7 @@ fn download_bundler(
         .map_err(|error| fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned()))
         .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
 
-    let layer_env = LayerEnv::new()
-        .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
-        .chainable_insert(
-            Scope::All,
-            ModificationBehavior::Prepend,
-            "PATH", // Ensure this path comes before default bundler that ships with ruby, don't rely on the lifecycle
-            bin_dir,
-        )
-        .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
-        .chainable_insert(
-            Scope::All,
-            ModificationBehavior::Prepend,
-            "GEM_PATH", // Bundler is a gem too, allow it to be required
-            gem_path,
-        );
-
-    Ok((timer.done(), layer_env))
+    Ok(timer.done())
 }
 
 #[cfg(test)]

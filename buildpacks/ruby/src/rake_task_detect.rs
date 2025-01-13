@@ -29,10 +29,8 @@ pub(crate) fn call<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsS
     envs: T,
     error_on_failure: bool,
 ) -> Result<(Print<SubBullet<Stdout>>, RakeDetect), CmdError> {
-    let mut cmd = Command::new("bundle");
-    cmd.args(["exec", "rake", "-P", "--trace"])
-        .env_clear()
-        .envs(envs);
+    let mut cmd = Command::new("rake");
+    cmd.args(["-P", "--trace"]).env_clear().envs(envs);
 
     let timer = bullet.start_timer(format!("Running {}", style::command(cmd.name())));
     let output = cmd.named_output().or_else(|error| {

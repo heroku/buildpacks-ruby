@@ -152,10 +152,10 @@ fn write_execd_script(
     fs_err::write(
         &execd,
         format!(
-            r#"#!/usr/bin/env bash
+            r"#!/usr/bin/env bash
 
                {daemon} --log {log} --loop-path {run_loop} --agentmon {agentmon}
-              "#,
+              ",
             log = log.display(),
             daemon = daemon.display(),
             run_loop = run_loop.display(),

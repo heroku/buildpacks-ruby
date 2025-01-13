@@ -44,12 +44,16 @@
 
 use crate::display::SentenceList;
 use cache_diff::CacheDiff;
+use fs_err::PathExt;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
-use libcnb::layer::{CachedLayerDefinition, InvalidMetadataAction, LayerRef, RestoredLayerAction};
+use libcnb::layer::{
+    CachedLayerDefinition, InvalidMetadataAction, LayerError, LayerRef, RestoredLayerAction,
+};
 use magic_migrate::TryMigrate;
 use serde::ser::Serialize;
 use std::fmt::Debug;
+use std::path::PathBuf;
 
 #[cfg(test)]
 use bullet_stream as _;
@@ -128,6 +132,81 @@ impl DiffMigrateLayer {
         layer_ref.write_metadata(metadata)?;
         Ok(layer_ref)
     }
+
+    /// Renames cached layer while writing metadata to a layer
+    ///
+    /// When given a prior [`LayerRename::from`] that exists, but the [`LayerRename::to`]
+    /// does not, then the contents of the prior layer will be copied before being deleted.
+    ///
+    /// After that this function callse [`cached_layer`] on the new layer.
+    ///
+    /// # Panics
+    ///
+    /// This function should not panic unless there's an internal bug.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if libcnb cannot read or write the metadata. Or if
+    /// there's an error while copying from one path to another.
+    pub fn cached_layer_rename<B, M>(
+        self,
+        layer_rename: LayerRename,
+        context: &BuildContext<B>,
+        metadata: &M,
+    ) -> libcnb::Result<LayerRef<B, Meta<M>, Meta<M>>, B::Error>
+    where
+        B: libcnb::Buildpack,
+        M: CacheDiff + TryMigrate + Serialize + Debug + Clone,
+    {
+        let LayerRename {
+            to: to_layer,
+            from: prior_layers,
+        } = layer_rename;
+
+        if let (Some(prior_dir), None) = (
+            prior_layers
+                .iter()
+                .map(|layer_name| is_layer_on_disk(layer_name, context))
+                .collect::<Result<Vec<Option<PathBuf>>, _>>()?
+                .iter()
+                .find_map(std::borrow::ToOwned::to_owned),
+            is_layer_on_disk(&to_layer, context)?,
+        ) {
+            let to_dir = context.layers_dir.join(to_layer.as_str());
+            std::fs::create_dir_all(&to_dir).map_err(LayerError::IoError)?;
+            std::fs::rename(&prior_dir, &to_dir).map_err(LayerError::IoError)?;
+            std::fs::rename(
+                prior_dir.with_extension("toml"),
+                to_dir.with_extension("toml"),
+            )
+            .map_err(LayerError::IoError)?;
+        }
+        self.cached_layer(to_layer, context, metadata)
+    }
+}
+
+/// Represents when we want to move contents from one (or more) layer names
+///
+pub struct LayerRename {
+    /// The desired layer name
+    pub to: LayerName,
+    /// A list of prior, possibly layer names
+    pub from: Vec<LayerName>,
+}
+
+/// Returns Some(PathBuf) when the layer exists on disk
+fn is_layer_on_disk<B>(
+    layer_name: &LayerName,
+    context: &BuildContext<B>,
+) -> libcnb::Result<Option<PathBuf>, B::Error>
+where
+    B: libcnb::Buildpack,
+{
+    let path = context.layers_dir.join(layer_name.as_str());
+
+    path.fs_err_try_exists()
+        .map_err(|error| libcnb::Error::LayerError(LayerError::IoError(error)))
+        .map(|exists| exists.then_some(path))
 }
 
 /// Standardizes formatting for layer cache clearing behavior
@@ -279,6 +358,100 @@ mod tests {
         ) -> libcnb::Result<libcnb::build::BuildResult, Self::Error> {
             todo!()
         }
+    }
+
+    #[test]
+    fn test_migrate_layer_name_works_if_prior_dir_does_not_exist() {
+        let temp = tempfile::tempdir().unwrap();
+        let context = temp_build_context::<FakeBuildpack>(
+            temp.path(),
+            include_str!("../../../buildpacks/ruby/buildpack.toml"),
+        );
+
+        let result = DiffMigrateLayer {
+            build: true,
+            launch: true,
+        }
+        .cached_layer_rename(
+            LayerRename {
+                to: layer_name!("new"),
+                from: vec![layer_name!("does_not_exist")],
+            },
+            &context,
+            &TestMetadata {
+                value: "hello".to_string(),
+            },
+        )
+        .unwrap();
+
+        assert!(matches!(result.state, LayerState::Empty { cause: _ }));
+    }
+
+    #[test]
+    fn test_migrate_layer_name_copies_old_data() {
+        let temp = tempfile::tempdir().unwrap();
+        let old_layer_name = layer_name!("old");
+        let new_layer_name = layer_name!("new");
+        let context = temp_build_context::<FakeBuildpack>(
+            temp.path(),
+            include_str!("../../../buildpacks/ruby/buildpack.toml"),
+        );
+
+        // First write
+        let result = DiffMigrateLayer {
+            build: true,
+            launch: true,
+        }
+        .cached_layer(
+            old_layer_name.clone(),
+            &context,
+            &TestMetadata {
+                value: "hello".to_string(),
+            },
+        )
+        .unwrap();
+
+        assert!(matches!(
+            result.state,
+            LayerState::Empty {
+                cause: EmptyLayerCause::NewlyCreated
+            }
+        ));
+
+        assert!(context
+            .layers_dir
+            .join(old_layer_name.as_str())
+            .fs_err_try_exists()
+            .unwrap());
+
+        assert!(!context
+            .layers_dir
+            .join(new_layer_name.as_str())
+            .fs_err_try_exists()
+            .unwrap());
+
+        let result = DiffMigrateLayer {
+            build: true,
+            launch: true,
+        }
+        .cached_layer_rename(
+            LayerRename {
+                to: new_layer_name.clone(),
+                from: vec![old_layer_name],
+            },
+            &context,
+            &TestMetadata {
+                value: "hello".to_string(),
+            },
+        )
+        .unwrap();
+
+        assert!(matches!(result.state, LayerState::Restored { cause: _ }));
+        assert!(context
+            .layers_dir
+            .join(new_layer_name.as_str())
+            .fs_err_try_exists()
+            .unwrap());
     }
 
     #[test]

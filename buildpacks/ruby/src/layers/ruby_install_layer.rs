@@ -20,7 +20,7 @@ use bullet_stream::state::SubBullet;
 use bullet_stream::Print;
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedRubyVersion;
-use commons::layer::diff_migrate::DiffMigrateLayer;
+use commons::layer::diff_migrate::{DiffMigrateLayer, LayerRename};
 use flate2::read::GzDecoder;
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
@@ -42,7 +42,14 @@ pub(crate) fn handle(
         build: true,
         launch: true,
     }
-    .cached_layer(layer_name!("ruby"), context, metadata)?;
+    .cached_layer_rename(
+        LayerRename {
+            to: layer_name!("binruby"),
+            from: vec![layer_name!("ruby")],
+        },
+        context,
+        metadata,
+    )?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);

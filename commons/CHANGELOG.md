@@ -1,5 +1,7 @@
 # Changelog for commons features
 
+## 2024-01-13
+
 ### Added
 
 - Introduce `DiffMigrateLayer::cached_layer_rename` and `layer::diff_migrate::LayerRename` (https://github.com/heroku/buildpacks-ruby/pull/383)

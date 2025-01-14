@@ -2,7 +2,7 @@ api = "0.10"
 
 [buildpack]
 id = "heroku/ruby"
-version = "5.0.0"
+version = "5.0.1"
 name = "Heroku Ruby"
 homepage = "https://github.com/heroku/buildpacks-ruby"
 description = "Heroku's buildpack for Ruby applications."

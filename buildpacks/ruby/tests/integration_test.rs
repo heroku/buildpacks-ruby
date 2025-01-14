@@ -163,6 +163,9 @@ fn test_default_app_ubuntu20() {
         chmod_plus_x(&app_dir.join("bin").join("rake")).unwrap();
 
         fs_err::write(app_dir.join("Rakefile"), r#"
+            STDOUT.sync = true
+            STDERR.sync = true
+
             task "assets:precompile" do
               puts "START RAKE TEST OUTPUT"
               run!("echo $PATH")

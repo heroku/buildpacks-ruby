@@ -293,19 +293,13 @@ dependencies = [
  "bullet_stream",
  "byte-unit",
  "cache_diff",
- "const_format",
  "fancy-regex",
  "filetime",
  "fs-err",
  "fs_extra",
  "glob",
- "indoc",
- "lazy_static",
  "libcnb",
- "libcnb-test",
- "libherokubuildpack",
  "magic_migrate",
- "pretty_assertions",
  "regex",
  "serde",
  "sha2",
@@ -313,26 +307,6 @@ dependencies = [
  "thiserror",
  "toml",
  "walkdir",
-]
-
-[[package]]
-name = "const_format"
-version = "0.2.34"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "126f97965c8ad46d6d9163268ff28432e8f6a1196a55578867832e3049df63dd"
-dependencies = [
- "const_format_proc_macros",
-]
-
-[[package]]
-name = "const_format_proc_macros"
-version = "0.2.34"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d57c2eccfb16dbac1f4e61e206105db5820c9d26c3c472bc17c774259ef7744"
-dependencies = [
- "proc-macro2",
- "quote",
- "unicode-xid",
 ]
 
 [[package]]
@@ -926,7 +900,6 @@ version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a8dd4cecc7b0cf175eb115cf112e7e6b6ff900be9308b83ba3d5f3c14e59bb8"
 dependencies = [
- "crossbeam-utils",
  "sha2",
 ]
 
@@ -1650,12 +1623,6 @@ name = "unicode-ident"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b"
-
-[[package]]
-name = "unicode-xid"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f962df74c8c05a667b5ee8bcf162993134c104e96440b663c8daa176dc772d8c"
 
 [[package]]
 name = "untrusted"

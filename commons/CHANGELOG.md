@@ -1,5 +1,11 @@
 # Changelog for commons features
 
+## 2024-01-14
+
+### Changed
+
+- Remove deprecated interfaces: `layer::ConfigureEnvLayer` and `layer::DefaultEnvLayer` and the `output` module (https://github.com/heroku/buildpacks-ruby/pull/385)
+
 ## 2024-01-13
 
 ### Added

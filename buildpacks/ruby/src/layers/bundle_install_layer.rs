@@ -30,7 +30,7 @@ use libcnb::{
     layer_env::{LayerEnv, ModificationBehavior, Scope},
     Env,
 };
-use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
+use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
 use std::io::Stdout;
 use std::{path::Path, process::Command};
@@ -121,14 +121,10 @@ pub(crate) fn handle(
 }
 
 pub(crate) type Metadata = MetadataV3;
-try_migrate_deserializer_chain!(
-    chain: [MetadataV1, MetadataV2, MetadataV3],
-    error: MetadataMigrateError,
-    deserializer: toml::Deserializer::new,
-);
 
-#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, TryMigrate)]
 #[serde(deny_unknown_fields)]
+#[try_migrate(from = None)]
 pub(crate) struct MetadataV1 {
     pub(crate) stack: String,
     pub(crate) ruby_version: ResolvedRubyVersion,
@@ -136,7 +132,8 @@ pub(crate) struct MetadataV1 {
     pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, TryMigrate)]
+#[try_migrate(from = MetadataV1)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV2 {
     pub(crate) distro_name: String,
@@ -147,7 +144,8 @@ pub(crate) struct MetadataV2 {
     pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff)]
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
+#[try_migrate(from = MetadataV2)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV3 {
     #[cache_diff(rename = "OS Distribution")]

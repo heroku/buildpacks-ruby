@@ -16,7 +16,7 @@ use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Env;
-use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
+use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
 use std::io::Stdout;
 use std::path::Path;
@@ -70,22 +70,13 @@ pub(crate) fn handle(
 }
 
 pub(crate) type Metadata = MetadataV1;
-try_migrate_deserializer_chain!(
-    deserializer: toml::Deserializer::new,
-    error: MetadataError,
-    chain: [MetadataV1],
-);
 
-#[derive(Deserialize, Serialize, Debug, Clone, CacheDiff)]
+#[derive(Deserialize, Serialize, Debug, Clone, CacheDiff, TryMigrate)]
+#[try_migrate(from = None)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV1 {
     #[cache_diff(rename = "Bundler version")]
     pub(crate) version: ResolvedBundlerVersion,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub(crate) enum MetadataError {
-    // Update if migrating between a metadata version can error
 }
 
 fn download_bundler(

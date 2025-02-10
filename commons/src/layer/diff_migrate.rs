@@ -320,10 +320,11 @@ mod tests {
     use libcnb::data::layer_name;
     use libcnb::generic::{GenericMetadata, GenericPlatform};
     use libcnb::layer::{EmptyLayerCause, InvalidMetadataAction, LayerState, RestoredLayerAction};
-    use magic_migrate::{migrate_toml_chain, try_migrate_deserializer_chain, Migrate, TryMigrate};
+    use magic_migrate::TryMigrate;
     use std::convert::Infallible;
     /// Struct for asserting the behavior of `CacheBuddy`
-    #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+    #[derive(Debug, serde::Serialize, serde::Deserialize, Clone, TryMigrate)]
+    #[try_migrate(from = None)]
     #[serde(deny_unknown_fields)]
     struct TestMetadata {
         value: String,
@@ -337,7 +338,6 @@ mod tests {
             }
         }
     }
-    migrate_toml_chain! {TestMetadata}
 
     struct FakeBuildpack;
     impl libcnb::Buildpack for FakeBuildpack {
@@ -555,13 +555,15 @@ mod tests {
     }
 
     /// Struct for asserting the behavior of `invalid_metadata_action`
-    #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+    #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, TryMigrate)]
+    #[try_migrate(from = None)]
     #[serde(deny_unknown_fields)]
     struct PersonV1 {
         name: String,
     }
     /// Struct for asserting the behavior of `invalid_metadata_action`
-    #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+    #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, TryMigrate)]
+    #[try_migrate(from = PersonV1)]
     #[serde(deny_unknown_fields)]
     struct PersonV2 {
         name: String,
@@ -583,25 +585,11 @@ mod tests {
             }
         }
     }
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Debug, Eq, PartialEq, thiserror::Error)]
+    #[error("Not Richard")]
     struct NotRichard {
         name: String,
     }
-    impl From<NotRichard> for PersonMigrationError {
-        fn from(value: NotRichard) -> Self {
-            PersonMigrationError::NotRichard(value)
-        }
-    }
-    #[derive(Debug, Eq, PartialEq, thiserror::Error)]
-    enum PersonMigrationError {
-        #[error("Not Richard")]
-        NotRichard(NotRichard),
-    }
-    try_migrate_deserializer_chain!(
-        deserializer: toml::Deserializer::new,
-        error: PersonMigrationError,
-        chain: [PersonV1, PersonV2],
-    );
 
     #[test]
     fn test_invalid_metadata_action() {

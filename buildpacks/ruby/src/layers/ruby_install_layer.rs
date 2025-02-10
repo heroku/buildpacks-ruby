@@ -25,7 +25,7 @@ use flate2::read::GzDecoder;
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::layer_env::LayerEnv;
-use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
+use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
 use std::io::{self, Stdout};
 use std::path::Path;
@@ -85,14 +85,16 @@ fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyBuildp
     Ok(())
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, TryMigrate)]
+#[try_migrate(from = None)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV1 {
     pub(crate) stack: String,
     pub(crate) version: ResolvedRubyVersion,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, TryMigrate)]
+#[try_migrate(from = MetadataV1)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV2 {
     pub(crate) distro_name: String,
@@ -101,7 +103,8 @@ pub(crate) struct MetadataV2 {
     pub(crate) ruby_version: ResolvedRubyVersion,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff)]
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
+#[try_migrate(from = MetadataV2)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV3 {
     #[cache_diff(rename = "OS Distribution")]
@@ -123,11 +126,6 @@ impl MetadataV3 {
 }
 
 pub(crate) type Metadata = MetadataV3;
-try_migrate_deserializer_chain!(
-    chain: [MetadataV1, MetadataV2, MetadataV3],
-    error: MetadataMigrateError,
-    deserializer: toml::Deserializer::new,
-);
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum MetadataMigrateError {

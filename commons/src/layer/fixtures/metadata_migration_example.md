@@ -12,9 +12,11 @@ In a layer file, define a metadata struct:
 
 ```rust
 use cache_diff::CacheDiff;
+use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
 
- #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff)]
+ #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
+ #[try_migrate(from = None)]
  #[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV1 {
     #[cache_diff(rename = "Ruby version")]
@@ -27,53 +29,13 @@ pub(crate) type Metadata = MetadataV1;
 This code:
 
 - Allows the struct to be [`serde::Serialize`]/[`serde::Deserialize`] as toml
-- Sets some convenient traits [`Debug`], [`Clone`], [`Eq`], [`PartialEq`]
-- Defines how the metadata is used to invalidate the cache with the [`CacheDiff`] derive
-- Sets a convienece type alias for the latest Metadata
+- Sets some convenient traits: [`Debug`], [`Clone`], [`Eq`], [`PartialEq`]
+- Defines behavior for communicating and handling all possible cache states:
+  - The [`CacheDiff`] trait is used to handle cache invalidation (and related communication).
+  - The [`TryMigrate`] trait is used to handle invalid metadata (and related communication).
+- Sets a convenience type alias for the latest Metadata
 
 In this code if the `version` field changes then the cache will be invalidated.
-
-Now tell it how to migrate invalid metadata:
-
-
-```rust
-use magic_migrate::TryMigrate;
-// ...
-# use cache_diff::CacheDiff;
-# use serde::{Deserialize, Serialize};
-#
-# #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff)]
-# #[serde(deny_unknown_fields)]
-# pub(crate) struct MetadataV1 {
-#     #[cache_diff(rename = "Ruby version")]
-#     pub(crate) version: String,
-# }
-#
-# pub(crate) type Metadata = MetadataV1;
-
- #[derive(Debug)]
-pub(crate) enum MigrationError {}
-
-impl std::fmt::Display for MigrationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
-
-magic_migrate::try_migrate_toml_chain!(
-    error: MigrationError,
-    chain: [MetadataV1]
-);
-```
-
-This code:
-
-- Defines an error type (so we can populate it when we need to add a failable migration)
-- The error type needs to be `Display` and `Debug`
-- Uses the `magic_migrate::try_migrate_toml_chain` macro to tell our code how it can migrate from one type to the next.
-  This will implement `TryMigrate` on every struct in the `chain` argument. In this case there's only one metadata value,
-  but we will implement this behavior now so it's easy to extend later.
-
 
 At this point we've implemented `CacheDiff` and `TryMigrate` on our metadata, so we can define a layer:
 
@@ -94,28 +56,15 @@ use libcnb::layer_env::LayerEnv;
 # use cache_diff::CacheDiff;
 # use serde::{Deserialize, Serialize};
 #
-# #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff)]
-# #[serde(deny_unknown_fields)]
+#  #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
+#  #[try_migrate(from = None)]
+#  #[serde(deny_unknown_fields)]
 # pub(crate) struct MetadataV1 {
 #     #[cache_diff(rename = "Ruby version")]
 #     pub(crate) version: String,
 # }
 #
 # pub(crate) type Metadata = MetadataV1;
-#
-#  #[derive(Debug)]
-# pub(crate) enum MigrationError {}
-#
-# impl std::fmt::Display for MigrationError {
-#     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-#         todo!()
-#     }
-# }
-#
-# magic_migrate::try_migrate_toml_chain!(
-#     error: MigrationError,
-#     chain: [MetadataV1]
-# );
 
 fn install_ruby(version: &str, path: &std::path::Path) {
     todo!()
@@ -188,23 +137,19 @@ use magic_migrate::TryMigrate;
 use cache_diff::CacheDiff;
 use serde::{Deserialize, Serialize};
 
-# #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
-# #[serde(deny_unknown_fields)]
+#  #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
+#  #[try_migrate(from = None)]
+#  #[serde(deny_unknown_fields)]
 # pub(crate) struct MetadataV1 {
+#     #[cache_diff(rename = "Ruby version")]
 #     pub(crate) version: String,
 # }
 #
-#
-#  #[derive(Debug)]
-# pub(crate) enum MigrationError {}
-#
-# impl std::fmt::Display for MigrationError {
-#     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-#         todo!()
-#     }
-# }
-#
- #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff)]
+# fn get_distro_from_current_os() -> String { unimplemented!() }
+# fn get_arch_from_current_cpu() -> String { unimplemented!() }
+
+ #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
+ #[try_migrate(from = MetadataV1)]
  #[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV2 {
     #[cache_diff(rename = "Ruby version")]
@@ -214,13 +159,8 @@ pub(crate) struct MetadataV2 {
     pub(crate) distro: String
 }
 
-fn get_distro_from_current_os() -> String {
-   // Just pretend, ok
-   todo!();
-}
-
 impl TryFrom<MetadataV1> for MetadataV2 {
-    type Error = MigrationError;
+    type Error = std::convert::Infallible;
 
     fn try_from(old: MetadataV1) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -231,20 +171,15 @@ impl TryFrom<MetadataV1> for MetadataV2 {
 }
 
 pub(crate) type Metadata = MetadataV2;
-
-magic_migrate::try_migrate_toml_chain!(
-    error: MigrationError,
-    chain: [MetadataV1, MetadataV2]
-);
 ```
 
 Here we added:
 
 - A new struct `MetadataV2` with a new field `distro` that `V1` does not have.
 - Updated the `type Metadata = MetadataV2` to `V2`
-- Added `MetadataV2` to the end of our migration chain.
+- Taught `TryMigrate` that it can build a `MetadataV2` from a `MetadataV1` serialized toml value.
 
-Now when our layer logic is called, it will first try to deserialize the contents into `MetadataV2` if it can it will return that and continue on to the cache invalidation logic. If not, it will try to deserialize the old toml into `MetadataV1`. If it can, then it will and then migrate from `MetadataV1` to `MetadataV2` using the `TryFrom` and `TryMigrate` traits.
+Now when our layer logic is called, it will first try to deserialize the contents into `MetadataV2`. If it fails, it will try to deserialize the old toml into `MetadataV1`. If it can, then it will and then migrate from `MetadataV1` to `MetadataV2` using the [`TryFrom`] and [`TryMigrate`] traits.
 
 ## Handle migration errors
 
@@ -256,52 +191,41 @@ use magic_migrate::TryMigrate;
 use cache_diff::CacheDiff;
 use serde::{Deserialize, Serialize};
 
-# #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
-# #[serde(deny_unknown_fields)]
+#  #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
+#  #[try_migrate(from = None)]
+#  #[serde(deny_unknown_fields)]
 # pub(crate) struct MetadataV1 {
+#     #[cache_diff(rename = "Ruby version")]
 #     pub(crate) version: String,
 # }
 #
-#
- #[derive(Debug)]
-pub(crate) enum MigrationError {
-    InvalidVersionArch {
-        version: String,
-        arch: String,
+# fn get_distro_from_current_os() -> String { unimplemented!() }
+# fn get_arch_from_current_cpu() -> String { unimplemented!() }
+
+ #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
+ #[try_migrate(from = MetadataV1)]
+ #[serde(deny_unknown_fields)]
+pub(crate) struct MetadataV2 {
+    #[cache_diff(rename = "Ruby version")]
+    pub(crate) version: String,
+
+    #[cache_diff(rename = "OS distribution")]
+    pub(crate) distro: String
+}
+
+impl TryFrom<MetadataV1> for MetadataV2 {
+    type Error = std::convert::Infallible;
+
+    fn try_from(old: MetadataV1) -> Result<Self, Self::Error> {
+        Ok(Self {
+            version: old.version,
+            distro: get_distro_from_current_os()
+        })
     }
 }
-#
-# impl std::fmt::Display for MigrationError {
-#     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-#         todo!()
-#     }
-# }
-#
-#  #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
-#  #[serde(deny_unknown_fields)]
-# pub(crate) struct MetadataV2 {
-#     pub(crate) version: String,
-#     pub(crate) distro: String
-# }
-#
-# fn get_distro_from_current_os() -> String {
-#    // Just pretend, ok
-#    todo!();
-# }
-#
-# impl TryFrom<MetadataV1> for MetadataV2 {
-#     type Error = MigrationError;
-#
-#     fn try_from(old: MetadataV1) -> Result<Self, Self::Error> {
-#         Ok(Self {
-#             version: old.version,
-#             distro: get_distro_from_current_os()
-#         })
-#     }
-# }
-#
 
- #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff)]
+ #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
+ #[try_migrate(from = MetadataV2)]
  #[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV3 {
     #[cache_diff(rename = "Ruby version")]
@@ -314,17 +238,22 @@ pub(crate) struct MetadataV3 {
     pub(crate) arch: String
 }
 
-# fn get_arch_from_current_cpu() -> String { todo!(); }
+ #[derive(Debug, thiserror::Error)]
+ #[error("Invalid distro {version} ({arch})")]
+pub(crate) struct InvalidVersionArch {
+    version: String,
+    arch: String,
+}
 
 impl TryFrom<MetadataV2> for MetadataV3 {
-    type Error = MigrationError;
+    type Error = InvalidVersionArch;
 
     fn try_from(old: MetadataV2) -> Result<Self, Self::Error> {
         let distro = get_distro_from_current_os();
         let arch = get_arch_from_current_cpu();
         if old.version.starts_with("1.") && &arch == "arm64" {
             Err(
-                MigrationError::InvalidVersionArch {
+                InvalidVersionArch {
                     version: old.version,
                     arch: arch
                 }
@@ -340,17 +269,12 @@ impl TryFrom<MetadataV2> for MetadataV3 {
 }
 
 pub(crate) type Metadata = MetadataV3;
-
-magic_migrate::try_migrate_toml_chain!(
-    error: MigrationError,
-    chain: [MetadataV1, MetadataV2, MetadataV3]
-);
 ```
 
 What did we do? We added:
 
 - A new `MetadataV3` with a new field `Arch`
-- A new error variant to our `MigrationError` named `InvalidVersionArch`.
+- A new error struct that implements `std::error::Error`.
 - A new `TryFrom<MetadataV2>` to `MetadataV3` that fails if we try to re-use version 1.x on an `arm64` CPU (an arbitrary specification made for this example).
 
 Then we:
@@ -366,11 +290,11 @@ The two traits `CacheDiff` and `TryMigrate` are relatively simple, but combined,
 
 ## Q&A
 
-- Q: Wait, do I have to support metadata schemas (structs) forever?
-- A: No. You can drop old structs whenver you feel it's necessary or invalidate the metadata at any time you like. The key with making your metadata migrate-able is that you don't HAVE to invalidate with every change. It makes it easier to ship the behavior that's best for you and your users.
+- Q: I don't want to use migration!
+- A: That's more of a comment than a question. Even if you don't plan on implementing metadata migration, the `TryMigrate` trait bounds still require that you implement `#[try_migrate(from = None)]` on your struct. This communicates clearly that any string that cannot deserialize to that struct should trigger a cache invalidation.
 
-- Q: Can I use default logic without having to implement both traits? It seems odd to add a `TryMigrate` trait for a scenario where we might never need one.
-- A: If you put in work adopting this migration pattern and never need it, it's one crate, one trait, and one struct. Not that much work. But a co-worker or contributor new to buildpacks needs to modify it, or a future tired you needs to modify it...it's easier to extend an existing pattern than remember the esoteric rules and edge cases of what will and won't serialize into a struct.
+- Q: If I add a migration do I have to support it forever?
+- A: No. You can drop old structs whenver you feel it's necessary or invalidate the metadata at any time you like. The key with making your metadata migrate-able is that you don't HAVE to invalidate with every change. It makes it easier to ship the behavior that's best for you and your users.
 
 - Q: You used `Metadata` as a type alias for use outside of the module. If you have multiple modules wouldn't they all have the same import? Shouldn't you namespace them somehow?
 - A: Having to remember a naming convention for metadata in various layer modules is needless creativity. Instead of importing the struct, import the module and use that as a namespace, for example:
@@ -399,6 +323,6 @@ When you rev your metadata version, you'll need to add or modify any attributes 
 - A: Sure!
   - Make sure to `#[serde(deny_unknown_fields)]` on your metadata structs
   - Don't use overly flexible types such as `Option<String>` unless you really have to. Metadata can be loaded wither with or without that attribute which might not be exactly what you want when you're deserializing old metadata.
-  - For layers that need to execute commands (such as `bundle install`), you can [use the `fun_run` crate](https://docs.rs/fun_run/0.2.0/fun_run/) which helps clearly print what's happening and gives lots of information when things fail.
+  - For layers that need to execute commands (such as `bundle install`), you can [use the `fun_run` crate](https://docs.rs/fun_run/latest/) which helps clearly print what's happening and gives lots of information when things fail.
   - Beware if v1 and v3 have the same named attributes, but different semantics rust will happily serialize the values stored from v1 into v3 and you'll never get an error or warning and your `TryFrom` code won't fire. This is also a problem when not using the `TryMigrate` pattern, so stay on the lookout.
   - For extremly important cache invalidation logic, add unit tests.

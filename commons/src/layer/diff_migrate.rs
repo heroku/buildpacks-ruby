@@ -93,7 +93,7 @@ use bullet_stream as _;
 ///   When a `CacheDiff::diff` is empty, the layer is kept and the old data is returned. Otherwise,
 ///   the layer is deleted and the changes are returned.
 ///
-/// **TUTORIAL:** In the [`diff_migrate`] module docs
+/// **TUTORIAL:** In the [`crate::layer::diff_migrate`] module docs
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DiffMigrateLayer {
     /// Whether the layer is intended for build.
@@ -138,7 +138,7 @@ impl DiffMigrateLayer {
     /// When given a prior [`LayerRename::from`] that exists, but the [`LayerRename::to`]
     /// does not, then the contents of the prior layer will be copied before being deleted.
     ///
-    /// After that this function callse [`cached_layer`] on the new layer.
+    /// After that this function calls [`crate::layer::diff_migrate::DiffMigrateLayer::cached_layer`] on the new layer.
     ///
     /// # Panics
     ///

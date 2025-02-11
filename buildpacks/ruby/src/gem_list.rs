@@ -1,4 +1,4 @@
-use bullet_stream::{state::SubBullet, style, Print};
+use bullet_stream::{state::SubBullet, Print};
 use commons::gem_version::GemVersion;
 use core::str::FromStr;
 use fun_run::CmdError;

@@ -90,9 +90,8 @@ pub(crate) fn handle(
             cmd.args(["install"])
                 .env_clear() // Current process env vars already merged into env
                 .envs(&env);
-            let mut cmd = cmd.named_fn(|cmd| display_name(cmd, &env));
             bullet
-                .stream_cmd(&cmd)
+                .stream_cmd(&mut cmd.named_fn(|cmd| display_name(cmd, &env)))
                 .map_err(|error| {
                     fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
                 })

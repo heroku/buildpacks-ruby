@@ -2,6 +2,9 @@
 resolver = "2"
 members = ["buildpacks/ruby", "commons"]
 
+[workspace.dependencies]
+cache_diff = { version = "1.1", features = ["bullet_stream"] }
+
 [workspace.package]
 edition = "2021"
 rust-version = "1.82"

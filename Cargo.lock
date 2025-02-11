@@ -175,9 +175,9 @@ checksum = "428d9aa8fbc0670b7b8d6030a7fadd0f86151cae55e4dbbece15f3780a3dfaf3"
 
 [[package]]
 name = "cache_diff"
-version = "1.0.1"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84b58ba1160088b5306b19fa156e9be5736043243ee6197346bf8ecd55e5366c"
+checksum = "a17abe0c554c4e2cf77682e0105b35832255d8425d977f221f8ea9e726b7201f"
 dependencies = [
  "bullet_stream",
  "cache_diff_derive",
@@ -185,9 +185,9 @@ dependencies = [
 
 [[package]]
 name = "cache_diff_derive"
-version = "1.0.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "273bbd860603cb240372b460f8dc2440528ba95593f944b549194eb8600285a8"
+checksum = "497f88518f336c54b7d17f652024d6ee7769846d5c6f93291878a12afa3cddfc"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -945,11 +945,24 @@ checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
 
 [[package]]
 name = "magic_migrate"
-version = "1.0.1"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a173b20fd1f2e55ecc1fe680c88e039f9962dcf84b2531009bcdf6f2d589186"
+checksum = "77953038e9939c18810bf6448bcfe47f6884e01b0447512edde77b82815f3795"
 dependencies = [
+ "magic_migrate_derive",
  "serde",
+]
+
+[[package]]
+name = "magic_migrate_derive"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee63d062a466a9e9df66ef1114f6dc3bafcc4bf22070d9ebc9ca284a39052ae5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "strum",
+ "syn 2.0.90",
 ]
 
 [[package]]

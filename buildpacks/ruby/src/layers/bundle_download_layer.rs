@@ -7,7 +7,7 @@
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use bullet_stream::state::SubBullet;
-use bullet_stream::{style, Print};
+use bullet_stream::Print;
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedBundlerVersion;
 use commons::layer::diff_migrate::DiffMigrateLayer;
@@ -89,7 +89,7 @@ pub(crate) enum MetadataError {
 }
 
 fn download_bundler(
-    bullet: Print<SubBullet<Stdout>>,
+    mut bullet: Print<SubBullet<Stdout>>,
     env: &Env,
     metadata: &Metadata,
     gem_path: &Path,
@@ -112,13 +112,12 @@ fn download_bundler(
         "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
     ]);
 
-    let timer = bullet.start_timer(format!("Running {}", style::command(short_name)));
-
-    cmd.named_output()
+    bullet
+        .time_cmd(cmd.named(short_name))
         .map_err(|error| fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned()))
         .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
 
-    Ok(timer.done())
+    Ok(bullet)
 }
 
 #[cfg(test)]

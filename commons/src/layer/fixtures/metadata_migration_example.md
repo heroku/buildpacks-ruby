@@ -43,13 +43,13 @@ At this point we've implemented `CacheDiff` and `TryMigrate` on our metadata, so
 use commons::layer::diff_migrate::{DiffMigrateLayer, Meta};
 
 use bullet_stream::{Print, state::SubBullet};
-use std::io::Stdout;
 
 use libcnb::layer::{LayerState, EmptyLayerCause};
 use libcnb::data::layer_name;
 use libcnb::Buildpack;
 use libcnb::build::BuildContext;
 use libcnb::layer_env::LayerEnv;
+use bullet_stream::global::print;
 
 // ...
 # use magic_migrate::TryMigrate;
@@ -70,11 +70,10 @@ fn install_ruby(version: &str, path: &std::path::Path) {
     todo!()
 }
 
-pub(crate) fn call<B>(
+pub(crate) fn call<W, B>(
     context: &BuildContext<B>,
-    mut bullet: Print<SubBullet<Stdout>>,
     metadata: &Metadata,
-) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), <B as Buildpack>::Error>
+) -> libcnb::Result<LayerEnv, <B as Buildpack>::Error>
 where
   B: Buildpack
 {
@@ -85,22 +84,22 @@ where
     .cached_layer(layer_name!("ruby"), context, metadata)?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
-            bullet = bullet.sub_bullet(cause);
+            print::sub_bullet(cause);
         }
         LayerState::Empty { cause } => {
             match cause {
                 EmptyLayerCause::NewlyCreated => {}
                 EmptyLayerCause::InvalidMetadataAction { cause }
                 | EmptyLayerCause::RestoredLayerAction { cause } => {
-                    bullet = bullet.sub_bullet(cause);
+                    print::sub_bullet(cause);
                 }
             }
-            let timer = bullet.start_timer("Installing");
+            let timer = print::sub_start_timer("Installing");
             install_ruby(&metadata.version, &layer_ref.path());
-            bullet = timer.done();
+            _ = timer.done();
         }
     }
-    Ok((bullet, layer_ref.read_env()?))
+    Ok(layer_ref.read_env()?)
 }
 ```
 
@@ -121,7 +120,7 @@ The logic of the function uses [`DiffMigrateLayer`] to create a layer that is bo
 
 The return value is a `LayerRef` which we are using in a match statement. If the cache was restored it will emit that information to the buildpack user. If it was invalidated (if the version changed) it will emit that. When the layer is empty for any reason it will "install ruby" with a timer printed to stdout.
 
-A successful run of this function returns a tuple with `bullet_stream::Print<SubBullet<Stdout>>` which can be used to continue streaming and a `LayerEnv` which can be used to pass on any environment varible modifications from this layer (if any are added in the future).
+A successful run of this function returns a `LayerEnv` which can be used to pass on any environment varible modifications from this layer (if any are added in the future).
 
 ## Add a Metadata migration
 

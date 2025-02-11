@@ -11,7 +11,7 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
     let debug_info = style::important(DEBUG_INFO_STR);
     match cause(err) {
         Cause::OurError(error) => log_our_error(output, error),
-        Cause::FrameworkError(error) =>
+        Cause::FrameworkError(error) => {
             output
             .bullet(&debug_info)
             .sub_bullet(error.to_string())
@@ -28,7 +28,8 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
                 If the issue persists, please try to reproduce the behavior locally using the `pack`
                 CLI. If you can reproduce the behavior locally and believe you've found a bug in the
                 buildpack or the framework please open an issue on the buildpack's GitHub repository.
-            "}),
+            "});
+        }
     };
 }
 

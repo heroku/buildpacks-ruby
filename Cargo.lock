@@ -130,9 +130,12 @@ dependencies = [
 
 [[package]]
 name = "bullet_stream"
-version = "0.3.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e038a9e6b7e36319ab42141434b0c7a93f7714aa90abf63cc5086e106027bb7"
+checksum = "9b9e506050e7353efd70802d6d80ae30dbe84b683994cba0af0b92e346064a9d"
+dependencies = [
+ "fun_run 0.4.0",
+]
 
 [[package]]
 name = "byte-unit"
@@ -499,6 +502,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fun_run"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "febb7528c7984a6a26642b0332198fd3c43e5aba70c025f83e624c0d20a23729"
+dependencies = [
+ "regex",
+]
+
+[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -575,7 +587,7 @@ dependencies = [
  "commons",
  "flate2",
  "fs-err",
- "fun_run",
+ "fun_run 0.2.0",
  "glob",
  "indoc",
  "libcnb",

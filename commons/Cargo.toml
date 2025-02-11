@@ -30,4 +30,4 @@ cache_diff = "1.0"
 [dev-dependencies]
 filetime = "0.2"
 toml = "0.8"
-bullet_stream = "0.3.0"
+bullet_stream.workspace = true

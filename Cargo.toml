@@ -17,3 +17,6 @@ panic_in_result_fn = "warn"
 pedantic = { level = "warn", priority = -1 }
 unwrap_used = "warn"
 module_name_repetitions = "allow"
+
+[workspace.dependencies]
+bullet_stream = "0.6"

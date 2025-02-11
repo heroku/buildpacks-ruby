@@ -137,6 +137,7 @@ use magic_migrate::TryMigrate;
 use cache_diff::CacheDiff;
 use serde::{Deserialize, Serialize};
 
+// ...
 #  #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
 #  #[try_migrate(from = None)]
 #  #[serde(deny_unknown_fields)]
@@ -191,6 +192,7 @@ use magic_migrate::TryMigrate;
 use cache_diff::CacheDiff;
 use serde::{Deserialize, Serialize};
 
+// ...
 #  #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
 #  #[try_migrate(from = None)]
 #  #[serde(deny_unknown_fields)]

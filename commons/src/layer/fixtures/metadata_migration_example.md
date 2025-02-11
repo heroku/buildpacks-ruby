@@ -203,28 +203,28 @@ use serde::{Deserialize, Serialize};
 #
 # fn get_distro_from_current_os() -> String { unimplemented!() }
 # fn get_arch_from_current_cpu() -> String { unimplemented!() }
-
- #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
- #[try_migrate(from = MetadataV1)]
- #[serde(deny_unknown_fields)]
-pub(crate) struct MetadataV2 {
-    #[cache_diff(rename = "Ruby version")]
-    pub(crate) version: String,
-
-    #[cache_diff(rename = "OS distribution")]
-    pub(crate) distro: String
-}
-
-impl TryFrom<MetadataV1> for MetadataV2 {
-    type Error = std::convert::Infallible;
-
-    fn try_from(old: MetadataV1) -> Result<Self, Self::Error> {
-        Ok(Self {
-            version: old.version,
-            distro: get_distro_from_current_os()
-        })
-    }
-}
+#
+#  #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
+#  #[try_migrate(from = MetadataV1)]
+#  #[serde(deny_unknown_fields)]
+# pub(crate) struct MetadataV2 {
+#     #[cache_diff(rename = "Ruby version")]
+#     pub(crate) version: String,
+#
+#     #[cache_diff(rename = "OS distribution")]
+#     pub(crate) distro: String
+# }
+#
+# impl TryFrom<MetadataV1> for MetadataV2 {
+#     type Error = std::convert::Infallible;
+#
+#     fn try_from(old: MetadataV1) -> Result<Self, Self::Error> {
+#         Ok(Self {
+#             version: old.version,
+#             distro: get_distro_from_current_os()
+#         })
+#     }
+# }
 
  #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
  #[try_migrate(from = MetadataV2)]

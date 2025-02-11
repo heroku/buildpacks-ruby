@@ -6,15 +6,18 @@ use bullet_stream::{style, Print};
 use commons::cache::{mib, AppCache, CacheConfig, CacheError, CacheState, KeepPath, PathState};
 use libcnb::build::BuildContext;
 use libcnb::Env;
-use std::io::Stdout;
+use std::io::Write;
 use std::process::Command;
 
-pub(crate) fn rake_assets_install(
-    mut bullet: Print<SubBullet<Stdout>>,
+pub(crate) fn rake_assets_install<W>(
+    mut bullet: Print<SubBullet<W>>,
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
     rake_detect: &RakeDetect,
-) -> Result<Print<SubBullet<Stdout>>, RubyBuildpackError> {
+) -> Result<Print<SubBullet<W>>, RubyBuildpackError>
+where
+    W: Write + Send + Sync + 'static,
+{
     let help = style::important("HELP");
     let cases = asset_cases(rake_detect);
     let rake_assets_precompile = style::value("rake assets:precompile");

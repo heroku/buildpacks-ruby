@@ -18,7 +18,6 @@ use libcnb::layer::UncachedLayerDefinition;
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
-use std::io::stdout;
 
 mod gem_list;
 mod layers;

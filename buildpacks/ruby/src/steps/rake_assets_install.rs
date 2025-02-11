@@ -4,7 +4,6 @@ use crate::RubyBuildpackError;
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use commons::cache::{mib, AppCache, CacheConfig, CacheError, CacheState, KeepPath, PathState};
-use fun_run::{self, CommandWithName};
 use libcnb::build::BuildContext;
 use libcnb::Env;
 use std::io::Stdout;
@@ -39,10 +38,7 @@ pub(crate) fn rake_assets_install(
                 .envs(env);
 
             bullet
-                .stream_with(
-                    format!("Running {}", style::command(cmd.name())),
-                    |stdout, stderr| cmd.stream_output(stdout, stderr),
-                )
+                .stream_cmd(&mut cmd)
                 .map_err(|error| {
                     fun_run::map_which_problem(error, &mut cmd, env.get("PATH").cloned())
                 })
@@ -85,10 +81,7 @@ pub(crate) fn rake_assets_install(
                 .envs(env);
 
             bullet
-                .stream_with(
-                    format!("Running {}", style::command(cmd.name())),
-                    |stdout, stderr| cmd.stream_output(stdout, stderr),
-                )
+                .stream_cmd(&mut cmd)
                 .map_err(|error| {
                     fun_run::map_which_problem(error, &mut cmd, env.get("PATH").cloned())
                 })

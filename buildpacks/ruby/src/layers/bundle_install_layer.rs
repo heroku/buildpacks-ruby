@@ -92,10 +92,7 @@ pub(crate) fn handle(
                 .envs(&env);
             let mut cmd = cmd.named_fn(|cmd| display_name(cmd, &env));
             bullet
-                .stream_with(
-                    format!("Running {}", style::command(cmd.name())),
-                    |stdout, stderr| cmd.stream_output(stdout, stderr),
-                )
+                .stream_cmd(&cmd)
                 .map_err(|error| {
                     fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
                 })

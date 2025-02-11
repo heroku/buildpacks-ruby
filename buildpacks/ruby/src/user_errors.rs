@@ -7,7 +7,7 @@ use std::process::Command;
 const DEBUG_INFO_STR: &str = "Debug info";
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
-    let output = Print::new(std::io::stdout()).without_header();
+    let output = Print::global().without_header();
     let debug_info = style::important(DEBUG_INFO_STR);
     match cause(err) {
         Cause::OurError(error) => log_our_error(output, error),

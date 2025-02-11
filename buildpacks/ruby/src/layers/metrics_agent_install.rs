@@ -9,7 +9,7 @@ use libcnb::layer::{
 };
 use libherokubuildpack::digest::sha256;
 use serde::{Deserialize, Serialize};
-use std::io::Stdout;
+use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use tar::Archive;
@@ -60,10 +60,13 @@ pub(crate) enum MetricsAgentInstallError {
     ChecksumFailed(String),
 }
 
-pub(crate) fn handle_metrics_agent_layer(
+pub(crate) fn handle_metrics_agent_layer<W>(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
-    mut bullet: Print<SubBullet<Stdout>>,
-) -> libcnb::Result<Print<SubBullet<Stdout>>, RubyBuildpackError> {
+    mut bullet: Print<SubBullet<W>>,
+) -> libcnb::Result<Print<SubBullet<W>>, RubyBuildpackError>
+where
+    W: Write + Send + Sync + 'static,
+{
     let metadata = Metadata {
         download_url: DOWNLOAD_URL.to_string(),
     };

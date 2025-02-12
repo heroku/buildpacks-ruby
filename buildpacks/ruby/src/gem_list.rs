@@ -1,7 +1,7 @@
-use bullet_stream::{state::SubBullet, style, Print};
+use bullet_stream::{state::SubBullet, Print};
 use commons::gem_version::GemVersion;
 use core::str::FromStr;
-use fun_run::{CmdError, CommandWithName};
+use fun_run::CmdError;
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -22,7 +22,7 @@ pub(crate) struct GemList {
 ///
 /// Errors if the command `bundle list` is unsuccessful.
 pub(crate) fn bundle_list<T, K, V>(
-    bullet: Print<SubBullet<Stdout>>,
+    mut bullet: Print<SubBullet<Stdout>>,
     envs: T,
 ) -> Result<(Print<SubBullet<Stdout>>, GemList), CmdError>
 where
@@ -33,12 +33,11 @@ where
     let mut cmd = Command::new("bundle");
     cmd.arg("list").env_clear().envs(envs);
 
-    let timer = bullet.start_timer(format!("Running {}", style::command(cmd.name())));
-    let gem_list = cmd
-        .named_output()
+    let gem_list = bullet
+        .time_cmd(&mut cmd)
         .map(|output| output.stdout_lossy())
         .and_then(|output| GemList::from_str(&output))?;
-    Ok((timer.done(), gem_list))
+    Ok((bullet, gem_list))
 }
 
 /// Converts the output of `$ gem list` into a data structure that can be inspected and compared

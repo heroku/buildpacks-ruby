@@ -7,6 +7,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+cache_diff.workspace = true
 byte-unit = "5"
 # TODO: Consolidate on either the regex crate or the fancy-regex crate, since this repo currently uses both.
 fancy-regex = "0.14"
@@ -25,9 +26,8 @@ walkdir = "2"
 filetime = "0.2"
 magic_migrate = "1.0.1"
 toml = "0.8"
-cache_diff.workspace = true
 
 [dev-dependencies]
+bullet_stream.workspace = true
 filetime = "0.2"
 toml = "0.8"
-bullet_stream = "0.3.0"

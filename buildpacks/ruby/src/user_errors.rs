@@ -1,6 +1,6 @@
 use crate::{DetectError, RubyBuildpackError};
 use bullet_stream::{state::Bullet, state::SubBullet, style, Print};
-use fun_run::{CmdError, CommandWithName};
+use fun_run::CmdError;
 use indoc::formatdoc;
 use std::io::Stdout;
 use std::process::Command;
@@ -11,7 +11,7 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
     let debug_info = style::important(DEBUG_INFO_STR);
     match cause(err) {
         Cause::OurError(error) => log_our_error(output, error),
-        Cause::FrameworkError(error) =>
+        Cause::FrameworkError(error) => {
             output
             .bullet(&debug_info)
             .sub_bullet(error.to_string())
@@ -28,7 +28,8 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
                 If the issue persists, please try to reproduce the behavior locally using the `pack`
                 CLI. If you can reproduce the behavior locally and believe you've found a bug in the
                 buildpack or the framework please open an issue on the buildpack's GitHub repository.
-            "}),
+            "});
+        }
     };
 }
 
@@ -340,11 +341,7 @@ fn replace_app_path_with_relative(contents: impl AsRef<str>) -> String {
 }
 
 fn debug_cmd(mut log: Print<SubBullet<Stdout>>, command: &mut Command) -> Print<Bullet<Stdout>> {
-    let result = log.stream_with(
-        format!("Running debug command {}", style::command(command.name())),
-        |stdout, stderr| command.stream_output(stdout, stderr),
-    );
-    match result {
+    match log.stream_cmd(command) {
         Ok(_) => log.done(),
         Err(e) => log.sub_bullet(e.to_string()).done(),
     }

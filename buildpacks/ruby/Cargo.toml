@@ -20,7 +20,7 @@ indoc = "2"
 # so it's pinned to an exact version to isolate it from lockfile refreshes.
 libcnb = "=0.26.1"
 libherokubuildpack = { version = "=0.26.1", default-features = false, features = ["digest"] }
-rand = "0.8"
+rand = "0.9"
 # TODO: Consolidate on either the regex crate or the fancy-regex crate, since this repo currently uses both.
 regex = "1"
 serde = "1"

@@ -5,7 +5,7 @@ use fun_run::CmdError;
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::io::Stdout;
+use std::io::Write;
 use std::process::Command;
 
 /// ## Gets list of an application's dependencies
@@ -21,11 +21,12 @@ pub(crate) struct GemList {
 /// # Errors
 ///
 /// Errors if the command `bundle list` is unsuccessful.
-pub(crate) fn bundle_list<T, K, V>(
-    mut bullet: Print<SubBullet<Stdout>>,
+pub(crate) fn bundle_list<W, T, K, V>(
+    mut bullet: Print<SubBullet<W>>,
     envs: T,
-) -> Result<(Print<SubBullet<Stdout>>, GemList), CmdError>
+) -> Result<(Print<SubBullet<W>>, GemList), CmdError>
 where
+    W: Write + Send + Sync + 'static,
     T: IntoIterator<Item = (K, V)>,
     K: AsRef<OsStr>,
     V: AsRef<OsStr>,

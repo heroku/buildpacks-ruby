@@ -18,16 +18,19 @@ use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Env;
 use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
-use std::io::Stdout;
+use std::io::Write;
 use std::path::Path;
 use std::process::Command;
 
-pub(crate) fn handle(
+pub(crate) fn handle<W>(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     env: &Env,
-    mut bullet: Print<SubBullet<Stdout>>,
+    mut bullet: Print<SubBullet<W>>,
     metadata: &Metadata,
-) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
+) -> libcnb::Result<(Print<SubBullet<W>>, LayerEnv), RubyBuildpackError>
+where
+    W: Write + Send + Sync + 'static,
+{
     let layer_ref = DiffMigrateLayer {
         build: true,
         launch: true,
@@ -79,12 +82,15 @@ pub(crate) struct MetadataV1 {
     pub(crate) version: ResolvedBundlerVersion,
 }
 
-fn download_bundler(
-    mut bullet: Print<SubBullet<Stdout>>,
+fn download_bundler<W>(
+    mut bullet: Print<SubBullet<W>>,
     env: &Env,
     metadata: &Metadata,
     gem_path: &Path,
-) -> Result<Print<SubBullet<Stdout>>, RubyBuildpackError> {
+) -> Result<Print<SubBullet<W>>, RubyBuildpackError>
+where
+    W: Write + Send + Sync + 'static,
+{
     let bin_dir = gem_path.join("bin");
 
     let mut cmd = Command::new("gem");

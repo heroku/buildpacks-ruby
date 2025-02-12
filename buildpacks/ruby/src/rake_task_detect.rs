@@ -1,7 +1,7 @@
 use bullet_stream::{state::SubBullet, Print};
 use core::str::FromStr;
 use fun_run::CmdError;
-use std::io::Stdout;
+use std::io::Write;
 use std::{ffi::OsStr, process::Command};
 
 /// Run `rake -P` and parse output to show what rake tasks an application has
@@ -21,11 +21,17 @@ pub(crate) struct RakeDetect {
 /// # Errors
 ///
 /// Will return `Err` if `bundle exec rake -p` command cannot be invoked by the operating system.
-pub(crate) fn call<T: IntoIterator<Item = (K, V)>, K: AsRef<OsStr>, V: AsRef<OsStr>>(
-    mut bullet: Print<SubBullet<Stdout>>,
+pub(crate) fn call<W, T, K, V>(
+    mut bullet: Print<SubBullet<W>>,
     envs: T,
     error_on_failure: bool,
-) -> Result<(Print<SubBullet<Stdout>>, RakeDetect), CmdError> {
+) -> Result<(Print<SubBullet<W>>, RakeDetect), CmdError>
+where
+    W: Write + Send + Sync + 'static,
+    T: IntoIterator<Item = (K, V)>,
+    K: AsRef<OsStr>,
+    V: AsRef<OsStr>,
+{
     let mut cmd = Command::new("rake");
     cmd.args(["-P", "--trace"]).env_clear().envs(envs);
 

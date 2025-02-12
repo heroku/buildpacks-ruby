@@ -6,14 +6,17 @@ use libcnb::build::BuildContext;
 use libcnb::data::launch::Process;
 use libcnb::data::launch::ProcessBuilder;
 use libcnb::data::process_type;
-use std::io::Stdout;
+use std::io::Write;
 use std::path::Path;
 
-pub(crate) fn get_default_process(
-    bullet: Print<SubBullet<Stdout>>,
+pub(crate) fn get_default_process<W>(
+    bullet: Print<SubBullet<W>>,
     context: &BuildContext<RubyBuildpack>,
     gem_list: &GemList,
-) -> (Print<SubBullet<Stdout>>, Option<Process>) {
+) -> (Print<SubBullet<W>>, Option<Process>)
+where
+    W: Write + Send + Sync + 'static,
+{
     let config_ru = style::value("config.ru");
     let rails = style::value("rails");
     let rack = style::value("rack");

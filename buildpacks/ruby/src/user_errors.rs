@@ -2,12 +2,12 @@ use crate::{DetectError, RubyBuildpackError};
 use bullet_stream::{state::Bullet, state::SubBullet, style, Print};
 use fun_run::CmdError;
 use indoc::formatdoc;
-use std::io::Stdout;
+use std::io::Write;
 use std::process::Command;
 const DEBUG_INFO_STR: &str = "Debug info";
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
-    let output = Print::new(std::io::stdout()).without_header();
+    let output = Print::global().without_header();
     let debug_info = style::important(DEBUG_INFO_STR);
     match cause(err) {
         Cause::OurError(error) => log_our_error(output, error),
@@ -34,7 +34,10 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
 }
 
 #[allow(clippy::too_many_lines)]
-fn log_our_error(mut output: Print<Bullet<Stdout>>, error: RubyBuildpackError) {
+fn log_our_error<W: Write + Send + Sync + 'static>(
+    mut output: Print<Bullet<W>>,
+    error: RubyBuildpackError,
+) {
     let git_branch_url =
         style::url("https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main");
     let ruby_versions_url =
@@ -340,7 +343,10 @@ fn replace_app_path_with_relative(contents: impl AsRef<str>) -> String {
     app_path_re.replace_all(contents.as_ref(), "./").to_string()
 }
 
-fn debug_cmd(mut log: Print<SubBullet<Stdout>>, command: &mut Command) -> Print<Bullet<Stdout>> {
+fn debug_cmd<W: Write + Send + Sync + 'static>(
+    mut log: Print<SubBullet<W>>,
+    command: &mut Command,
+) -> Print<Bullet<W>> {
     match log.stream_cmd(command) {
         Ok(_) => log.done(),
         Err(e) => log.sub_bullet(e.to_string()).done(),

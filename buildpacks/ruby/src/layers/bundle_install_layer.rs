@@ -32,7 +32,7 @@ use libcnb::{
 };
 use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
-use std::io::Stdout;
+use std::io::Write;
 use std::{path::Path, process::Command};
 
 /// When this environment variable is set, the `bundle install` command will always
@@ -44,13 +44,16 @@ const SKIP_DIGEST_ENV_KEY: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
 /// on the next build.
 pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
 
-pub(crate) fn handle(
+pub(crate) fn handle<W>(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     env: &Env,
-    mut bullet: Print<SubBullet<Stdout>>,
+    mut bullet: Print<SubBullet<W>>,
     metadata: &Metadata,
     without: &BundleWithout,
-) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
+) -> libcnb::Result<(Print<SubBullet<W>>, LayerEnv), RubyBuildpackError>
+where
+    W: Write + Send + Sync + 'static,
+{
     let layer_ref = DiffMigrateLayer {
         build: true,
         launch: true,

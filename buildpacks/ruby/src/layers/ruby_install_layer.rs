@@ -27,17 +27,20 @@ use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::layer_env::LayerEnv;
 use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
-use std::io::{self, Stdout};
+use std::io::Write;
 use std::path::Path;
 use tar::Archive;
 use tempfile::NamedTempFile;
 use url::Url;
 
-pub(crate) fn handle(
+pub(crate) fn handle<W>(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
-    mut bullet: Print<SubBullet<Stdout>>,
+    mut bullet: Print<SubBullet<W>>,
     metadata: &Metadata,
-) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
+) -> libcnb::Result<(Print<SubBullet<W>>, LayerEnv), RubyBuildpackError>
+where
+    W: Write + Send + Sync + 'static,
+{
     let layer_ref = DiffMigrateLayer {
         build: true,
         launch: true,
@@ -198,7 +201,7 @@ pub(crate) fn download(
     let mut destination_file = fs_err::File::create(destination.as_ref())
         .map_err(RubyInstallError::CouldNotCreateDestinationFile)?;
 
-    io::copy(&mut response_reader, &mut destination_file)
+    std::io::copy(&mut response_reader, &mut destination_file)
         .map_err(RubyInstallError::CouldNotWriteDestinationFile)?;
 
     Ok(())

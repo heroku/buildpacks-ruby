@@ -34,22 +34,22 @@ fn test_migrating_metadata_or_layer_names() {
             "docker://docker.io/heroku/buildpack-ruby:5.0.0".to_string(),
         )]),
         |context| {
-            println!("{}", context.pack_stdout);
+            println!("{}", context.pack_stderr);
             context.rebuild(
                 BuildConfig::new(builder, app_dir).buildpacks([BuildpackReference::CurrentCrate]),
                 |rebuild_context| {
-                    println!("{}", rebuild_context.pack_stdout);
+                    println!("{}", rebuild_context.pack_stderr);
 
                     assert_contains_match!(
-                        rebuild_context.pack_stdout,
+                        rebuild_context.pack_stderr,
                         r"^- Ruby version[^\n]*\n  - Using cache"
                     );
                     assert_contains_match!(
-                        rebuild_context.pack_stdout,
+                        rebuild_context.pack_stderr,
                         r"^- Bundler version[^\n]*\n  - Using cache"
                     );
                     assert_contains_match!(
-                        rebuild_context.pack_stdout,
+                        rebuild_context.pack_stderr,
                         r"^- Bundle install gems[^\n]*\n  - Using cache"
                     );
                 },
@@ -77,13 +77,13 @@ fn test_default_app_ubuntu20() {
     TestRunner::default().build(
         config.clone(),
         |context| {
-            println!("{}", context.pack_stdout);
-            assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
+            println!("{}", context.pack_stderr);
+            assert_contains!(context.pack_stderr, "# Heroku Ruby Buildpack");
             assert_contains!(
-                context.pack_stdout,
+                context.pack_stderr,
                 r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
 
-            assert_contains!(context.pack_stdout, "Installing puma");
+            assert_contains!(context.pack_stderr, "Installing puma");
 
         // Check that at run-time:
         // - The correct env vars are set.
@@ -184,9 +184,9 @@ fn test_default_app_ubuntu20() {
 
 
         context.rebuild(config, |rebuild_context| {
-            println!("{}", rebuild_context.pack_stdout);
-            assert_contains!(rebuild_context.pack_stdout, "Skipping `bundle install` (no changes found in /workspace/Gemfile, /workspace/Gemfile.lock, or user configured environment variables)");
-            let rake_output = Regex::new(r"(?sm)START RAKE TEST OUTPUT\n(.*)END RAKE TEST OUTPUT").unwrap().captures(&rebuild_context.pack_stdout).and_then(|captures| captures.get(1).map(|m| m.as_str().to_string())).unwrap();
+            println!("{}", rebuild_context.pack_stderr);
+            assert_contains!(rebuild_context.pack_stderr, "Skipping `bundle install` (no changes found in /workspace/Gemfile, /workspace/Gemfile.lock, or user configured environment variables)");
+            let rake_output = Regex::new(r"(?sm)START RAKE TEST OUTPUT\n(.*)END RAKE TEST OUTPUT").unwrap().captures(&rebuild_context.pack_stderr).and_then(|captures| captures.get(1).map(|m| m.as_str().to_string())).unwrap();
             assert_eq!(
                 r"
       $ echo $PATH
@@ -236,13 +236,13 @@ fn test_default_app_ubuntu22() {
     TestRunner::default().build(
         BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby"),
         |context| {
-            println!("{}", context.pack_stdout);
-            assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
+            println!("{}", context.pack_stderr);
+            assert_contains!(context.pack_stderr, "# Heroku Ruby Buildpack");
             assert_contains!(
-                context.pack_stdout,
+                context.pack_stderr,
                 r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
 
-            assert_contains!(context.pack_stdout, "Installing puma");
+            assert_contains!(context.pack_stderr, "Installing puma");
         },
     );
 }
@@ -255,21 +255,21 @@ fn test_default_app_latest_distro() {
     TestRunner::default().build(
         config,
         |context| {
-            println!("{}", context.pack_stdout);
-            assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
+            println!("{}", context.pack_stderr);
+            assert_contains!(context.pack_stderr, "# Heroku Ruby Buildpack");
             assert_contains!(
-                context.pack_stdout,
+                context.pack_stderr,
                 r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
 
-            assert_contains!(context.pack_stdout, "Installing puma");
+            assert_contains!(context.pack_stderr, "Installing puma");
 
             let secret_key_base = context.run_shell_command("echo \"${SECRET_KEY_BASE:?No SECRET_KEY_BASE set}\"").stdout;
             assert!(!secret_key_base.trim().is_empty(), "Expected {secret_key_base:?} to not be empty but it is");
 
             let config = context.config.clone();
             context.rebuild(config, |rebuild_context| {
-                println!("{}", rebuild_context.pack_stdout);
-                assert_contains!(rebuild_context.pack_stdout, "Skipping `bundle install` (no changes found in /workspace/Gemfile, /workspace/Gemfile.lock, or user configured environment variables)");
+                println!("{}", rebuild_context.pack_stderr);
+                assert_contains!(rebuild_context.pack_stderr, "Skipping `bundle install` (no changes found in /workspace/Gemfile, /workspace/Gemfile.lock, or user configured environment variables)");
 
                 rebuild_context.start_container(
                     ContainerConfig::new()
@@ -336,13 +336,13 @@ DEPENDENCIES
             BuildpackReference::CurrentCrate,
         ]),
         |context| {
-            println!("{}", context.pack_stdout);
-            assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
+            println!("{}", context.pack_stderr);
+            assert_contains!(context.pack_stderr, "# Heroku Ruby Buildpack");
             assert_contains!(
-                context.pack_stdout,
+                context.pack_stderr,
                 r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#
             );
-            assert_contains!(context.pack_stdout, "Ruby version `3.1.4-jruby-9.4.8.0` from `Gemfile.lock`");
+            assert_contains!(context.pack_stderr, "Ruby version `3.1.4-jruby-9.4.8.0` from `Gemfile.lock`");
             });
 }
 
@@ -357,10 +357,10 @@ fn test_ruby_app_with_yarn_app() {
             BuildpackReference::CurrentCrate,
         ]),
         |context| {
-            println!("{}", context.pack_stdout);
-            assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
+            println!("{}", context.pack_stderr);
+            assert_contains!(context.pack_stderr, "# Heroku Ruby Buildpack");
             assert_contains!(
-                context.pack_stdout,
+                context.pack_stderr,
                 r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
             }
         );
@@ -372,9 +372,9 @@ fn test_barnes_app() {
     TestRunner::default().build(
         BuildConfig::new("heroku/builder:22", "tests/fixtures/barnes_app"),
         |context| {
-            println!("{}", context.pack_stdout);
+            println!("{}", context.pack_stderr);
 
-            assert_contains!(context.pack_stdout, "Installing metrics agent from https://agentmon-releases.s3.us-east-1.amazonaws.com/agentmon");
+            assert_contains!(context.pack_stderr, "Installing metrics agent from https://agentmon-releases.s3.us-east-1.amazonaws.com/agentmon");
             context.start_container(
                 ContainerConfig::new()
                     .entrypoint("launcher")

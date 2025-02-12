@@ -18,7 +18,6 @@ use libcnb::layer::UncachedLayerDefinition;
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
-use std::io::stdout;
 
 mod gem_list;
 mod layers;
@@ -115,7 +114,7 @@ impl Buildpack for RubyBuildpack {
 
     #[allow(clippy::too_many_lines)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
-        let mut build_output = Print::new(stdout()).h2("Heroku Ruby Buildpack");
+        let mut build_output = Print::global().h2("Heroku Ruby Buildpack");
 
         // ## Set default environment
         let (mut env, store) =

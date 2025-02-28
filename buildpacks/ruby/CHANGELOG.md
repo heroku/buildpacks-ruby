@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Enabled `libcnb`'s `trace` feature. ([#398](https://github.com/heroku/buildpacks-ruby/pull/398))
+
 ## [5.0.1] - 2025-01-13
 
 ### Fixed

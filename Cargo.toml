@@ -9,7 +9,7 @@ cache_diff = { version = "1.1", features = ["bullet_stream"] }
 
 [workspace.package]
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.85"
 
 [workspace.lints.rust]
 unreachable_pub = "warn"
@@ -22,4 +22,3 @@ panic_in_result_fn = "warn"
 pedantic = { level = "warn", priority = -1 }
 unwrap_used = "warn"
 module_name_repetitions = "allow"
-

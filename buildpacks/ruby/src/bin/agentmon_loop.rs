@@ -58,7 +58,7 @@ fn main() {
                             "Process could not run due to error. {error}, sleeping {SLEEP_FOR:?}"
                         );
                     }
-                };
+                }
                 sleep(SLEEP_FOR);
             }
         }
@@ -120,17 +120,17 @@ fn build_args(env: &HashMap<String, String>) -> Result<Vec<String>, BuildArgsErr
         args.push(format!("-statsd-addr=:{port}"));
     } else {
         return Err(BuildArgsError::MissingPort);
-    };
+    }
 
     if env.get(AGENTMON_DEBUG).is_some_and(|value| value == "true") {
         args.push("-debug".to_string());
-    };
+    }
 
     if let Some(url) = env.get(HEROKU_METRICS_URL) {
         args.push(url.clone());
     } else {
         return Err(BuildArgsError::MissingMetricsUrl);
-    };
+    }
 
     Ok(args)
 }

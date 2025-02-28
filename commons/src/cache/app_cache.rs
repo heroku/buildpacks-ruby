@@ -134,7 +134,7 @@ impl AppCache {
             KeepPath::BuildOnly => {
                 fs_err::remove_dir_all(&self.path).map_err(CacheError::IoError)?;
             }
-        };
+        }
 
         Ok(self)
     }

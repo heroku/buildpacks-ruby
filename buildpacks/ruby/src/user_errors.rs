@@ -30,7 +30,7 @@ pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
                 buildpack or the framework please open an issue on the buildpack's GitHub repository.
             "});
         }
-    };
+    }
 }
 
 #[allow(clippy::too_many_lines)]

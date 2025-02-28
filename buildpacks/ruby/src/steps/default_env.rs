@@ -28,10 +28,10 @@ pub(crate) fn default_env(
         .metadata
         .entry("SECRET_KEY_BASE")
         .or_insert_with(|| {
-            let mut rng = rand::thread_rng();
+            let mut rng = rand::rng();
 
             (0..64)
-                .map(|_| rng.sample(rand::distributions::Alphanumeric) as char)
+                .map(|_| rng.sample(rand::distr::Alphanumeric) as char)
                 .collect::<String>()
                 .into()
         })

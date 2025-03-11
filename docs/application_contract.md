@@ -38,7 +38,7 @@ Once an application has passed the detect phase, the build phase will execute to
       - `Gemfile.lock`
       - User configurable environment variables.
     -To always run `bundle install` even if there are changes if the environment variable `HEROKU_SKIP_BUNDLE_DIGEST=1` is found.
-  - We will always run `bundle clean` after a successful `bundle install` via setting `BUNDLE_CLEAN=1` environment variable.
+  - We will always run `bundle clean` after a successful `bundle install`.
   - We will always cache the contents of your gem dependencies.
       - We will always invalidate the dependency cache if your distribution name or version (operating system) changes.
       - We will always invalidate the dependency cache if your CPU architecture (i.e. amd64) changes.
@@ -71,11 +71,8 @@ Once an application has passed the detect phase, the build phase will execute to
   - `SECRET_KEY_BASE=${SECRET_KEY_BASE:-<generate a secret key>}` - In Rails 4.1+ apps a value is needed to generate cryptographic tokens used for a variety of things. Notably this value is used in generating user sessions so modifying it between builds will have the effect of logging out all users. This buildpack provides a default generated value. You can override this value.
   - `BUNDLE_WITHOUT=development:test` - Tells bundler to not install `development` or `test` groups during `bundle install`. You can override this value.
 - Environment variables modified - In addition to the default list this is a list of environment variables that the buildpack modifies:
-  - `BUNDLE_BIN=<bundle-path-dir>/bin` - Install executables for all gems into specified path.
-  - `BUNDLE_CLEAN=1` - After successful `bundle install` bundler will automatically run `bundle clean` to remove all stale gems from previous builds that are no longer specified in the `Gemfile.lock`.
-  - `BUNDLE_DEPLOYMENT=1` - Requires `Gemfile.lock` to be in sync with the current `Gemfile`.
+  - `BUNDLE_FROZEN=1` - Requires `Gemfile.lock` to be in sync with the current `Gemfile`.
   - `BUNDLE_GEMFILE=<app-dir>/Gemfile` - Tells bundler where to find the `Gemfile`.
-  - `BUNDLE_PATH=<bundle-path-dir>` - Directs bundler to install gems to this path
   - `DISABLE_SPRING="1"` - Spring is a library that attempts to cache application state by forking and manipulating processes with the goal of decreasing development boot time. Disabling it in production removes significant problems [details](https://devcenter.heroku.com/changelog-items/1826).
   - `GEM_PATH=<bundle-path-dir>` - Tells Ruby where gems are located.
   - `MALLOC_ARENA_MAX=2` - Controls glibc memory allocation behavior with the goal of decreasing overall memory allocated by Ruby [details](https://devcenter.heroku.com/changelog-items/1683).

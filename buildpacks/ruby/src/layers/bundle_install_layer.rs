@@ -42,7 +42,7 @@ const SKIP_DIGEST_ENV_KEY: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
 /// A failsafe, if a programmer made a mistake in the caching logic, rev-ing this
 /// key will force a re-run of `bundle install` to ensure the cache is correct
 /// on the next build.
-pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
+pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v2";
 
 pub(crate) fn handle<W>(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
@@ -98,6 +98,15 @@ where
                 .map_err(|error| {
                     fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
                 })
+                .map_err(RubyBuildpackError::BundleInstallCommandError)?;
+
+            bullet
+                .time_cmd(
+                    Command::new("bundle")
+                        .args(["clean", "--force"])
+                        .env_clear()
+                        .envs(&env),
+                )
                 .map_err(RubyBuildpackError::BundleInstallCommandError)?;
         }
         InstallState::Skip(checked) => {
@@ -252,20 +261,14 @@ fn layer_env(layer_path: &Path, app_dir: &Path, without_default: &BundleWithout)
         .chainable_insert(
             Scope::All,
             ModificationBehavior::Override,
-            "BUNDLE_PATH", // Directs bundler to install gems to this path.
+            "GEM_HOME", // Tells bundler where to install gems, along with GEM_PATH
             layer_path,
-        )
-        .chainable_insert(
-            Scope::All,
-            ModificationBehavior::Override,
-            "BUNDLE_BIN", // Install executables for all gems into specified path.
-            layer_path.join("bin"),
         )
         .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
         .chainable_insert(
             Scope::All,
             ModificationBehavior::Prepend,
-            "GEM_PATH", // Tells Ruby where gems are located. Should match `BUNDLE_PATH`.
+            "GEM_PATH", // Tells Ruby where gems are located.
             layer_path,
         )
         .chainable_insert(
@@ -283,13 +286,7 @@ fn layer_env(layer_path: &Path, app_dir: &Path, without_default: &BundleWithout)
         .chainable_insert(
             Scope::All,
             ModificationBehavior::Override,
-            "BUNDLE_CLEAN", // After successful `bundle install` bundler will automatically run `bundle clean`
-            "1",
-        )
-        .chainable_insert(
-            Scope::All,
-            ModificationBehavior::Override,
-            "BUNDLE_DEPLOYMENT", // Requires the `Gemfile.lock` to be in sync with the current `Gemfile`.
+            "BUNDLE_FROZEN", // Requires the `Gemfile.lock` to be in sync with the current `Gemfile`.
             "1",
         );
     // CAREFUL: Changes to these ^^^^^^^ environment variables
@@ -306,14 +303,7 @@ fn display_name(cmd: &mut Command, env: &Env) -> String {
     fun_run::display_with_env_keys(
         cmd,
         env,
-        [
-            "BUNDLE_BIN",
-            "BUNDLE_CLEAN",
-            "BUNDLE_DEPLOYMENT",
-            "BUNDLE_GEMFILE",
-            "BUNDLE_PATH",
-            "BUNDLE_WITHOUT",
-        ],
+        ["BUNDLE_FROZEN", "BUNDLE_GEMFILE", "BUNDLE_WITHOUT"],
     )
 }
 
@@ -439,12 +429,10 @@ mod test {
 
         let actual = commons::display::env_to_sorted_string(&env);
         let expected = r"
-BUNDLE_BIN=layer_path/bin
-BUNDLE_CLEAN=1
-BUNDLE_DEPLOYMENT=1
+BUNDLE_FROZEN=1
 BUNDLE_GEMFILE=app_path/Gemfile
-BUNDLE_PATH=layer_path
 BUNDLE_WITHOUT=development:test
+GEM_HOME=layer_path
 GEM_PATH=layer_path
         ";
         assert_eq!(expected.trim(), actual.trim());

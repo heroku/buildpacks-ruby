@@ -81,7 +81,8 @@ fn test_default_app_ubuntu20() {
             assert_contains!(context.pack_stderr, "# Heroku Ruby Buildpack");
             assert_contains!(
                 context.pack_stderr,
-                r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
+                r#"`BUNDLE_FROZEN="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_WITHOUT="development:test" bundle install`"#
+            );
 
             assert_contains!(context.pack_stderr, "Installing puma");
 
@@ -90,7 +91,7 @@ fn test_default_app_ubuntu20() {
         let command_output = context.run_shell_command(
             indoc! {"
                 set -euo pipefail
-                printenv | sort | grep -vE '(_|HOME|HOSTNAME|OLDPWD|PWD|SHLVL|SECRET_KEY_BASE)='
+                printenv | sort | grep -vE '(_|^HOME|HOSTNAME|OLDPWD|PWD|SHLVL|SECRET_KEY_BASE)='
 
                 # Output command + output to stdout
                 export BASH_XTRACEFD=1; set -o xtrace
@@ -101,13 +102,11 @@ fn test_default_app_ubuntu20() {
         assert_empty!(command_output.stderr);
         assert_eq!(
             formatdoc! {"
-                BUNDLE_BIN=/layers/heroku_ruby/gems/bin
-                BUNDLE_CLEAN=1
-                BUNDLE_DEPLOYMENT=1
+                BUNDLE_FROZEN=1
                 BUNDLE_GEMFILE=/workspace/Gemfile
-                BUNDLE_PATH=/layers/heroku_ruby/gems
                 BUNDLE_WITHOUT=development:test
                 DISABLE_SPRING=1
+                GEM_HOME=/layers/heroku_ruby/gems
                 GEM_PATH=/layers/heroku_ruby/gems:/layers/heroku_ruby/bundler
                 JRUBY_OPTS=-Xcompile.invokedynamic=false
                 LD_LIBRARY_PATH=/layers/heroku_ruby/binruby/lib
@@ -190,11 +189,10 @@ fn test_default_app_ubuntu20() {
             assert_eq!(
                 r"
       $ echo $PATH
-      /layers/heroku_ruby/gems/ruby/<x.y.z>/bin:/workspace/bin:/layers/heroku_ruby/gems/bin:/layers/heroku_ruby/bundler/bin:/layers/heroku_ruby/binruby/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      /layers/heroku_ruby/gems/bin:/workspace/bin:/layers/heroku_ruby/bundler/bin:/layers/heroku_ruby/binruby/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       $ which -a rake
-      /layers/heroku_ruby/gems/ruby/<x.y.z>/bin/rake
-      /workspace/bin/rake
       /layers/heroku_ruby/gems/bin/rake
+      /workspace/bin/rake
       /layers/heroku_ruby/binruby/bin/rake
       /usr/bin/rake
       /bin/rake
@@ -203,7 +201,7 @@ fn test_default_app_ubuntu20() {
       /usr/bin/ruby
       /bin/ruby
             ".trim(),
-        Regex::new(r"/layers/heroku_ruby/gems/ruby/\d+\.\d+\.\d+/bin").unwrap().replace_all(&rake_output, "/layers/heroku_ruby/gems/ruby/<x.y.z>/bin").trim()
+        rake_output.trim()
 );
 
             let command_output = rebuild_context.run_shell_command(
@@ -240,7 +238,8 @@ fn test_default_app_ubuntu22() {
             assert_contains!(context.pack_stderr, "# Heroku Ruby Buildpack");
             assert_contains!(
                 context.pack_stderr,
-                r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
+                r#"`BUNDLE_FROZEN="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_WITHOUT="development:test" bundle install`"#
+            );
 
             assert_contains!(context.pack_stderr, "Installing puma");
         },
@@ -259,7 +258,8 @@ fn test_default_app_latest_distro() {
             assert_contains!(context.pack_stderr, "# Heroku Ruby Buildpack");
             assert_contains!(
                 context.pack_stderr,
-                r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
+                r#"`BUNDLE_FROZEN="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_WITHOUT="development:test" bundle install`"#
+            );
 
             assert_contains!(context.pack_stderr, "Installing puma");
 
@@ -340,7 +340,7 @@ DEPENDENCIES
             assert_contains!(context.pack_stderr, "# Heroku Ruby Buildpack");
             assert_contains!(
                 context.pack_stderr,
-                r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#
+                r#"`BUNDLE_FROZEN="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_WITHOUT="development:test" bundle install`"#
             );
             assert_contains!(context.pack_stderr, "Ruby version `3.1.4-jruby-9.4.8.0` from `Gemfile.lock`");
             });
@@ -361,7 +361,8 @@ fn test_ruby_app_with_yarn_app() {
             assert_contains!(context.pack_stderr, "# Heroku Ruby Buildpack");
             assert_contains!(
                 context.pack_stderr,
-                r#"`BUNDLE_BIN="/layers/heroku_ruby/gems/bin" BUNDLE_CLEAN="1" BUNDLE_DEPLOYMENT="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_PATH="/layers/heroku_ruby/gems" BUNDLE_WITHOUT="development:test" bundle install`"#);
+                r#"`BUNDLE_FROZEN="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_WITHOUT="development:test" bundle install`"#
+            );
             }
         );
 }

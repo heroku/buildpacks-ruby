@@ -153,6 +153,7 @@ pub(crate) struct MetadataV2 {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
+#[cache_diff(custom = clear_v1)]
 #[try_migrate(from = MetadataV2)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV3 {
@@ -178,6 +179,14 @@ pub(crate) struct MetadataV3 {
     ///
     #[cache_diff(ignore)]
     pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
+}
+
+fn clear_v1(_new: &Metadata, old: &Metadata) -> Vec<String> {
+    if &old.force_bundle_install_key == "v1" {
+        vec!["Internal gem directory structure changed".to_string()]
+    } else {
+        Vec::new()
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -498,6 +507,27 @@ platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3
         let deserialized: Metadata = toml::from_str(&toml_string).unwrap();
 
         assert_eq!(metadata, deserialized);
+
+        let old = Metadata {
+            ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
+            os_distribution: OsDistribution {
+                name: "ubuntu".to_string(),
+                version: "20.04".to_string(),
+            },
+            cpu_architecture: "amd64".to_string(),
+            force_bundle_install_key: "v1".to_string(),
+            digest: MetadataDigest::new_env_files(
+                &context.platform,
+                &[&context.app_path.join("Gemfile")],
+            )
+            .unwrap(),
+        };
+
+        let diff = old.diff(&old);
+        assert_eq!(
+            vec!["Internal gem directory structure changed".to_string()],
+            diff
+        );
     }
 
     #[test]

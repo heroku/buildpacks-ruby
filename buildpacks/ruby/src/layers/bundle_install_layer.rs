@@ -42,7 +42,7 @@ const SKIP_DIGEST_ENV_KEY: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
 /// A failsafe, if a programmer made a mistake in the caching logic, rev-ing this
 /// key will force a re-run of `bundle install` to ensure the cache is correct
 /// on the next build.
-pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v1";
+pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v2";
 
 pub(crate) fn handle<W>(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
@@ -99,6 +99,15 @@ where
                     fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
                 })
                 .map_err(RubyBuildpackError::BundleInstallCommandError)?;
+
+            bullet
+                .time_cmd(
+                    Command::new("bundle")
+                        .args(["clean", "--force"])
+                        .env_clear()
+                        .envs(&env),
+                )
+                .map_err(RubyBuildpackError::BundleInstallCommandError)?;
         }
         InstallState::Skip(checked) => {
             let bundle_install = style::value("bundle install");
@@ -144,6 +153,7 @@ pub(crate) struct MetadataV2 {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
+#[cache_diff(custom = clear_v1)]
 #[try_migrate(from = MetadataV2)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV3 {
@@ -169,6 +179,14 @@ pub(crate) struct MetadataV3 {
     ///
     #[cache_diff(ignore)]
     pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
+}
+
+fn clear_v1(_new: &Metadata, old: &Metadata) -> Vec<String> {
+    if &old.force_bundle_install_key == "v1" {
+        vec!["Internal gem directory structure changed".to_string()]
+    } else {
+        Vec::new()
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -252,20 +270,14 @@ fn layer_env(layer_path: &Path, app_dir: &Path, without_default: &BundleWithout)
         .chainable_insert(
             Scope::All,
             ModificationBehavior::Override,
-            "BUNDLE_PATH", // Directs bundler to install gems to this path.
+            "GEM_HOME", // Tells bundler where to install gems, along with GEM_PATH
             layer_path,
-        )
-        .chainable_insert(
-            Scope::All,
-            ModificationBehavior::Override,
-            "BUNDLE_BIN", // Install executables for all gems into specified path.
-            layer_path.join("bin"),
         )
         .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
         .chainable_insert(
             Scope::All,
             ModificationBehavior::Prepend,
-            "GEM_PATH", // Tells Ruby where gems are located. Should match `BUNDLE_PATH`.
+            "GEM_PATH", // Tells Ruby where gems are located.
             layer_path,
         )
         .chainable_insert(
@@ -283,13 +295,7 @@ fn layer_env(layer_path: &Path, app_dir: &Path, without_default: &BundleWithout)
         .chainable_insert(
             Scope::All,
             ModificationBehavior::Override,
-            "BUNDLE_CLEAN", // After successful `bundle install` bundler will automatically run `bundle clean`
-            "1",
-        )
-        .chainable_insert(
-            Scope::All,
-            ModificationBehavior::Override,
-            "BUNDLE_DEPLOYMENT", // Requires the `Gemfile.lock` to be in sync with the current `Gemfile`.
+            "BUNDLE_FROZEN", // Requires the `Gemfile.lock` to be in sync with the current `Gemfile`.
             "1",
         );
     // CAREFUL: Changes to these ^^^^^^^ environment variables
@@ -306,14 +312,7 @@ fn display_name(cmd: &mut Command, env: &Env) -> String {
     fun_run::display_with_env_keys(
         cmd,
         env,
-        [
-            "BUNDLE_BIN",
-            "BUNDLE_CLEAN",
-            "BUNDLE_DEPLOYMENT",
-            "BUNDLE_GEMFILE",
-            "BUNDLE_PATH",
-            "BUNDLE_WITHOUT",
-        ],
+        ["BUNDLE_FROZEN", "BUNDLE_GEMFILE", "BUNDLE_WITHOUT"],
     )
 }
 
@@ -439,12 +438,10 @@ mod test {
 
         let actual = commons::display::env_to_sorted_string(&env);
         let expected = r"
-BUNDLE_BIN=layer_path/bin
-BUNDLE_CLEAN=1
-BUNDLE_DEPLOYMENT=1
+BUNDLE_FROZEN=1
 BUNDLE_GEMFILE=app_path/Gemfile
-BUNDLE_PATH=layer_path
 BUNDLE_WITHOUT=development:test
+GEM_HOME=layer_path
 GEM_PATH=layer_path
         ";
         assert_eq!(expected.trim(), actual.trim());
@@ -510,6 +507,27 @@ platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3
         let deserialized: Metadata = toml::from_str(&toml_string).unwrap();
 
         assert_eq!(metadata, deserialized);
+
+        let old = Metadata {
+            ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
+            os_distribution: OsDistribution {
+                name: "ubuntu".to_string(),
+                version: "20.04".to_string(),
+            },
+            cpu_architecture: "amd64".to_string(),
+            force_bundle_install_key: "v1".to_string(),
+            digest: MetadataDigest::new_env_files(
+                &context.platform,
+                &[&context.app_path.join("Gemfile")],
+            )
+            .unwrap(),
+        };
+
+        let diff = old.diff(&old);
+        assert_eq!(
+            vec!["Internal gem directory structure changed".to_string()],
+            diff
+        );
     }
 
     #[test]

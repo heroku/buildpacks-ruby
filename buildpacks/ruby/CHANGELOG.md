@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Gem install behavior and configuration (https://github.com/heroku/buildpacks-ruby/pull/402)
+- Gem install behavior and configuration ([#402](https://github.com/heroku/buildpacks-ruby/pull/402))
   - Gem install path is now configured with `GEM_HOME` and `GEM_PATH` instead of `BUNDLE_PATH`.
   - Cleaning gems is now accomplished via running `bundle clean --force`. Previously it was accomplished by setting `BUNDLE_CLEAN=1`.
   - The `BUNDLE_DEPLOYMENT=1` environment variable is changed to `BUNDLE_FROZEN=1`.

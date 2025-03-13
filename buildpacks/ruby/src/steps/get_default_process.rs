@@ -69,32 +69,26 @@ fn detect_web(gem_list: &GemList, app_path: &Path) -> WebProcess {
 }
 
 fn default_rack() -> Process {
-    ProcessBuilder::new(process_type!("web"), ["bash"])
-        .args([
-            "-c",
-            &[
-                "bundle exec rackup",
-                "--host \"[::]\"",
-                "--port \"${PORT:?Error: PORT env var is not set!}\"",
-            ]
-            .join(" "),
-        ])
+    ProcessBuilder::new(process_type!("web"), ["bash", "-c"])
+        .args([[
+            "bundle exec rackup",
+            "--host \"[::]\"",
+            "--port \"${PORT:?Error: PORT env var is not set!}\"",
+        ]
+        .join(" ")])
         .default(true)
         .build()
 }
 
 fn default_rails() -> Process {
-    ProcessBuilder::new(process_type!("web"), ["bash"])
-        .args([
-            "-c",
-            &[
-                "bin/rails server",
-                "--binding \"[::]\"",
-                "--port \"${PORT:?Error: PORT env var is not set!}\"",
-                "--environment \"$RAILS_ENV\"",
-            ]
-            .join(" "),
-        ])
+    ProcessBuilder::new(process_type!("web"), ["bash", "-c"])
+        .args([[
+            "bin/rails server",
+            "--binding \"[::]\"",
+            "--port \"${PORT:?Error: PORT env var is not set!}\"",
+            "--environment \"$RAILS_ENV\"",
+        ]
+        .join(" ")])
         .default(true)
         .build()
 }

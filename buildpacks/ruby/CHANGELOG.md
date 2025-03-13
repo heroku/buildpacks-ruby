@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The `docker run` command no longer requires an entrypoint when using default processes provided by `heroku/ruby` directly (and not the `heroku/procfile` buildpack) ([#404](https://github.com/heroku/buildpacks-ruby/pull/404))
+
 ## [6.0.0] - 2025-03-12
 
 ### Changed

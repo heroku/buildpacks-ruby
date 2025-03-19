@@ -125,8 +125,8 @@ impl Buildpack for RubyBuildpack {
         let lockfile_contents = fs_err::read_to_string(&lockfile)
             .map_err(|error| RubyBuildpackError::MissingGemfileLock(lockfile, error))?;
         let gemfile_lock = GemfileLock::from_str(&lockfile_contents).expect("Infallible");
-        let bundler_version = gemfile_lock.resolve_bundler("2.5.6");
-        let ruby_version = gemfile_lock.resolve_ruby("3.2.6");
+        let bundler_version = gemfile_lock.resolve_bundler("2.5.23");
+        let ruby_version = gemfile_lock.resolve_ruby("3.3.7");
 
         // ## Install metrics agent
         build_output = {

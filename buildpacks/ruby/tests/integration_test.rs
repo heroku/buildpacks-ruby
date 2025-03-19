@@ -10,6 +10,7 @@ use libcnb_test::{
 };
 use pretty_assertions::assert_eq;
 use regex::Regex;
+use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::thread;
@@ -24,14 +25,38 @@ fn test_migrating_metadata_or_layer_names() {
     // This test is a placeholder for when a change modifies metadata structures.
     // Remove the return and update the `buildpack-ruby` reference to the latest version.
     #![allow(unreachable_code)]
-    // Test v5.0.1 compatible with v5.0.0
+    // Test v7.0.0 compatible with v6.0.0
 
     let builder = "heroku/builder:24";
-    let app_dir = "tests/fixtures/default_ruby";
+    let temp = tempfile::tempdir().unwrap();
+    let app_dir = temp.path();
+
+    copy_dir_all(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("default_ruby"),
+        app_dir,
+    )
+    .unwrap();
+
+    // Specify explicit versions so changes in default values don't cause this test to fail
+    writeln!(
+        fs_err::OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open(app_dir.join("Gemfile.lock"))
+            .unwrap(),
+        indoc! {"
+                RUBY VERSION
+                   ruby 3.4.2
+            "}
+    )
+    .unwrap();
 
     TestRunner::default().build(
         BuildConfig::new(builder, app_dir).buildpacks([BuildpackReference::Other(
-            "docker://docker.io/heroku/buildpack-ruby:5.0.0".to_string(),
+            "docker://docker.io/heroku/buildpack-ruby:6.0.0".to_string(),
         )]),
         |context| {
             println!("{}", context.pack_stderr);
@@ -166,18 +191,21 @@ fn test_default_app_ubuntu20() {
             STDERR.sync = true
 
             task "assets:precompile" do
-              puts "START RAKE TEST OUTPUT"
-              run!("echo $PATH")
-              run!("which -a rake")
-              run!("which -a ruby")
-              puts "END RAKE TEST OUTPUT"
+              out = String.new
+              out << "START RAKE TEST OUTPUT\n"
+              out << run!("echo $PATH")
+              out << run!("which -a rake")
+              out << run!("which -a ruby")
+              out << "END RAKE TEST OUTPUT\n"
+              puts out
             end
 
             def run!(cmd)
-              puts "$ #{cmd}"
-              output = `#{cmd} 2>&1`
+              output = String.new
+              output << "$ #{cmd}\n"
+              output << `#{cmd} 2>&1`
               raise "Command #{cmd} failed with output #{output}" unless $?.success?
-              puts output
+              output
             end
         "#).unwrap();
 

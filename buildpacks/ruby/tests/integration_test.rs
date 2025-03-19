@@ -191,18 +191,21 @@ fn test_default_app_ubuntu20() {
             STDERR.sync = true
 
             task "assets:precompile" do
-              puts "START RAKE TEST OUTPUT"
-              run!("echo $PATH")
-              run!("which -a rake")
-              run!("which -a ruby")
-              puts "END RAKE TEST OUTPUT"
+              out = String.new
+              out << "START RAKE TEST OUTPUT\n"
+              out << run!("echo $PATH")
+              out << run!("which -a rake")
+              out << run!("which -a ruby")
+              out << "END RAKE TEST OUTPUT\n"
+              puts out
             end
 
             def run!(cmd)
-              puts "$ #{cmd}"
-              output = `#{cmd} 2>&1`
+              output = String.new
+              output << "$ #{cmd}\n"
+              output << `#{cmd} 2>&1`
               raise "Command #{cmd} failed with output #{output}" unless $?.success?
-              puts output
+              output
             end
         "#).unwrap();
 

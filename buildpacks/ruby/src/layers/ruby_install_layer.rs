@@ -189,16 +189,14 @@ fn download_url(
     Ok(url)
 }
 
-pub(crate) fn download(
-    uri: impl AsRef<str>,
-    destination: impl AsRef<Path>,
-) -> Result<(), RubyInstallError> {
-    let mut response_reader = ureq::get(uri.as_ref())
+#[tracing::instrument(name = "download_ruby", err)]
+pub(crate) fn download(uri: &str, destination: &Path) -> Result<(), RubyInstallError> {
+    let mut response_reader = ureq::get(uri)
         .call()
         .map_err(|err| RubyInstallError::RequestError(Box::new(err)))?
         .into_reader();
 
-    let mut destination_file = fs_err::File::create(destination.as_ref())
+    let mut destination_file = fs_err::File::create(destination)
         .map_err(RubyInstallError::CouldNotCreateDestinationFile)?;
 
     std::io::copy(&mut response_reader, &mut destination_file)

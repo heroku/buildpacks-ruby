@@ -95,3 +95,28 @@ jobs:
         run: pack build my-image --force-color --builder heroku/builder:24 --trust-extra-buildpacks --buildpack heroku/nodejs-engine --buildpack packaged/${{ matrix.target }}/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
       - name: "PRINT: Cached getting started guide output"
         run: pack build my-image --force-color --builder heroku/builder:24 --trust-extra-buildpacks --buildpack heroku/nodejs-engine --buildpack packaged/${{ matrix.target }}/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
+
+  unit-test-coverage:
+    name: Generate test coverage report
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install nightly Rust toolchain
+        run: rustup install nightly
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@62730e3d4f6bd81d824694e963e06d7153968c93 # v2.49.29
+        with:
+          tool: cargo-llvm-cov
+      - name: Run unit tests and generate coverage report
+        run: cargo +nightly llvm-cov --locked --html
+      - name: Upload HTML coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: "llvm-cov-html-${{github.event.repository.name}}-${{github.sha}}"
+          path: "target/llvm-cov/html"
+          if-no-files-found: "error"

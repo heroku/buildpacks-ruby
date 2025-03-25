@@ -16,6 +16,11 @@ unreachable_pub = "warn"
 unsafe_code = "warn"
 unused_crate_dependencies = "warn"
 
+# Allows the usage of cfg(coverage_nightly).
+# cargo-llvm-cov enables that config when instrumenting our code, so we can enable
+# the experimental coverage_attribute feature.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
+
 [workspace.lints.clippy]
 panic_in_result_fn = "warn"
 # The explicit priority is required due to https://github.com/rust-lang/cargo/issues/13565.

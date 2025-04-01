@@ -22,7 +22,7 @@ jobs:
       - name: Update Rust toolchain
         run: rustup update
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
       - name: Clippy
         run: cargo clippy --all-targets --locked -- --deny warnings
       - name: rustfmt
@@ -36,7 +36,7 @@ jobs:
       - name: Update Rust toolchain
         run: rustup update
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
       - name: Run unit tests
         run: cargo test --locked
 
@@ -52,9 +52,9 @@ jobs:
       - name: Install Rust linux-musl target
         run: rustup target add x86_64-unknown-linux-musl
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
       - name: Install Pack CLI
-        uses: buildpacks/github-actions/setup-pack@0f05ba41fb74d56ab4cb27485f538a8d65b4122e # v5.8.9
+        uses: buildpacks/github-actions/setup-pack@d82294e03fd6b8e8484cde2ee166788876e366e3 # v5.8.10
       - name: Run integration tests
         # Runs only tests annotated with the `ignore` attribute (which in this repo, are the integration tests).
         run: cargo test --locked -- --ignored
@@ -75,9 +75,9 @@ jobs:
       - name: Install Rust linux-musl target
         run: rustup target add ${{ matrix.target }}
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
       - name: Install Pack CLI
-        uses: buildpacks/github-actions/setup-pack@0f05ba41fb74d56ab4cb27485f538a8d65b4122e # v5.8.9
+        uses: buildpacks/github-actions/setup-pack@d82294e03fd6b8e8484cde2ee166788876e366e3 # v5.8.10
       - name: Pull builder and run images
         run: |
           docker pull "heroku/builder:24"
@@ -107,9 +107,9 @@ jobs:
       - name: Install nightly Rust toolchain
         run: rustup install nightly
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@62730e3d4f6bd81d824694e963e06d7153968c93 # v2.49.29
+        uses: taiki-e/install-action@daa3c1f1f9a9d46f686d9fc2f65773d0c293688b # v2.49.40
         with:
           tool: cargo-llvm-cov
       - name: Run unit tests and generate coverage report

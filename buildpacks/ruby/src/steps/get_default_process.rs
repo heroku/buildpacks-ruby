@@ -6,14 +6,17 @@ use libcnb::build::BuildContext;
 use libcnb::data::launch::Process;
 use libcnb::data::launch::ProcessBuilder;
 use libcnb::data::process_type;
-use std::io::Stdout;
+use std::io::Write;
 use std::path::Path;
 
-pub(crate) fn get_default_process(
-    bullet: Print<SubBullet<Stdout>>,
+pub(crate) fn get_default_process<W>(
+    bullet: Print<SubBullet<W>>,
     context: &BuildContext<RubyBuildpack>,
     gem_list: &GemList,
-) -> (Print<SubBullet<Stdout>>, Option<Process>) {
+) -> (Print<SubBullet<W>>, Option<Process>)
+where
+    W: Write + Send + Sync + 'static,
+{
     let config_ru = style::value("config.ru");
     let rails = style::value("rails");
     let rack = style::value("rack");
@@ -66,31 +69,26 @@ fn detect_web(gem_list: &GemList, app_path: &Path) -> WebProcess {
 }
 
 fn default_rack() -> Process {
-    ProcessBuilder::new(process_type!("web"), ["bash"])
-        .args([
-            "-c",
-            &[
-                "bundle exec rackup",
-                "--port \"${PORT:?Error: PORT env var is not set!}\"",
-                "--host \"0.0.0.0\"",
-            ]
-            .join(" "),
-        ])
+    ProcessBuilder::new(process_type!("web"), ["bash", "-c"])
+        .args([[
+            "bundle exec rackup",
+            "--host \"[::]\"",
+            "--port \"${PORT:?Error: PORT env var is not set!}\"",
+        ]
+        .join(" ")])
         .default(true)
         .build()
 }
 
 fn default_rails() -> Process {
-    ProcessBuilder::new(process_type!("web"), ["bash"])
-        .args([
-            "-c",
-            &[
-                "bin/rails server",
-                "--port \"${PORT:?Error: PORT env var is not set!}\"",
-                "--environment \"$RAILS_ENV\"",
-            ]
-            .join(" "),
-        ])
+    ProcessBuilder::new(process_type!("web"), ["bash", "-c"])
+        .args([[
+            "bin/rails server",
+            "--binding \"[::]\"",
+            "--port \"${PORT:?Error: PORT env var is not set!}\"",
+            "--environment \"$RAILS_ENV\"",
+        ]
+        .join(" ")])
         .default(true)
         .build()
 }

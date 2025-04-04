@@ -1,3 +1,6 @@
+use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TargetId {
     pub(crate) distro_name: String,
@@ -13,10 +16,10 @@ const DISTRO_VERSION_STACK: &[(&str, &str, &str)] = &[
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum TargetIdError {
-    #[error("Distro name and version '{0}-{1}' is not supported. Must be one of: {}", DISTRO_VERSION_STACK.iter().map(|&(name, version, _)| format!("'{name}-{version}'")).collect::<Vec<_>>().join(", "))]
+    #[error("Distro name and version '{0}-{1}' is not supported. Must be one of: {options}", options = DISTRO_VERSION_STACK.iter().map(|&(name, version, _)| format!("'{name}-{version}'")).collect::<Vec<_>>().join(", "))]
     UnknownDistroNameVersionCombo(String, String),
 
-    #[error("Cannot convert stack name '{0}' into a target OS. Must be one of: {}", DISTRO_VERSION_STACK.iter().map(|&(_, _, stack)| format!("'{stack}'")).collect::<Vec<_>>().join(", "))]
+    #[error("Cannot convert stack name '{0}' into a target OS. Must be one of: {options}", options = DISTRO_VERSION_STACK.iter().map(|&(_, _, stack)| format!("'{stack}'")).collect::<Vec<_>>().join(", "))]
     UnknownStack(String),
 }
 
@@ -48,6 +51,18 @@ impl TargetId {
                 distro_version: version.to_owned(),
             })
             .ok_or_else(|| TargetIdError::UnknownStack(stack_id.to_owned()))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub(crate) struct OsDistribution {
+    pub(crate) name: String,
+    pub(crate) version: String,
+}
+
+impl Display for OsDistribution {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.name, self.version)
     }
 }
 

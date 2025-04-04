@@ -11,33 +11,48 @@
 //!
 //! When the Ruby version changes, invalidate and re-run.
 //!
-use crate::layers::shared::{cached_layer_write_metadata, MetadataDiff};
+use crate::target_id::OsDistribution;
 use crate::{
     target_id::{TargetId, TargetIdError},
     RubyBuildpack, RubyBuildpackError,
 };
 use bullet_stream::state::SubBullet;
-use bullet_stream::{style, Print};
+use bullet_stream::Print;
+use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedRubyVersion;
+use commons::layer::diff_migrate::{DiffMigrateLayer, LayerRename};
 use flate2::read::GzDecoder;
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::layer_env::LayerEnv;
-use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
-use serde::{Deserialize, Deserializer, Serialize};
-use std::convert::Infallible;
-use std::io::{self, Stdout};
+use magic_migrate::TryMigrate;
+use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::path::Path;
 use tar::Archive;
 use tempfile::NamedTempFile;
 use url::Url;
 
-pub(crate) fn handle(
+pub(crate) fn handle<W>(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
-    mut bullet: Print<SubBullet<Stdout>>,
+    mut bullet: Print<SubBullet<W>>,
     metadata: &Metadata,
-) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = cached_layer_write_metadata(layer_name!("ruby"), context, metadata)?;
+) -> libcnb::Result<(Print<SubBullet<W>>, LayerEnv), RubyBuildpackError>
+where
+    W: Write + Send + Sync + 'static,
+{
+    let layer_ref = DiffMigrateLayer {
+        build: true,
+        launch: true,
+    }
+    .cached_layer_rename(
+        LayerRename {
+            to: layer_name!("binruby"),
+            from: vec![layer_name!("ruby")],
+        },
+        context,
+        metadata,
+    )?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);
@@ -73,36 +88,47 @@ fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyBuildp
     Ok(())
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, TryMigrate)]
+#[try_migrate(from = None)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV1 {
     pub(crate) stack: String,
     pub(crate) version: ResolvedRubyVersion,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, TryMigrate)]
+#[try_migrate(from = MetadataV1)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV2 {
     pub(crate) distro_name: String,
     pub(crate) distro_version: String,
     pub(crate) cpu_architecture: String,
     pub(crate) ruby_version: ResolvedRubyVersion,
 }
-pub(crate) type Metadata = MetadataV2;
 
-impl MetadataV2 {
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
+#[try_migrate(from = MetadataV2)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct MetadataV3 {
+    #[cache_diff(rename = "OS Distribution")]
+    pub(crate) os_distribution: OsDistribution,
+    #[cache_diff(rename = "CPU architecture")]
+    pub(crate) cpu_architecture: String,
+    #[cache_diff(rename = "Ruby version")]
+    pub(crate) ruby_version: ResolvedRubyVersion,
+}
+
+impl MetadataV3 {
     pub(crate) fn target_id(&self) -> TargetId {
         TargetId {
             cpu_architecture: self.cpu_architecture.clone(),
-            distro_name: self.distro_name.clone(),
-            distro_version: self.distro_version.clone(),
+            distro_name: self.os_distribution.name.clone(),
+            distro_version: self.os_distribution.version.clone(),
         }
     }
 }
 
-try_migrate_deserializer_chain!(
-    chain: [MetadataV1, MetadataV2],
-    error: MetadataMigrateError,
-    deserializer: toml::Deserializer::new,
-);
+pub(crate) type Metadata = MetadataV3;
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum MetadataMigrateError {
@@ -126,38 +152,18 @@ impl TryFrom<MetadataV1> for MetadataV2 {
     }
 }
 
-impl MetadataDiff for Metadata {
-    fn diff(&self, old: &Self) -> Vec<String> {
-        let mut differences = Vec::new();
-        let Metadata {
-            distro_name,
-            distro_version,
-            cpu_architecture,
-            ruby_version,
-        } = old;
-        if ruby_version != &self.ruby_version {
-            differences.push(format!(
-                "Ruby version ({old} to {now})",
-                old = style::value(ruby_version.to_string()),
-                now = style::value(self.ruby_version.to_string())
-            ));
-        }
-        if distro_name != &self.distro_name || distro_version != &self.distro_version {
-            differences.push(format!(
-                "Distribution ({old} to {now})",
-                old = style::value(format!("{distro_name} {distro_version}")),
-                now = style::value(format!("{} {}", self.distro_name, self.distro_version))
-            ));
-        }
-        if cpu_architecture != &self.cpu_architecture {
-            differences.push(format!(
-                "CPU architecture ({old} to {now})",
-                old = style::value(cpu_architecture),
-                now = style::value(&self.cpu_architecture)
-            ));
-        }
+impl TryFrom<MetadataV2> for MetadataV3 {
+    type Error = MetadataMigrateError;
 
-        differences
+    fn try_from(v2: MetadataV2) -> Result<Self, Self::Error> {
+        Ok(Self {
+            os_distribution: OsDistribution {
+                name: v2.distro_name,
+                version: v2.distro_version,
+            },
+            cpu_architecture: v2.cpu_architecture,
+            ruby_version: v2.ruby_version,
+        })
     }
 }
 
@@ -195,7 +201,7 @@ pub(crate) fn download(
     let mut destination_file = fs_err::File::create(destination.as_ref())
         .map_err(RubyInstallError::CouldNotCreateDestinationFile)?;
 
-    io::copy(&mut response_reader, &mut destination_file)
+    std::io::copy(&mut response_reader, &mut destination_file)
         .map_err(RubyInstallError::CouldNotWriteDestinationFile)?;
 
     Ok(())
@@ -242,9 +248,9 @@ pub(crate) enum RubyInstallError {
 
 #[cfg(test)]
 mod tests {
-    use crate::layers::shared::{strip_ansi, temp_build_context};
-
     use super::*;
+    use crate::layers::shared::temp_build_context;
+    use bullet_stream::strip_ansi;
 
     /// If this test fails due to a change you'll need to
     /// implement `TryMigrate` for the new layer data and add
@@ -253,18 +259,22 @@ mod tests {
     #[test]
     fn metadata_guard() {
         let metadata = Metadata {
-            distro_name: String::from("ubuntu"),
-            distro_version: String::from("22.04"),
+            os_distribution: OsDistribution {
+                name: String::from("ubuntu"),
+                version: String::from("22.04"),
+            },
             cpu_architecture: String::from("amd64"),
             ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
         };
 
         let actual = toml::to_string(&metadata).unwrap();
         let expected = r#"
-distro_name = "ubuntu"
-distro_version = "22.04"
 cpu_architecture = "amd64"
 ruby_version = "3.1.3"
+
+[os_distribution]
+name = "ubuntu"
+version = "22.04"
 "#
         .trim();
         assert_eq!(expected, actual.trim());
@@ -320,19 +330,24 @@ version = "3.1.3"
     fn metadata_diff_messages() {
         let old = Metadata {
             ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
-            distro_name: "ubuntu".to_string(),
-            distro_version: "20.04".to_string(),
+            os_distribution: OsDistribution {
+                name: "ubuntu".to_string(),
+                version: "20.04".to_string(),
+            },
             cpu_architecture: "amd64".to_string(),
         };
         assert_eq!(old.diff(&old), Vec::<String>::new());
 
         let diff = Metadata {
             ruby_version: ResolvedRubyVersion("3.5.5".to_string()),
-            distro_name: old.distro_name.clone(),
-            distro_version: old.distro_version.clone(),
+            os_distribution: OsDistribution {
+                name: "ubuntu".to_string(),
+                version: "20.04".to_string(),
+            },
             cpu_architecture: old.cpu_architecture.clone(),
         }
         .diff(&old);
+
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
             vec!["Ruby version (`3.5.3` to `3.5.5`)".to_string()]
@@ -340,24 +355,29 @@ version = "3.1.3"
 
         let diff = Metadata {
             ruby_version: old.ruby_version.clone(),
-            distro_name: "alpine".to_string(),
-            distro_version: "3.20.0".to_string(),
+            os_distribution: OsDistribution {
+                name: "alpine".to_string(),
+                version: "3.20.0".to_string(),
+            },
             cpu_architecture: old.cpu_architecture.clone(),
         }
         .diff(&old);
 
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
-            vec!["Distribution (`ubuntu 20.04` to `alpine 3.20.0`)".to_string()]
+            vec!["OS Distribution (`ubuntu 20.04` to `alpine 3.20.0`)".to_string()]
         );
 
         let diff = Metadata {
             ruby_version: old.ruby_version.clone(),
-            distro_name: old.distro_name.clone(),
-            distro_version: old.distro_version.clone(),
+            os_distribution: OsDistribution {
+                name: old.os_distribution.name.clone(),
+                version: old.os_distribution.version.clone(),
+            },
             cpu_architecture: "arm64".to_string(),
         }
         .diff(&old);
+
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
             vec!["CPU architecture (`amd64` to `arm64`)".to_string()]
@@ -370,15 +390,27 @@ version = "3.1.3"
         let context = temp_build_context::<RubyBuildpack>(temp.path());
         let old = Metadata {
             ruby_version: ResolvedRubyVersion("2.7.2".to_string()),
-            distro_name: "ubuntu".to_string(),
-            distro_version: "20.04".to_string(),
+            os_distribution: OsDistribution {
+                name: "ubuntu".to_string(),
+                version: "20.04".to_string(),
+            },
             cpu_architecture: "x86_64".to_string(),
         };
         let differences = old.diff(&old);
         assert_eq!(differences, Vec::<String>::new());
 
-        cached_layer_write_metadata(layer_name!("ruby"), &context, &old).unwrap();
-        let result = cached_layer_write_metadata(layer_name!("ruby"), &context, &old).unwrap();
+        DiffMigrateLayer {
+            build: true,
+            launch: true,
+        }
+        .cached_layer(layer_name!("ruby"), &context, &old)
+        .unwrap();
+        let result = DiffMigrateLayer {
+            build: true,
+            launch: true,
+        }
+        .cached_layer(layer_name!("ruby"), &context, &old)
+        .unwrap();
         let actual = result.state;
         assert!(matches!(actual, LayerState::Restored { .. }));
 
@@ -389,7 +421,12 @@ version = "3.1.3"
         let differences = now.diff(&old);
         assert_eq!(differences.len(), 1);
 
-        let result = cached_layer_write_metadata(layer_name!("ruby"), &context, &now).unwrap();
+        let result = DiffMigrateLayer {
+            build: true,
+            launch: true,
+        }
+        .cached_layer(layer_name!("ruby"), &context, &now)
+        .unwrap();
         assert!(matches!(
             result.state,
             LayerState::Empty {

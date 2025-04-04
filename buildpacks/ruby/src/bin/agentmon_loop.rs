@@ -1,3 +1,13 @@
+//! Agentmon Loop
+//!
+//! Boots agentmon (a statsd server) in a loop
+//!
+//! Example:
+//!
+//! ```shell
+//! $ cargo run --bin agentmon_loop -- --path <path/to/agentmon/binary>
+//! ```
+
 // Required due to: https://github.com/rust-lang/rust/issues/95513
 #![allow(unused_crate_dependencies)]
 
@@ -18,16 +28,6 @@ static AGENTMON_DEBUG: &str = "AGENTMON_DEBUG";
 static HEROKU_METRICS_URL: &str = "HEROKU_METRICS_URL";
 
 const SLEEP_FOR: Duration = Duration::from_secs(1);
-
-/// Agentmon Loop
-///
-/// Boots agentmon (a statsd server) in a loop
-///
-/// Example:
-///
-/// ```shell
-/// $ cargo run --bin agentmon_loop -- --path <path/to/agentmon/binary>
-/// ```
 
 /// Turn CLI arguments into a Rust struct
 #[derive(Parser, Debug)]
@@ -58,7 +58,7 @@ fn main() {
                             "Process could not run due to error. {error}, sleeping {SLEEP_FOR:?}"
                         );
                     }
-                };
+                }
                 sleep(SLEEP_FOR);
             }
         }
@@ -120,17 +120,17 @@ fn build_args(env: &HashMap<String, String>) -> Result<Vec<String>, BuildArgsErr
         args.push(format!("-statsd-addr=:{port}"));
     } else {
         return Err(BuildArgsError::MissingPort);
-    };
+    }
 
     if env.get(AGENTMON_DEBUG).is_some_and(|value| value == "true") {
         args.push("-debug".to_string());
-    };
+    }
 
     if let Some(url) = env.get(HEROKU_METRICS_URL) {
         args.push(url.clone());
     } else {
         return Err(BuildArgsError::MissingMetricsUrl);
-    };
+    }
 
     Ok(args)
 }

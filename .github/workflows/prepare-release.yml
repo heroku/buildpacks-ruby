@@ -1,4 +1,4 @@
-name: Prepare Buildpack Releases
+name: Prepare Buildpack Release
 
 on:
   workflow_dispatch:
@@ -12,6 +12,9 @@ on:
           - major
           - minor
           - patch
+
+# Disable all GITHUB_TOKEN permissions, since the GitHub App token is used instead.
+permissions: {}
 
 jobs:
   prepare-release:

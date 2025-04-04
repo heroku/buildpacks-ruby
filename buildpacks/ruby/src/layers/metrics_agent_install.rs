@@ -9,7 +9,7 @@ use libcnb::layer::{
 };
 use libherokubuildpack::digest::sha256;
 use serde::{Deserialize, Serialize};
-use std::io::Stdout;
+use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use tar::Archive;
@@ -30,6 +30,7 @@ const DOWNLOAD_URL: &str =
 const DOWNLOAD_SHA: &str = "f9bf9f33c949e15ffed77046ca38f8dae9307b6a0181c6af29a25dec46eb2dac";
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Metadata {
     download_url: String,
 }
@@ -59,10 +60,13 @@ pub(crate) enum MetricsAgentInstallError {
     ChecksumFailed(String),
 }
 
-pub(crate) fn handle_metrics_agent_layer(
+pub(crate) fn handle_metrics_agent_layer<W>(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
-    mut bullet: Print<SubBullet<Stdout>>,
-) -> libcnb::Result<Print<SubBullet<Stdout>>, RubyBuildpackError> {
+    mut bullet: Print<SubBullet<W>>,
+) -> libcnb::Result<Print<SubBullet<W>>, RubyBuildpackError>
+where
+    W: Write + Send + Sync + 'static,
+{
     let metadata = Metadata {
         download_url: DOWNLOAD_URL.to_string(),
     };
@@ -151,10 +155,10 @@ fn write_execd_script(
     fs_err::write(
         &execd,
         format!(
-            r#"#!/usr/bin/env bash
+            r"#!/usr/bin/env bash
 
                {daemon} --log {log} --loop-path {run_loop} --agentmon {agentmon}
-              "#,
+              ",
             log = log.display(),
             daemon = daemon.display(),
             run_loop = run_loop.display(),

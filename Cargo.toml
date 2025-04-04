@@ -2,14 +2,24 @@
 resolver = "2"
 members = ["buildpacks/ruby", "commons"]
 
+[workspace.dependencies]
+bullet_stream = { version = ">=0.7,<1.0", features = ["fun_run"] }
+fun_run = { version = ">=0.5,<1.0", features = ["which_problem"] }
+cache_diff = { version = "1.1", features = ["bullet_stream"] }
+
 [workspace.package]
 edition = "2021"
-rust-version = "1.80"
+rust-version = "1.85"
 
 [workspace.lints.rust]
 unreachable_pub = "warn"
 unsafe_code = "warn"
 unused_crate_dependencies = "warn"
+
+# Allows the usage of cfg(coverage_nightly).
+# cargo-llvm-cov enables that config when instrumenting our code, so we can enable
+# the experimental coverage_attribute feature.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
 
 [workspace.lints.clippy]
 panic_in_result_fn = "warn"

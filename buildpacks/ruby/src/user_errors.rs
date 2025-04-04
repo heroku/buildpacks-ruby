@@ -1,49 +1,53 @@
 use crate::{DetectError, RubyBuildpackError};
 use bullet_stream::{state::Bullet, state::SubBullet, style, Print};
-use fun_run::{CmdError, CommandWithName};
+use fun_run::CmdError;
 use indoc::formatdoc;
-use std::io::Stdout;
+use std::io::Write;
 use std::process::Command;
 const DEBUG_INFO_STR: &str = "Debug info";
 
 pub(crate) fn on_error(err: libcnb::Error<RubyBuildpackError>) {
-    let output = Print::new(std::io::stdout()).without_header();
+    let output = Print::global().without_header();
     let debug_info = style::important(DEBUG_INFO_STR);
     match cause(err) {
         Cause::OurError(error) => log_our_error(output, error),
-        Cause::FrameworkError(error) =>
+        Cause::FrameworkError(error) => {
             output
-            .bullet(&debug_info)
-            .sub_bullet(error.to_string())
-            .error(formatdoc! {"
-                Error: heroku/buildpack-ruby internal buildpack error
+                .bullet(&debug_info)
+                .sub_bullet(error.to_string())
+                .error(formatdoc! {"
+                    Error: heroku/buildpack-ruby internal buildpack error
 
-                The framework used by this buildpack encountered an unexpected error.
-                This type of error usually indicates there's nothing wrong with your application.
+                    The framework used by this buildpack encountered an unexpected error.
+                    This type of error usually indicates there's nothing wrong with your application.
 
-                If you can’t deploy to Heroku due to this issue please check the official Heroku
-                status page https://status.heroku.com/ to see if there is an ongoing incident. Once
-                all incidents have resolved please retry your build.
+                    If you can’t deploy to Heroku due to this issue please check the official Heroku
+                    status page https://status.heroku.com/ to see if there is an ongoing incident. Once
+                    all incidents have resolved please retry your build.
 
-                If the issue persists, try to reproduce the behavior locally using the `pack` CLI.
-                If you can reproduce the behavior locally and believe you've found a bug in the
-                buildpack or framework, please visit the buildpack's GitHub repository at
-                https://github.com/heroku/buildpacks-ruby/issues. Search for any existing issues
-                related to this error. If none are found, please consider opening a new issue.
+                    If the issue persists, try to reproduce the behavior locally using the `pack` CLI.
+                    If you can reproduce the behavior locally and believe you've found a bug in the
+                    buildpack or framework, please visit the buildpack's GitHub repository at
+                    https://github.com/heroku/buildpacks-ruby/issues. Search for any existing issues
+                    related to this error. If none are found, please consider opening a new issue.
 
-                For more details on expected behavior, see the application contract at
-                https://github.com/heroku/buildpacks-ruby/blob/main/docs/application_contract.md
-                If you notice a difference between the contract and actual buildpack behavior,
-                please open an issue with a minimal application to reproduce the problem.
+                    For more details on expected behavior, see the application contract at
+                    https://github.com/heroku/buildpacks-ruby/blob/main/docs/application_contract.md
+                    If you notice a difference between the contract and actual buildpack behavior,
+                    please open an issue with a minimal application to reproduce the problem.
 
-                For application-specific support, consider asking on official Heroku support
-                channels or Stack Overflow.
-            "}),
-    };
+                    For application-specific support, consider asking on official Heroku support
+                    channels or Stack Overflow.
+                "});
+        }
+    }
 }
 
 #[allow(clippy::too_many_lines)]
-fn log_our_error(mut output: Print<Bullet<Stdout>>, error: RubyBuildpackError) {
+fn log_our_error<W: Write + Send + Sync + 'static>(
+    mut output: Print<Bullet<W>>,
+    error: RubyBuildpackError,
+) {
     let git_branch_url =
         style::url("https://devcenter.heroku.com/articles/git#deploy-from-a-branch-besides-main");
     let ruby_versions_url =
@@ -349,12 +353,11 @@ fn replace_app_path_with_relative(contents: impl AsRef<str>) -> String {
     app_path_re.replace_all(contents.as_ref(), "./").to_string()
 }
 
-fn debug_cmd(mut log: Print<SubBullet<Stdout>>, command: &mut Command) -> Print<Bullet<Stdout>> {
-    let result = log.stream_with(
-        format!("Running debug command {}", style::command(command.name())),
-        |stdout, stderr| command.stream_output(stdout, stderr),
-    );
-    match result {
+fn debug_cmd<W: Write + Send + Sync + 'static>(
+    mut log: Print<SubBullet<W>>,
+    command: &mut Command,
+) -> Print<Bullet<W>> {
+    match log.stream_cmd(command) {
         Ok(_) => log.done(),
         Err(e) => log.sub_bullet(e.to_string()).done(),
     }

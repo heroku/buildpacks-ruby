@@ -4,23 +4,25 @@ use crate::RubyBuildpackError;
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use commons::cache::{mib, AppCache, CacheConfig, CacheError, CacheState, KeepPath, PathState};
-use fun_run::{self, CommandWithName};
 use libcnb::build::BuildContext;
 use libcnb::Env;
-use std::io::Stdout;
+use std::io::Write;
 use std::process::Command;
 
-pub(crate) fn rake_assets_install(
-    mut bullet: Print<SubBullet<Stdout>>,
+pub(crate) fn rake_assets_install<W>(
+    mut bullet: Print<SubBullet<W>>,
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
     rake_detect: &RakeDetect,
-) -> Result<Print<SubBullet<Stdout>>, RubyBuildpackError> {
+) -> Result<Print<SubBullet<W>>, RubyBuildpackError>
+where
+    W: Write + Send + Sync + 'static,
+{
     let help = style::important("HELP");
     let cases = asset_cases(rake_detect);
     let rake_assets_precompile = style::value("rake assets:precompile");
     let rake_assets_clean = style::value("rake assets:clean");
-    let rake_detect_cmd = style::value("bundle exec rake -P");
+    let rake_detect_cmd = style::value("rake -P");
 
     match cases {
         AssetCases::None => {
@@ -33,16 +35,13 @@ pub(crate) fn rake_assets_install(
                 format!("Compiling assets without cache (Clean task not found via {rake_detect_cmd})"),
             ).sub_bullet(format!("{help} Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
 
-            let mut cmd = Command::new("bundle");
-            cmd.args(["exec", "rake", "assets:precompile", "--trace"])
+            let mut cmd = Command::new("rake");
+            cmd.args(["assets:precompile", "--trace"])
                 .env_clear()
                 .envs(env);
 
             bullet
-                .stream_with(
-                    format!("Running {}", style::command(cmd.name())),
-                    |stdout, stderr| cmd.stream_output(stdout, stderr),
-                )
+                .stream_cmd(&mut cmd)
                 .map_err(|error| {
                     fun_run::map_which_problem(error, &mut cmd, env.get("PATH").cloned())
                 })
@@ -79,22 +78,13 @@ pub(crate) fn rake_assets_install(
                 });
             }
 
-            let mut cmd = Command::new("bundle");
-            cmd.args([
-                "exec",
-                "rake",
-                "assets:precompile",
-                "assets:clean",
-                "--trace",
-            ])
-            .env_clear()
-            .envs(env);
+            let mut cmd = Command::new("rake");
+            cmd.args(["assets:precompile", "assets:clean", "--trace"])
+                .env_clear()
+                .envs(env);
 
             bullet
-                .stream_with(
-                    format!("Running {}", style::command(cmd.name())),
-                    |stdout, stderr| cmd.stream_output(stdout, stderr),
-                )
+                .stream_cmd(&mut cmd)
                 .map_err(|error| {
                     fun_run::map_which_problem(error, &mut cmd, env.get("PATH").cloned())
                 })

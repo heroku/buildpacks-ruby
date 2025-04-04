@@ -38,7 +38,7 @@ Once an application has passed the detect phase, the build phase will execute to
       - `Gemfile.lock`
       - User configurable environment variables.
     -To always run `bundle install` even if there are changes if the environment variable `HEROKU_SKIP_BUNDLE_DIGEST=1` is found.
-  - We will always run `bundle clean` after a successful `bundle install` via setting `BUNDLE_CLEAN=1` environment variable.
+  - We will always run `bundle clean` after a successful `bundle install`.
   - We will always cache the contents of your gem dependencies.
       - We will always invalidate the dependency cache if your distribution name or version (operating system) changes.
       - We will always invalidate the dependency cache if your CPU architecture (i.e. amd64) changes.
@@ -61,9 +61,9 @@ Once an application has passed the detect phase, the build phase will execute to
         - We will delete the least recently used (LRU) files first. Detected via file mtime.
 - Process types:
   - Given an application with the `railties` gem:
-    - We will default the web process to `bin/rails server` while specifying `-p $PORT` and `-e $RAILS_ENV"`. Use the `Procfile` to override this default.
+    - We will default the web process to `bin/rails server` while specifying `--port $PORT`, `--environment $RAILS_ENV"` and an IPv6 host with `--binding "::"` (equivalent of IPv4 host `0.0.0.0`). Use the `Procfile` to override this default.
   - If `railties` gem is not found but `rack` gem is present and a `config.ru` file exists on root:
-    - We will default the web process to `rackup` while specifying `-p $PORT` and `-h 0.0.0.0`. Use the `Procfile` to override this default. .
+    - We will default the web process to `rackup` while specifying `--port $PORT` and IPv6 host with `--host "::"` (equivalent of IPv4 host `0.0.0.0`). Use the `Procfile` to override this default. .
 - Environment variable defaults - We will set a default for the following environment variables:
   - `JRUBY_OPTS="-Xcompile.invokedynamic=false"` - Invoke dynamic is a feature of the JVM intended to enhance support for dynamicaly typed languages (such as Ruby). This caused issues with Physion Passenger 4.0.16 and was disabled [details](https://github.com/heroku/heroku-buildpack-ruby/issues/145). You can override this value.
   - `RACK_ENV=${RACK_ENV:-"production"}` - An environment variable that may affect the behavior of Rack based webservers and webapps. You can override this value.
@@ -71,14 +71,13 @@ Once an application has passed the detect phase, the build phase will execute to
   - `SECRET_KEY_BASE=${SECRET_KEY_BASE:-<generate a secret key>}` - In Rails 4.1+ apps a value is needed to generate cryptographic tokens used for a variety of things. Notably this value is used in generating user sessions so modifying it between builds will have the effect of logging out all users. This buildpack provides a default generated value. You can override this value.
   - `BUNDLE_WITHOUT=development:test` - Tells bundler to not install `development` or `test` groups during `bundle install`. You can override this value.
 - Environment variables modified - In addition to the default list this is a list of environment variables that the buildpack modifies:
-  - `BUNDLE_BIN=<bundle-path-dir>/bin` - Install executables for all gems into specified path.
-  - `BUNDLE_CLEAN=1` - After successful `bundle install` bundler will automatically run `bundle clean` to remove all stale gems from previous builds that are no longer specified in the `Gemfile.lock`.
-  - `BUNDLE_DEPLOYMENT=1` - Requires `Gemfile.lock` to be in sync with the current `Gemfile`.
+  - `BUNDLE_FROZEN=1` - Requires `Gemfile.lock` to be in sync with the current `Gemfile`.
   - `BUNDLE_GEMFILE=<app-dir>/Gemfile` - Tells bundler where to find the `Gemfile`.
-  - `BUNDLE_PATH=<bundle-path-dir>` - Directs bundler to install gems to this path
   - `DISABLE_SPRING="1"` - Spring is a library that attempts to cache application state by forking and manipulating processes with the goal of decreasing development boot time. Disabling it in production removes significant problems [details](https://devcenter.heroku.com/changelog-items/1826).
   - `GEM_PATH=<bundle-path-dir>` - Tells Ruby where gems are located.
   - `MALLOC_ARENA_MAX=2` - Controls glibc memory allocation behavior with the goal of decreasing overall memory allocated by Ruby [details](https://devcenter.heroku.com/changelog-items/1683).
   - `PATH` - Various executables are installed and the `PATH` env var will be modified so they can be executed at the system level. This is mostly done via interfaces provided by `libcnb` and CNB layers rather than directly.
+    - Executables in the application `bin` directory will take precedence over gem installed executables. Note that some commands like `bundle exec` may alter the `PATH` to change this order.
+    - Executables from gems will take precedence over executables that ship with Ruby (for example `rake` installed from `bundle install` should be loaded before `rake` that comes with the compiled Ruby binary).
   - `RAILS_LOG_TO_STDOUT="enabled"` - Sets the default logging target to STDOUT for Rails 5+ apps. [details](https://blog.heroku.com/container_ready_rails_5)
   - `RAILS_SERVE_STATIC_FILES="enabled"` - Enables the `ActionDispatch::Static` middleware for Rails 5+ apps so that static files such as those in `public/assets` are served by the Ruby webserver such as Puma [details](https://blog.heroku.com/container_ready_rails_5).

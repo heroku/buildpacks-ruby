@@ -134,7 +134,7 @@ impl AppCache {
             KeepPath::BuildOnly => {
                 fs_err::remove_dir_all(&self.path).map_err(CacheError::IoError)?;
             }
-        };
+        }
 
         Ok(self)
     }
@@ -251,6 +251,7 @@ pub enum PathState {
 ///  allows for emails, that might live a long time, to reference a specific SHA of an
 ///  asset.
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Metadata {
     pub(crate) app_dir_path: PathBuf,
 }

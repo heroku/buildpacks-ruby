@@ -7,14 +7,17 @@ use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use libcnb::build::BuildContext;
 use libcnb::Env;
-use std::io::Stdout;
+use std::io::Write;
 
-pub(crate) fn detect_rake_tasks(
-    bullet: Print<SubBullet<Stdout>>,
+pub(crate) fn detect_rake_tasks<W>(
+    bullet: Print<SubBullet<W>>,
     gem_list: &GemList,
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
-) -> Result<(Print<SubBullet<Stdout>>, Option<RakeDetect>), RubyBuildpackError> {
+) -> Result<(Print<SubBullet<W>>, Option<RakeDetect>), RubyBuildpackError>
+where
+    W: Write + Send + Sync + 'static,
+{
     let help = style::important("HELP");
     let rake = style::value("rake");
     let gemfile = style::value("Gemfile");

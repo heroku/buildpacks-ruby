@@ -1,4 +1,4 @@
-name: Release Buildpacks
+name: Release Buildpack
 
 on:
   workflow_dispatch:
@@ -8,6 +8,9 @@ on:
         type: boolean
         default: false
 
+# Disable all GITHUB_TOKEN permissions, since the GitHub App token is used instead.
+permissions: {}
+
 jobs:
   release:
     name: Release
@@ -15,6 +18,7 @@ jobs:
     with:
       app_id: ${{ vars.LINGUIST_GH_APP_ID }}
       dry_run: ${{ inputs.dry_run }}
+      reviewers: 'schneems'
     secrets:
       app_private_key: ${{ secrets.LINGUIST_GH_PRIVATE_KEY }}
       cnb_registry_token: ${{ secrets.CNB_REGISTRY_RELEASE_BOT_GITHUB_TOKEN }}

@@ -1,10 +1,32 @@
 # Changelog for commons features
 
+## 2024-01-14
+
+### Changed
+
+- Remove deprecated interfaces: `layer::ConfigureEnvLayer` and `layer::DefaultEnvLayer` and the `output` module (https://github.com/heroku/buildpacks-ruby/pull/385)
+
+## 2024-01-13
+
+### Added
+
+- Introduce `DiffMigrateLayer::cached_layer_rename` and `layer::diff_migrate::LayerRename` (https://github.com/heroku/buildpacks-ruby/pull/383)
+
+## 2024-01-08
+
+### Added
+
+- Introduced `layer::diff_migrate` and `DiffMigrateLayer` for public cache use (https://github.com/heroku/buildpacks-ruby/pull/376)
+
+### Changed
+
+- The `layer` module is no longer deprecated, only `layer::ConfigureEnvLayer` and `layer::DefaultEnvLayer` (https://github.com/heroku/buildpacks-ruby/pull/376)
+
 ## 2024-11-11
 
 ## Changed
 
-- Deprecate `layers` including `layers::ConfigureEnvLayer` and `layers::DefaultEnvLayer` (https://github.com/heroku/buildpacks-ruby/pull/345)
+- Deprecate `layer` including `layer::ConfigureEnvLayer` and `layer::DefaultEnvLayer` (https://github.com/heroku/buildpacks-ruby/pull/345)
 - Remove `AppCacheCollection` (https://github.com/heroku/buildpacks-ruby/pull/345)
 - Deprecate `output` module in favor of the `bullet_stream` crate (https://github.com/heroku/buildpacks-ruby/pull/345)
 

@@ -81,6 +81,7 @@ impl GemfileLock {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct ResolvedRubyVersion(pub String);
 
 impl Display for ResolvedRubyVersion {
@@ -90,6 +91,7 @@ impl Display for ResolvedRubyVersion {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct ResolvedBundlerVersion(pub String);
 
 impl Display for ResolvedBundlerVersion {
@@ -114,12 +116,12 @@ impl FromStr for GemfileLock {
     type Err = std::convert::Infallible;
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
-        let bundled_with_re = Regex::new("BUNDLED WITH\\s   (\\d+\\.\\d+\\.\\d+)")
-            .expect("Internal error: Bad regex"); // Checked via clippy
-        let main_ruby_version_re = Regex::new("RUBY VERSION\\s   ruby (\\d+\\.\\d+\\.\\d+)")
-            .expect("Internal error: Bad regex"); // Checked via clippy
-        let jruby_version_re =
-            Regex::new("\\(jruby ((\\d+|\\.)+)\\)").expect("Internal error: Bad regex"); // Checked via clippy
+        let bundled_with_re =
+            Regex::new("BUNDLED WITH\\s   (\\d+\\.\\d+\\.\\d+)").expect("Clippy checked");
+        let main_ruby_version_re =
+            Regex::new("RUBY VERSION\\s   ruby (\\d+\\.\\d+\\.\\d+((-|\\.)\\S*\\d+)?)")
+                .expect("Clippy checked");
+        let jruby_version_re = Regex::new("\\(jruby ((\\d+|\\.)+)\\)").expect("Clippy checked");
 
         let bundler_version = match bundled_with_re.captures(string).and_then(|c| c.get(1)) {
             Some(result) => BundlerVersion::Explicit(result.as_str().to_string()),
@@ -149,6 +151,75 @@ impl FromStr for GemfileLock {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_does_not_capture_patch_version() {
+        let info = GemfileLock::from_str(
+            r"
+RUBY VERSION
+   ruby 3.3.5p100
+
+BUNDLED WITH
+   2.3.4
+",
+        )
+        .unwrap();
+
+        assert_eq!(
+            info.bundler_version,
+            BundlerVersion::Explicit("2.3.4".to_string())
+        );
+        assert_eq!(
+            info.ruby_version,
+            RubyVersion::Explicit("3.3.5".to_string())
+        );
+    }
+
+    #[test]
+    fn test_rc_dot_version() {
+        let info = GemfileLock::from_str(
+            r"
+RUBY VERSION
+   ruby 3.4.0.rc1
+
+BUNDLED WITH
+   2.3.4
+",
+        )
+        .unwrap();
+
+        assert_eq!(
+            info.bundler_version,
+            BundlerVersion::Explicit("2.3.4".to_string())
+        );
+        assert_eq!(
+            info.ruby_version,
+            RubyVersion::Explicit("3.4.0.rc1".to_string())
+        );
+    }
+
+    #[test]
+    fn test_preview_version() {
+        let info = GemfileLock::from_str(
+            r"
+RUBY VERSION
+   ruby 3.4.0.preview2
+
+BUNDLED WITH
+   2.3.4
+",
+        )
+        .unwrap();
+
+        assert_eq!(
+            info.bundler_version,
+            BundlerVersion::Explicit("2.3.4".to_string())
+        );
+        assert_eq!(
+            info.ruby_version,
+            RubyVersion::Explicit("3.4.0.preview2".to_string())
+        );
+    }
 
     #[test]
     fn test_parse_gemfile_lock() {

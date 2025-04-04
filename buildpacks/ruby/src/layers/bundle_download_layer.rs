@@ -4,35 +4,59 @@
 //!
 //! Installs a copy of `bundler` to the `<layer-dir>` with a bundler executable in
 //! `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
-use crate::layers::shared::{cached_layer_write_metadata, MetadataDiff};
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use bullet_stream::state::SubBullet;
-use bullet_stream::{style, Print};
+use bullet_stream::Print;
+use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedBundlerVersion;
+use commons::layer::diff_migrate::DiffMigrateLayer;
 use fun_run::{self, CommandWithName};
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Env;
-use magic_migrate::{try_migrate_deserializer_chain, TryMigrate};
-use serde::{Deserialize, Deserializer, Serialize};
-use std::convert::Infallible;
-use std::io::Stdout;
+use magic_migrate::TryMigrate;
+use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::path::Path;
 use std::process::Command;
 
-pub(crate) fn handle(
+pub(crate) fn handle<W>(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     env: &Env,
-    mut bullet: Print<SubBullet<Stdout>>,
+    mut bullet: Print<SubBullet<W>>,
     metadata: &Metadata,
-) -> libcnb::Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let layer_ref = cached_layer_write_metadata(layer_name!("bundler"), context, metadata)?;
+) -> libcnb::Result<(Print<SubBullet<W>>, LayerEnv), RubyBuildpackError>
+where
+    W: Write + Send + Sync + 'static,
+{
+    let layer_ref = DiffMigrateLayer {
+        build: true,
+        launch: true,
+    }
+    .cached_layer(layer_name!("bundler"), context, metadata)?;
+
+    let layer_env = LayerEnv::new()
+        .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
+        .chainable_insert(
+            Scope::All,
+            ModificationBehavior::Prepend,
+            "PATH",
+            // Ensure this path comes before default bundler that ships with ruby, don't rely on the lifecycle
+            layer_ref.path().join("bin"),
+        )
+        .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
+        .chainable_insert(
+            Scope::All,
+            ModificationBehavior::Prepend,
+            "GEM_PATH", // Bundler is a gem too, allow it to be required
+            layer_ref.path(),
+        );
+    layer_ref.write_env(&layer_env)?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
             bullet = bullet.sub_bullet(cause);
-            Ok((bullet, layer_ref.read_env()?))
         }
         LayerState::Empty { cause } => {
             match cause {
@@ -42,53 +66,32 @@ pub(crate) fn handle(
                     bullet = bullet.sub_bullet(cause);
                 }
             }
-            let (bullet, layer_env) = download_bundler(bullet, env, metadata, &layer_ref.path())?;
-            layer_ref.write_env(&layer_env)?;
-
-            Ok((bullet, layer_ref.read_env()?))
+            bullet = download_bundler(bullet, env, metadata, &layer_ref.path())?;
         }
     }
+    Ok((bullet, layer_ref.read_env()?))
 }
 
 pub(crate) type Metadata = MetadataV1;
-try_migrate_deserializer_chain!(
-    deserializer: toml::Deserializer::new,
-    error: MetadataError,
-    chain: [MetadataV1],
-);
 
-impl MetadataDiff for Metadata {
-    fn diff(&self, other: &Self) -> Vec<String> {
-        let mut differences = Vec::new();
-        if self.version != other.version {
-            differences.push(format!(
-                "Bundler version ({old} to {now})",
-                old = style::value(other.version.to_string()),
-                now = style::value(self.version.to_string())
-            ));
-        }
-        differences
-    }
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, CacheDiff, TryMigrate)]
+#[try_migrate(from = None)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV1 {
+    #[cache_diff(rename = "Bundler version")]
     pub(crate) version: ResolvedBundlerVersion,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub(crate) enum MetadataError {
-    // Update if migrating between a metadata version can error
-}
-
-fn download_bundler(
-    bullet: Print<SubBullet<Stdout>>,
+fn download_bundler<W>(
+    mut bullet: Print<SubBullet<W>>,
     env: &Env,
     metadata: &Metadata,
-    path: &Path,
-) -> Result<(Print<SubBullet<Stdout>>, LayerEnv), RubyBuildpackError> {
-    let bin_dir = path.join("bin");
-    let gem_path = path;
+    gem_path: &Path,
+) -> Result<Print<SubBullet<W>>, RubyBuildpackError>
+where
+    W: Write + Send + Sync + 'static,
+{
+    let bin_dir = gem_path.join("bin");
 
     let mut cmd = Command::new("gem");
     cmd.args(["install", "bundler"]);
@@ -106,35 +109,18 @@ fn download_bundler(
         "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
     ]);
 
-    let timer = bullet.start_timer(format!("Running {}", style::command(short_name)));
-
-    cmd.named_output()
+    bullet
+        .time_cmd(&mut cmd.named(short_name))
         .map_err(|error| fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned()))
         .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
 
-    let layer_env = LayerEnv::new()
-        .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
-        .chainable_insert(
-            Scope::All,
-            ModificationBehavior::Prepend,
-            "PATH", // Ensure this path comes before default bundler that ships with ruby, don't rely on the lifecycle
-            bin_dir,
-        )
-        .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "GEM_PATH", ":")
-        .chainable_insert(
-            Scope::All,
-            ModificationBehavior::Prepend,
-            "GEM_PATH", // Bundler is a gem too, allow it to be required
-            gem_path,
-        );
-
-    Ok((timer.done(), layer_env))
+    Ok(bullet)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::layers::shared::strip_ansi;
+    use bullet_stream::strip_ansi;
 
     #[test]
     fn test_metadata_diff() {

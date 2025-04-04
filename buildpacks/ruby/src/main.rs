@@ -1,3 +1,8 @@
+// cargo-llvm-cov sets the coverage_nightly attribute when instrumenting our code. In that case,
+// we enable https://doc.rust-lang.org/beta/unstable-book/language-features/coverage-attribute.html
+// to be able selectively opt out of coverage for functions/lines/modules.
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+
 use bullet_stream::{style, Print};
 use commons::cache::CacheError;
 use commons::gemfile_lock::GemfileLock;
@@ -11,12 +16,13 @@ use layers::{
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
 use libcnb::data::launch::LaunchBuilder;
+use libcnb::data::layer_name;
 use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
 use libcnb::generic::{GenericMetadata, GenericPlatform};
-use libcnb::layer_env::Scope;
+use libcnb::layer::UncachedLayerDefinition;
+use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Platform;
 use libcnb::{buildpack_main, Buildpack};
-use std::io::stdout;
 
 mod gem_list;
 mod layers;
@@ -28,8 +34,12 @@ mod user_errors;
 
 #[cfg(test)]
 use libcnb_test as _;
+#[cfg(test)]
+use pretty_assertions as _;
 
 use clap as _;
+
+use crate::target_id::OsDistribution;
 
 struct RubyBuildpack;
 
@@ -109,7 +119,7 @@ impl Buildpack for RubyBuildpack {
 
     #[allow(clippy::too_many_lines)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
-        let mut build_output = Print::new(stdout()).h2("Heroku Ruby Buildpack");
+        let mut build_output = Print::global().h2("Heroku Ruby Buildpack");
 
         // ## Set default environment
         let (mut env, store) =
@@ -120,8 +130,8 @@ impl Buildpack for RubyBuildpack {
         let lockfile_contents = fs_err::read_to_string(&lockfile)
             .map_err(|error| RubyBuildpackError::MissingGemfileLock(lockfile, error))?;
         let gemfile_lock = GemfileLock::from_str(&lockfile_contents).expect("Infallible");
-        let bundler_version = gemfile_lock.resolve_bundler("2.4.5");
-        let ruby_version = gemfile_lock.resolve_ruby("3.1.3");
+        let bundler_version = gemfile_lock.resolve_bundler("2.5.23");
+        let ruby_version = gemfile_lock.resolve_ruby("3.3.7");
 
         // ## Install metrics agent
         build_output = {
@@ -149,8 +159,10 @@ impl Buildpack for RubyBuildpack {
                 &context,
                 bullet,
                 &layers::ruby_install_layer::Metadata {
-                    distro_name: context.target.distro_name.clone(),
-                    distro_version: context.target.distro_version.clone(),
+                    os_distribution: OsDistribution {
+                        name: context.target.distro_name.clone(),
+                        version: context.target.distro_version.clone(),
+                    },
                     cpu_architecture: context.target.arch.clone(),
                     ruby_version: ruby_version.clone(),
                 },
@@ -186,8 +198,10 @@ impl Buildpack for RubyBuildpack {
                 &env,
                 bullet,
                 &layers::bundle_install_layer::Metadata {
-                    distro_name: context.target.distro_name.clone(),
-                    distro_version: context.target.distro_version.clone(),
+                    os_distribution: OsDistribution {
+                        name: context.target.distro_name.clone(),
+                        version: context.target.distro_version.clone(),
+                    },
                     cpu_architecture: context.target.arch.clone(),
                     ruby_version: ruby_version.clone(),
                     force_bundle_install_key: String::from(
@@ -210,6 +224,28 @@ impl Buildpack for RubyBuildpack {
             )?;
 
             (bullet.done(), layer_env.apply(Scope::Build, &env))
+        };
+
+        env = {
+            let user_binstubs = context.uncached_layer(
+                layer_name!("user_binstubs"),
+                UncachedLayerDefinition {
+                    build: true,
+                    launch: true,
+                },
+            )?;
+            user_binstubs.write_env(
+                LayerEnv::new()
+                    .chainable_insert(Scope::All, ModificationBehavior::Delimiter, "PATH", ":")
+                    .chainable_insert(
+                        Scope::All,
+                        ModificationBehavior::Prepend,
+                        "PATH",
+                        context.app_dir.join("bin"),
+                    ),
+            )?;
+
+            user_binstubs.read_env()?.apply(Scope::Build, &env)
         };
 
         // ## Detect gems
@@ -285,6 +321,7 @@ impl From<RubyBuildpackError> for libcnb::Error<RubyBuildpackError> {
 buildpack_main!(RubyBuildpack);
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct BundleWithout(String);
 
 impl BundleWithout {

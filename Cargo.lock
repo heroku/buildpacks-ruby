@@ -726,6 +726,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "toml",
+ "tracing",
  "ureq",
  "url",
 ]

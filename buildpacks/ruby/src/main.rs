@@ -133,8 +133,16 @@ impl Buildpack for RubyBuildpack {
         let bundler_version = gemfile_lock.resolve_bundler("2.5.23");
         let ruby_version = gemfile_lock.resolve_ruby("3.3.7");
         tracing::info!(
+            // Bundler version the app is asking for i.e. "2.6.7"
             cnb.ruby.bundler.version = bundler_version.to_string(),
-            cnb.ruby.runtime.version = ruby_version.to_string()
+            // Where the bundler version came from
+            // Either "Gemfile.lock" or "default"
+            cnb.ruby.bundler.sourced_from = gemfile_lock.bundler_source(),
+            // Ruby version the app is asking for i.e. "3.4.2" for MRI or "2.5.7-jruby-9.2.13.0" for jruby
+            cnb.ruby.runtime.version = ruby_version.to_string(),
+            // Where the Ruby version came from
+            // Either "Gemfile.lock" or "default"
+            cnb.ruby.runtime.sourced_from = gemfile_lock.ruby_source()
         );
         // ## Install metrics agent
         build_output = {

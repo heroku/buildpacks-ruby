@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Added
+
+- Introduce tracing observability for buildpack diagnostics and usage. ([#412](https://github.com/heroku/buildpacks-ruby/pull/412))
+
 ### Changed
 
 - Updated libcnb to 0.28.1, which includes tracing improvements/fixes. ([#416](https://github.com/heroku/buildpacks-ruby/pull/416))

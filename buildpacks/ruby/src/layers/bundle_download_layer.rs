@@ -66,7 +66,8 @@ where
                     bullet = bullet.sub_bullet(cause);
                 }
             }
-            bullet = download_bundler(bullet, env, metadata, &layer_ref.path())?;
+            bullet = download_bundler(bullet, env, &metadata.version, &layer_ref.path())
+                .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
         }
     }
     Ok((bullet, layer_ref.read_env()?))
@@ -82,12 +83,13 @@ pub(crate) struct MetadataV1 {
     pub(crate) version: ResolvedBundlerVersion,
 }
 
+#[tracing::instrument(skip_all)]
 fn download_bundler<W>(
     mut bullet: Print<SubBullet<W>>,
     env: &Env,
-    metadata: &Metadata,
+    version: &ResolvedBundlerVersion,
     gem_path: &Path,
-) -> Result<Print<SubBullet<W>>, RubyBuildpackError>
+) -> Result<Print<SubBullet<W>>, fun_run::CmdError>
 where
     W: Write + Send + Sync + 'static,
 {
@@ -95,7 +97,7 @@ where
 
     let mut cmd = Command::new("gem");
     cmd.args(["install", "bundler"]);
-    cmd.args(["--version", &metadata.version.to_string()]) // Specify exact version to install
+    cmd.args(["--version", &version.to_string()]) // Specify exact version to install
         .env_clear()
         .envs(env);
 
@@ -111,8 +113,9 @@ where
 
     bullet
         .time_cmd(&mut cmd.named(short_name))
-        .map_err(|error| fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned()))
-        .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
+        .map_err(|error| {
+            fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
+        })?;
 
     Ok(bullet)
 }

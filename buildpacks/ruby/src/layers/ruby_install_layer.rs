@@ -190,7 +190,7 @@ fn download_url(
     Ok(url)
 }
 
-#[tracing::instrument(err)]
+#[tracing::instrument(skip_all)]
 pub(crate) fn download_ruby(uri: &str, destination: &Path) -> Result<(), RubyInstallError> {
     let mut response_reader = ureq::get(uri)
         .call()

@@ -83,7 +83,7 @@ pub(crate) struct MetadataV1 {
     pub(crate) version: ResolvedBundlerVersion,
 }
 
-#[tracing::instrument(skip(bullet, env, gem_path), err)]
+#[tracing::instrument(skip_all)]
 fn download_bundler<W>(
     mut bullet: Print<SubBullet<W>>,
     env: &Env,

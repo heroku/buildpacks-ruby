@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::process::Command;
 
-pub(crate) fn handle(
+pub(crate) fn call(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     env: &Env,
     metadata: &Metadata,

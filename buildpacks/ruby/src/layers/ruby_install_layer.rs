@@ -31,7 +31,7 @@ use tar::Archive;
 use tempfile::NamedTempFile;
 use url::Url;
 
-pub(crate) fn handle(
+pub(crate) fn call(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     metadata: &Metadata,
 ) -> libcnb::Result<LayerEnv, RubyBuildpackError> {

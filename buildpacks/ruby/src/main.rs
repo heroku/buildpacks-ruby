@@ -163,7 +163,7 @@ impl Buildpack for RubyBuildpack {
                 style::value(ruby_version.to_string()),
                 style::value(gemfile_lock.ruby_source())
             ));
-            let layer_env = layers::ruby_install_layer::handle(
+            let layer_env = layers::ruby_install_layer::call(
                 &context,
                 &layers::ruby_install_layer::Metadata {
                     os_distribution: OsDistribution {
@@ -184,7 +184,7 @@ impl Buildpack for RubyBuildpack {
                 style::value(bundler_version.to_string()),
                 style::value(gemfile_lock.bundler_source())
             ));
-            let layer_env = layers::bundle_download_layer::handle(
+            let layer_env = layers::bundle_download_layer::call(
                 &context,
                 &env,
                 &layers::bundle_download_layer::Metadata {
@@ -197,7 +197,7 @@ impl Buildpack for RubyBuildpack {
         // ## Bundle install
         env = {
             print::bullet("Bundle install gems");
-            let layer_env = layers::bundle_install_layer::handle(
+            let layer_env = layers::bundle_install_layer::call(
                 &context,
                 &env,
                 &layers::bundle_install_layer::Metadata {

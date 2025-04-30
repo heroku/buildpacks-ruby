@@ -203,12 +203,11 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Bundle install
-        (build_output, env) = {
-            let bullet = build_output.bullet("Bundle install gems");
-            let (bullet, layer_env) = layers::bundle_install_layer::handle(
+        env = {
+            print::bullet("Bundle install gems");
+            let layer_env = layers::bundle_install_layer::handle(
                 &context,
                 &env,
-                bullet,
                 &layers::bundle_install_layer::Metadata {
                     os_distribution: OsDistribution {
                         name: context.target.distro_name.clone(),
@@ -235,7 +234,7 @@ impl Buildpack for RubyBuildpack {
                 &BundleWithout::new("development:test"),
             )?;
 
-            (bullet.done(), layer_env.apply(Scope::Build, &env))
+            layer_env.apply(Scope::Build, &env)
         };
 
         env = {
@@ -256,7 +255,6 @@ impl Buildpack for RubyBuildpack {
                         context.app_dir.join("bin"),
                     ),
             )?;
-
             user_binstubs.read_env()?.apply(Scope::Build, &env)
         };
 

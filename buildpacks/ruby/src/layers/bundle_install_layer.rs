@@ -16,9 +16,7 @@
 //! we must clear the cache and re-run `bundle install`.
 use crate::target_id::{OsDistribution, TargetId, TargetIdError};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
-use bullet_stream::global::print;
-use bullet_stream::state::SubBullet;
-use bullet_stream::{style, Print};
+use bullet_stream::{global::print, style};
 use cache_diff::CacheDiff;
 use commons::layer::diff_migrate::{DiffMigrateLayer, Meta};
 use commons::{
@@ -33,7 +31,6 @@ use libcnb::{
 };
 use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
-use std::io::Write;
 use std::{path::Path, process::Command};
 
 /// When this environment variable is set, the `bundle install` command will always
@@ -45,16 +42,12 @@ const SKIP_DIGEST_ENV_KEY: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
 /// on the next build.
 pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v2";
 
-pub(crate) fn handle<W>(
+pub(crate) fn handle(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     env: &Env,
-    mut bullet: Print<SubBullet<W>>,
     metadata: &Metadata,
     without: &BundleWithout,
-) -> libcnb::Result<(Print<SubBullet<W>>, LayerEnv), RubyBuildpackError>
-where
-    W: Write + Send + Sync + 'static,
-{
+) -> libcnb::Result<LayerEnv, RubyBuildpackError> {
     let layer_ref = DiffMigrateLayer {
         build: true,
         launch: true,
@@ -124,7 +117,7 @@ where
         }
     }
 
-    Ok((bullet, layer_ref.read_env()?))
+    Ok(layer_ref.read_env()?)
 }
 
 pub(crate) type Metadata = MetadataV3;

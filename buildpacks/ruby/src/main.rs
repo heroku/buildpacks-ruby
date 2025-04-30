@@ -3,8 +3,7 @@
 // to be able selectively opt out of coverage for functions/lines/modules.
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
-use bullet_stream::global::print;
-use bullet_stream::{style, Print};
+use bullet_stream::{global::print, style};
 use commons::cache::CacheError;
 use commons::gemfile_lock::GemfileLock;
 use commons::metadata_digest::MetadataDigest;
@@ -121,7 +120,6 @@ impl Buildpack for RubyBuildpack {
     #[allow(clippy::too_many_lines)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
         let started = print::buildpack("Heroku Ruby Buildpack");
-        let mut build_output = Print::global().h2("Heroku Ruby Buildpack");
 
         // ## Set default environment
         let (mut env, store) =

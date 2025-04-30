@@ -64,7 +64,7 @@ pub(crate) fn handle(
                 .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
         }
     }
-    Ok(layer_ref.read_env()?)
+    layer_ref.read_env()
 }
 
 pub(crate) type Metadata = MetadataV1;

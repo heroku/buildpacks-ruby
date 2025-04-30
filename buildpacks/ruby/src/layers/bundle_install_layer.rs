@@ -117,7 +117,7 @@ pub(crate) fn handle(
         }
     }
 
-    Ok(layer_ref.read_env()?)
+    layer_ref.read_env()
 }
 
 pub(crate) type Metadata = MetadataV3;

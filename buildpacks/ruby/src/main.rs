@@ -261,14 +261,14 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Detect gems
-        let (mut build_output, gem_list, default_process) = {
+        let (gem_list, default_process) = {
             let bullet = build_output.bullet("Default process detection");
 
-            let (bullet, gem_list) =
+            let (_, gem_list) =
                 gem_list::bundle_list(bullet, &env).map_err(RubyBuildpackError::GemListGetError)?;
-            let (bullet, default_process) = steps::get_default_process(bullet, &context, &gem_list);
+            let default_process = steps::get_default_process(&context, &gem_list);
 
-            (bullet.done(), gem_list, default_process)
+            (gem_list, default_process)
         };
 
         // ## Assets install

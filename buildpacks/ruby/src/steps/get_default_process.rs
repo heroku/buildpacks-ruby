@@ -10,19 +10,15 @@ use libcnb::data::process_type;
 use std::io::Write;
 use std::path::Path;
 
-pub(crate) fn get_default_process<W>(
-    bullet: Print<SubBullet<W>>,
+pub(crate) fn get_default_process(
     context: &BuildContext<RubyBuildpack>,
     gem_list: &GemList,
-) -> (Print<SubBullet<W>>, Option<Process>)
-where
-    W: Write + Send + Sync + 'static,
-{
+) -> Option<Process> {
     let config_ru = style::value("config.ru");
     let rails = style::value("rails");
     let rack = style::value("rack");
     let railties = style::value("railties");
-    let process = match detect_web(gem_list, &context.app_dir) {
+    match detect_web(gem_list, &context.app_dir) {
         WebProcess::Rails => {
             print::sub_bullet(format!("Detected rails app ({rails} gem found)"));
             Some(default_rails())
@@ -45,8 +41,7 @@ where
             ));
             None
         }
-    };
-    (bullet, process)
+    }
 }
 
 enum WebProcess {

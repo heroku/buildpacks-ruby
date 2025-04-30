@@ -84,11 +84,11 @@ pub(crate) fn handle(
             }
 
             let mut cmd = Command::new("bundle");
-            cmd.args(["install"])
+            cmd.arg("install")
                 .env_clear() // Current process env vars already merged into env
                 .envs(&env);
 
-            print::sub_stream_cmd(&mut cmd)
+            print::sub_stream_cmd(cmd.named_fn(|cmd| display_name(cmd, &env)))
                 .map_err(|error| {
                     fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
                 })

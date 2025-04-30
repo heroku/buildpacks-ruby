@@ -3,6 +3,7 @@
 // to be able selectively opt out of coverage for functions/lines/modules.
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
+use bullet_stream::global::print;
 use bullet_stream::{style, Print};
 use commons::cache::CacheError;
 use commons::gemfile_lock::GemfileLock;
@@ -150,12 +151,11 @@ impl Buildpack for RubyBuildpack {
             if lockfile_contents.contains("barnes") {
                 layers::metrics_agent_install::handle_metrics_agent_layer(&context, bullet)?.done()
             } else {
-                bullet
-                    .sub_bullet(format!(
-                        "Skipping install ({barnes} gem not found)",
-                        barnes = style::value("barnes")
-                    ))
-                    .done()
+                print::sub_bullet(format!(
+                    "Skipping install ({barnes} gem not found)",
+                    barnes = style::value("barnes")
+                ));
+                bullet.done()
             }
         };
 

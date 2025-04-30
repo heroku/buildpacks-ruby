@@ -1,24 +1,17 @@
 use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
-use bullet_stream::global::print;
-use bullet_stream::state::SubBullet;
-use bullet_stream::{style, Print};
+use bullet_stream::{global::print, style};
 use commons::cache::{mib, AppCache, CacheConfig, CacheError, CacheState, KeepPath, PathState};
 use libcnb::build::BuildContext;
 use libcnb::Env;
-use std::io::Write;
 use std::process::Command;
 
-pub(crate) fn rake_assets_install<W>(
-    mut bullet: Print<SubBullet<W>>,
+pub(crate) fn rake_assets_install(
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
     rake_detect: &RakeDetect,
-) -> Result<Print<SubBullet<W>>, RubyBuildpackError>
-where
-    W: Write + Send + Sync + 'static,
-{
+) -> Result<(), RubyBuildpackError> {
     let help = style::important("HELP");
     let cases = asset_cases(rake_detect);
     let rake_assets_precompile = style::value("rake assets:precompile");
@@ -117,7 +110,7 @@ where
         }
     }
 
-    Ok(bullet)
+    Ok(())
 }
 
 #[derive(Clone, Debug)]

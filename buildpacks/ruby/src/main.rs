@@ -280,7 +280,7 @@ impl Buildpack for RubyBuildpack {
         )?;
 
         if let Some(rake_detect) = rake_detect {
-            crate::steps::rake_assets_install(bullet, &context, &env, &rake_detect)?;
+            crate::steps::rake_assets_install(&context, &env, &rake_detect)?;
         }
         print::all_done(&Some(started));
 

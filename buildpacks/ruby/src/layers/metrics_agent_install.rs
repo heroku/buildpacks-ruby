@@ -1,4 +1,5 @@
 use crate::{RubyBuildpack, RubyBuildpackError};
+use bullet_stream::global::print;
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use flate2::read::GzDecoder;
@@ -95,29 +96,29 @@ where
 
     match layer_ref.state.clone() {
         LayerState::Restored { .. } => {
-            bullet = bullet.sub_bullet("Using cached metrics agent");
+            print::sub_bullet("Using cached metrics agent");
         }
         LayerState::Empty { cause } => {
             match cause {
                 EmptyLayerCause::NewlyCreated => {}
                 EmptyLayerCause::InvalidMetadataAction { .. } => {
-                    bullet = bullet.sub_bullet("Clearing cache (invalid metadata)");
+                    print::sub_bullet("Clearing cache (invalid metadata)");
                 }
                 EmptyLayerCause::RestoredLayerAction { cause: url } => {
-                    bullet = bullet.sub_bullet(format!("Deleting cached metrics agent ({url})"));
+                    print::sub_bullet(format!("Deleting cached metrics agent ({url})"));
                 }
             }
             let bin_dir = layer_ref.path().join("bin");
 
-            let timer = bullet.start_timer(format!(
+            let timer = print::sub_start_timer(format!(
                 "Installing metrics agent from {url}",
                 url = style::url(&metadata.download_url)
             ));
             let agentmon = install_agentmon(&bin_dir, &metadata)
                 .map_err(RubyBuildpackError::MetricsAgentError)?;
-            bullet = timer.done();
+            _ = timer.done();
 
-            bullet = bullet.sub_bullet("Writing scripts");
+            print::sub_bullet("Writing scripts");
             let execd = write_execd_script(&agentmon, layer_ref.path().as_path())
                 .map_err(RubyBuildpackError::MetricsAgentError)?;
 

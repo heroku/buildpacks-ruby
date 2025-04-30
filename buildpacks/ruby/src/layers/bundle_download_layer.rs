@@ -101,9 +101,6 @@ where
     cmd.args(["--version", &version.to_string()]) // Specify exact version to install
         .env_clear()
         .envs(env);
-
-    let short_name = fun_run::display(&mut cmd); // Format `gem install --version <version>` without other content for display
-
     cmd.args(["--install-dir", &format!("{}", gem_path.display())]); // Directory where bundler's contents will live
     cmd.args(["--bindir", &format!("{}", bin_dir.display())]); // Directory where `bundle` executable lives
     cmd.args([
@@ -112,11 +109,9 @@ where
         "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
     ]);
 
-    bullet
-        .time_cmd(&mut cmd.named(short_name))
-        .map_err(|error| {
-            fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
-        })?;
+    print::sub_time_cmd(&mut cmd).map_err(|error| {
+        fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
+    })?;
 
     Ok(bullet)
 }

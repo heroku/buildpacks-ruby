@@ -3,22 +3,15 @@ use crate::rake_status::{check_rake_ready, RakeStatus};
 use crate::rake_task_detect::{self, RakeDetect};
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
-use bullet_stream::global::print;
-use bullet_stream::state::SubBullet;
-use bullet_stream::{style, Print};
+use bullet_stream::{global::print, style};
 use libcnb::build::BuildContext;
 use libcnb::Env;
-use std::io::Write;
 
-pub(crate) fn detect_rake_tasks<W>(
-    mut bullet: Print<SubBullet<W>>,
+pub(crate) fn detect_rake_tasks(
     gem_list: &GemList,
     context: &BuildContext<RubyBuildpack>,
     env: &Env,
-) -> Result<(Print<SubBullet<W>>, Option<RakeDetect>), RubyBuildpackError>
-where
-    W: Write + Send + Sync + 'static,
-{
+) -> Result<Option<RakeDetect>, RubyBuildpackError> {
     let help = style::important("HELP");
     let rake = style::value("rake");
     let gemfile = style::value("Gemfile");
@@ -67,12 +60,11 @@ where
                 "Detected rake ({rake} gem found, {rakefile} found at {path})",
                 path = style::value(path.to_string_lossy())
             ));
-            let rake_detect;
-            (bullet, rake_detect) = rake_task_detect::call(bullet, env, true)
-                .map_err(RubyBuildpackError::RakeDetectError)?;
+            let rake_detect =
+                rake_task_detect::call(env, true).map_err(RubyBuildpackError::RakeDetectError)?;
 
             Some(rake_detect)
         }
     };
-    Ok((bullet, detect))
+    Ok(detect)
 }

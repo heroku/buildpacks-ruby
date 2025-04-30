@@ -1,7 +1,5 @@
 use crate::{RubyBuildpack, RubyBuildpackError};
-use bullet_stream::global::print;
-use bullet_stream::state::SubBullet;
-use bullet_stream::{style, Print};
+use bullet_stream::{global::print, style};
 use flate2::read::GzDecoder;
 use libcnb::additional_buildpack_binary_path;
 use libcnb::data::layer_name;
@@ -10,7 +8,6 @@ use libcnb::layer::{
 };
 use libherokubuildpack::digest::sha256;
 use serde::{Deserialize, Serialize};
-use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use tar::Archive;
@@ -61,13 +58,9 @@ pub(crate) enum MetricsAgentInstallError {
     ChecksumFailed(String),
 }
 
-pub(crate) fn handle_metrics_agent_layer<W>(
+pub(crate) fn handle_metrics_agent_layer(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
-    mut bullet: Print<SubBullet<W>>,
-) -> libcnb::Result<Print<SubBullet<W>>, RubyBuildpackError>
-where
-    W: Write + Send + Sync + 'static,
-{
+) -> libcnb::Result<(), RubyBuildpackError> {
     let metadata = Metadata {
         download_url: DOWNLOAD_URL.to_string(),
     };
@@ -126,7 +119,7 @@ where
             layer_ref.write_metadata(metadata)?;
         }
     }
-    Ok(bullet)
+    Ok(())
 }
 
 fn write_execd_script(

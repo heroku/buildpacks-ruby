@@ -146,19 +146,17 @@ impl Buildpack for RubyBuildpack {
             // Either "Gemfile.lock" or "default"
             cnb.ruby.runtime.sourced_from = gemfile_lock.ruby_source()
         );
+
         // ## Install metrics agent
-        build_output = {
-            let bullet = build_output.bullet("Metrics agent");
-            if lockfile_contents.contains("barnes") {
-                layers::metrics_agent_install::handle_metrics_agent_layer(&context, bullet)?.done()
-            } else {
-                print::sub_bullet(format!(
-                    "Skipping install ({barnes} gem not found)",
-                    barnes = style::value("barnes")
-                ));
-                bullet.done()
-            }
-        };
+        print::bullet("Metrics agent");
+        if lockfile_contents.contains("barnes") {
+            layers::metrics_agent_install::handle_metrics_agent_layer(&context)?;
+        } else {
+            print::sub_bullet(format!(
+                "Skipping install ({barnes} gem not found)",
+                barnes = style::value("barnes")
+            ));
+        }
 
         // ## Install executable ruby version
         env = {

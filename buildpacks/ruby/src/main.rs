@@ -272,21 +272,16 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Assets install
-        _ = {
-            let (bullet, rake_detect) = crate::steps::detect_rake_tasks(
-                build_output.bullet("Rake assets install"),
-                &gem_list,
-                &context,
-                &env,
-            )?;
+        let (bullet, rake_detect) = crate::steps::detect_rake_tasks(
+            build_output.bullet("Rake assets install"),
+            &gem_list,
+            &context,
+            &env,
+        )?;
 
-            if let Some(rake_detect) = rake_detect {
-                crate::steps::rake_assets_install(bullet, &context, &env, &rake_detect)?
-            } else {
-                bullet
-            }
-            .done()
-        };
+        if let Some(rake_detect) = rake_detect {
+            crate::steps::rake_assets_install(bullet, &context, &env, &rake_detect)?;
+        }
         print::all_done(&Some(started));
 
         if let Some(default_process) = default_process {

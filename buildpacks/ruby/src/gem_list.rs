@@ -1,12 +1,10 @@
 use bullet_stream::global::print;
-use bullet_stream::{state::SubBullet, Print};
 use commons::gem_version::GemVersion;
 use core::str::FromStr;
 use fun_run::CmdError;
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::io::Write;
 use std::process::Command;
 
 /// ## Gets list of an application's dependencies

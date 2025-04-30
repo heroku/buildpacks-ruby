@@ -2,12 +2,10 @@ use crate::gem_list::GemList;
 use crate::RubyBuildpack;
 use bullet_stream::global::print;
 use bullet_stream::style;
-use bullet_stream::{state::SubBullet, Print};
 use libcnb::build::BuildContext;
 use libcnb::data::launch::Process;
 use libcnb::data::launch::ProcessBuilder;
 use libcnb::data::process_type;
-use std::io::Write;
 use std::path::Path;
 
 pub(crate) fn get_default_process(

@@ -120,6 +120,7 @@ impl Buildpack for RubyBuildpack {
 
     #[allow(clippy::too_many_lines)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
+        let started = print::buildpack("Heroku Ruby Buildpack");
         let mut build_output = Print::global().h2("Heroku Ruby Buildpack");
 
         // ## Set default environment
@@ -271,7 +272,7 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Assets install
-        build_output = {
+        _ = {
             let (bullet, rake_detect) = crate::steps::detect_rake_tasks(
                 build_output.bullet("Rake assets install"),
                 &gem_list,
@@ -286,7 +287,7 @@ impl Buildpack for RubyBuildpack {
             }
             .done()
         };
-        build_output.done();
+        print::all_done(&Some(started));
 
         if let Some(default_process) = default_process {
             BuildResultBuilder::new()

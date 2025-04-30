@@ -7,8 +7,6 @@
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use bullet_stream::global::print;
-use bullet_stream::state::SubBullet;
-use bullet_stream::Print;
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedBundlerVersion;
 use commons::layer::diff_migrate::DiffMigrateLayer;
@@ -19,19 +17,14 @@ use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Env;
 use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
-use std::io::Write;
 use std::path::Path;
 use std::process::Command;
 
-pub(crate) fn handle<W>(
+pub(crate) fn handle(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     env: &Env,
-    mut bullet: Print<SubBullet<W>>,
     metadata: &Metadata,
-) -> libcnb::Result<(Print<SubBullet<W>>, LayerEnv), RubyBuildpackError>
-where
-    W: Write + Send + Sync + 'static,
-{
+) -> libcnb::Result<LayerEnv, RubyBuildpackError> {
     let layer_ref = DiffMigrateLayer {
         build: true,
         launch: true,
@@ -67,11 +60,11 @@ where
                     print::sub_bullet(cause);
                 }
             }
-            bullet = download_bundler(bullet, env, &metadata.version, &layer_ref.path())
+            download_bundler(env, &metadata.version, &layer_ref.path())
                 .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
         }
     }
-    Ok((bullet, layer_ref.read_env()?))
+    Ok(layer_ref.read_env()?)
 }
 
 pub(crate) type Metadata = MetadataV1;
@@ -85,15 +78,11 @@ pub(crate) struct MetadataV1 {
 }
 
 #[tracing::instrument(skip_all)]
-fn download_bundler<W>(
-    mut bullet: Print<SubBullet<W>>,
+fn download_bundler(
     env: &Env,
     version: &ResolvedBundlerVersion,
     gem_path: &Path,
-) -> Result<Print<SubBullet<W>>, fun_run::CmdError>
-where
-    W: Write + Send + Sync + 'static,
-{
+) -> Result<(), fun_run::CmdError> {
     let bin_dir = gem_path.join("bin");
 
     let mut cmd = Command::new("gem");
@@ -113,7 +102,7 @@ where
         fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
     })?;
 
-    Ok(bullet)
+    Ok(())
 }
 
 #[cfg(test)]

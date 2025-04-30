@@ -184,22 +184,20 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Setup bundler
-        (build_output, env) = {
-            let bullet = build_output.bullet(format!(
+        env = {
+            print::bullet(format!(
                 "Bundler version {} from {}",
                 style::value(bundler_version.to_string()),
                 style::value(gemfile_lock.bundler_source())
             ));
-            let (bullet, layer_env) = layers::bundle_download_layer::handle(
+            let layer_env = layers::bundle_download_layer::handle(
                 &context,
                 &env,
-                bullet,
                 &layers::bundle_download_layer::Metadata {
                     version: bundler_version,
                 },
             )?;
-
-            (bullet.done(), layer_env.apply(Scope::Build, &env))
+            layer_env.apply(Scope::Build, &env)
         };
 
         // ## Bundle install

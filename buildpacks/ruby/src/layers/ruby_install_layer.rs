@@ -16,6 +16,7 @@ use crate::{
     target_id::{TargetId, TargetIdError},
     RubyBuildpack, RubyBuildpackError,
 };
+use bullet_stream::global::print;
 use bullet_stream::state::SubBullet;
 use bullet_stream::Print;
 use cache_diff::CacheDiff;
@@ -55,19 +56,19 @@ where
     )?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
-            bullet = bullet.sub_bullet(cause);
+            print::sub_bullet(cause);
         }
         LayerState::Empty { cause } => {
             match cause {
                 EmptyLayerCause::NewlyCreated => {}
                 EmptyLayerCause::InvalidMetadataAction { cause }
                 | EmptyLayerCause::RestoredLayerAction { cause } => {
-                    bullet = bullet.sub_bullet(cause);
+                    print::sub_bullet(cause);
                 }
             }
-            let timer = bullet.start_timer("Installing");
+            let timer = print::sub_start_timer("Installing");
             install_ruby(metadata, &layer_ref.path())?;
-            bullet = timer.done();
+            _ = timer.done();
         }
     }
     Ok((bullet, layer_ref.read_env()?))

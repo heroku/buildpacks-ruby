@@ -1,6 +1,7 @@
 use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
+use bullet_stream::global::print;
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
 use commons::cache::{mib, AppCache, CacheConfig, CacheError, CacheState, KeepPath, PathState};
@@ -26,14 +27,16 @@ where
 
     match cases {
         AssetCases::None => {
-            bullet = bullet.sub_bullet(format!(
+            print::sub_bullet(format!(
                 "Skipping {rake_assets_clean} (task not found via {rake_detect_cmd})",
-            )).sub_bullet(format!("{help} Enable cleaning assets by ensuring {rake_assets_clean} is present when running the detect command locally"));
+            ));
+            print::sub_bullet(format!("{help} Enable cleaning assets by ensuring {rake_assets_clean} is present when running the detect command locally"));
         }
         AssetCases::PrecompileOnly => {
-            bullet = bullet.sub_bullet(
-                format!("Compiling assets without cache (Clean task not found via {rake_detect_cmd})"),
-            ).sub_bullet(format!("{help} Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
+            print::sub_bullet(format!(
+                "Compiling assets without cache (Clean task not found via {rake_detect_cmd})"
+            ));
+            print::sub_bullet(format!("{help} Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
 
             let mut cmd = Command::new("rake");
             cmd.args(["assets:precompile", "--trace"])
@@ -48,7 +51,7 @@ where
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
         }
         AssetCases::PrecompileAndClean => {
-            bullet = bullet.sub_bullet(format!("Compiling assets with cache (detected {rake_assets_precompile} and {rake_assets_clean} via {rake_detect_cmd})"));
+            print::sub_bullet(format!("Compiling assets with cache (detected {rake_assets_precompile} and {rake_assets_clean} via {rake_detect_cmd})"));
 
             let cache_config = [
                 CacheConfig {
@@ -71,7 +74,7 @@ where
 
             for store in &caches {
                 let path = store.path().display();
-                bullet = bullet.sub_bullet(match store.cache_state() {
+                print::sub_bullet(match store.cache_state() {
                     CacheState::NewEmpty => format!("Creating cache for {path}"),
                     CacheState::ExistsEmpty => format!("Loading (empty) cache for {path}"),
                     CacheState::ExistsWithContents => format!("Loading cache for {path}"),
@@ -93,7 +96,7 @@ where
             for store in caches {
                 let path = store.path().display();
 
-                bullet = bullet.sub_bullet(match store.path_state() {
+                print::sub_bullet(match store.path_state() {
                     PathState::Empty => format!("Storing cache for (empty) {path}"),
                     PathState::HasFiles => format!("Storing cache for {path}"),
                 });
@@ -107,11 +110,10 @@ where
                     let removed_len = removed.files.len();
                     let removed_size = removed.adjusted_bytes();
 
-                    bullet = bullet.sub_bullet(format!("Detected cache size exceeded (over {limit} limit by {removed_size}) for {path}"))
-                    .sub_bullet(
-                        format!("Removed {removed_len} files from the cache for {path}"),
-
-                    );
+                    print::sub_bullet(format!("Detected cache size exceeded (over {limit} limit by {removed_size}) for {path}"));
+                    print::sub_bullet(format!(
+                        "Removed {removed_len} files from the cache for {path}"
+                    ));
                 }
             }
         }

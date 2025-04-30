@@ -17,8 +17,6 @@ use crate::{
     RubyBuildpack, RubyBuildpackError,
 };
 use bullet_stream::global::print;
-use bullet_stream::state::SubBullet;
-use bullet_stream::Print;
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedRubyVersion;
 use commons::layer::diff_migrate::{DiffMigrateLayer, LayerRename};
@@ -28,20 +26,15 @@ use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::layer_env::LayerEnv;
 use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
-use std::io::Write;
 use std::path::Path;
 use tar::Archive;
 use tempfile::NamedTempFile;
 use url::Url;
 
-pub(crate) fn handle<W>(
+pub(crate) fn handle(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
-    mut bullet: Print<SubBullet<W>>,
     metadata: &Metadata,
-) -> libcnb::Result<(Print<SubBullet<W>>, LayerEnv), RubyBuildpackError>
-where
-    W: Write + Send + Sync + 'static,
-{
+) -> libcnb::Result<LayerEnv, RubyBuildpackError> {
     let layer_ref = DiffMigrateLayer {
         build: true,
         launch: true,
@@ -71,7 +64,7 @@ where
             _ = timer.done();
         }
     }
-    Ok((bullet, layer_ref.read_env()?))
+    layer_ref.read_env()
 }
 
 fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyBuildpackError> {

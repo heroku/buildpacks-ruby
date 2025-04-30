@@ -161,15 +161,14 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Install executable ruby version
-        (build_output, env) = {
-            let bullet = build_output.bullet(format!(
+        env = {
+            print::bullet(format!(
                 "Ruby version {} from {}",
                 style::value(ruby_version.to_string()),
                 style::value(gemfile_lock.ruby_source())
             ));
-            let (bullet, layer_env) = layers::ruby_install_layer::handle(
+            let layer_env = layers::ruby_install_layer::handle(
                 &context,
-                bullet,
                 &layers::ruby_install_layer::Metadata {
                     os_distribution: OsDistribution {
                         name: context.target.distro_name.clone(),
@@ -179,8 +178,7 @@ impl Buildpack for RubyBuildpack {
                     ruby_version: ruby_version.clone(),
                 },
             )?;
-
-            (bullet.done(), layer_env.apply(Scope::Build, &env))
+            layer_env.apply(Scope::Build, &env)
         };
 
         // ## Setup bundler

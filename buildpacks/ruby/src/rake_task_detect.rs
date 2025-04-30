@@ -1,3 +1,4 @@
+use bullet_stream::global::print;
 use bullet_stream::{state::SubBullet, Print};
 use core::str::FromStr;
 use fun_run::CmdError;
@@ -35,7 +36,7 @@ where
     let mut cmd = Command::new("rake");
     cmd.args(["-P", "--trace"]).env_clear().envs(envs);
 
-    let output = bullet.time_cmd(cmd).or_else(|error| {
+    let output = print::sub_time_cmd(cmd).or_else(|error| {
         if error_on_failure {
             Err(error)
         } else {

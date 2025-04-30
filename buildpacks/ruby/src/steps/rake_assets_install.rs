@@ -43,8 +43,7 @@ where
                 .env_clear()
                 .envs(env);
 
-            bullet
-                .stream_cmd(&mut cmd)
+            print::sub_stream_cmd(&mut cmd)
                 .map_err(|error| {
                     fun_run::map_which_problem(error, &mut cmd, env.get("PATH").cloned())
                 })
@@ -86,8 +85,7 @@ where
                 .env_clear()
                 .envs(env);
 
-            bullet
-                .stream_cmd(&mut cmd)
+            print::sub_stream_cmd(&mut cmd)
                 .map_err(|error| {
                     fun_run::map_which_problem(error, &mut cmd, env.get("PATH").cloned())
                 })

@@ -6,6 +6,7 @@
 //! `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
+use bullet_stream::global::print;
 use bullet_stream::state::SubBullet;
 use bullet_stream::Print;
 use cache_diff::CacheDiff;
@@ -56,14 +57,14 @@ where
     layer_ref.write_env(&layer_env)?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
-            bullet = bullet.sub_bullet(cause);
+            print::sub_bullet(cause);
         }
         LayerState::Empty { cause } => {
             match cause {
                 EmptyLayerCause::NewlyCreated => {}
                 EmptyLayerCause::InvalidMetadataAction { cause }
                 | EmptyLayerCause::RestoredLayerAction { cause } => {
-                    bullet = bullet.sub_bullet(cause);
+                    print::sub_bullet(cause);
                 }
             }
             bullet = download_bundler(bullet, env, &metadata.version, &layer_ref.path())

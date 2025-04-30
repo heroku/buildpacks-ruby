@@ -261,15 +261,9 @@ impl Buildpack for RubyBuildpack {
         };
 
         // ## Detect gems
-        let (gem_list, default_process) = {
-            let bullet = build_output.bullet("Default process detection");
-
-            let (_, gem_list) =
-                gem_list::bundle_list(bullet, &env).map_err(RubyBuildpackError::GemListGetError)?;
-            let default_process = steps::get_default_process(&context, &gem_list);
-
-            (gem_list, default_process)
-        };
+        print::bullet("Default process detection");
+        let gem_list = gem_list::bundle_list(&env).map_err(RubyBuildpackError::GemListGetError)?;
+        let default_process = steps::get_default_process(&context, &gem_list);
 
         // ## Assets install
         print::bullet("Rake assets install");

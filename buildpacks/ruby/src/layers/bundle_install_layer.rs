@@ -333,7 +333,7 @@ mod test {
             ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
             os_distribution: OsDistribution {
                 name: "ubuntu".to_string(),
-                version: "20.04".to_string(),
+                version: "24.04".to_string(),
             },
             cpu_architecture: "amd64".to_string(),
             force_bundle_install_key: FORCE_BUNDLE_INSTALL_CACHE_KEY.to_string(),
@@ -373,7 +373,7 @@ mod test {
 
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
-            vec!["OS Distribution (`ubuntu 20.04` to `alpine 3.20.0`)".to_string()]
+            vec!["OS Distribution (`ubuntu 24.04` to `alpine 3.20.0`)".to_string()]
         );
 
         let diff = Metadata {
@@ -504,7 +504,7 @@ platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3
             ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
             os_distribution: OsDistribution {
                 name: "ubuntu".to_string(),
-                version: "20.04".to_string(),
+                version: "24.04".to_string(),
             },
             cpu_architecture: "amd64".to_string(),
             force_bundle_install_key: "v1".to_string(),

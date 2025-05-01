@@ -85,8 +85,26 @@ fn test_migrating_metadata_or_layer_names() {
 
 #[test]
 #[ignore = "integration test"]
+fn test_default_app_ubuntu22() {
+    TestRunner::default().build(
+        BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby"),
+        |context| {
+            println!("{}", context.pack_stderr);
+            assert_contains!(context.pack_stderr, "# Heroku Ruby Buildpack");
+            assert_contains!(
+                context.pack_stderr,
+                r#"`BUNDLE_FROZEN="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_WITHOUT="development:test" bundle install`"#
+            );
+
+            assert_contains!(context.pack_stderr, "Installing puma");
+        },
+    );
+}
+
+#[test]
+#[ignore = "integration test"]
 #[allow(clippy::too_many_lines)]
-fn test_default_app_ubuntu20() {
+fn test_default_app_ubuntu24() {
     let temp = tempfile::tempdir().unwrap();
     let app_dir = temp.path();
 
@@ -98,7 +116,7 @@ fn test_default_app_ubuntu20() {
         app_dir,
     )
     .unwrap();
-    let config = BuildConfig::new("heroku/builder:20", app_dir);
+    let config = BuildConfig::new("heroku/builder:24", app_dir);
     TestRunner::default().build(
         config.clone(),
         |context| {
@@ -144,12 +162,8 @@ fn test_default_app_ubuntu20() {
                 + which -a rake
                 /layers/heroku_ruby/gems/bin/rake
                 /layers/heroku_ruby/binruby/bin/rake
-                /usr/bin/rake
-                /bin/rake
                 + which -a ruby
                 /layers/heroku_ruby/binruby/bin/ruby
-                /usr/bin/ruby
-                /bin/ruby
             "},
             command_output.stdout,
         );
@@ -222,13 +236,9 @@ fn test_default_app_ubuntu20() {
       /layers/heroku_ruby/gems/bin/rake
       /workspace/bin/rake
       /layers/heroku_ruby/binruby/bin/rake
-      /usr/bin/rake
-      /bin/rake
       $ which -a ruby
       /layers/heroku_ruby/binruby/bin/ruby
-      /usr/bin/ruby
-      /bin/ruby
-            ".trim(),
+           ".trim(),
         rake_output.trim()
 );
 
@@ -246,30 +256,10 @@ fn test_default_app_ubuntu20() {
                     /workspace/bin/rake
                     /layers/heroku_ruby/gems/bin/rake
                     /layers/heroku_ruby/binruby/bin/rake
-                    /usr/bin/rake
-                    /bin/rake
                 "},
                 command_output.stdout,
             );
         });
-        },
-    );
-}
-
-#[test]
-#[ignore = "integration test"]
-fn test_default_app_ubuntu22() {
-    TestRunner::default().build(
-        BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby"),
-        |context| {
-            println!("{}", context.pack_stderr);
-            assert_contains!(context.pack_stderr, "# Heroku Ruby Buildpack");
-            assert_contains!(
-                context.pack_stderr,
-                r#"`BUNDLE_FROZEN="1" BUNDLE_GEMFILE="/workspace/Gemfile" BUNDLE_WITHOUT="development:test" bundle install`"#
-            );
-
-            assert_contains!(context.pack_stderr, "Installing puma");
         },
     );
 }

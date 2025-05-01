@@ -6,8 +6,7 @@
 //! `<layer-dir>/bin`. Must run before [`crate.steps.bundle_install`].
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
-use bullet_stream::state::SubBullet;
-use bullet_stream::Print;
+use bullet_stream::global::print;
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedBundlerVersion;
 use commons::layer::diff_migrate::DiffMigrateLayer;
@@ -18,19 +17,14 @@ use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
 use libcnb::Env;
 use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
-use std::io::Write;
 use std::path::Path;
 use std::process::Command;
 
-pub(crate) fn handle<W>(
+pub(crate) fn call(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     env: &Env,
-    mut bullet: Print<SubBullet<W>>,
     metadata: &Metadata,
-) -> libcnb::Result<(Print<SubBullet<W>>, LayerEnv), RubyBuildpackError>
-where
-    W: Write + Send + Sync + 'static,
-{
+) -> libcnb::Result<LayerEnv, RubyBuildpackError> {
     let layer_ref = DiffMigrateLayer {
         build: true,
         launch: true,
@@ -56,21 +50,21 @@ where
     layer_ref.write_env(&layer_env)?;
     match &layer_ref.state {
         LayerState::Restored { cause } => {
-            bullet = bullet.sub_bullet(cause);
+            print::sub_bullet(cause);
         }
         LayerState::Empty { cause } => {
             match cause {
                 EmptyLayerCause::NewlyCreated => {}
                 EmptyLayerCause::InvalidMetadataAction { cause }
                 | EmptyLayerCause::RestoredLayerAction { cause } => {
-                    bullet = bullet.sub_bullet(cause);
+                    print::sub_bullet(cause);
                 }
             }
-            bullet = download_bundler(bullet, env, &metadata.version, &layer_ref.path())
+            download_bundler(env, &metadata.version, &layer_ref.path())
                 .map_err(RubyBuildpackError::GemInstallBundlerCommandError)?;
         }
     }
-    Ok((bullet, layer_ref.read_env()?))
+    layer_ref.read_env()
 }
 
 pub(crate) type Metadata = MetadataV1;
@@ -84,15 +78,11 @@ pub(crate) struct MetadataV1 {
 }
 
 #[tracing::instrument(skip_all)]
-fn download_bundler<W>(
-    mut bullet: Print<SubBullet<W>>,
+fn download_bundler(
     env: &Env,
     version: &ResolvedBundlerVersion,
     gem_path: &Path,
-) -> Result<Print<SubBullet<W>>, fun_run::CmdError>
-where
-    W: Write + Send + Sync + 'static,
-{
+) -> Result<(), fun_run::CmdError> {
     let bin_dir = gem_path.join("bin");
 
     let mut cmd = Command::new("gem");
@@ -100,9 +90,6 @@ where
     cmd.args(["--version", &version.to_string()]) // Specify exact version to install
         .env_clear()
         .envs(env);
-
-    let short_name = fun_run::display(&mut cmd); // Format `gem install --version <version>` without other content for display
-
     cmd.args(["--install-dir", &format!("{}", gem_path.display())]); // Directory where bundler's contents will live
     cmd.args(["--bindir", &format!("{}", bin_dir.display())]); // Directory where `bundle` executable lives
     cmd.args([
@@ -111,13 +98,11 @@ where
         "--env-shebang", // Start the `bundle` executable with `#! /usr/bin/env ruby`
     ]);
 
-    bullet
-        .time_cmd(&mut cmd.named(short_name))
-        .map_err(|error| {
-            fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
-        })?;
+    print::sub_time_cmd(&mut cmd).map_err(|error| {
+        fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
+    })?;
 
-    Ok(bullet)
+    Ok(())
 }
 
 #[cfg(test)]

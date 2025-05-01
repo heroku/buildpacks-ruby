@@ -170,9 +170,9 @@ dependencies = [
 
 [[package]]
 name = "bullet_stream"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02a257795d84e5eb8b6eff8b2655ef4fe043d006888788bfc9905611d15b187a"
+checksum = "adc54f3252b0ff30201f78a466a017afef4da0ec6c669efcabef8d4cec7c0d58"
 dependencies = [
  "fun_run",
 ]

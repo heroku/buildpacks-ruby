@@ -1,6 +1,5 @@
 use crate::{RubyBuildpack, RubyBuildpackError};
-use bullet_stream::state::SubBullet;
-use bullet_stream::{style, Print};
+use bullet_stream::{global::print, style};
 use flate2::read::GzDecoder;
 use libcnb::additional_buildpack_binary_path;
 use libcnb::data::layer_name;
@@ -9,7 +8,6 @@ use libcnb::layer::{
 };
 use libherokubuildpack::digest::sha256;
 use serde::{Deserialize, Serialize};
-use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use tar::Archive;
@@ -60,13 +58,9 @@ pub(crate) enum MetricsAgentInstallError {
     ChecksumFailed(String),
 }
 
-pub(crate) fn handle_metrics_agent_layer<W>(
+pub(crate) fn handle_metrics_agent_layer(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
-    mut bullet: Print<SubBullet<W>>,
-) -> libcnb::Result<Print<SubBullet<W>>, RubyBuildpackError>
-where
-    W: Write + Send + Sync + 'static,
-{
+) -> libcnb::Result<(), RubyBuildpackError> {
     let metadata = Metadata {
         download_url: DOWNLOAD_URL.to_string(),
     };
@@ -95,29 +89,29 @@ where
 
     match layer_ref.state.clone() {
         LayerState::Restored { .. } => {
-            bullet = bullet.sub_bullet("Using cached metrics agent");
+            print::sub_bullet("Using cached metrics agent");
         }
         LayerState::Empty { cause } => {
             match cause {
                 EmptyLayerCause::NewlyCreated => {}
                 EmptyLayerCause::InvalidMetadataAction { .. } => {
-                    bullet = bullet.sub_bullet("Clearing cache (invalid metadata)");
+                    print::sub_bullet("Clearing cache (invalid metadata)");
                 }
                 EmptyLayerCause::RestoredLayerAction { cause: url } => {
-                    bullet = bullet.sub_bullet(format!("Deleting cached metrics agent ({url})"));
+                    print::sub_bullet(format!("Deleting cached metrics agent ({url})"));
                 }
             }
             let bin_dir = layer_ref.path().join("bin");
 
-            let timer = bullet.start_timer(format!(
+            let timer = print::sub_start_timer(format!(
                 "Installing metrics agent from {url}",
                 url = style::url(&metadata.download_url)
             ));
             let agentmon = install_agentmon(&bin_dir, &metadata)
                 .map_err(RubyBuildpackError::MetricsAgentError)?;
-            bullet = timer.done();
+            _ = timer.done();
 
-            bullet = bullet.sub_bullet("Writing scripts");
+            print::sub_bullet("Writing scripts");
             let execd = write_execd_script(&agentmon, layer_ref.path().as_path())
                 .map_err(RubyBuildpackError::MetricsAgentError)?;
 
@@ -125,7 +119,7 @@ where
             layer_ref.write_metadata(metadata)?;
         }
     }
-    Ok(bullet)
+    Ok(())
 }
 
 fn write_execd_script(

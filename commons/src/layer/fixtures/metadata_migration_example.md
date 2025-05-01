@@ -42,8 +42,6 @@ At this point we've implemented `CacheDiff` and `TryMigrate` on our metadata, so
 ```rust
 use commons::layer::diff_migrate::{DiffMigrateLayer, Meta};
 
-use bullet_stream::{Print, state::SubBullet};
-
 use libcnb::layer::{LayerState, EmptyLayerCause};
 use libcnb::data::layer_name;
 use libcnb::Buildpack;

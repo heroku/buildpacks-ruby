@@ -3,7 +3,7 @@
 // to be able selectively opt out of coverage for functions/lines/modules.
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
-use bullet_stream::{style, Print};
+use bullet_stream::{global::print, style};
 use commons::cache::CacheError;
 use commons::gemfile_lock::GemfileLock;
 use commons::metadata_digest::MetadataDigest;
@@ -119,7 +119,7 @@ impl Buildpack for RubyBuildpack {
 
     #[allow(clippy::too_many_lines)]
     fn build(&self, context: BuildContext<Self>) -> libcnb::Result<BuildResult, Self::Error> {
-        let mut build_output = Print::global().h2("Heroku Ruby Buildpack");
+        let started = print::buildpack("Heroku Ruby Buildpack");
 
         // ## Set default environment
         let (mut env, store) =
@@ -144,31 +144,27 @@ impl Buildpack for RubyBuildpack {
             // Either "Gemfile.lock" or "default"
             cnb.ruby.runtime.sourced_from = gemfile_lock.ruby_source()
         );
+
         // ## Install metrics agent
-        build_output = {
-            let bullet = build_output.bullet("Metrics agent");
-            if lockfile_contents.contains("barnes") {
-                layers::metrics_agent_install::handle_metrics_agent_layer(&context, bullet)?.done()
-            } else {
-                bullet
-                    .sub_bullet(format!(
-                        "Skipping install ({barnes} gem not found)",
-                        barnes = style::value("barnes")
-                    ))
-                    .done()
-            }
-        };
+        print::bullet("Metrics agent");
+        if lockfile_contents.contains("barnes") {
+            layers::metrics_agent_install::handle_metrics_agent_layer(&context)?;
+        } else {
+            print::sub_bullet(format!(
+                "Skipping install ({barnes} gem not found)",
+                barnes = style::value("barnes")
+            ));
+        }
 
         // ## Install executable ruby version
-        (build_output, env) = {
-            let bullet = build_output.bullet(format!(
+        env = {
+            print::bullet(format!(
                 "Ruby version {} from {}",
                 style::value(ruby_version.to_string()),
                 style::value(gemfile_lock.ruby_source())
             ));
-            let (bullet, layer_env) = layers::ruby_install_layer::handle(
+            let layer_env = layers::ruby_install_layer::call(
                 &context,
-                bullet,
                 &layers::ruby_install_layer::Metadata {
                     os_distribution: OsDistribution {
                         name: context.target.distro_name.clone(),
@@ -178,36 +174,32 @@ impl Buildpack for RubyBuildpack {
                     ruby_version: ruby_version.clone(),
                 },
             )?;
-
-            (bullet.done(), layer_env.apply(Scope::Build, &env))
+            layer_env.apply(Scope::Build, &env)
         };
 
         // ## Setup bundler
-        (build_output, env) = {
-            let bullet = build_output.bullet(format!(
+        env = {
+            print::bullet(format!(
                 "Bundler version {} from {}",
                 style::value(bundler_version.to_string()),
                 style::value(gemfile_lock.bundler_source())
             ));
-            let (bullet, layer_env) = layers::bundle_download_layer::handle(
+            let layer_env = layers::bundle_download_layer::call(
                 &context,
                 &env,
-                bullet,
                 &layers::bundle_download_layer::Metadata {
                     version: bundler_version,
                 },
             )?;
-
-            (bullet.done(), layer_env.apply(Scope::Build, &env))
+            layer_env.apply(Scope::Build, &env)
         };
 
         // ## Bundle install
-        (build_output, env) = {
-            let bullet = build_output.bullet("Bundle install gems");
-            let (bullet, layer_env) = layers::bundle_install_layer::handle(
+        env = {
+            print::bullet("Bundle install gems");
+            let layer_env = layers::bundle_install_layer::call(
                 &context,
                 &env,
-                bullet,
                 &layers::bundle_install_layer::Metadata {
                     os_distribution: OsDistribution {
                         name: context.target.distro_name.clone(),
@@ -234,7 +226,7 @@ impl Buildpack for RubyBuildpack {
                 &BundleWithout::new("development:test"),
             )?;
 
-            (bullet.done(), layer_env.apply(Scope::Build, &env))
+            layer_env.apply(Scope::Build, &env)
         };
 
         env = {
@@ -255,38 +247,20 @@ impl Buildpack for RubyBuildpack {
                         context.app_dir.join("bin"),
                     ),
             )?;
-
             user_binstubs.read_env()?.apply(Scope::Build, &env)
         };
 
         // ## Detect gems
-        let (mut build_output, gem_list, default_process) = {
-            let bullet = build_output.bullet("Default process detection");
-
-            let (bullet, gem_list) =
-                gem_list::bundle_list(bullet, &env).map_err(RubyBuildpackError::GemListGetError)?;
-            let (bullet, default_process) = steps::get_default_process(bullet, &context, &gem_list);
-
-            (bullet.done(), gem_list, default_process)
-        };
+        print::bullet("Default process detection");
+        let gem_list = gem_list::bundle_list(&env).map_err(RubyBuildpackError::GemListGetError)?;
+        let default_process = steps::get_default_process(&context, &gem_list);
 
         // ## Assets install
-        build_output = {
-            let (bullet, rake_detect) = crate::steps::detect_rake_tasks(
-                build_output.bullet("Rake assets install"),
-                &gem_list,
-                &context,
-                &env,
-            )?;
-
-            if let Some(rake_detect) = rake_detect {
-                crate::steps::rake_assets_install(bullet, &context, &env, &rake_detect)?
-            } else {
-                bullet
-            }
-            .done()
-        };
-        build_output.done();
+        print::bullet("Rake assets install");
+        if let Some(rake_detect) = crate::steps::detect_rake_tasks(&gem_list, &context, &env)? {
+            crate::steps::rake_assets_install(&context, &env, &rake_detect)?;
+        }
+        print::all_done(&Some(started));
 
         if let Some(default_process) = default_process {
             BuildResultBuilder::new()

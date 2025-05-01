@@ -16,8 +16,7 @@
 //! we must clear the cache and re-run `bundle install`.
 use crate::target_id::{OsDistribution, TargetId, TargetIdError};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
-use bullet_stream::state::SubBullet;
-use bullet_stream::{style, Print};
+use bullet_stream::{global::print, style};
 use cache_diff::CacheDiff;
 use commons::layer::diff_migrate::{DiffMigrateLayer, Meta};
 use commons::{
@@ -32,7 +31,6 @@ use libcnb::{
 };
 use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
-use std::io::Write;
 use std::{path::Path, process::Command};
 
 /// When this environment variable is set, the `bundle install` command will always
@@ -44,16 +42,12 @@ const SKIP_DIGEST_ENV_KEY: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
 /// on the next build.
 pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v2";
 
-pub(crate) fn handle<W>(
+pub(crate) fn call(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     env: &Env,
-    mut bullet: Print<SubBullet<W>>,
     metadata: &Metadata,
     without: &BundleWithout,
-) -> libcnb::Result<(Print<SubBullet<W>>, LayerEnv), RubyBuildpackError>
-where
-    W: Write + Send + Sync + 'static,
-{
+) -> libcnb::Result<LayerEnv, RubyBuildpackError> {
     let layer_ref = DiffMigrateLayer {
         build: true,
         launch: true,
@@ -61,7 +55,7 @@ where
     .cached_layer(layer_name!("gems"), context, metadata)?;
     let install_state = match &layer_ref.state {
         LayerState::Restored { cause } => {
-            bullet = bullet.sub_bullet(cause);
+            print::sub_bullet(cause);
             match cause {
                 Meta::Data(old) => install_state(old, metadata),
                 Meta::Message(_) => InstallState::Run(String::new()),
@@ -71,7 +65,7 @@ where
             EmptyLayerCause::NewlyCreated => InstallState::Run(String::new()),
             EmptyLayerCause::InvalidMetadataAction { cause }
             | EmptyLayerCause::RestoredLayerAction { cause } => {
-                bullet = bullet.sub_bullet(cause);
+                print::sub_bullet(cause);
                 InstallState::Run(String::new())
             }
         },
@@ -86,46 +80,44 @@ where
     match install_state {
         InstallState::Run(reason) => {
             if !reason.is_empty() {
-                bullet = bullet.sub_bullet(reason);
+                print::sub_bullet(reason);
             }
 
             let mut cmd = Command::new("bundle");
-            cmd.args(["install"])
+            cmd.arg("install")
                 .env_clear() // Current process env vars already merged into env
                 .envs(&env);
-            bullet
-                .stream_cmd(&mut cmd.named_fn(|cmd| display_name(cmd, &env)))
+
+            print::sub_stream_cmd(cmd.named_fn(|cmd| display_name(cmd, &env)))
                 .map_err(|error| {
                     fun_run::map_which_problem(error, cmd.mut_cmd(), env.get("PATH").cloned())
                 })
                 .map_err(RubyBuildpackError::BundleInstallCommandError)?;
 
-            bullet
-                .time_cmd(
-                    Command::new("bundle")
-                        .args(["clean", "--force"])
-                        .env_clear()
-                        .envs(&env),
-                )
-                .map_err(RubyBuildpackError::BundleInstallCommandError)?;
+            print::sub_time_cmd(
+                Command::new("bundle")
+                    .args(["clean", "--force"])
+                    .env_clear()
+                    .envs(&env),
+            )
+            .map_err(RubyBuildpackError::BundleInstallCommandError)?;
         }
         InstallState::Skip(checked) => {
             let bundle_install = style::value("bundle install");
             let help = style::important("HELP");
 
-            bullet = bullet
-                .sub_bullet(format!(
-                    "Skipping {bundle_install} (no changes found in {sources})",
-                    sources = SentenceList::new(&checked).join_str("or")
-                ))
-                .sub_bullet(format!(
-                    "{help} To force run {bundle_install} set {}",
-                    style::value(format!("{SKIP_DIGEST_ENV_KEY}=1"))
-                ));
+            print::sub_bullet(format!(
+                "Skipping {bundle_install} (no changes found in {sources})",
+                sources = SentenceList::new(&checked).join_str("or")
+            ));
+            print::sub_bullet(format!(
+                "{help} To force run {bundle_install} set {}",
+                style::value(format!("{SKIP_DIGEST_ENV_KEY}=1"))
+            ));
         }
     }
 
-    Ok((bullet, layer_ref.read_env()?))
+    layer_ref.read_env()
 }
 
 pub(crate) type Metadata = MetadataV3;

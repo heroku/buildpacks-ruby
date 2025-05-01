@@ -325,7 +325,7 @@ version = "3.1.3"
             ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
             os_distribution: OsDistribution {
                 name: "ubuntu".to_string(),
-                version: "20.04".to_string(),
+                version: "24.04".to_string(),
             },
             cpu_architecture: "amd64".to_string(),
         };
@@ -335,7 +335,7 @@ version = "3.1.3"
             ruby_version: ResolvedRubyVersion("3.5.5".to_string()),
             os_distribution: OsDistribution {
                 name: "ubuntu".to_string(),
-                version: "20.04".to_string(),
+                version: "24.04".to_string(),
             },
             cpu_architecture: old.cpu_architecture.clone(),
         }
@@ -358,7 +358,7 @@ version = "3.1.3"
 
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
-            vec!["OS Distribution (`ubuntu 20.04` to `alpine 3.20.0`)".to_string()]
+            vec!["OS Distribution (`ubuntu 24.04` to `alpine 3.20.0`)".to_string()]
         );
 
         let diff = Metadata {
@@ -385,7 +385,7 @@ version = "3.1.3"
             ruby_version: ResolvedRubyVersion("2.7.2".to_string()),
             os_distribution: OsDistribution {
                 name: "ubuntu".to_string(),
-                version: "20.04".to_string(),
+                version: "24.04".to_string(),
             },
             cpu_architecture: "x86_64".to_string(),
         };

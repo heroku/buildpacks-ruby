@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Internal API used for producing buildpack output updated. ([#419](https://github.com/heroku/buildpacks-ruby/pull/419))
 
+### Changed
+
+- Removed support for Ubuntu 20.04 (and thus Heroku-20 / `heroku/builder:20`). ([#422](https://github.com/heroku/buildpacks-ruby/pull/422))
+
 ## [7.0.1] - 2025-04-09
 
 ### Added

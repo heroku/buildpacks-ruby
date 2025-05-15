@@ -216,7 +216,6 @@ impl TryFrom<MetadataV3> for MetadataV4 {
 }
 
 fn layer_env(layer_path: &Path, app_dir: &Path, without_default: &BundleWithout) -> LayerEnv {
-    // CAREFUL: See environment variable warning below vvvvvvvvvv
     let layer_env = LayerEnv::new()
         .chainable_insert(
             Scope::All,
@@ -249,11 +248,6 @@ fn layer_env(layer_path: &Path, app_dir: &Path, without_default: &BundleWithout)
             "BUNDLE_FROZEN", // Requires the `Gemfile.lock` to be in sync with the current `Gemfile`.
             "1",
         );
-    // CAREFUL: Changes to these ^^^^^^^ environment variables
-    //
-    // Not every run is guaranteed to trigger a `bundle_install`
-    // Rev the `force_bundle_install` cache key to ensure consistent
-    // state (when appropriate).
     layer_env
 }
 

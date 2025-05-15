@@ -152,7 +152,7 @@ pub(crate) struct MetadataV4 {
     pub(crate) ruby_version: ResolvedRubyVersion,
 }
 
-fn clear_v1(_new: &Metadata, old: &Metadata) -> Vec<String> {
+fn clear_v1(_new: &MetadataV3, old: &MetadataV3) -> Vec<String> {
     if &old.force_bundle_install_key == "v1" {
         vec!["Internal gem directory structure changed".to_string()]
     } else {

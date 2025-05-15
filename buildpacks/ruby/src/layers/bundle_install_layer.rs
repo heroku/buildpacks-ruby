@@ -33,10 +33,6 @@ use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
 use std::{path::Path, process::Command};
 
-/// When this environment variable is set, the `bundle install` command will always
-/// run regardless of whether the `Gemfile`, `Gemfile.lock`, or platform environment
-/// variables have changed.
-const SKIP_DIGEST_ENV_KEY: &str = "HEROKU_SKIP_BUNDLE_DIGEST";
 /// A failsafe, if a programmer made a mistake in the caching logic, rev-ing this
 /// key will force a re-run of `bundle install` to ensure the cache is correct
 /// on the next build.
@@ -193,38 +189,6 @@ impl TryFrom<MetadataV2> for MetadataV3 {
             force_bundle_install_key: v2.force_bundle_install_key,
             digest: v2.digest,
         })
-    }
-}
-
-#[derive(Debug)]
-enum InstallState {
-    /// Holds message indicating the reason why we want to run 'bundle install'
-    Run(String),
-
-    /// Do not run 'bundle install'
-    Skip(Vec<String>),
-}
-
-/// Determines if 'bundle install' should execute on a given call to `BundleInstallLatyer::update`
-///
-fn install_state(old: &Metadata, now: &Metadata) -> InstallState {
-    let forced_env = std::env::var_os(SKIP_DIGEST_ENV_KEY);
-    let old_key = &old.force_bundle_install_key;
-    let now_key = &now.force_bundle_install_key;
-
-    if old_key != now_key {
-        InstallState::Run(format!(
-            "buildpack author triggered internal change {old_key} to {now_key}"
-        ))
-    } else if let Some(value) = forced_env {
-        let value = value.to_string_lossy();
-
-        InstallState::Run(format!("found {SKIP_DIGEST_ENV_KEY}={value}"))
-    } else if let Some(changed) = now.digest.changed(&old.digest) {
-        InstallState::Run(format!("{changed}"))
-    } else {
-        let checked = now.digest.checked_list();
-        InstallState::Skip(checked)
     }
 }
 

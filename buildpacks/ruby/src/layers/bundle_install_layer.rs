@@ -139,6 +139,19 @@ pub(crate) struct MetadataV3 {
     pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
 
+/// Introduced to drop support for MetadataDigest
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
+#[try_migrate(from = MetadataV3)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct MetadataV4 {
+    #[cache_diff(rename = "OS Distribution")]
+    pub(crate) os_distribution: OsDistribution,
+    #[cache_diff(rename = "CPU Architecture")]
+    pub(crate) cpu_architecture: String,
+    #[cache_diff(rename = "Ruby version")]
+    pub(crate) ruby_version: ResolvedRubyVersion,
+}
+
 fn clear_v1(_new: &Metadata, old: &Metadata) -> Vec<String> {
     if &old.force_bundle_install_key == "v1" {
         vec!["Internal gem directory structure changed".to_string()]
@@ -186,6 +199,18 @@ impl TryFrom<MetadataV2> for MetadataV3 {
             ruby_version: v2.ruby_version,
             force_bundle_install_key: v2.force_bundle_install_key,
             digest: v2.digest,
+        })
+    }
+}
+
+impl TryFrom<MetadataV3> for MetadataV4 {
+    type Error = std::convert::Infallible;
+
+    fn try_from(value: MetadataV3) -> Result<Self, Self::Error> {
+        Ok(Self {
+            os_distribution: value.os_distribution,
+            cpu_architecture: value.cpu_architecture,
+            ruby_version: value.ruby_version,
         })
     }
 }

@@ -31,11 +31,6 @@ use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
 use std::{path::Path, process::Command};
 
-/// A failsafe, if a programmer made a mistake in the caching logic, rev-ing this
-/// key will force a re-run of `bundle install` to ensure the cache is correct
-/// on the next build.
-pub(crate) const FORCE_BUNDLE_INSTALL_CACHE_KEY: &str = "v2";
-
 pub(crate) fn call(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     env: &Env,

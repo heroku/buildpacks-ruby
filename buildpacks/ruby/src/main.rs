@@ -6,7 +6,6 @@
 use bullet_stream::{global::print, style};
 use commons::cache::CacheError;
 use commons::gemfile_lock::GemfileLock;
-use commons::metadata_digest::MetadataDigest;
 use core::str::FromStr;
 use fs_err::PathExt;
 use fun_run::CmdError;

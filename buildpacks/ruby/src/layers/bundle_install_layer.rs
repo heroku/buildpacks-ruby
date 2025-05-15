@@ -53,23 +53,18 @@ pub(crate) fn call(
         launch: true,
     }
     .cached_layer(layer_name!("gems"), context, metadata)?;
-    let _ = match &layer_ref.state {
+    match &layer_ref.state {
         LayerState::Restored { cause } => {
             print::sub_bullet(cause);
-            match cause {
-                Meta::Data(old) => install_state(old, metadata),
-                Meta::Message(_) => InstallState::Run(String::new()),
-            }
         }
         LayerState::Empty { cause } => match cause {
-            EmptyLayerCause::NewlyCreated => InstallState::Run(String::new()),
+            EmptyLayerCause::NewlyCreated => (),
             EmptyLayerCause::InvalidMetadataAction { cause }
             | EmptyLayerCause::RestoredLayerAction { cause } => {
                 print::sub_bullet(cause);
-                InstallState::Run(String::new())
             }
         },
-    };
+    }
 
     let env = {
         let layer_env = layer_env(&layer_ref.path(), &context.app_dir, without);

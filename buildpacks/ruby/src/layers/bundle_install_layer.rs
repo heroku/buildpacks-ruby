@@ -16,12 +16,10 @@
 //! we must clear the cache and re-run `bundle install`.
 use crate::target_id::{OsDistribution, TargetId, TargetIdError};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
-use bullet_stream::{global::print, style};
+use bullet_stream::global::print;
 use cache_diff::CacheDiff;
-use commons::layer::diff_migrate::{DiffMigrateLayer, Meta};
-use commons::{
-    display::SentenceList, gemfile_lock::ResolvedRubyVersion, metadata_digest::MetadataDigest,
-};
+use commons::layer::diff_migrate::DiffMigrateLayer;
+use commons::{gemfile_lock::ResolvedRubyVersion, metadata_digest::MetadataDigest};
 use fun_run::{self, CommandWithName};
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};

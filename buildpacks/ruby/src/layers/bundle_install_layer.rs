@@ -272,16 +272,6 @@ mod test {
     /// When the vec is empty the cache is kept, otherwise it is invalidated
     #[test]
     fn metadata_diff_messages() {
-        let tmpdir = tempfile::tempdir().unwrap();
-        let app_path = tmpdir.path().to_path_buf();
-        let gemfile = app_path.join("Gemfile");
-        let env = Env::new();
-        let context = FakeContext {
-            platform: FakePlatform { env },
-            app_path,
-        };
-        std::fs::write(&gemfile, "iamagemfile").unwrap();
-
         let old = Metadata {
             ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
             os_distribution: OsDistribution {
@@ -385,18 +375,8 @@ GEM_PATH=layer_path
     /// to the current format.
     #[test]
     fn metadata_guard() {
-        let tmpdir = tempfile::tempdir().unwrap();
-        let app_path = tmpdir.path().to_path_buf();
-        let gemfile = app_path.join("Gemfile");
-
         let mut env = Env::new();
         env.insert("SECRET_KEY_BASE", "abcdgoldfish");
-
-        let context = FakeContext {
-            platform: FakePlatform { env },
-            app_path,
-        };
-        std::fs::write(&gemfile, "iamagemfile").unwrap();
 
         let target_id = TargetId::from_stack("heroku-22").unwrap();
         let metadata = Metadata {

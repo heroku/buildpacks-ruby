@@ -185,34 +185,6 @@ fn log_our_error(error: RubyBuildpackError) {
                     Use the information above to debug further.
                 "});
         }
-        RubyBuildpackError::BundleInstallDigestError(path, error) => {
-            print::bullet(&debug_info);
-            print::sub_bullet(error.to_string());
-
-            if let Some(dir) = path.parent() {
-                print::bullet(format!(
-                    "{debug_info} Contents of the {} directory",
-                    style::value(dir.to_string_lossy())
-                ));
-                let _ =
-                    print::sub_stream_cmd(Command::new("ls").args(["-la", &dir.to_string_lossy()]));
-            }
-            print::error(formatdoc! {"
-                Error generating file digest
-
-                An error occurred while generating a file digest. To provide the fastest possible
-                install experience, the Ruby buildpack converts your `Gemfile` and `Gemfile.lock`
-                into a digest to use in cache invalidation.
-
-                Ensure that the permissions on the files in your application directory are correct and that
-                all symlinks correctly resolve.
-
-                If you're unable to resolve this error, you can disable the the digest feature by
-                setting the environment variable:
-
-                HEROKU_SKIP_BUNDLE_DIGEST=1
-            "});
-        }
         RubyBuildpackError::RakeDetectError(error) => {
             // Future:
             // - Annotate with information on requiring test or development only gems in the Rakefile

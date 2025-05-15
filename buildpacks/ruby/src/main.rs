@@ -276,7 +276,6 @@ pub(crate) enum RubyBuildpackError {
     MetricsAgentError(MetricsAgentInstallError),
     MissingGemfileLock(std::path::PathBuf, std::io::Error),
     InAppDirCacheError(CacheError),
-    BundleInstallDigestError(std::path::PathBuf, std::io::Error),
     BundleInstallCommandError(CmdError),
     RakeAssetsPrecompileFailed(CmdError),
     GemInstallBundlerCommandError(CmdError),

@@ -207,21 +207,6 @@ impl Buildpack for RubyBuildpack {
                     },
                     cpu_architecture: context.target.arch.clone(),
                     ruby_version: ruby_version.clone(),
-                    force_bundle_install_key: String::from(
-                        crate::layers::bundle_install_layer::FORCE_BUNDLE_INSTALL_CACHE_KEY,
-                    ),
-                    digest: MetadataDigest::new_env_files(
-                        &context.platform,
-                        &[
-                            &context.app_dir.join("Gemfile"),
-                            &context.app_dir.join("Gemfile.lock"),
-                        ],
-                    )
-                    .map_err(|error| match error {
-                        commons::metadata_digest::DigestError::CannotReadFile(path, error) => {
-                            RubyBuildpackError::BundleInstallDigestError(path, error)
-                        }
-                    })?,
                 },
                 &BundleWithout::new("development:test"),
             )?;

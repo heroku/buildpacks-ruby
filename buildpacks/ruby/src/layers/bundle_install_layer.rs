@@ -86,7 +86,7 @@ pub(crate) fn call(
     layer_ref.read_env()
 }
 
-pub(crate) type Metadata = MetadataV3;
+pub(crate) type Metadata = MetadataV4;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, TryMigrate)]
 #[serde(deny_unknown_fields)]
@@ -289,12 +289,6 @@ mod test {
                 version: "24.04".to_string(),
             },
             cpu_architecture: "amd64".to_string(),
-            force_bundle_install_key: FORCE_BUNDLE_INSTALL_CACHE_KEY.to_string(),
-            digest: MetadataDigest::new_env_files(
-                &context.platform,
-                &[&context.app_path.join("Gemfile")],
-            )
-            .unwrap(),
         };
         assert_eq!(old.diff(&old), Vec::<String>::new());
 
@@ -302,8 +296,6 @@ mod test {
             ruby_version: ResolvedRubyVersion("3.5.5".to_string()),
             os_distribution: old.os_distribution.clone(),
             cpu_architecture: old.cpu_architecture.clone(),
-            force_bundle_install_key: old.force_bundle_install_key.clone(),
-            digest: old.digest.clone(),
         }
         .diff(&old);
 
@@ -319,8 +311,6 @@ mod test {
                 version: "3.20.0".to_string(),
             },
             cpu_architecture: old.cpu_architecture.clone(),
-            force_bundle_install_key: old.force_bundle_install_key.clone(),
-            digest: old.digest.clone(),
         }
         .diff(&old);
 
@@ -333,8 +323,6 @@ mod test {
             ruby_version: old.ruby_version.clone(),
             os_distribution: old.os_distribution.clone(),
             cpu_architecture: "arm64".to_string(),
-            force_bundle_install_key: old.force_bundle_install_key.clone(),
-            digest: old.digest.clone(),
         }
         .diff(&old);
 
@@ -418,33 +406,17 @@ GEM_PATH=layer_path
             },
             cpu_architecture: target_id.cpu_architecture,
             ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
-            force_bundle_install_key: String::from("v1"),
-            digest: MetadataDigest::new_env_files(
-                &context.platform,
-                &[&context.app_path.join("Gemfile")],
-            )
-            .unwrap(),
         };
 
         let actual = toml::to_string(&metadata).unwrap();
-        let gemfile_path = gemfile.display();
-        let toml_string = format!(
-            r#"
+        let toml_string = r#"
 cpu_architecture = "amd64"
 ruby_version = "3.1.3"
-force_bundle_install_key = "v1"
 
 [os_distribution]
 name = "ubuntu"
 version = "22.04"
-
-[digest]
-platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3"
-
-[digest.files]
-"{gemfile_path}" = "32b27d2934db61b105fea7c2cb6159092fed6e121f8c72a948f341ab5afaa1ab"
 "#
-        )
         .trim()
         .to_string();
         assert_eq!(toml_string, actual.trim());
@@ -452,27 +424,6 @@ platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3
         let deserialized: Metadata = toml::from_str(&toml_string).unwrap();
 
         assert_eq!(metadata, deserialized);
-
-        let old = Metadata {
-            ruby_version: ResolvedRubyVersion("3.5.3".to_string()),
-            os_distribution: OsDistribution {
-                name: "ubuntu".to_string(),
-                version: "24.04".to_string(),
-            },
-            cpu_architecture: "amd64".to_string(),
-            force_bundle_install_key: "v1".to_string(),
-            digest: MetadataDigest::new_env_files(
-                &context.platform,
-                &[&context.app_path.join("Gemfile")],
-            )
-            .unwrap(),
-        };
-
-        let diff = old.diff(&old);
-        assert_eq!(
-            vec!["Internal gem directory structure changed".to_string()],
-            diff
-        );
     }
 
     #[test]

@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use libcnb::{Env, Platform};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
@@ -151,6 +153,7 @@ const PLATFORM_ENV_VAR: &str = "user configured environment variables";
 /// above, but triggered by buildpack author instead of the end user.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
 #[serde(deny_unknown_fields)]
+#[deprecated(note = "The MetadataDigest struct and module are being removed")]
 pub struct MetadataDigest {
     platform_env: Option<PlatformEnvDigest>,
     files: Option<PathsDigest>, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142

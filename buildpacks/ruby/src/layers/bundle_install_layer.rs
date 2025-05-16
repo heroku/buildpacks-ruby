@@ -126,7 +126,8 @@ pub(crate) struct MetadataV3 {
     pub(crate) digest: toml::Value, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
 
-/// Introduced to drop support for MetadataDigest
+// Introduced to drop support for MetadataDigest
+// 2025-05-16
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
 #[try_migrate(from = MetadataV3)]
 #[serde(deny_unknown_fields)]

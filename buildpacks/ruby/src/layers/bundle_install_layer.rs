@@ -18,8 +18,8 @@ use crate::target_id::{OsDistribution, TargetId, TargetIdError};
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use bullet_stream::global::print;
 use cache_diff::CacheDiff;
+use commons::gemfile_lock::ResolvedRubyVersion;
 use commons::layer::diff_migrate::DiffMigrateLayer;
-use commons::{gemfile_lock::ResolvedRubyVersion, metadata_digest::MetadataDigest};
 use fun_run::{self, CommandWithName};
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
@@ -83,17 +83,18 @@ pub(crate) fn call(
 
 pub(crate) type Metadata = MetadataV4;
 
-#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, TryMigrate)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, TryMigrate)]
 #[serde(deny_unknown_fields)]
 #[try_migrate(from = None)]
 pub(crate) struct MetadataV1 {
     pub(crate) stack: String,
     pub(crate) ruby_version: ResolvedRubyVersion,
     pub(crate) force_bundle_install_key: String,
-    pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
+    // Placeholder for a deprecated struct
+    pub(crate) digest: toml::Value, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, TryMigrate)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, TryMigrate)]
 #[try_migrate(from = MetadataV1)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV2 {
@@ -102,10 +103,11 @@ pub(crate) struct MetadataV2 {
     pub(crate) cpu_architecture: String,
     pub(crate) ruby_version: ResolvedRubyVersion,
     pub(crate) force_bundle_install_key: String,
-    pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
+    // Placeholder for a deprecated struct
+    pub(crate) digest: toml::Value, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, CacheDiff, TryMigrate)]
 #[cache_diff(custom = clear_v1)]
 #[try_migrate(from = MetadataV2)]
 #[serde(deny_unknown_fields)]
@@ -119,19 +121,9 @@ pub(crate) struct MetadataV3 {
     #[cache_diff(ignore)]
     pub(crate) force_bundle_install_key: String,
 
-    /// A struct that holds the cryptographic hash of components that can
-    /// affect the result of `bundle install`. When these values do not
-    /// change between deployments we can skip re-running `bundle install` since
-    /// the outcome should not change.
-    ///
-    /// While a fully resolved `bundle install` is relatively fast, it's not
-    /// instantaneous. This check can save ~1 second on overall build time.
-    ///
-    /// This value is cached with metadata, so changing the struct
-    /// may cause metadata to be invalidated (and the cache cleared).
-    ///
     #[cache_diff(ignore)]
-    pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
+    // Placeholder for a deprecated struct
+    pub(crate) digest: toml::Value, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
 
 /// Introduced to drop support for MetadataDigest
@@ -317,29 +309,6 @@ mod test {
         );
     }
 
-    #[cfg(test)]
-    #[derive(Default, Clone)]
-    struct FakeContext {
-        app_path: PathBuf,
-        platform: FakePlatform,
-    }
-
-    #[cfg(test)]
-    #[derive(Default, Clone)]
-    struct FakePlatform {
-        env: libcnb::Env,
-    }
-
-    impl libcnb::Platform for FakePlatform {
-        fn env(&self) -> &Env {
-            &self.env
-        }
-
-        fn from_path(_platform_dir: impl AsRef<Path>) -> std::io::Result<Self> {
-            unimplemented!()
-        }
-    }
-
     /// If this test fails due to user change you may need
     /// to rev a cache key to force 'bundle install'
     /// to re-run otherwise it won't be picked up by
@@ -403,34 +372,22 @@ version = "22.04"
 
     #[test]
     fn metadata_migrate_v1_to_v2() {
-        let tmpdir = tempfile::tempdir().unwrap();
-        let app_path = tmpdir.path().to_path_buf();
-        let gemfile = app_path.join("Gemfile");
-
-        let mut env = Env::new();
-        env.insert("SECRET_KEY_BASE", "abcdgoldfish");
-
-        let context = FakeContext {
-            platform: FakePlatform { env },
-            app_path,
-        };
-        std::fs::write(&gemfile, "iamagemfile").unwrap();
-
         let metadata = MetadataV1 {
             stack: String::from("heroku-22"),
             ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
             force_bundle_install_key: String::from("v1"),
-            digest: MetadataDigest::new_env_files(
-                &context.platform,
-                &[&context.app_path.join("Gemfile")],
+            #[allow(deprecated)]
+            digest: toml::from_str(r#"
+                platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3"
+                [files]
+                "/workspace/Gemfile" = "32b27d2934db61b105fea7c2cb6159092fed6e121f8c72a948f341ab5afaa1ab"
+            "#
             )
             .unwrap(),
         };
 
         let actual = toml::to_string(&metadata).unwrap();
-        let gemfile_path = gemfile.display();
-        let toml_string = format!(
-            r#"
+        let toml_string = r#"
 stack = "heroku-22"
 ruby_version = "3.1.3"
 force_bundle_install_key = "v1"
@@ -439,9 +396,8 @@ force_bundle_install_key = "v1"
 platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3"
 
 [digest.files]
-"{gemfile_path}" = "32b27d2934db61b105fea7c2cb6159092fed6e121f8c72a948f341ab5afaa1ab"
+"/workspace/Gemfile" = "32b27d2934db61b105fea7c2cb6159092fed6e121f8c72a948f341ab5afaa1ab"
 "#
-        )
         .trim()
         .to_string();
         assert_eq!(toml_string, actual.trim());

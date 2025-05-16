@@ -83,35 +83,11 @@ pub(crate) fn call(
 
 pub(crate) type Metadata = MetadataV4;
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, TryMigrate)]
-#[serde(deny_unknown_fields)]
-#[try_migrate(from = None)]
-pub(crate) struct MetadataV1 {
-    pub(crate) stack: String,
-    pub(crate) ruby_version: ResolvedRubyVersion,
-    pub(crate) force_bundle_install_key: String,
-    // Placeholder for a deprecated struct
-    pub(crate) digest: toml::Value, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, TryMigrate)]
-#[try_migrate(from = MetadataV1)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct MetadataV2 {
-    pub(crate) distro_name: String,
-    pub(crate) distro_version: String,
-    pub(crate) cpu_architecture: String,
-    pub(crate) ruby_version: ResolvedRubyVersion,
-    pub(crate) force_bundle_install_key: String,
-    // Placeholder for a deprecated struct
-    pub(crate) digest: toml::Value, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
-}
-
 // Introduced in https://github.com/heroku/buildpacks-ruby/pull/370
 // 2024-12-13
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, CacheDiff, TryMigrate)]
 #[cache_diff(custom = clear_v1)]
-#[try_migrate(from = MetadataV2)]
+#[try_migrate(from = None)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV3 {
     #[cache_diff(rename = "OS Distribution")]
@@ -147,49 +123,6 @@ fn clear_v1(_new: &MetadataV3, old: &MetadataV3) -> Vec<String> {
         vec!["Internal gem directory structure changed".to_string()]
     } else {
         Vec::new()
-    }
-}
-
-#[derive(thiserror::Error, Debug)]
-pub(crate) enum MetadataMigrateError {
-    #[error("Could not migrate metadata {0}")]
-    UnsupportedStack(TargetIdError),
-}
-
-// CNB spec moved from the concept of "stacks" (i.e. "heroku-22" which represented an OS and system dependencies) to finer
-// grained "target" which includes the OS, OS version, and architecture. This function converts the old stack id to the new target id.
-impl TryFrom<MetadataV1> for MetadataV2 {
-    type Error = MetadataMigrateError;
-
-    fn try_from(v1: MetadataV1) -> Result<Self, Self::Error> {
-        let target_id =
-            TargetId::from_stack(&v1.stack).map_err(MetadataMigrateError::UnsupportedStack)?;
-
-        Ok(Self {
-            distro_name: target_id.distro_name.clone(),
-            distro_version: target_id.distro_version.clone(),
-            cpu_architecture: target_id.cpu_architecture.clone(),
-            ruby_version: v1.ruby_version,
-            force_bundle_install_key: v1.force_bundle_install_key,
-            digest: v1.digest,
-        })
-    }
-}
-
-impl TryFrom<MetadataV2> for MetadataV3 {
-    type Error = std::convert::Infallible;
-
-    fn try_from(v2: MetadataV2) -> Result<Self, Self::Error> {
-        Ok(Self {
-            os_distribution: OsDistribution {
-                name: v2.distro_name,
-                version: v2.distro_version,
-            },
-            cpu_architecture: v2.cpu_architecture,
-            ruby_version: v2.ruby_version,
-            force_bundle_install_key: v2.force_bundle_install_key,
-            digest: v2.digest,
-        })
     }
 }
 
@@ -255,6 +188,7 @@ fn display_name(cmd: &mut Command, env: &Env) -> String {
 mod test {
     use super::*;
     use bullet_stream::strip_ansi;
+    use commons::display::SentenceList;
     use pretty_assertions::assert_eq;
     use std::path::PathBuf;
 
@@ -375,8 +309,8 @@ version = "22.04"
 
     #[test]
     fn metadata_migrate_v1_to_v2() {
-        let metadata = MetadataV1 {
-            stack: String::from("heroku-22"),
+        let target_id = TargetId::from_stack("heroku-24").unwrap();
+        let metadata = MetadataV3 {
             ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
             force_bundle_install_key: String::from("v1"),
             #[allow(deprecated)]
@@ -387,13 +321,22 @@ version = "22.04"
             "#
             )
             .unwrap(),
+            os_distribution: OsDistribution {
+                name: target_id.distro_name,
+                version: target_id.distro_version
+            },
+            cpu_architecture: "arm64".to_string(),
         };
 
         let actual = toml::to_string(&metadata).unwrap();
         let toml_string = r#"
-stack = "heroku-22"
+cpu_architecture = "arm64"
 ruby_version = "3.1.3"
 force_bundle_install_key = "v1"
+
+[os_distribution]
+name = "ubuntu"
+version = "24.04"
 
 [digest]
 platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3"
@@ -405,19 +348,14 @@ platform_env = "c571543beaded525b7ee46ceb0b42c0fb7b9f6bfc3a211b3bbcfe6956b69ace3
         .to_string();
         assert_eq!(toml_string, actual.trim());
 
-        let deserialized: MetadataV2 = MetadataV2::try_from_str_migrations(&toml_string)
+        let deserialized: MetadataV3 = MetadataV3::try_from_str_migrations(&toml_string)
             .unwrap()
             .unwrap();
 
-        let target_id = TargetId::from_stack(&metadata.stack).unwrap();
-        let expected = MetadataV2 {
-            distro_name: target_id.distro_name,
-            distro_version: target_id.distro_version,
-            cpu_architecture: target_id.cpu_architecture,
-            ruby_version: metadata.ruby_version,
-            force_bundle_install_key: metadata.force_bundle_install_key,
-            digest: metadata.digest,
-        };
-        assert_eq!(expected, deserialized);
+        // Cache clear logic for force_bundle_install_key = "v1"
+        assert_eq!(
+            "Internal gem directory structure changed".to_string(),
+            SentenceList::new(&deserialized.diff(&deserialized)).to_string(),
+        );
     }
 }

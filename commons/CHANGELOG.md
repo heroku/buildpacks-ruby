@@ -1,5 +1,11 @@
 # Changelog for commons features
 
+## 2025-05-16
+
+### Changed
+
+- Deprecated `metadata_digest::MetadataDigest` with no replacement. If you depend on this logic please vendor it ([#425](https://github.com/heroku/buildpacks-ruby/pull/425))
+
 ## 2024-01-14
 
 ### Changed

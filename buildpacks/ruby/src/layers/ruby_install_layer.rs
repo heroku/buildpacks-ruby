@@ -31,6 +31,9 @@ use tar::Archive;
 use tempfile::NamedTempFile;
 use url::Url;
 
+// Latest metadata used for `TryMigrate` trait
+pub(crate) type Metadata = MetadataV3;
+
 pub(crate) fn call(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     metadata: &Metadata,
@@ -105,8 +108,6 @@ impl MetadataV3 {
         }
     }
 }
-
-pub(crate) type Metadata = MetadataV3;
 
 fn download_url(
     target: &TargetId,

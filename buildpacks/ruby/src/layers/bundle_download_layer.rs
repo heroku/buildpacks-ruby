@@ -20,6 +20,9 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::process::Command;
 
+// Latest metadata used for `TryMigrate` trait
+pub(crate) type Metadata = MetadataV1;
+
 pub(crate) fn call(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     env: &Env,
@@ -66,8 +69,6 @@ pub(crate) fn call(
     }
     layer_ref.read_env()
 }
-
-pub(crate) type Metadata = MetadataV1;
 
 #[derive(Deserialize, Serialize, Debug, Clone, CacheDiff, TryMigrate)]
 #[try_migrate(from = None)]

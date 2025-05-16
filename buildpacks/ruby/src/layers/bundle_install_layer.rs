@@ -14,7 +14,7 @@
 //! must be compiled and will then be invoked via FFI. These native extensions are
 //! OS, Architecture, and Ruby version dependent. Due to this, when one of these changes
 //! we must clear the cache and re-run `bundle install`.
-use crate::target_id::{OsDistribution, TargetId, TargetIdError};
+use crate::target_id::OsDistribution;
 use crate::{BundleWithout, RubyBuildpack, RubyBuildpackError};
 use bullet_stream::global::print;
 use cache_diff::CacheDiff;
@@ -186,6 +186,8 @@ fn display_name(cmd: &mut Command, env: &Env) -> String {
 
 #[cfg(test)]
 mod test {
+    use crate::target_id::TargetId;
+
     use super::*;
     use bullet_stream::strip_ansi;
     use commons::display::SentenceList;

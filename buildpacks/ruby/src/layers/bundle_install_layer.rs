@@ -180,8 +180,6 @@ fn display_name(cmd: &mut Command, env: &Env) -> String {
 
 #[cfg(test)]
 mod test {
-    use crate::target_id::TargetId;
-
     use super::*;
     use bullet_stream::strip_ansi;
     use commons::display::SentenceList;
@@ -272,13 +270,12 @@ GEM_PATH=layer_path
     /// to the current format.
     #[test]
     fn metadata_guard() {
-        let target_id = TargetId::from_stack("heroku-22").unwrap();
         let metadata = Metadata {
             os_distribution: OsDistribution {
-                name: target_id.distro_name.clone(),
-                version: target_id.distro_version.clone(),
+                name: "ubuntu".to_string(),
+                version: "22.04".to_string(),
             },
-            cpu_architecture: target_id.cpu_architecture,
+            cpu_architecture: "amd64".to_string(),
             ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
         };
 
@@ -302,7 +299,6 @@ version = "22.04"
 
     #[test]
     fn metadata_migrate_v1_to_v2() {
-        let target_id = TargetId::from_stack("heroku-24").unwrap();
         let metadata = MetadataV3 {
             ruby_version: ResolvedRubyVersion(String::from("3.1.3")),
             force_bundle_install_key: String::from("v1"),
@@ -315,8 +311,8 @@ version = "22.04"
             )
             .unwrap(),
             os_distribution: OsDistribution {
-                name: target_id.distro_name,
-                version: target_id.distro_version
+                name: "ubuntu".to_string(),
+                version: "24.04".to_string()
             },
             cpu_architecture: "arm64".to_string(),
         };

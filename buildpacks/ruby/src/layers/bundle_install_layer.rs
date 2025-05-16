@@ -107,6 +107,8 @@ pub(crate) struct MetadataV2 {
     pub(crate) digest: toml::Value, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
 }
 
+// Introduced in https://github.com/heroku/buildpacks-ruby/pull/370
+// 2024-12-13
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, CacheDiff, TryMigrate)]
 #[cache_diff(custom = clear_v1)]
 #[try_migrate(from = MetadataV2)]

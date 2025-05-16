@@ -17,9 +17,6 @@ const DISTRO_VERSION_STACK: &[(&str, &str, &str)] = &[
 pub(crate) enum TargetIdError {
     #[error("Distro name and version '{0}-{1}' is not supported. Must be one of: {options}", options = DISTRO_VERSION_STACK.iter().map(|&(name, version, _)| format!("'{name}-{version}'")).collect::<Vec<_>>().join(", "))]
     UnknownDistroNameVersionCombo(String, String),
-
-    #[error("Cannot convert stack name '{0}' into a target OS. Must be one of: {options}", options = DISTRO_VERSION_STACK.iter().map(|&(_, _, stack)| format!("'{stack}'")).collect::<Vec<_>>().join(", "))]
-    UnknownStack(String),
 }
 
 impl TargetId {
@@ -38,18 +35,6 @@ impl TargetId {
                     self.distro_version.clone(),
                 )
             })
-    }
-
-    pub(crate) fn from_stack(stack_id: &str) -> Result<Self, TargetIdError> {
-        DISTRO_VERSION_STACK
-            .iter()
-            .find(|&&(_, _, stack)| stack == stack_id)
-            .map(|&(name, version, _)| TargetId {
-                cpu_architecture: String::from("amd64"),
-                distro_name: name.to_owned(),
-                distro_version: version.to_owned(),
-            })
-            .ok_or_else(|| TargetIdError::UnknownStack(stack_id.to_owned()))
     }
 }
 
@@ -98,27 +83,6 @@ mod test {
             }
             .stack_name()
             .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_from_stack() {
-        assert_eq!(
-            TargetId::from_stack("heroku-22").unwrap(),
-            TargetId {
-                cpu_architecture: String::from("amd64"),
-                distro_name: String::from("ubuntu"),
-                distro_version: String::from("22.04"),
-            }
-        );
-
-        assert_eq!(
-            TargetId::from_stack("heroku-24").unwrap(),
-            TargetId {
-                cpu_architecture: String::from("amd64"),
-                distro_name: String::from("ubuntu"),
-                distro_version: String::from("24.04"),
-            }
         );
     }
 }

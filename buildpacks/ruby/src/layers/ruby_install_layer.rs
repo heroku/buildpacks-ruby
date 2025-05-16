@@ -31,6 +31,9 @@ use tar::Archive;
 use tempfile::NamedTempFile;
 use url::Url;
 
+// Latest metadata used for `TryMigrate` trait
+pub(crate) type Metadata = MetadataV3;
+
 pub(crate) fn call(
     context: &libcnb::build::BuildContext<RubyBuildpack>,
     metadata: &Metadata,
@@ -83,26 +86,9 @@ fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyBuildp
     Ok(())
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, TryMigrate)]
-#[try_migrate(from = None)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct MetadataV1 {
-    pub(crate) stack: String,
-    pub(crate) version: ResolvedRubyVersion,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, TryMigrate)]
-#[try_migrate(from = MetadataV1)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct MetadataV2 {
-    pub(crate) distro_name: String,
-    pub(crate) distro_version: String,
-    pub(crate) cpu_architecture: String,
-    pub(crate) ruby_version: ResolvedRubyVersion,
-}
-
+// Introduced 2024-12-13 https://github.com/heroku/buildpacks-ruby/pull/370
 #[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, CacheDiff, TryMigrate)]
-#[try_migrate(from = MetadataV2)]
+#[try_migrate(from = None)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV3 {
     #[cache_diff(rename = "OS Distribution")]
@@ -120,45 +106,6 @@ impl MetadataV3 {
             distro_name: self.os_distribution.name.clone(),
             distro_version: self.os_distribution.version.clone(),
         }
-    }
-}
-
-pub(crate) type Metadata = MetadataV3;
-
-#[derive(thiserror::Error, Debug)]
-pub(crate) enum MetadataMigrateError {
-    #[error("Cannot migrate metadata due to target id error: {0}")]
-    TargetIdError(TargetIdError),
-}
-
-impl TryFrom<MetadataV1> for MetadataV2 {
-    type Error = MetadataMigrateError;
-
-    fn try_from(v1: MetadataV1) -> Result<Self, Self::Error> {
-        let target_id =
-            TargetId::from_stack(&v1.stack).map_err(MetadataMigrateError::TargetIdError)?;
-
-        Ok(Self {
-            distro_name: target_id.distro_name,
-            distro_version: target_id.distro_version,
-            cpu_architecture: target_id.cpu_architecture,
-            ruby_version: v1.version,
-        })
-    }
-}
-
-impl TryFrom<MetadataV2> for MetadataV3 {
-    type Error = MetadataMigrateError;
-
-    fn try_from(v2: MetadataV2) -> Result<Self, Self::Error> {
-        Ok(Self {
-            os_distribution: OsDistribution {
-                name: v2.distro_name,
-                version: v2.distro_version,
-            },
-            cpu_architecture: v2.cpu_architecture,
-            ruby_version: v2.ruby_version,
-        })
     }
 }
 
@@ -271,35 +218,6 @@ version = "22.04"
 "#
         .trim();
         assert_eq!(expected, actual.trim());
-    }
-
-    #[test]
-    fn metadata_migrate_v1_to_v2() {
-        let metadata = MetadataV1 {
-            stack: String::from("heroku-22"),
-            version: ResolvedRubyVersion(String::from("3.1.3")),
-        };
-
-        let actual = toml::to_string(&metadata).unwrap();
-        let expected = r#"
-stack = "heroku-22"
-version = "3.1.3"
-"#
-        .trim();
-        assert_eq!(expected, actual.trim());
-
-        let deserialized: MetadataV2 = MetadataV2::try_from_str_migrations(&actual)
-            .unwrap()
-            .unwrap();
-
-        let target_id = TargetId::from_stack(&metadata.stack).unwrap();
-        let expected = MetadataV2 {
-            distro_name: target_id.distro_name,
-            distro_version: target_id.distro_version,
-            cpu_architecture: target_id.cpu_architecture,
-            ruby_version: metadata.version,
-        };
-        assert_eq!(expected, deserialized);
     }
 
     #[test]

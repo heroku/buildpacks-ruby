@@ -31,13 +31,7 @@ Once an application has passed the detect phase, the build phase will execute to
   - Given a `Gemfile.lock` with an explicit Bundler version we will install that bundler version.
   - Given a `Gemfile.lock` without an explicit Bundler version we will install a default Ruby version.
 - Ruby Dependencies:
-  - We MAY install gem dependencies using `bundle install`
-    - We will always run `bundle install` for the first build.
-    - We will sometimes run this command again if we detect one of the following has changed:
-      - `Gemfile`
-      - `Gemfile.lock`
-      - User configurable environment variables.
-    -To always run `bundle install` even if there are changes if the environment variable `HEROKU_SKIP_BUNDLE_DIGEST=1` is found.
+  - We will always run `bundle install`.
   - We will always run `bundle clean` after a successful `bundle install`.
   - We will always cache the contents of your gem dependencies.
       - We will always invalidate the dependency cache if your distribution name or version (operating system) changes.

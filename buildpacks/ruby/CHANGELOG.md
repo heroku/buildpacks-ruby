@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The `bundle install` command now runs on every deploy, the `HEROKU_SKIP_BUNDLE_DIGEST` environment variable has no effect. ([#425](https://github.com/heroku/buildpacks-ruby/pull/425))
+
 ## [8.0.0] - 2025-05-05
 
 ### Fixed

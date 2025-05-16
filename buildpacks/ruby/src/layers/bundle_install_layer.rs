@@ -80,7 +80,7 @@ pub(crate) type Metadata = MetadataV4;
 // Introduced in https://github.com/heroku/buildpacks-ruby/pull/370
 // 2024-12-13
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, CacheDiff, TryMigrate)]
-#[cache_diff(custom = clear_v1)]
+#[cache_diff(custom = custom_cache_clear)]
 #[try_migrate(from = None)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MetadataV3 {
@@ -112,12 +112,18 @@ pub(crate) struct MetadataV4 {
     pub(crate) ruby_version: ResolvedRubyVersion,
 }
 
-fn clear_v1(_new: &MetadataV3, old: &MetadataV3) -> Vec<String> {
+/// Return an empty vec to keep the cache, return a vec with what changed to clear it
+fn custom_cache_clear(_new: &MetadataV3, old: &MetadataV3) -> Vec<String> {
+    let mut changed = Vec::new();
+    // When we moved from `BUNDLE_PLATFORM=1 bundle install` to `BUNDLE_FROZEN=1 bundle install`
+    // it changed the disk layout of how gems are installed. This was tracked by updating the
+    // `force_bundle_install_key` to "v2" so any cache with "v1" would indicate it has the old
+    // layout
     if &old.force_bundle_install_key == "v1" {
-        vec!["Internal gem directory structure changed".to_string()]
-    } else {
-        Vec::new()
+        changed.push("Internal gem directory structure changed".to_string());
     }
+
+    changed
 }
 
 impl TryFrom<MetadataV3> for MetadataV4 {

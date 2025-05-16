@@ -278,9 +278,6 @@ GEM_PATH=layer_path
     /// to the current format.
     #[test]
     fn metadata_guard() {
-        let mut env = Env::new();
-        env.insert("SECRET_KEY_BASE", "abcdgoldfish");
-
         let target_id = TargetId::from_stack("heroku-22").unwrap();
         let metadata = Metadata {
             os_distribution: OsDistribution {

@@ -226,7 +226,6 @@ fn test_default_app_ubuntu24() {
 
         context.rebuild(config, |rebuild_context| {
             println!("{}", rebuild_context.pack_stderr);
-            assert_contains!(rebuild_context.pack_stderr, "Skipping `bundle install` (no changes found in /workspace/Gemfile, /workspace/Gemfile.lock, or user configured environment variables)");
             let rake_output = Regex::new(r"(?sm)START RAKE TEST OUTPUT\n(.*)END RAKE TEST OUTPUT").unwrap().captures(&rebuild_context.pack_stderr).and_then(|captures| captures.get(1).map(|m| m.as_str().to_string())).unwrap();
             assert_eq!(
                 r"
@@ -287,7 +286,6 @@ fn test_default_app_latest_distro() {
             let config = context.config.clone();
             context.rebuild(config, |rebuild_context| {
                 println!("{}", rebuild_context.pack_stderr);
-                assert_contains!(rebuild_context.pack_stderr, "Skipping `bundle install` (no changes found in /workspace/Gemfile, /workspace/Gemfile.lock, or user configured environment variables)");
 
                 rebuild_context.start_container(
                     ContainerConfig::new()

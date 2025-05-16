@@ -3,12 +3,6 @@
 //! Creates the cache where gems live. We want 'bundle install'
 //! to execute on every build (as opposed to only when the cache is empty).
 //!
-//! As a small performance optimization, it will not run if the `Gemfile.lock`,
-//! `Gemfile`, or user provided "platform" environment variable have not changed.
-//! User applications can opt out of this behavior by setting the environment
-//! variable `HEROKU_SKIP_BUNDLE_DIGEST=1`. That would be useful if the application's
-//! `Gemfile` sources logic or data from another file that is unknown to the buildpack.
-//!
 //! Gems can be plain Ruby code which are OS, Architecture, and Ruby version independent.
 //! They can also be native extensions that use Ruby's C API or contain libraries that
 //! must be compiled and will then be invoked via FFI. These native extensions are

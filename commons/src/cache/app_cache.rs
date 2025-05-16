@@ -352,7 +352,7 @@ fn copy_mtime_r(from: &Path, to_path: &Path) -> Result<(), CacheError> {
 
         let mtime = entry
             .metadata()
-            .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))
+            .map_err(std::io::Error::other)
             .map(|metadata| filetime::FileTime::from_last_modification_time(&metadata))
             .map_err(|error| CacheError::Mtime {
                 from: entry.path().to_path_buf(),

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.0.0] - 2025-05-19
+
 ### Changed
 
 - The `bundle install` command now runs on every deploy, the `HEROKU_SKIP_BUNDLE_DIGEST` environment variable has no effect. ([#425](https://github.com/heroku/buildpacks-ruby/pull/425))
@@ -145,7 +147,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial version of Ruby buildpack in Rust (https://github.com/heroku/buildpacks-ruby/pull/93)
 - Version 2.0.0 for the first release is not a typo. There was an issue in pack where a builder with the same name and version number would reuse artifacts left on image from [prior runs which caused issues](https://github.com/buildpacks/pack/issues/1322#issuecomment-1038241038). There were prior releases of `heroku/ruby` CNB from different sources that triggered this problem. To ensure no one would encounter that issue we developed and released using a version we know has not been used before. Version 2.0 was the first major version without a prior release of `heroku/ruby` CNB from any source.
 
-[unreleased]: https://github.com/heroku/buildpacks-ruby/compare/v8.0.0...HEAD
+[unreleased]: https://github.com/heroku/buildpacks-ruby/compare/v9.0.0...HEAD
+[9.0.0]: https://github.com/heroku/buildpacks-ruby/compare/v8.0.0...v9.0.0
 [8.0.0]: https://github.com/heroku/buildpacks-ruby/compare/v7.0.1...v8.0.0
 [7.0.1]: https://github.com/heroku/buildpacks-ruby/compare/v7.0.0...v7.0.1
 [7.0.0]: https://github.com/heroku/buildpacks-ruby/compare/v6.0.0...v7.0.0

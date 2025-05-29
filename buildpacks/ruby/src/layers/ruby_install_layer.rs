@@ -63,9 +63,7 @@ pub(crate) fn call(
                     print::sub_bullet(cause);
                 }
             }
-            let timer = print::sub_start_timer("Installing");
             install_ruby(metadata, &layer_ref.path())?;
-            _ = timer.done();
         }
     }
     layer_ref.read_env()
@@ -73,6 +71,7 @@ pub(crate) fn call(
 
 #[tracing::instrument(skip_all)]
 fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyBuildpackError> {
+    let timer = print::sub_start_timer("Installing");
     let tmp_ruby_tgz = NamedTempFile::new()
         .map_err(RubyInstallError::CouldNotCreateDestinationFile)
         .map_err(RubyBuildpackError::RubyInstallError)?;
@@ -85,7 +84,7 @@ fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyBuildp
         .map_err(RubyBuildpackError::RubyInstallError)?;
 
     untar(tmp_ruby_tgz.path(), layer_path).map_err(RubyBuildpackError::RubyInstallError)?;
-
+    _ = timer.done();
     Ok(())
 }
 

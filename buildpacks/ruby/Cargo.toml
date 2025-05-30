@@ -10,13 +10,6 @@ workspace = true
 bullet_stream.workspace = true
 fun_run.workspace = true
 cache_diff.workspace = true
-clap = { version = "4", default-features = false, features = [
-    "derive",
-    "error-context",
-    "help",
-    "std",
-    "usage",
-] }
 commons = { path = "../../commons" }
 flate2 = { version = "1", default-features = false, features = ["zlib"] }
 fs-err = "3"

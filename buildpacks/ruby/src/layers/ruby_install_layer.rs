@@ -63,27 +63,23 @@ pub(crate) fn call(
                     print::sub_bullet(cause);
                 }
             }
-            install_ruby(metadata, &layer_ref.path())?;
+            install_ruby(metadata, &layer_ref.path())
+                .map_err(RubyBuildpackError::RubyInstallError)?;
         }
     }
     layer_ref.read_env()
 }
 
 #[tracing::instrument(skip_all)]
-fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyBuildpackError> {
+fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyInstallError> {
     let timer = print::sub_start_timer("Installing");
-    let tmp_ruby_tgz = NamedTempFile::new()
-        .map_err(RubyInstallError::CouldNotCreateDestinationFile)
-        .map_err(RubyBuildpackError::RubyInstallError)?;
+    let tmp_ruby_tgz =
+        NamedTempFile::new().map_err(RubyInstallError::CouldNotCreateDestinationFile)?;
 
-    let url = download_url(&metadata.target_id(), &metadata.ruby_version)
-        .map_err(RubyBuildpackError::RubyInstallError)?;
+    let url = download_url(&metadata.target_id(), &metadata.ruby_version)?;
+    download_file(url.as_ref(), tmp_ruby_tgz.path()).map_err(RubyInstallError::CouldNotDownload)?;
 
-    download_file(url.as_ref(), tmp_ruby_tgz.path())
-        .map_err(RubyInstallError::CouldNotDownload)
-        .map_err(RubyBuildpackError::RubyInstallError)?;
-
-    untar(tmp_ruby_tgz.path(), layer_path).map_err(RubyBuildpackError::RubyInstallError)?;
+    untar(tmp_ruby_tgz.path(), layer_path)?;
     _ = timer.done();
     Ok(())
 }

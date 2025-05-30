@@ -24,12 +24,16 @@ use flate2::read::GzDecoder;
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::layer_env::LayerEnv;
+use libherokubuildpack::download::{download_file, DownloadError};
 use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use std::thread;
+use std::time::Duration;
 use tar::Archive;
 use tempfile::NamedTempFile;
 use url::Url;
+const MAX_ATTEMPTS: u8 = 3;
 
 // Latest metadata used for `TryMigrate` trait
 pub(crate) type Metadata = MetadataV3;
@@ -62,27 +66,40 @@ pub(crate) fn call(
                     print::sub_bullet(cause);
                 }
             }
-            let timer = print::sub_start_timer("Installing");
-            install_ruby(metadata, &layer_ref.path())?;
-            _ = timer.done();
+            install_ruby(metadata, &layer_ref.path())
+                .map_err(RubyBuildpackError::RubyInstallError)?;
         }
     }
     layer_ref.read_env()
 }
 
-fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyBuildpackError> {
-    let tmp_ruby_tgz = NamedTempFile::new()
-        .map_err(RubyInstallError::CouldNotCreateDestinationFile)
-        .map_err(RubyBuildpackError::RubyInstallError)?;
+#[tracing::instrument(skip_all)]
+fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyInstallError> {
+    let mut timer = print::sub_start_timer("Installing");
+    let tmp_ruby_tgz =
+        NamedTempFile::new().map_err(RubyInstallError::CouldNotCreateDestinationFile)?;
 
-    let url = download_url(&metadata.target_id(), &metadata.ruby_version)
-        .map_err(RubyBuildpackError::RubyInstallError)?;
+    let url = download_url(&metadata.target_id(), &metadata.ruby_version)?;
+    let mut attempts = 0;
+    loop {
+        attempts += 1;
+        match download_file(url.as_ref(), tmp_ruby_tgz.path())
+            .map_err(RubyInstallError::CouldNotDownload)
+        {
+            Ok(()) => break,
+            Err(error) => {
+                if attempts >= MAX_ATTEMPTS {
+                    return Err(error);
+                }
+                let canceled = timer.cancel(format!("{error}"));
+                thread::sleep(Duration::from_secs(1));
+                timer = canceled.start_timer("Retrying");
+            }
+        }
+    }
 
-    download_ruby(url.as_ref(), tmp_ruby_tgz.path())
-        .map_err(RubyBuildpackError::RubyInstallError)?;
-
-    untar(tmp_ruby_tgz.path(), layer_path).map_err(RubyBuildpackError::RubyInstallError)?;
-
+    untar(tmp_ruby_tgz.path(), layer_path)?;
+    _ = timer.done();
     Ok(())
 }
 
@@ -131,22 +148,6 @@ fn download_url(
     Ok(url)
 }
 
-#[tracing::instrument(skip_all)]
-pub(crate) fn download_ruby(uri: &str, destination: &Path) -> Result<(), RubyInstallError> {
-    let mut response_reader = ureq::get(uri)
-        .call()
-        .map_err(|err| RubyInstallError::RequestError(Box::new(err)))?
-        .into_reader();
-
-    let mut destination_file = fs_err::File::create(destination)
-        .map_err(RubyInstallError::CouldNotCreateDestinationFile)?;
-
-    std::io::copy(&mut response_reader, &mut destination_file)
-        .map_err(RubyInstallError::CouldNotWriteDestinationFile)?;
-
-    Ok(())
-}
-
 pub(crate) fn untar(
     path: impl AsRef<Path>,
     destination: impl AsRef<Path>,
@@ -175,15 +176,11 @@ pub(crate) enum RubyInstallError {
     #[error("Could not untar: {0}")]
     CouldNotUnpack(std::io::Error),
 
-    // Boxed to prevent `large_enum_variant` errors since `ureq::Error` is massive.
-    #[error("Download error: {0}")]
-    RequestError(Box<ureq::Error>),
-
     #[error("Could not create file: {0}")]
     CouldNotCreateDestinationFile(std::io::Error),
 
-    #[error("Could not write file: {0}")]
-    CouldNotWriteDestinationFile(std::io::Error),
+    #[error("Error downloading: {0}")]
+    CouldNotDownload(DownloadError),
 }
 
 #[cfg(test)]

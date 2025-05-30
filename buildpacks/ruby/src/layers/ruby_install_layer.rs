@@ -28,9 +28,12 @@ use libherokubuildpack::download::{download_file, DownloadError};
 use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use std::thread;
+use std::time::Duration;
 use tar::Archive;
 use tempfile::NamedTempFile;
 use url::Url;
+const MAX_ATTEMPTS: u8 = 3;
 
 // Latest metadata used for `TryMigrate` trait
 pub(crate) type Metadata = MetadataV3;
@@ -72,12 +75,28 @@ pub(crate) fn call(
 
 #[tracing::instrument(skip_all)]
 fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyInstallError> {
-    let timer = print::sub_start_timer("Installing");
+    let mut timer = print::sub_start_timer("Installing");
     let tmp_ruby_tgz =
         NamedTempFile::new().map_err(RubyInstallError::CouldNotCreateDestinationFile)?;
 
     let url = download_url(&metadata.target_id(), &metadata.ruby_version)?;
-    download_file(url.as_ref(), tmp_ruby_tgz.path()).map_err(RubyInstallError::CouldNotDownload)?;
+    let mut attempts = 0;
+    loop {
+        attempts += 1;
+        match download_file(url.as_ref(), tmp_ruby_tgz.path())
+            .map_err(RubyInstallError::CouldNotDownload)
+        {
+            Ok(()) => break,
+            Err(error) => {
+                if attempts >= MAX_ATTEMPTS {
+                    return Err(error);
+                }
+                let canceled = timer.cancel(format!("{error}"));
+                thread::sleep(Duration::from_secs(1));
+                timer = canceled.start_timer("Retrying");
+            }
+        }
+    }
 
     untar(tmp_ruby_tgz.path(), layer_path)?;
     _ = timer.done();

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Ruby binary downloads now retry before failing a build ([#428](https://github.com/heroku/buildpacks-ruby/pull/428))
+
 ## [9.0.0] - 2025-05-19
 
 ### Changed

@@ -383,52 +383,6 @@ fn test_ruby_app_with_yarn_app() {
         );
 }
 
-#[test]
-#[ignore = "integration test"]
-fn test_barnes_app() {
-    TestRunner::default().build(
-        BuildConfig::new("heroku/builder:22", "tests/fixtures/barnes_app"),
-        |context| {
-            println!("{}", context.pack_stderr);
-
-            assert_contains!(context.pack_stderr, "Installing metrics agent from https://agentmon-releases.s3.us-east-1.amazonaws.com/agentmon");
-            context.start_container(
-                ContainerConfig::new()
-                    .entrypoint("launcher")
-                    .envs([
-                        ("DYNO", "web.1"),
-                        ("PORT", "1234"),
-                        ("AGENTMON_DEBUG", "1"),
-                        ("HEROKU_METRICS_URL", "example.com"),
-                    ])
-                    .command(["while true; do sleep 1; done"]),
-                |container| {
-                    let boot_message = "Booting agentmon_loop";
-                    let mut agentmon_log = String::new();
-
-                    let started = Instant::now();
-                    while started.elapsed() < Duration::from_secs(20) {
-                        if agentmon_log.contains(boot_message) {
-                            break;
-                        }
-
-                        std::thread::sleep(frac_seconds(0.1));
-                        agentmon_log = container
-                            .shell_exec("cat /layers/heroku_ruby/metrics_agent/output.log")
-                            .stdout;
-                    }
-
-                    let log_output = container.logs_now();
-                    println!("{}", log_output.stdout);
-                    println!("{}", log_output.stderr);
-
-                    assert_contains!(agentmon_log, boot_message);
-                },
-            );
-        },
-    );
-}
-
 fn request_container(
     container: &ContainerContext,
     port: u16,

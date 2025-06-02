@@ -252,16 +252,6 @@ fn log_our_error(error: RubyBuildpackError) {
                 Use the information above to debug further.
             "});
         }
-        RubyBuildpackError::MetricsAgentError(error) => {
-            print::bullet(&debug_info);
-            print::sub_bullet(error.to_string());
-            print::error(formatdoc! {"
-                Error: Could not install Statsd agent
-
-                An error occured while downloading and installing the metrics agent
-                the buildpack cannot continue.
-            "});
-        }
     }
 }
 

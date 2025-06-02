@@ -9,9 +9,7 @@ use commons::gemfile_lock::GemfileLock;
 use core::str::FromStr;
 use fs_err::PathExt;
 use fun_run::CmdError;
-use layers::{
-    metrics_agent_install::MetricsAgentInstallError, ruby_install_layer::RubyInstallError,
-};
+use layers::ruby_install_layer::RubyInstallError;
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::BuildPlanBuilder;
 use libcnb::data::launch::LaunchBuilder;
@@ -36,7 +34,7 @@ use libcnb_test as _;
 #[cfg(test)]
 use pretty_assertions as _;
 
-use clap as _;
+use ureq as _;
 
 use crate::target_id::OsDistribution;
 
@@ -143,17 +141,6 @@ impl Buildpack for RubyBuildpack {
             // Either "Gemfile.lock" or "default"
             cnb.ruby.runtime.sourced_from = gemfile_lock.ruby_source()
         );
-
-        // ## Install metrics agent
-        print::bullet("Metrics agent");
-        if lockfile_contents.contains("barnes") {
-            layers::metrics_agent_install::handle_metrics_agent_layer(&context)?;
-        } else {
-            print::sub_bullet(format!(
-                "Skipping install ({barnes} gem not found)",
-                barnes = style::value("barnes")
-            ));
-        }
 
         // ## Install executable ruby version
         env = {
@@ -272,7 +259,6 @@ pub(crate) enum RubyBuildpackError {
     RakeDetectError(CmdError),
     GemListGetError(CmdError),
     RubyInstallError(RubyInstallError),
-    MetricsAgentError(MetricsAgentInstallError),
     MissingGemfileLock(std::path::PathBuf, std::io::Error),
     InAppDirCacheError(CacheError),
     BundleInstallCommandError(CmdError),

@@ -14,7 +14,9 @@ use bullet_stream::global::print;
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedRubyVersion;
 use commons::layer::diff_migrate::DiffMigrateLayer;
+use fs_err::PathExt;
 use fun_run::{self, CommandWithName};
+use indoc::formatdoc;
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::{
@@ -74,6 +76,27 @@ pub(crate) fn call(
             .envs(&env),
     )
     .map_err(RubyBuildpackError::BundleInstallCommandError)?;
+
+    let rubygems_cache = layer_ref.path().join("cache");
+    if let Err(error) = rubygems_cache.fs_err_try_exists().and_then(|exists| {
+        if exists {
+            fs_err::remove_dir_all(rubygems_cache)
+        } else {
+            Ok(())
+        }
+    }) {
+        print::sub_bullet(formatdoc! {"
+            WARNING: Could not delete Rubygems cache directory
+
+            This directory stores a copy of the original `<gem-name>.gem` files and is used for tasks such as
+            offline installs. The Ruby buildpack removes this directory as it's not used in a production
+            context, and deleting it reduces the final image size.
+
+            Your image will still be usable, but it might be larger due to this problem. For more information:
+
+            {error}
+        "});
+    }
 
     layer_ref.read_env()
 }

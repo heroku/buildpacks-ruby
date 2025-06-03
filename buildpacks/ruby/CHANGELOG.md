@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The `cache` directory that holds downloaded gems is now deleted after `bundle install`. This action reduces the final image size and does not impact future gem installation performance. ([#434](https://github.com/heroku/buildpacks-ruby/pull/434))
+
 ## [10.0.0] - 2025-06-02
 
 ### Changed

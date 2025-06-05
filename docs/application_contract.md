@@ -38,6 +38,7 @@ Once an application has passed the detect phase, the build phase will execute to
       - We will always invalidate the dependency cache if your CPU architecture (i.e. amd64) changes.
       - We will always invalidate the dependency cache if your Ruby version changes.
       - We may invalidate the dependency cache if there was a bug in a prior buildpack version that needs to be fixed.
+  - We will delete the rubygems `cache` directory that holds the original `<gem-name>.gem` files after installation. This step reduces final image size and does not impact future `bundle install` installation performance.
 - Gem specific behavior - We will parse your `Gemfile.lock` to determine what dependencies your app need for use in specializing your install behavior (i.e. Rails 5 versus Rails 4). The inclusion of these gems may trigger different behavior:
   - `railties`
 - Applications without `rake` in the `Gemfile.lock` or a `Rakefile` variant MAY skip rake task detection.

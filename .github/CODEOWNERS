@@ -10,3 +10,4 @@ CHANGELOG.md @schneems
 Cargo.toml @schneems
 Cargo.lock @schneems
 Gemfile.lock @schneems
+/.github/workflows/ @schneems

@@ -11,7 +11,7 @@ use fs_err::PathExt;
 use fun_run::CmdError;
 use layers::ruby_install_layer::RubyInstallError;
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
-use libcnb::data::build_plan::BuildPlanBuilder;
+use libcnb::data::build_plan::{BuildPlanBuilder, Require};
 use libcnb::data::launch::LaunchBuilder;
 use libcnb::data::layer_name;
 use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
@@ -33,7 +33,7 @@ mod user_errors;
 use libcnb_test as _;
 #[cfg(test)]
 use pretty_assertions as _;
-
+use toml::toml;
 use ureq as _;
 
 use crate::target_id::OsDistribution;
@@ -90,6 +90,14 @@ impl Buildpack for RubyBuildpack {
                 .map_err(RubyBuildpackError::BuildpackDetectionError)?
             {
                 plan_builder = plan_builder.requires("yarn");
+
+                let mut node_configuration = Require::new("node_build_scripts");
+                node_configuration.metadata = toml! {
+                    // This needs to be disabled so that dev dependencies are available for
+                    // Ruby apps that need to perform asset compilation.
+                    skip_pruning = true
+                };
+                plan_builder = plan_builder.requires(node_configuration);
             }
 
             if fs_err::read_to_string(lockfile)

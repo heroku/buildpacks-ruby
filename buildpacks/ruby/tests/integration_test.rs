@@ -374,6 +374,7 @@ fn test_ruby_app_with_yarn_app() {
         ]),
         |context| {
             println!("{}", context.pack_stderr);
+            assert_contains!(context.pack_stderr, "pruning was disabled by a participating buildpack");
             assert_contains!(context.pack_stderr, "# Heroku Ruby Buildpack");
             assert_contains!(
                 context.pack_stderr,

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- When Node.js tooling is required, buildplan configuration is added to disable dev dependency pruning. ([#439](https://github.com/heroku/buildpacks-ruby/pull/439))
+
 ## [10.0.1] - 2025-06-09
 
 ### Fixed

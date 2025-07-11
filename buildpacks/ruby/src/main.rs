@@ -80,14 +80,6 @@ impl Buildpack for RubyBuildpack {
                 .map_err(RubyBuildpackError::BuildpackDetectionError)?
             {
                 plan_builder = plan_builder.requires("node");
-
-                let mut node_configuration = Require::new("node_build_scripts");
-                node_configuration.metadata = toml! {
-                    // This needs to be disabled so that dev dependencies are available for
-                    // Ruby apps that need to perform asset compilation.
-                    skip_pruning = true
-                };
-                plan_builder = plan_builder.requires(node_configuration);
             }
 
             if context
@@ -98,6 +90,14 @@ impl Buildpack for RubyBuildpack {
                 .map_err(RubyBuildpackError::BuildpackDetectionError)?
             {
                 plan_builder = plan_builder.requires("yarn");
+
+                let mut node_configuration = Require::new("node_build_scripts");
+                node_configuration.metadata = toml! {
+                    // This needs to be disabled so that dev dependencies are available for
+                    // Ruby apps that need to perform asset compilation.
+                    skip_pruning = true
+                };
+                plan_builder = plan_builder.requires(node_configuration);
             }
 
             if fs_err::read_to_string(lockfile)

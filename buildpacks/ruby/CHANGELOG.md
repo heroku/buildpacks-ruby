@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Default Ruby version is now 3.3.9 ([#444](https://github.com/heroku/buildpacks-ruby/pull/444))
+
 ## [10.1.0] - 2025-07-11
 
 ### Added

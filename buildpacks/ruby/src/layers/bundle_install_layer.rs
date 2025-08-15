@@ -142,15 +142,13 @@ fn custom_cache_clear(_new: &MetadataV3, old: &MetadataV3) -> Vec<String> {
     changed
 }
 
-impl TryFrom<MetadataV3> for MetadataV4 {
-    type Error = std::convert::Infallible;
-
-    fn try_from(value: MetadataV3) -> Result<Self, Self::Error> {
-        Ok(Self {
+impl From<MetadataV3> for MetadataV4 {
+    fn from(value: MetadataV3) -> Self {
+        Self {
             os_distribution: value.os_distribution,
             cpu_architecture: value.cpu_architecture,
             ruby_version: value.ruby_version,
-        })
+        }
     }
 }
 

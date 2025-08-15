@@ -1,4 +1,4 @@
- ## Setup DiffMigrateLayer for new layer Metadata
+ ## Setup `DiffMigrateLayer` for new layer Metadata
 
 Starting from scratch, add dependencies:
 
@@ -105,7 +105,7 @@ The signature
 
 - Defines a `call` function that:
   - Takes a build context. In your code you'll want to replace the generic with a concrete buildpack type.
-  - Takes a bullet_stream printer for maximal printing consistency
+  - Takes a `bullet_stream` printer for maximal printing consistency
   - A `Metadata` struct constructed externally
 
 The logic of the function uses [`DiffMigrateLayer`] to create a layer that is both available at build and launch time. It creates a layer named "ruby" and passes in our metadata. When this executes it will:

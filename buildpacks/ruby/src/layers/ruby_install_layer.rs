@@ -91,15 +91,15 @@ fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyInstal
                 if attempts >= MAX_ATTEMPTS {
                     return Err(error);
                 }
-                let canceled = timer.cancel(format!("{error}"));
+                timer.cancel(format!("{error}"));
                 thread::sleep(Duration::from_secs(1));
-                timer = canceled.start_timer("Retrying");
+                timer = print::sub_start_timer("Retrying");
             }
         }
     }
 
     untar(tmp_ruby_tgz.path(), layer_path)?;
-    _ = timer.done();
+    timer.done();
     Ok(())
 }
 

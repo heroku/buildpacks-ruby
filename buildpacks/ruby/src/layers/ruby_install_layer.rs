@@ -99,7 +99,7 @@ fn install_ruby(metadata: &Metadata, layer_path: &Path) -> Result<(), RubyInstal
     }
 
     untar(tmp_ruby_tgz.path(), layer_path)?;
-    _ = timer.done();
+    timer.done();
     Ok(())
 }
 

@@ -368,8 +368,7 @@ fn test_ruby_app_with_yarn_app() {
     TestRunner::default().build(
         BuildConfig::new("heroku/builder:22", "tests/fixtures/yarn-ruby-app")
         .buildpacks([
-            BuildpackReference::Other(String::from("heroku/nodejs-engine")),
-            BuildpackReference::Other(String::from("heroku/nodejs-yarn")),
+            BuildpackReference::Other(String::from("heroku/nodejs")),
             BuildpackReference::CurrentCrate,
         ]),
         |context| {

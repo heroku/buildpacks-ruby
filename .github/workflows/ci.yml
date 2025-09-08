@@ -92,9 +92,9 @@ jobs:
       - name: Compile ruby buildpack
         run: cargo libcnb package --target ${{ matrix.target }}
       - name: "PRINT: Getting started guide output"
-        run: pack build my-image --force-color --builder heroku/builder:24 --trust-extra-buildpacks --buildpack heroku/nodejs-engine --buildpack packaged/${{ matrix.target }}/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
+        run: pack build my-image --force-color --builder heroku/builder:24 --trust-extra-buildpacks --buildpack heroku/nodejs --buildpack packaged/${{ matrix.target }}/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
       - name: "PRINT: Cached getting started guide output"
-        run: pack build my-image --force-color --builder heroku/builder:24 --trust-extra-buildpacks --buildpack heroku/nodejs-engine --buildpack packaged/${{ matrix.target }}/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
+        run: pack build my-image --force-color --builder heroku/builder:24 --trust-extra-buildpacks --buildpack heroku/nodejs --buildpack packaged/${{ matrix.target }}/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
 
   unit-test-coverage:
     name: Generate test coverage report

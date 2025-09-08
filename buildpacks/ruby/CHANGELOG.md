@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Updated requires for Node.js tooling. ([#452](https://github.com/heroku/buildpacks-ruby/pull/452))
+
 ## [11.0.0] - 2025-08-06
 
 ### Changed

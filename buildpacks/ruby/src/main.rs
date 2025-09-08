@@ -72,32 +72,30 @@ impl Buildpack for RubyBuildpack {
         {
             plan_builder = plan_builder.requires("ruby");
 
-            if context
+            let has_package_json = context
                 .app_dir
                 .join("package.json")
                 .fs_err_try_exists()
                 .map_err(DetectError::PackageJson)
-                .map_err(RubyBuildpackError::BuildpackDetectionError)?
-            {
-                plan_builder = plan_builder.requires("node");
-            }
+                .map_err(RubyBuildpackError::BuildpackDetectionError)?;
 
-            if context
+            let has_yarn_lockfile = context
                 .app_dir
                 .join("yarn.lock")
                 .fs_err_try_exists()
                 .map_err(DetectError::YarnLock)
-                .map_err(RubyBuildpackError::BuildpackDetectionError)?
-            {
-                plan_builder = plan_builder.requires("yarn");
+                .map_err(RubyBuildpackError::BuildpackDetectionError)?;
 
-                let mut node_configuration = Require::new("node_build_scripts");
-                node_configuration.metadata = toml! {
-                    // This needs to be disabled so that dev dependencies are available for
-                    // Ruby apps that need to perform asset compilation.
-                    skip_pruning = true
-                };
-                plan_builder = plan_builder.requires(node_configuration);
+            if has_package_json || has_yarn_lockfile {
+                let mut nodejs_require = Require::new("heroku/nodejs");
+                if has_yarn_lockfile {
+                    nodejs_require.metadata = toml! {
+                        // This needs to be disabled so that dev dependencies are available for
+                        // Ruby apps that need to perform asset compilation.
+                        skip_pruning = true
+                    };
+                }
+                plan_builder = plan_builder.requires(nodejs_require);
             }
 
             if fs_err::read_to_string(lockfile)

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [12.1.0] - 2025-09-09
+
 ### Added
 
 - Set default `export PUMA_PERSISTENT_TIMEOUT=95` to match recommended router 2.0 settings[#454](https://github.com/heroku/buildpacks-ruby/pull/454)
@@ -185,7 +187,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial version of Ruby buildpack in Rust (https://github.com/heroku/buildpacks-ruby/pull/93)
 - Version 2.0.0 for the first release is not a typo. There was an issue in pack where a builder with the same name and version number would reuse artifacts left on image from [prior runs which caused issues](https://github.com/buildpacks/pack/issues/1322#issuecomment-1038241038). There were prior releases of `heroku/ruby` CNB from different sources that triggered this problem. To ensure no one would encounter that issue we developed and released using a version we know has not been used before. Version 2.0 was the first major version without a prior release of `heroku/ruby` CNB from any source.
 
-[unreleased]: https://github.com/heroku/buildpacks-ruby/compare/v12.0.0...HEAD
+[unreleased]: https://github.com/heroku/buildpacks-ruby/compare/v12.1.0...HEAD
+[12.1.0]: https://github.com/heroku/buildpacks-ruby/compare/v12.0.0...v12.1.0
 [12.0.0]: https://github.com/heroku/buildpacks-ruby/compare/v11.0.0...v12.0.0
 [11.0.0]: https://github.com/heroku/buildpacks-ruby/compare/v10.1.0...v11.0.0
 [10.1.0]: https://github.com/heroku/buildpacks-ruby/compare/v10.0.1...v10.1.0

@@ -155,6 +155,7 @@ fn test_default_app_ubuntu24() {
                 LD_LIBRARY_PATH=/layers/heroku_ruby/binruby/lib
                 MALLOC_ARENA_MAX=2
                 PATH=/workspace/bin:/layers/heroku_ruby/bundler/bin:/layers/heroku_ruby/gems/bin:/layers/heroku_ruby/bundler/bin:/layers/heroku_ruby/binruby/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+                PUMA_PERSISTENT_TIMEOUT=95
                 RACK_ENV=production
                 RAILS_ENV=production
                 RAILS_LOG_TO_STDOUT=enabled

@@ -55,6 +55,7 @@ pub(crate) fn default_env(
                 ("RAILS_LOG_TO_STDOUT", "enabled"),
                 ("MALLOC_ARENA_MAX", "2"),
                 ("DISABLE_SPRING", "1"),
+                ("PUMA_PERSISTENT_TIMEOUT", "95"),
             ]
             .iter()
             .fold(LayerEnv::new(), |layer_env, (name, value)| {

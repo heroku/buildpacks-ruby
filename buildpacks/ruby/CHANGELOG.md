@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Set default `export PUMA_PERSISTENT_TIMEOUT=95` to match recommended router 2.0 settings[#454](https://github.com/heroku/buildpacks-ruby/pull/454)
+
 ## [12.0.0] - 2025-09-08
 
 ### Changed

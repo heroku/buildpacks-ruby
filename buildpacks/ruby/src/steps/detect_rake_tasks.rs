@@ -1,11 +1,11 @@
-use crate::gem_list::GemList;
-use crate::rake_status::{check_rake_ready, RakeStatus};
-use crate::rake_task_detect::{self, RakeDetect};
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
+use crate::gem_list::GemList;
+use crate::rake_status::{RakeStatus, check_rake_ready};
+use crate::rake_task_detect::{self, RakeDetect};
 use bullet_stream::{global::print, style};
-use libcnb::build::BuildContext;
 use libcnb::Env;
+use libcnb::build::BuildContext;
 
 pub(crate) fn detect_rake_tasks(
     gem_list: &GemList,

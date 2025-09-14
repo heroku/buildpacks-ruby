@@ -418,17 +418,21 @@ mod tests {
             }
         ));
 
-        assert!(context
-            .layers_dir
-            .join(old_layer_name.as_str())
-            .fs_err_try_exists()
-            .unwrap());
+        assert!(
+            context
+                .layers_dir
+                .join(old_layer_name.as_str())
+                .fs_err_try_exists()
+                .unwrap()
+        );
 
-        assert!(!context
-            .layers_dir
-            .join(new_layer_name.as_str())
-            .fs_err_try_exists()
-            .unwrap());
+        assert!(
+            !context
+                .layers_dir
+                .join(new_layer_name.as_str())
+                .fs_err_try_exists()
+                .unwrap()
+        );
 
         let result = DiffMigrateLayer {
             build: true,
@@ -447,11 +451,13 @@ mod tests {
         .unwrap();
 
         assert!(matches!(result.state, LayerState::Restored { cause: _ }));
-        assert!(context
-            .layers_dir
-            .join(new_layer_name.as_str())
-            .fs_err_try_exists()
-            .unwrap());
+        assert!(
+            context
+                .layers_dir
+                .join(new_layer_name.as_str())
+                .fs_err_try_exists()
+                .unwrap()
+        );
     }
 
     #[test]

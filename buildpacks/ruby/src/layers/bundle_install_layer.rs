@@ -19,8 +19,8 @@ use indoc::formatdoc;
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::{
-    layer_env::{LayerEnv, ModificationBehavior, Scope},
     Env,
+    layer_env::{LayerEnv, ModificationBehavior, Scope},
 };
 use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
@@ -153,7 +153,7 @@ impl From<MetadataV3> for MetadataV4 {
 }
 
 fn layer_env(layer_path: &Path, app_dir: &Path, without_default: &BundleWithout) -> LayerEnv {
-    let layer_env = LayerEnv::new()
+    LayerEnv::new()
         .chainable_insert(
             Scope::All,
             ModificationBehavior::Override,
@@ -184,8 +184,7 @@ fn layer_env(layer_path: &Path, app_dir: &Path, without_default: &BundleWithout)
             ModificationBehavior::Override,
             "BUNDLE_FROZEN", // Requires the `Gemfile.lock` to be in sync with the current `Gemfile`.
             "1",
-        );
-    layer_env
+        )
 }
 
 /// Displays the `bundle install` command with `BUNDLE_` environment variables

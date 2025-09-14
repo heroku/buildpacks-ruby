@@ -5,8 +5,8 @@
 
 use indoc::{formatdoc, indoc};
 use libcnb_test::{
-    assert_contains, assert_contains_match, assert_empty, BuildConfig, BuildpackReference,
-    ContainerConfig, ContainerContext, TestRunner,
+    BuildConfig, BuildpackReference, ContainerConfig, ContainerContext, TestRunner,
+    assert_contains, assert_contains_match, assert_empty,
 };
 use pretty_assertions::assert_eq;
 use regex::Regex;

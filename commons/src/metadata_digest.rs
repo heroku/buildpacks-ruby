@@ -380,10 +380,10 @@ impl PathsDigest {
             let mut diff = Vec::new();
 
             for (k, now_sha) in &self.0 {
-                if let Some(old_sha) = old.0.get(k) {
-                    if old_sha != now_sha {
-                        diff.push(k.clone());
-                    }
+                if let Some(old_sha) = old.0.get(k)
+                    && old_sha != now_sha
+                {
+                    diff.push(k.clone());
                 }
             }
 

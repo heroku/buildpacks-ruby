@@ -10,6 +10,7 @@ use core::str::FromStr;
 use fs_err::PathExt;
 use fun_run::CmdError;
 use layers::ruby_install_layer::RubyInstallError;
+use libcnb::Platform;
 use libcnb::build::{BuildContext, BuildResult, BuildResultBuilder};
 use libcnb::data::build_plan::{BuildPlanBuilder, Require};
 use libcnb::data::launch::LaunchBuilder;
@@ -18,8 +19,7 @@ use libcnb::detect::{DetectContext, DetectResult, DetectResultBuilder};
 use libcnb::generic::{GenericMetadata, GenericPlatform};
 use libcnb::layer::UncachedLayerDefinition;
 use libcnb::layer_env::{LayerEnv, ModificationBehavior, Scope};
-use libcnb::Platform;
-use libcnb::{buildpack_main, Buildpack};
+use libcnb::{Buildpack, buildpack_main};
 
 mod gem_list;
 mod layers;

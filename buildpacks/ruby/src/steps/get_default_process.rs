@@ -1,5 +1,5 @@
-use crate::gem_list::GemList;
 use crate::RubyBuildpack;
+use crate::gem_list::GemList;
 use bullet_stream::global::print;
 use bullet_stream::style;
 use libcnb::build::BuildContext;

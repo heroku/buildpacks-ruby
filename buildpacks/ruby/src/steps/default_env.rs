@@ -2,10 +2,10 @@ use crate::{RubyBuildpack, RubyBuildpackError};
 use libcnb::layer::UncachedLayerDefinition;
 use libcnb::layer_env::{LayerEnv, ModificationBehavior};
 use libcnb::{
+    Env,
     build::BuildContext,
     data::{layer_name, store::Store},
     layer_env::Scope,
-    Env,
 };
 use rand::Rng;
 

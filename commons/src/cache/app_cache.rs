@@ -1,4 +1,4 @@
-use crate::cache::clean::{lru_clean, FilesWithSize};
+use crate::cache::clean::{FilesWithSize, lru_clean};
 use crate::cache::{CacheConfig, CacheError, KeepPath};
 use byte_unit::{AdjustedByte, Byte, UnitType};
 use fs_extra::dir::CopyOptions;

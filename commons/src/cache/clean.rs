@@ -147,10 +147,10 @@ mod tests {
     }
 
     fn touch_file(path: &PathBuf, f: impl FnOnce(&PathBuf)) {
-        if let Some(parent) = path.parent() {
-            if !parent.exists() {
-                fs_err::create_dir_all(parent).unwrap();
-            }
+        if let Some(parent) = path.parent()
+            && !parent.exists()
+        {
+            fs_err::create_dir_all(parent).unwrap();
         }
         fs_err::write(path, "").unwrap();
         f(path);

@@ -1,10 +1,10 @@
-use crate::rake_task_detect::RakeDetect;
 use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
+use crate::rake_task_detect::RakeDetect;
 use bullet_stream::{global::print, style};
-use commons::cache::{mib, AppCache, CacheConfig, CacheError, CacheState, KeepPath, PathState};
-use libcnb::build::BuildContext;
+use commons::cache::{AppCache, CacheConfig, CacheError, CacheState, KeepPath, PathState, mib};
 use libcnb::Env;
+use libcnb::build::BuildContext;
 use std::process::Command;
 
 pub(crate) fn rake_assets_install(
@@ -23,13 +23,17 @@ pub(crate) fn rake_assets_install(
             print::sub_bullet(format!(
                 "Skipping {rake_assets_clean} (task not found via {rake_detect_cmd})",
             ));
-            print::sub_bullet(format!("{help} Enable cleaning assets by ensuring {rake_assets_clean} is present when running the detect command locally"));
+            print::sub_bullet(format!(
+                "{help} Enable cleaning assets by ensuring {rake_assets_clean} is present when running the detect command locally"
+            ));
         }
         AssetCases::PrecompileOnly => {
             print::sub_bullet(format!(
                 "Compiling assets without cache (Clean task not found via {rake_detect_cmd})"
             ));
-            print::sub_bullet(format!("{help} Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"));
+            print::sub_bullet(format!(
+                "{help} Enable caching by ensuring {rake_assets_clean} is present when running the detect command locally"
+            ));
 
             let mut cmd = Command::new("rake");
             cmd.args(["assets:precompile", "--trace"])
@@ -43,7 +47,9 @@ pub(crate) fn rake_assets_install(
                 .map_err(RubyBuildpackError::RakeAssetsPrecompileFailed)?;
         }
         AssetCases::PrecompileAndClean => {
-            print::sub_bullet(format!("Compiling assets with cache (detected {rake_assets_precompile} and {rake_assets_clean} via {rake_detect_cmd})"));
+            print::sub_bullet(format!(
+                "Compiling assets with cache (detected {rake_assets_precompile} and {rake_assets_clean} via {rake_detect_cmd})"
+            ));
 
             let cache_config = [
                 CacheConfig {
@@ -101,7 +107,9 @@ pub(crate) fn rake_assets_install(
                     let removed_len = removed.files.len();
                     let removed_size = removed.adjusted_bytes();
 
-                    print::sub_bullet(format!("Detected cache size exceeded (over {limit} limit by {removed_size}) for {path}"));
+                    print::sub_bullet(format!(
+                        "Detected cache size exceeded (over {limit} limit by {removed_size}) for {path}"
+                    ));
                     print::sub_bullet(format!(
                         "Removed {removed_len} files from the cache for {path}"
                     ));

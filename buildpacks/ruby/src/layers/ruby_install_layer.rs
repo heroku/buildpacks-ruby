@@ -13,8 +13,8 @@
 //!
 use crate::target_id::OsDistribution;
 use crate::{
-    target_id::{TargetId, TargetIdError},
     RubyBuildpack, RubyBuildpackError,
+    target_id::{TargetId, TargetIdError},
 };
 use bullet_stream::global::print;
 use cache_diff::CacheDiff;
@@ -24,7 +24,7 @@ use flate2::read::GzDecoder;
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::layer_env::LayerEnv;
-use libherokubuildpack::download::{download_file, DownloadError};
+use libherokubuildpack::download::{DownloadError, download_file};
 use magic_migrate::TryMigrate;
 use serde::{Deserialize, Serialize};
 use std::path::Path;

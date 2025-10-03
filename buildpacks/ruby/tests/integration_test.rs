@@ -5,8 +5,8 @@
 
 use indoc::{formatdoc, indoc};
 use libcnb_test::{
-    BuildConfig, BuildpackReference, ContainerConfig, ContainerContext, TestRunner,
-    assert_contains, assert_contains_match, assert_empty,
+    BuildpackReference, ContainerConfig, ContainerContext, TestRunner, assert_contains,
+    assert_contains_match, assert_empty,
 };
 use pretty_assertions::assert_eq;
 use regex::Regex;
@@ -55,13 +55,14 @@ fn test_migrating_metadata_or_layer_names() {
     .unwrap();
 
     TestRunner::default().build(
-        BuildConfig::new(builder, app_dir).buildpacks([BuildpackReference::Other(
-            "docker://docker.io/heroku/buildpack-ruby:6.0.0".to_string(),
-        )]),
+        amd_arm_builder_config(builder, &app_dir.to_string_lossy()).buildpacks([
+            BuildpackReference::Other("docker://docker.io/heroku/buildpack-ruby:6.0.0".to_string()),
+        ]),
         |context| {
             println!("{}", context.pack_stdout);
             context.rebuild(
-                BuildConfig::new(builder, app_dir).buildpacks([BuildpackReference::CurrentCrate]),
+                amd_arm_builder_config(builder, &app_dir.to_string_lossy())
+                    .buildpacks([BuildpackReference::CurrentCrate]),
                 |rebuild_context| {
                     println!("{}", rebuild_context.pack_stdout);
 
@@ -87,7 +88,7 @@ fn test_migrating_metadata_or_layer_names() {
 #[ignore = "integration test"]
 fn test_default_app_ubuntu22() {
     TestRunner::default().build(
-        BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby"),
+        amd_arm_builder_config("heroku/builder:22", "tests/fixtures/default_ruby"),
         |context| {
             println!("{}", context.pack_stdout);
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
@@ -116,7 +117,7 @@ fn test_default_app_ubuntu24() {
         app_dir,
     )
     .unwrap();
-    let config = BuildConfig::new("heroku/builder:24", app_dir);
+    let config = amd_arm_builder_config("heroku/builder:24", &app_dir.to_string_lossy());
     TestRunner::default().build(
         config.clone(),
         |context| {
@@ -367,7 +368,7 @@ DEPENDENCIES
 #[ignore = "integration test"]
 fn test_ruby_app_with_yarn_app() {
     TestRunner::default().build(
-        BuildConfig::new("heroku/builder:22", "tests/fixtures/yarn-ruby-app")
+        amd_arm_builder_config("heroku/builder:22", "tests/fixtures/yarn-ruby-app")
         .buildpacks([
             BuildpackReference::Other(String::from("heroku/nodejs")),
             BuildpackReference::CurrentCrate,
@@ -438,8 +439,8 @@ const TEST_PORT: u16 = 1234;
 
 // TODO: Once Pack build supports `--platform` and libcnb-test adjusted accordingly, change this
 // to allow configuring the target arch independently of the builder name (eg via env var).
-fn amd_arm_builder_config(builder_name: &str, app_dir: &str) -> BuildConfig {
-    let mut config = BuildConfig::new(builder_name, app_dir);
+fn amd_arm_builder_config(builder_name: &str, app_dir: &str) -> libcnb_test::BuildConfig {
+    let mut config = libcnb_test::BuildConfig::new(builder_name, app_dir);
 
     match builder_name {
         "heroku/builder:24" if cfg!(target_arch = "aarch64") => {

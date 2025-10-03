@@ -25,7 +25,7 @@ fn test_migrating_metadata_or_layer_names() {
     let mut config = amd_arm_builder_config("heroku/builder:24", "tests/fixtures/default_ruby");
     config
         .buildpacks([BuildpackReference::Other(
-            "docker://docker.io/heroku/buildpack-ruby:6.0.0".to_string(),
+            "docker://docker.io/heroku/buildpack-ruby:12.1.0".to_string(),
         )])
         .app_dir_preprocessor(|app_dir| {
             // Specify explicit versions so changes in default values don't cause this test to fail

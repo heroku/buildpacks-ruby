@@ -12,7 +12,7 @@ use pretty_assertions::assert_eq;
 use regex::Regex;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::thread;
 use std::time::{Duration, Instant};
 use ureq::Response;
@@ -443,20 +443,4 @@ fn chmod_plus_x(path: &Path) -> Result<(), std::io::Error> {
     perms.set_mode(mode);
 
     fs_err::set_permissions(path, perms)
-}
-
-fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), std::io::Error> {
-    let src = src.as_ref();
-    let dst = dst.as_ref();
-    fs_err::create_dir_all(dst)?;
-    for entry in fs_err::read_dir(src)? {
-        let entry = entry?;
-        let ty = entry.file_type()?;
-        if ty.is_dir() {
-            copy_dir_all(entry.path(), dst.join(entry.file_name()))?;
-        } else {
-            fs_err::copy(entry.path(), dst.join(entry.file_name()))?;
-        }
-    }
-    Ok(())
 }

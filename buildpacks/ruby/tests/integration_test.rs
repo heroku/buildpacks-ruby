@@ -22,11 +22,6 @@ use ureq::Response;
 #[test]
 #[ignore = "integration test"]
 fn test_migrating_metadata_or_layer_names() {
-    // This test is a placeholder for when a change modifies metadata structures.
-    // Remove the return and update the `buildpack-ruby` reference to the latest version.
-    #![allow(unreachable_code)]
-    // Test v7.0.0 compatible with v6.0.0
-
     let mut config = amd_arm_builder_config("heroku/builder:24", "tests/fixtures/default_ruby");
     config
         .buildpacks([BuildpackReference::Other(

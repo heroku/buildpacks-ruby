@@ -27,61 +27,50 @@ fn test_migrating_metadata_or_layer_names() {
     #![allow(unreachable_code)]
     // Test v7.0.0 compatible with v6.0.0
 
-    let builder = "heroku/builder:24";
-    let temp = tempfile::tempdir().unwrap();
-    let app_dir = temp.path();
+    let mut config = amd_arm_builder_config("heroku/builder:24", "tests/fixtures/default_ruby");
+    config
+        .buildpacks([BuildpackReference::Other(
+            "docker://docker.io/heroku/buildpack-ruby:6.0.0".to_string(),
+        )])
+        .app_dir_preprocessor(|app_dir| {
+            // Specify explicit versions so changes in default values don't cause this test to fail
+            writeln!(
+                fs_err::OpenOptions::new()
+                    .write(true)
+                    .append(true)
+                    .open(app_dir.join("Gemfile.lock"))
+                    .unwrap(),
+                indoc! {"
+                    RUBY VERSION
+                       ruby 3.4.2
+                "}
+            )
+            .unwrap();
+        });
+    TestRunner::default().build(config.clone(), |context| {
+        println!("{}", context.pack_stdout);
+        context.rebuild(
+            config
+                .clone()
+                .buildpacks([BuildpackReference::CurrentCrate]),
+            |rebuild_context| {
+                println!("{}", rebuild_context.pack_stdout);
 
-    copy_dir_all(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("tests")
-            .join("fixtures")
-            .join("default_ruby"),
-        app_dir,
-    )
-    .unwrap();
-
-    // Specify explicit versions so changes in default values don't cause this test to fail
-    writeln!(
-        fs_err::OpenOptions::new()
-            .write(true)
-            .append(true)
-            .open(app_dir.join("Gemfile.lock"))
-            .unwrap(),
-        indoc! {"
-                RUBY VERSION
-                   ruby 3.4.2
-            "}
-    )
-    .unwrap();
-
-    TestRunner::default().build(
-        amd_arm_builder_config(builder, &app_dir.to_string_lossy()).buildpacks([
-            BuildpackReference::Other("docker://docker.io/heroku/buildpack-ruby:6.0.0".to_string()),
-        ]),
-        |context| {
-            println!("{}", context.pack_stdout);
-            context.rebuild(
-                amd_arm_builder_config(builder, &app_dir.to_string_lossy())
-                    .buildpacks([BuildpackReference::CurrentCrate]),
-                |rebuild_context| {
-                    println!("{}", rebuild_context.pack_stdout);
-
-                    assert_contains_match!(
-                        rebuild_context.pack_stdout,
-                        r"^- Ruby version[^\n]*\n  - Using cache"
-                    );
-                    assert_contains_match!(
-                        rebuild_context.pack_stdout,
-                        r"^- Bundler version[^\n]*\n  - Using cache"
-                    );
-                    assert_contains_match!(
-                        rebuild_context.pack_stdout,
-                        r"^- Bundle install gems[^\n]*\n  - Using cache"
-                    );
-                },
-            );
-        },
-    );
+                assert_contains_match!(
+                    rebuild_context.pack_stdout,
+                    r"^- Ruby version[^\n]*\n  - Using cache"
+                );
+                assert_contains_match!(
+                    rebuild_context.pack_stdout,
+                    r"^- Bundler version[^\n]*\n  - Using cache"
+                );
+                assert_contains_match!(
+                    rebuild_context.pack_stdout,
+                    r"^- Bundle install gems[^\n]*\n  - Using cache"
+                );
+            },
+        );
+    });
 }
 
 #[test]

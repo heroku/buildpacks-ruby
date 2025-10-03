@@ -5,14 +5,14 @@
 
 use indoc::{formatdoc, indoc};
 use libcnb_test::{
-    BuildConfig, BuildpackReference, ContainerConfig, ContainerContext, TestRunner,
-    assert_contains, assert_contains_match, assert_empty,
+    BuildpackReference, ContainerConfig, ContainerContext, TestRunner, assert_contains,
+    assert_contains_match, assert_empty,
 };
 use pretty_assertions::assert_eq;
 use regex::Regex;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::thread;
 use std::time::{Duration, Instant};
 use ureq::Response;
@@ -22,72 +22,57 @@ use ureq::Response;
 #[test]
 #[ignore = "integration test"]
 fn test_migrating_metadata_or_layer_names() {
-    // This test is a placeholder for when a change modifies metadata structures.
-    // Remove the return and update the `buildpack-ruby` reference to the latest version.
-    #![allow(unreachable_code)]
-    // Test v7.0.0 compatible with v6.0.0
+    let mut config = amd_arm_builder_config("heroku/builder:24", "tests/fixtures/default_ruby");
+    config
+        .buildpacks([BuildpackReference::Other(
+            "docker://docker.io/heroku/buildpack-ruby:12.1.0".to_string(),
+        )])
+        .app_dir_preprocessor(|app_dir| {
+            // Specify explicit versions so changes in default values don't cause this test to fail
+            writeln!(
+                fs_err::OpenOptions::new()
+                    .write(true)
+                    .append(true)
+                    .open(app_dir.join("Gemfile.lock"))
+                    .unwrap(),
+                indoc! {"
+                    RUBY VERSION
+                       ruby 3.4.2
+                "}
+            )
+            .unwrap();
+        });
+    TestRunner::default().build(config.clone(), |context| {
+        println!("{}", context.pack_stdout);
+        context.rebuild(
+            config
+                .clone()
+                .buildpacks([BuildpackReference::CurrentCrate]),
+            |rebuild_context| {
+                println!("{}", rebuild_context.pack_stdout);
 
-    let builder = "heroku/builder:24";
-    let temp = tempfile::tempdir().unwrap();
-    let app_dir = temp.path();
-
-    copy_dir_all(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("tests")
-            .join("fixtures")
-            .join("default_ruby"),
-        app_dir,
-    )
-    .unwrap();
-
-    // Specify explicit versions so changes in default values don't cause this test to fail
-    writeln!(
-        fs_err::OpenOptions::new()
-            .write(true)
-            .append(true)
-            .open(app_dir.join("Gemfile.lock"))
-            .unwrap(),
-        indoc! {"
-                RUBY VERSION
-                   ruby 3.4.2
-            "}
-    )
-    .unwrap();
-
-    TestRunner::default().build(
-        BuildConfig::new(builder, app_dir).buildpacks([BuildpackReference::Other(
-            "docker://docker.io/heroku/buildpack-ruby:6.0.0".to_string(),
-        )]),
-        |context| {
-            println!("{}", context.pack_stdout);
-            context.rebuild(
-                BuildConfig::new(builder, app_dir).buildpacks([BuildpackReference::CurrentCrate]),
-                |rebuild_context| {
-                    println!("{}", rebuild_context.pack_stdout);
-
-                    assert_contains_match!(
-                        rebuild_context.pack_stdout,
-                        r"^- Ruby version[^\n]*\n  - Using cache"
-                    );
-                    assert_contains_match!(
-                        rebuild_context.pack_stdout,
-                        r"^- Bundler version[^\n]*\n  - Using cache"
-                    );
-                    assert_contains_match!(
-                        rebuild_context.pack_stdout,
-                        r"^- Bundle install gems[^\n]*\n  - Using cache"
-                    );
-                },
-            );
-        },
-    );
+                assert_contains_match!(
+                    rebuild_context.pack_stdout,
+                    r"^- Ruby version[^\n]*\n  - Using cache"
+                );
+                assert_contains_match!(
+                    rebuild_context.pack_stdout,
+                    r"^- Bundler version[^\n]*\n  - Using cache"
+                );
+                assert_contains_match!(
+                    rebuild_context.pack_stdout,
+                    r"^- Bundle install gems[^\n]*\n  - Using cache"
+                );
+            },
+        );
+    });
 }
 
 #[test]
 #[ignore = "integration test"]
 fn test_default_app_ubuntu22() {
     TestRunner::default().build(
-        BuildConfig::new("heroku/builder:22", "tests/fixtures/default_ruby"),
+        amd_arm_builder_config("heroku/builder:22", "tests/fixtures/default_ruby"),
         |context| {
             println!("{}", context.pack_stdout);
             assert_contains!(context.pack_stdout, "# Heroku Ruby Buildpack");
@@ -105,18 +90,7 @@ fn test_default_app_ubuntu22() {
 #[ignore = "integration test"]
 #[allow(clippy::too_many_lines)]
 fn test_default_app_ubuntu24() {
-    let temp = tempfile::tempdir().unwrap();
-    let app_dir = temp.path();
-
-    copy_dir_all(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("tests")
-            .join("fixtures")
-            .join("default_ruby"),
-        app_dir,
-    )
-    .unwrap();
-    let config = BuildConfig::new("heroku/builder:24", app_dir);
+    let config = amd_arm_builder_config("heroku/builder:24", "tests/fixtures/default_ruby");
     TestRunner::default().build(
         config.clone(),
         |context| {
@@ -169,61 +143,63 @@ fn test_default_app_ubuntu24() {
             command_output.stdout,
         );
 
-        fs_err::create_dir_all(app_dir.join("bin")).unwrap();
-        fs_err::write(app_dir.join("bin").join("rake"), formatdoc!{r#"
-            #!/usr/bin/env ruby
-            # frozen_string_literal: true
+        let mut config = config.clone();
+        config.app_dir_preprocessor(|app_dir| {
+            fs_err::create_dir_all(app_dir.join("bin")).unwrap();
+            fs_err::write(app_dir.join("bin").join("rake"), formatdoc!{r#"
+                #!/usr/bin/env ruby
+                # frozen_string_literal: true
 
-            #
-            # This file was generated by Bundler.
-            #
-            # The application 'rake' is installed as part of a gem, and
-            # this file is here to facilitate running it.
-            #
+                #
+                # This file was generated by Bundler.
+                #
+                # The application 'rake' is installed as part of a gem, and
+                # this file is here to facilitate running it.
+                #
 
-            ENV["BUNDLE_GEMFILE"] ||= File.expand_path("../Gemfile", __dir__)
+                ENV["BUNDLE_GEMFILE"] ||= File.expand_path("../Gemfile", __dir__)
 
-            bundle_binstub = File.expand_path("bundle", __dir__)
+                bundle_binstub = File.expand_path("bundle", __dir__)
 
-            if File.file?(bundle_binstub)
-                if File.read(bundle_binstub, 300).include?("This file was generated by Bundler")
-                    load(bundle_binstub)
-                else
-                    abort("Your `bin/bundle` was not generated by Bundler, so this binstub cannot run.
-                           Replace `bin/bundle` by running `bundle binstubs bundler --force`, then run this command again.")
+                if File.file?(bundle_binstub)
+                    if File.read(bundle_binstub, 300).include?("This file was generated by Bundler")
+                        load(bundle_binstub)
+                    else
+                        abort("Your `bin/bundle` was not generated by Bundler, so this binstub cannot run.
+                            Replace `bin/bundle` by running `bundle binstubs bundler --force`, then run this command again.")
+                    end
                 end
-            end
 
-            require "rubygems"
-            require "bundler/setup"
+                require "rubygems"
+                require "bundler/setup"
 
-            load Gem.bin_path("rake", "rake")
-        "#}).unwrap();
-        chmod_plus_x(&app_dir.join("bin").join("rake")).unwrap();
+                load Gem.bin_path("rake", "rake")
+            "#}).unwrap();
+            chmod_plus_x(&app_dir.join("bin").join("rake")).unwrap();
 
-        fs_err::write(app_dir.join("Rakefile"), r#"
-            STDOUT.sync = true
-            STDERR.sync = true
+            fs_err::write(app_dir.join("Rakefile"), r#"
+                STDOUT.sync = true
+                STDERR.sync = true
 
-            task "assets:precompile" do
-              out = String.new
-              out << "START RAKE TEST OUTPUT\n"
-              out << run!("echo $PATH")
-              out << run!("which -a rake")
-              out << run!("which -a ruby")
-              out << "END RAKE TEST OUTPUT\n"
-              puts out
-            end
+                task "assets:precompile" do
+                out = String.new
+                out << "START RAKE TEST OUTPUT\n"
+                out << run!("echo $PATH")
+                out << run!("which -a rake")
+                out << run!("which -a ruby")
+                out << "END RAKE TEST OUTPUT\n"
+                puts out
+                end
 
-            def run!(cmd)
-              output = String.new
-              output << "$ #{cmd}\n"
-              output << `#{cmd} 2>&1`
-              raise "Command #{cmd} failed with output #{output}" unless $?.success?
-              output
-            end
-        "#).unwrap();
-
+                def run!(cmd)
+                output = String.new
+                output << "$ #{cmd}\n"
+                output << `#{cmd} 2>&1`
+                raise "Command #{cmd} failed with output #{output}" unless $?.success?
+                output
+                end
+            "#).unwrap();
+        });
 
         context.rebuild(config, |rebuild_context| {
             println!("{}", rebuild_context.pack_stdout);
@@ -367,7 +343,7 @@ DEPENDENCIES
 #[ignore = "integration test"]
 fn test_ruby_app_with_yarn_app() {
     TestRunner::default().build(
-        BuildConfig::new("heroku/builder:22", "tests/fixtures/yarn-ruby-app")
+        amd_arm_builder_config("heroku/builder:22", "tests/fixtures/yarn-ruby-app")
         .buildpacks([
             BuildpackReference::Other(String::from("heroku/nodejs")),
             BuildpackReference::CurrentCrate,
@@ -438,8 +414,8 @@ const TEST_PORT: u16 = 1234;
 
 // TODO: Once Pack build supports `--platform` and libcnb-test adjusted accordingly, change this
 // to allow configuring the target arch independently of the builder name (eg via env var).
-fn amd_arm_builder_config(builder_name: &str, app_dir: &str) -> BuildConfig {
-    let mut config = BuildConfig::new(builder_name, app_dir);
+fn amd_arm_builder_config(builder_name: &str, app_dir: &str) -> libcnb_test::BuildConfig {
+    let mut config = libcnb_test::BuildConfig::new(builder_name, app_dir);
 
     match builder_name {
         "heroku/builder:24" if cfg!(target_arch = "aarch64") => {
@@ -462,20 +438,4 @@ fn chmod_plus_x(path: &Path) -> Result<(), std::io::Error> {
     perms.set_mode(mode);
 
     fs_err::set_permissions(path, perms)
-}
-
-fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), std::io::Error> {
-    let src = src.as_ref();
-    let dst = dst.as_ref();
-    fs_err::create_dir_all(dst)?;
-    for entry in fs_err::read_dir(src)? {
-        let entry = entry?;
-        let ty = entry.file_type()?;
-        if ty.is_dir() {
-            copy_dir_all(entry.path(), dst.join(entry.file_name()))?;
-        } else {
-            fs_err::copy(entry.path(), dst.join(entry.file_name()))?;
-        }
-    }
-    Ok(())
 }

@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Update Rust toolchain
         run: rustup update
       - name: Rust Cache
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Update Rust toolchain
         run: rustup update
       - name: Rust Cache
@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Install musl-tools
         run: sudo apt-get install musl-tools --no-install-recommends
       - name: Update Rust toolchain
@@ -67,7 +67,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Install musl-tools
         run: sudo apt-get install -y --no-install-recommends musl-tools
       - name: Update Rust toolchain
@@ -83,7 +83,7 @@ jobs:
           docker pull "heroku/builder:24"
           docker pull "heroku/heroku:24"
       - name: Clone ruby getting started guide
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: heroku/ruby-getting-started
           path: tmp/ruby-getting-started
@@ -101,7 +101,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Install nightly Rust toolchain

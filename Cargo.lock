@@ -1198,9 +1198,9 @@ dependencies = [
 
 [[package]]
 name = "libherokubuildpack"
-version = "0.29.3"
+version = "0.30.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "591ca6809256b788acf115e5733038a4d7eb6d81aa362cf144210cad25daab8c"
+checksum = "3b2140276b715b1f3da7a3026ffab2b9ad691fef9f97426580ee00998fbe6197"
 dependencies = [
  "reqwest",
  "sha2",
@@ -1754,9 +1754,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.12.23"
+version = "0.12.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d429f34c8092b2d42c7c93cec323bb4adeb7c67698f70839adec842ec10c7ceb"
+checksum = "9d0946410b9f7b082a427e4ef5c8ff541a88b357bc6c637c40db3a68ac70a36f"
 dependencies = [
  "base64",
  "bytes",

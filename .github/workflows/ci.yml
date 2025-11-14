@@ -127,7 +127,7 @@ jobs:
       - name: Run unit tests and generate coverage report
         run: cargo +nightly llvm-cov --locked --html
       - name: Upload HTML coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: "llvm-cov-html-${{github.event.repository.name}}-${{github.sha}}"
           path: "target/llvm-cov/html"

@@ -1,5 +1,6 @@
 use crate::cache::CacheError;
 use byte_unit::{AdjustedByte, Byte, UnitType};
+use fs_err::PathExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -109,7 +110,7 @@ struct MiniPathModSize {
 
 impl MiniPathModSize {
     fn new(path: PathBuf) -> Result<Self, CacheError> {
-        let metadata = path.metadata().map_err(CacheError::IoError)?;
+        let metadata = path.fs_err_metadata().map_err(CacheError::IoError)?;
         let modified = metadata
             .modified()
             .map_err(CacheError::MtimeUnsupportedOS)?;
@@ -140,7 +141,7 @@ mod tests {
         let out = files(dir).unwrap();
         assert!(out.is_empty());
 
-        std::fs::write(dir.join("lol"), "hahah").unwrap();
+        fs_err::write(dir.join("lol"), "hahah").unwrap();
         let out = files(dir).unwrap();
 
         assert_eq!(out.len(), 1);

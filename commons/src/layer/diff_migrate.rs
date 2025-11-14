@@ -173,9 +173,9 @@ impl DiffMigrateLayer {
             is_layer_on_disk(&to_layer, context)?,
         ) {
             let to_dir = context.layers_dir.join(to_layer.as_str());
-            std::fs::create_dir_all(&to_dir).map_err(LayerError::IoError)?;
-            std::fs::rename(&prior_dir, &to_dir).map_err(LayerError::IoError)?;
-            std::fs::rename(
+            fs_err::create_dir_all(&to_dir).map_err(LayerError::IoError)?;
+            fs_err::rename(&prior_dir, &to_dir).map_err(LayerError::IoError)?;
+            fs_err::rename(
                 prior_dir.with_extension("toml"),
                 to_dir.with_extension("toml"),
             )
@@ -640,7 +640,7 @@ mod tests {
         let platform_dir = base_dir.join("platform_dir");
         let buildpack_dir = base_dir.join("buildpack_dir");
         for dir in [&app_dir, &layers_dir, &buildpack_dir, &platform_dir] {
-            std::fs::create_dir_all(dir).unwrap();
+            fs_err::create_dir_all(dir).unwrap();
         }
 
         let target = libcnb::Target {

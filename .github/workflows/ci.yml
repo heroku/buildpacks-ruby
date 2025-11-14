@@ -60,7 +60,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
       - name: Install Pack CLI
-        uses: buildpacks/github-actions/setup-pack@f6d0ae15b2e1f021664bf3ee3fc4f9105c1ee4c7 # v5.9.4
+        uses: buildpacks/github-actions/setup-pack@2d58ee348f9a2c381888bfe3dfe99caffdddc84f # v5.9.6
       - name: Run integration tests
         # Runs only tests annotated with the `ignore` attribute (which in this repo, are the integration tests).
         run: cargo test --locked -- --ignored
@@ -89,7 +89,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
       - name: Install Pack CLI
-        uses: buildpacks/github-actions/setup-pack@f6d0ae15b2e1f021664bf3ee3fc4f9105c1ee4c7 # v5.9.4
+        uses: buildpacks/github-actions/setup-pack@2d58ee348f9a2c381888bfe3dfe99caffdddc84f # v5.9.6
       - name: Pull builder and run images
         run: |
           docker pull "heroku/builder:24"
@@ -121,7 +121,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@d6d752794628f1e1fffa3c4d3c8874e06f043d50 # v2.62.15
+        uses: taiki-e/install-action@0be4756f42223b67aa4b7df5effad59010cbf4b9 # v2.62.51
         with:
           tool: cargo-llvm-cov
       - name: Run unit tests and generate coverage report

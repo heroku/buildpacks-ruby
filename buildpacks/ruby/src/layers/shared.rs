@@ -11,7 +11,7 @@ pub(crate) fn temp_build_context<B: libcnb::Buildpack>(
     let platform_dir = base_dir.join("platform_dir");
     let buildpack_dir = base_dir.join("buildpack_dir");
     for dir in [&app_dir, &layers_dir, &buildpack_dir, &platform_dir] {
-        std::fs::create_dir_all(dir).unwrap();
+        fs_err::create_dir_all(dir).unwrap();
     }
 
     let target = libcnb::Target {

@@ -66,7 +66,7 @@ impl GemfileLock {
     #[must_use]
     pub fn resolve_ruby(&self, default: &str) -> ResolvedRubyVersion {
         match &self.ruby_version {
-            RubyVersion::Explicit(version) => ResolvedRubyVersion(version.to_string()),
+            RubyVersion::Explicit(version) => ResolvedRubyVersion(version.clone()),
             RubyVersion::Default => ResolvedRubyVersion(default.to_string()),
         }
     }
@@ -74,7 +74,7 @@ impl GemfileLock {
     #[must_use]
     pub fn resolve_bundler(&self, default: &str) -> ResolvedBundlerVersion {
         match &self.bundler_version {
-            BundlerVersion::Explicit(version) => ResolvedBundlerVersion(version.to_string()),
+            BundlerVersion::Explicit(version) => ResolvedBundlerVersion(version.clone()),
             BundlerVersion::Default => ResolvedBundlerVersion(default.to_string()),
         }
     }

@@ -3,6 +3,7 @@
 // Required due to: https://github.com/rust-lang/rust-clippy/issues/11119
 #![allow(clippy::unwrap_used)]
 
+use fs_err as fs;
 use indoc::{formatdoc, indoc};
 use libcnb_test::{
     BuildpackReference, ContainerConfig, ContainerContext, TestRunner, assert_contains,
@@ -30,7 +31,7 @@ fn test_migrating_metadata_or_layer_names() {
         .app_dir_preprocessor(|app_dir| {
             // Specify explicit versions so changes in default values don't cause this test to fail
             writeln!(
-                fs_err::OpenOptions::new()
+                fs::OpenOptions::new()
                     .write(true)
                     .append(true)
                     .open(app_dir.join("Gemfile.lock"))
@@ -145,8 +146,8 @@ fn test_default_app_ubuntu24() {
 
         let mut config = config.clone();
         config.app_dir_preprocessor(|app_dir| {
-            fs_err::create_dir_all(app_dir.join("bin")).unwrap();
-            fs_err::write(app_dir.join("bin").join("rake"), formatdoc!{r#"
+            fs::create_dir_all(app_dir.join("bin")).unwrap();
+            fs::write(app_dir.join("bin").join("rake"), formatdoc!{r#"
                 #!/usr/bin/env ruby
                 # frozen_string_literal: true
 
@@ -177,7 +178,7 @@ fn test_default_app_ubuntu24() {
             "#}).unwrap();
             chmod_plus_x(&app_dir.join("bin").join("rake")).unwrap();
 
-            fs_err::write(app_dir.join("Rakefile"), r#"
+            fs::write(app_dir.join("Rakefile"), r#"
                 STDOUT.sync = true
                 STDERR.sync = true
 
@@ -295,7 +296,7 @@ fn test_default_app_latest_distro() {
 #[ignore = "integration test"]
 fn test_jruby_app() {
     let app_dir = tempfile::tempdir().unwrap();
-    fs_err::write(
+    fs::write(
         app_dir.path().join("Gemfile"),
         r#"
         source "https://rubygems.org"
@@ -305,7 +306,7 @@ fn test_jruby_app() {
     )
     .unwrap();
 
-    fs_err::write(
+    fs::write(
         app_dir.path().join("Gemfile.lock"),
         r"
 GEM
@@ -432,10 +433,10 @@ fn amd_arm_builder_config(builder_name: &str, app_dir: &str) -> libcnb_test::Bui
 /// of the file permission is 7 on unix so if you pass
 /// in 0o455 it would be mutated to 0o755
 fn chmod_plus_x(path: &Path) -> Result<(), std::io::Error> {
-    let mut perms = fs_err::metadata(path)?.permissions();
+    let mut perms = fs::metadata(path)?.permissions();
     let mut mode = perms.mode();
     mode |= 0o700;
     perms.set_mode(mode);
 
-    fs_err::set_permissions(path, perms)
+    fs::set_permissions(path, perms)
 }

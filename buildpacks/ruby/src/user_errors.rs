@@ -112,15 +112,6 @@ fn log_our_error(error: RubyBuildpackError) {
                 style::value(path.to_string_lossy())
             ));
             print::sub_bullet(error.to_string());
-
-            if let Some(dir) = path.parent() {
-                print::bullet(format!(
-                    "{debug_info} Contents of the {dir} directory",
-                    dir = style::value(dir.to_string_lossy())
-                ));
-                let _ =
-                    print::sub_stream_cmd(Command::new("ls").args(["-la", &dir.to_string_lossy()]));
-            }
             print::error(formatdoc! {"
                 Error: `Gemfile.lock` not found
 

@@ -1,13 +1,13 @@
 #![allow(deprecated)]
 
+use crate::display::SentenceList;
+use fs_err as fs;
 use libcnb::{Env, Platform};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
-
-use crate::display::SentenceList;
 
 const PLATFORM_ENV_VAR: &str = "user configured environment variables";
 
@@ -414,7 +414,7 @@ impl PathsDigest {
 
     fn add_paths(&mut self, paths: &[&Path]) -> Result<&mut Self, DigestError> {
         for path in paths {
-            let contents = fs_err::read_to_string(path)
+            let contents = fs::read_to_string(path)
                 .map_err(|error| DigestError::CannotReadFile(path.to_path_buf(), error))?;
 
             self.0
@@ -519,7 +519,7 @@ mod test {
         let dir = tempdir.path();
 
         let gemfile = dir.join("Gemfile");
-        fs_err::write(&gemfile, "gem 'mini_histogram'").unwrap();
+        fs::write(&gemfile, "gem 'mini_histogram'").unwrap();
         let context = FakeContext::default();
 
         let digest = MetadataDigest::new_env_files(&context.platform, &[&gemfile]).unwrap();
@@ -543,12 +543,12 @@ mod test {
         let dir = tempdir.path();
 
         let gemfile = dir.join("Gemfile");
-        fs_err::write(&gemfile, "gem 'mini_histogram'").unwrap();
+        fs::write(&gemfile, "gem 'mini_histogram'").unwrap();
         let context = FakeContext::default();
 
         let one = MetadataDigest::new_env_files(&context.platform, &[&gemfile]).unwrap();
 
-        fs_err::write(&gemfile, "gem 'a_different_gem_here'").unwrap();
+        fs::write(&gemfile, "gem 'a_different_gem_here'").unwrap();
         let two = MetadataDigest::new_env_files(&context.platform, &[&gemfile]).unwrap();
 
         assert_eq!(

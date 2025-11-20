@@ -7,6 +7,7 @@ use bullet_stream::{global::print, style};
 use commons::cache::CacheError;
 use commons::gemfile_lock::GemfileLock;
 use core::str::FromStr;
+use fs_err as fs;
 use fs_err::PathExt;
 use fun_run::CmdError;
 use layers::ruby_install_layer::RubyInstallError;
@@ -98,7 +99,7 @@ impl Buildpack for RubyBuildpack {
                 plan_builder = plan_builder.requires(nodejs_require);
             }
 
-            if fs_err::read_to_string(lockfile)
+            if fs::read_to_string(lockfile)
                 .map_err(DetectError::GemfileLock)
                 .map_err(RubyBuildpackError::BuildpackDetectionError)
                 .map(needs_java)?

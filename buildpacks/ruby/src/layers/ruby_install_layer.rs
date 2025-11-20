@@ -21,6 +21,7 @@ use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedRubyVersion;
 use commons::layer::diff_migrate::{DiffMigrateLayer, LayerRename};
 use flate2::read::GzDecoder;
+use fs_err as fs;
 use libcnb::data::layer_name;
 use libcnb::layer::{EmptyLayerCause, LayerState};
 use libcnb::layer_env::LayerEnv;
@@ -33,6 +34,7 @@ use std::time::Duration;
 use tar::Archive;
 use tempfile::NamedTempFile;
 use url::Url;
+
 const MAX_ATTEMPTS: u8 = 3;
 
 // Latest metadata used for `TryMigrate` trait
@@ -152,7 +154,7 @@ pub(crate) fn untar(
     path: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<(), RubyInstallError> {
-    let file = fs_err::File::open(path.as_ref()).map_err(RubyInstallError::CouldNotOpenFile)?;
+    let file = fs::File::open(path.as_ref()).map_err(RubyInstallError::CouldNotOpenFile)?;
 
     Archive::new(GzDecoder::new(file))
         .unpack(destination.as_ref())

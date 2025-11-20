@@ -12,7 +12,7 @@ fun_run.workspace = true
 cache_diff.workspace = true
 commons = { path = "../../commons" }
 flate2 = { version = "1", default-features = false, features = ["zlib"] }
-fs-err = "3"
+fs-err.workspace = true
 glob = "0.3"
 indoc = "2"
 # libcnb has a much bigger impact on buildpack behaviour than any other dependencies,

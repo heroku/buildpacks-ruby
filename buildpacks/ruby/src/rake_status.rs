@@ -99,15 +99,17 @@ fn asset_manifest_from_glob(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use fs_err as fs;
+
     fn touch_file(path: &PathBuf, f: impl FnOnce(&PathBuf)) {
         if let Some(parent) = path.parent()
             && !parent.exists()
         {
-            fs_err::create_dir_all(parent).unwrap();
+            fs::create_dir_all(parent).unwrap();
         }
-        fs_err::write(path, "").unwrap();
+        fs::write(path, "").unwrap();
         f(path);
-        fs_err::remove_file(path).unwrap();
+        fs::remove_file(path).unwrap();
     }
 
     // Checks in public/assets if an existing manifest file exists
@@ -170,10 +172,10 @@ mod tests {
 
         for name in &["rakefile", "Rakefile", "rakefile.rb;", "Rakefile.rb"] {
             let file = dir.join(name);
-            fs_err::write(&file, "").unwrap();
+            fs::write(&file, "").unwrap();
             let found = matches!(find_rakefile(dir), Rakefile::Found(_));
             assert!(found);
-            fs_err::remove_file(&file).unwrap();
+            fs::remove_file(&file).unwrap();
         }
 
         assert_eq!(Rakefile::Missing, find_rakefile(dir));

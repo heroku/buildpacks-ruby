@@ -1,6 +1,7 @@
 use crate::cache::clean::{FilesWithSize, lru_clean};
 use crate::cache::{CacheConfig, CacheError, KeepPath};
 use byte_unit::{AdjustedByte, Byte, UnitType};
+use fs_err as fs;
 use fs_extra::dir::CopyOptions;
 use libcnb::build::BuildContext;
 use libcnb::data::layer::LayerName;
@@ -132,7 +133,7 @@ impl AppCache {
         match self.keep_path {
             KeepPath::Runtime => {}
             KeepPath::BuildOnly => {
-                fs_err::remove_dir_all(&self.path).map_err(CacheError::IoError)?;
+                fs::remove_dir_all(&self.path).map_err(CacheError::IoError)?;
             }
         }
 
@@ -150,8 +151,8 @@ impl AppCache {
     /// - If files cannot be moved from the cache to the path
     ///   then an error will be raised.
     pub fn load(&self) -> Result<&Self, CacheError> {
-        fs_err::create_dir_all(&self.path).map_err(CacheError::IoError)?;
-        fs_err::create_dir_all(&self.cache).map_err(CacheError::IoError)?;
+        fs::create_dir_all(&self.path).map_err(CacheError::IoError)?;
+        fs::create_dir_all(&self.cache).map_err(CacheError::IoError)?;
 
         fs_extra::dir::copy(
             &self.cache,
@@ -171,7 +172,7 @@ impl AppCache {
         })?;
         copy_mtime_r(&self.cache, &self.path)?;
 
-        fs_err::remove_dir_all(&self.cache).map_err(CacheError::IoError)?;
+        fs::remove_dir_all(&self.cache).map_err(CacheError::IoError)?;
 
         Ok(self)
     }
@@ -407,7 +408,7 @@ fn layer_name_cache_state(layers_base_dir: &Path, layer_name: &LayerName) -> Cac
 
 /// Returns true if path has no valid readable files
 fn is_empty_dir(path: &Path) -> bool {
-    if let Ok(read_dir) = fs_err::read_dir(path) {
+    if let Ok(read_dir) = fs::read_dir(path) {
         let dir_has_files = read_dir
             .filter_map(std::result::Result::ok)
             .any(|entry| entry.path().exists());
@@ -441,12 +442,12 @@ mod tests {
             CacheState::NewEmpty,
             layer_name_cache_state(path, &layer_name)
         );
-        fs_err::create_dir_all(path.join(layer_name.as_str())).unwrap();
+        fs::create_dir_all(path.join(layer_name.as_str())).unwrap();
         assert_eq!(
             CacheState::ExistsEmpty,
             layer_name_cache_state(path, &layer_name)
         );
-        fs_err::write(path.join(layer_name.as_str()).join("file"), "data").unwrap();
+        fs::write(path.join(layer_name.as_str()).join("file"), "data").unwrap();
         assert_eq!(
             CacheState::ExistsWithContents,
             layer_name_cache_state(path, &layer_name)
@@ -458,11 +459,11 @@ mod tests {
         let tmpdir = tempfile::tempdir().unwrap();
         let cache_path = tmpdir.path().join("cache");
         let app_path = tmpdir.path().join("app");
-        fs_err::create_dir_all(&cache_path).unwrap();
-        fs_err::create_dir_all(&app_path).unwrap();
+        fs::create_dir_all(&cache_path).unwrap();
+        fs::create_dir_all(&app_path).unwrap();
 
-        fs_err::write(app_path.join("a.txt"), "app").unwrap();
-        fs_err::write(cache_path.join("a.txt"), "cache").unwrap();
+        fs::write(app_path.join("a.txt"), "app").unwrap();
+        fs::write(cache_path.join("a.txt"), "cache").unwrap();
 
         let store = AppCache {
             path: app_path.clone(),
@@ -474,7 +475,7 @@ mod tests {
 
         store.load().unwrap();
 
-        let contents = fs_err::read_to_string(app_path.join("a.txt")).unwrap();
+        let contents = fs::read_to_string(app_path.join("a.txt")).unwrap();
         assert_eq!("app", contents);
     }
 
@@ -497,7 +498,7 @@ mod tests {
 
         assert!(is_empty_dir(&app_path)); // Assert empty dir
 
-        fs_err::write(app_path.join("lol.txt"), "hahaha").unwrap();
+        fs::write(app_path.join("lol.txt"), "hahaha").unwrap();
 
         // Test copy logic from app to cache
         assert!(!store.cache.join("lol.txt").exists());
@@ -528,7 +529,7 @@ mod tests {
 
         assert!(is_empty_dir(&app_path));
 
-        fs_err::write(app_path.join("lol.txt"), "hahaha").unwrap();
+        fs::write(app_path.join("lol.txt"), "hahaha").unwrap();
 
         // Test copy logic from app to cache
         assert!(!store.cache.join("lol.txt").exists());
@@ -548,8 +549,8 @@ mod tests {
         let app_path = tmpdir.path().join("app");
         let cache_path = tmpdir.path().join("cache");
 
-        fs_err::create_dir_all(&cache_path).unwrap();
-        fs_err::create_dir_all(&app_path).unwrap();
+        fs::create_dir_all(&cache_path).unwrap();
+        fs::create_dir_all(&app_path).unwrap();
 
         let store = AppCache {
             path: app_path.clone(),
@@ -559,13 +560,13 @@ mod tests {
             cache_state: CacheState::NewEmpty,
         };
 
-        fs_err::write(app_path.join(filename), "catbus").unwrap();
+        fs::write(app_path.join(filename), "catbus").unwrap();
         filetime::set_file_mtime(app_path.join(filename), mtime).unwrap();
 
         store.save().unwrap();
 
         // Cache file mtime should match app file mtime
-        let actual = fs_err::metadata(cache_path.join(filename))
+        let actual = fs::metadata(cache_path.join(filename))
             .map(|metadata| FileTime::from_last_modification_time(&metadata))
             .unwrap();
         assert_eq!(mtime, actual);
@@ -576,7 +577,7 @@ mod tests {
         store.load().unwrap();
 
         // App path mtime should match cache file mtime
-        let actual = fs_err::metadata(app_path.join(filename))
+        let actual = fs::metadata(app_path.join(filename))
             .map(|metadata| FileTime::from_last_modification_time(&metadata))
             .unwrap();
         assert_eq!(mtime, actual);
@@ -590,8 +591,8 @@ mod tests {
         let app_path = tmpdir.path().join("app");
         let cache_path = tmpdir.path().join("cache");
 
-        fs_err::create_dir_all(&cache_path).unwrap();
-        fs_err::create_dir_all(&app_path).unwrap();
+        fs::create_dir_all(&cache_path).unwrap();
+        fs::create_dir_all(&app_path).unwrap();
 
         let store = AppCache {
             path: app_path.clone(),
@@ -601,25 +602,25 @@ mod tests {
             cache_state: CacheState::NewEmpty,
         };
 
-        fs_err::write(app_path.join(filename), "catbus").unwrap();
+        fs::write(app_path.join(filename), "catbus").unwrap();
         filetime::set_file_mtime(app_path.join(filename), mtime).unwrap();
 
         store.save().unwrap();
 
         // Cache file mtime should match app file mtime
-        let actual = fs_err::metadata(cache_path.join(filename))
+        let actual = fs::metadata(cache_path.join(filename))
             .map(|metadata| FileTime::from_last_modification_time(&metadata))
             .unwrap();
         assert_eq!(mtime, actual);
 
         // Remove app path to test loading
-        fs_err::remove_dir_all(&app_path).unwrap();
+        fs::remove_dir_all(&app_path).unwrap();
         assert!(!store.path.join(filename).exists());
 
         store.load().unwrap();
 
         // App path mtime should match cache file mtime
-        let actual = fs_err::metadata(app_path.join(filename))
+        let actual = fs::metadata(app_path.join(filename))
             .map(|metadata| FileTime::from_last_modification_time(&metadata))
             .unwrap();
         assert_eq!(mtime, actual);

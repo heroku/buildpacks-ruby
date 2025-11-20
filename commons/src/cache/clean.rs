@@ -1,5 +1,6 @@
 use crate::cache::CacheError;
 use byte_unit::{AdjustedByte, Byte, UnitType};
+use fs_err as fs;
 use fs_err::PathExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
@@ -27,7 +28,7 @@ pub(crate) fn lru_clean(path: &Path, limit: Byte) -> Result<Option<FilesWithSize
         Ok(None)
     } else {
         for file in &overage.files {
-            fs_err::remove_file(file).map_err(CacheError::IoError)?;
+            fs::remove_file(file).map_err(CacheError::IoError)?;
         }
 
         Ok(Some(overage))
@@ -141,7 +142,7 @@ mod tests {
         let out = files(dir).unwrap();
         assert!(out.is_empty());
 
-        fs_err::write(dir.join("lol"), "hahah").unwrap();
+        fs::write(dir.join("lol"), "hahah").unwrap();
         let out = files(dir).unwrap();
 
         assert_eq!(out.len(), 1);
@@ -151,11 +152,11 @@ mod tests {
         if let Some(parent) = path.parent()
             && !parent.exists()
         {
-            fs_err::create_dir_all(parent).unwrap();
+            fs::create_dir_all(parent).unwrap();
         }
-        fs_err::write(path, "").unwrap();
+        fs::write(path, "").unwrap();
         f(path);
-        fs_err::remove_file(path).unwrap();
+        fs::remove_file(path).unwrap();
     }
 
     #[test]
@@ -163,7 +164,7 @@ mod tests {
         let tmpdir = tempfile::tempdir().unwrap();
         let dir = tmpdir.path().join("dir");
 
-        fs_err::create_dir_all(&dir).unwrap();
+        fs::create_dir_all(&dir).unwrap();
 
         assert_eq!(lru_files_above_limit(&dir, mib(0),).unwrap().files.len(), 0);
 
@@ -196,7 +197,7 @@ mod tests {
     fn test_lru_does_not_grab_directories() {
         let tmpdir = tempfile::tempdir().unwrap();
         let dir = tmpdir.path().join("");
-        fs_err::create_dir_all(dir.join("preservation_society")).unwrap();
+        fs::create_dir_all(dir.join("preservation_society")).unwrap();
         let overage = lru_files_above_limit(&dir, mib(0)).unwrap();
         assert_eq!(overage.files, Vec::<PathBuf>::new());
     }

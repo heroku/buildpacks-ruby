@@ -1,3 +1,6 @@
+#[cfg(test)]
+use fs_err as fs;
+
 /// Takes in a directory and returns a minimal build context for use in testing shared caching behavior
 ///
 /// Intented only for use with this buildpack, but meant to be used by multiple layers to assert caching behavior.
@@ -11,7 +14,7 @@ pub(crate) fn temp_build_context<B: libcnb::Buildpack>(
     let platform_dir = base_dir.join("platform_dir");
     let buildpack_dir = base_dir.join("buildpack_dir");
     for dir in [&app_dir, &layers_dir, &buildpack_dir, &platform_dir] {
-        fs_err::create_dir_all(dir).unwrap();
+        fs::create_dir_all(dir).unwrap();
     }
 
     let target = libcnb::Target {

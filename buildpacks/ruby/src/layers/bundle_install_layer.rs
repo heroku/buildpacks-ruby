@@ -14,6 +14,7 @@ use bullet_stream::global::print;
 use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedRubyVersion;
 use commons::layer::diff_migrate::DiffMigrateLayer;
+use fs_err as fs;
 use fun_run::{self, CommandWithName};
 use indoc::formatdoc;
 use libcnb::data::layer_name;
@@ -76,7 +77,7 @@ pub(crate) fn call(
     )
     .map_err(RubyBuildpackError::BundleInstallCommandError)?;
 
-    if let Err(error) = fs_err::remove_dir_all(layer_ref.path().join("cache")) {
+    if let Err(error) = fs::remove_dir_all(layer_ref.path().join("cache")) {
         print::sub_bullet(formatdoc! {"
             WARNING: Could not delete Rubygems cache directory
 

@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- All filesystem errors from the buildpack now produce additional "debug" output to show possibly related facts about the filesystem [#469](https://github.com/heroku/buildpacks-ruby/pull/469)
+
 ## [12.1.0] - 2025-09-09
 
 ### Added
 
-- Set default `export PUMA_PERSISTENT_TIMEOUT=95` to match recommended router 2.0 settings[#454](https://github.com/heroku/buildpacks-ruby/pull/454)
+- Set default `export PUMA_PERSISTENT_TIMEOUT=95` to match recommended router 2.0 settings [#454](https://github.com/heroku/buildpacks-ruby/pull/454)
 
 ## [12.0.0] - 2025-09-08
 

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - All filesystem errors from the buildpack now produce additional "debug" output to show possibly related facts about the filesystem [#469](https://github.com/heroku/buildpacks-ruby/pull/469)
+- Support two space `BUNDLED WITH` indented `Gemfile.lock` [#470](https://github.com/heroku/buildpacks-ruby/pull/470)
 
 ## [12.1.0] - 2025-09-09
 

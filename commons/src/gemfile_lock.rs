@@ -117,9 +117,9 @@ impl FromStr for GemfileLock {
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         let bundled_with_re =
-            Regex::new("BUNDLED WITH\\s   (\\d+\\.\\d+\\.\\d+)").expect("Clippy checked");
+            Regex::new("BUNDLED WITH\\s {2,3}(\\d+\\.\\d+\\.\\d+)").expect("Clippy checked");
         let main_ruby_version_re =
-            Regex::new("RUBY VERSION\\s   ruby (\\d+\\.\\d+\\.\\d+((-|\\.)\\S*\\d+)?)")
+            Regex::new("RUBY VERSION\\s {2,3}ruby (\\d+\\.\\d+\\.\\d+((-|\\.)\\S*\\d+)?)")
                 .expect("Clippy checked");
         let jruby_version_re = Regex::new("\\(jruby ((\\d+|\\.)+)\\)").expect("Clippy checked");
 
@@ -218,6 +218,42 @@ BUNDLED WITH
         assert_eq!(
             info.ruby_version,
             RubyVersion::Explicit("3.4.0.preview2".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_gemfile_lock_two_spaces() {
+        let info = GemfileLock::from_str(
+            r"
+GEM
+  remote: https://rubygems.org/
+  specs:
+    mini_histogram (0.3.1)
+
+PLATFORMS
+  ruby
+  x86_64-darwin-20
+  x86_64-linux
+
+DEPENDENCIES
+  mini_histogram
+
+RUBY VERSION
+  ruby 3.1.0p-1
+
+BUNDLED WITH
+  2.3.4
+",
+        )
+        .unwrap();
+
+        assert_eq!(
+            info.bundler_version,
+            BundlerVersion::Explicit("2.3.4".to_string())
+        );
+        assert_eq!(
+            info.ruby_version,
+            RubyVersion::Explicit("3.1.0".to_string())
         );
     }
 

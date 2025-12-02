@@ -3,7 +3,7 @@
 [![Cloud Native Buildpacks Registry: heroku/ruby][registry-badge]](https://registry.buildpacks.io/buildpacks/heroku/ruby)
 [![CI on GitHub Actions: heroku/ruby](https://github.com/heroku/buildpacks-ruby/actions/workflows/ci.yml/badge.svg)](https://github.com/heroku/buildpacks-ruby/actions/workflows/ci.yml)
 
-![Heroku Cloud Native Buildpack: heroku/ruby](https://cloud.githubusercontent.com/assets/51578/13712725/3c6b3368-e793-11e5-83c1-728440111358.png)
+![Heroku Cloud Native Buildpack: heroku/ruby](https://raw.githubusercontent.com/heroku/buildpacks/refs/heads/main/assets/images/buildpack-banner-ruby.png)
 
 Build your Ruby and Rails application source code into an [OCI image](https://opencontainers.org/) with minimal configuration, no `Dockerfile` required. To learn more about what a CNB is, how they work, and how to use one to build your application, see the [Heroku CNB documentation][heroku-buildpacks].
 

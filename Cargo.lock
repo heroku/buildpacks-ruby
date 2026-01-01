@@ -334,7 +334,7 @@ dependencies = [
  "bullet_stream",
  "byte-unit",
  "cache_diff",
- "fancy-regex",
+ "fancy-regex 0.17.0",
  "filetime",
  "fs-err",
  "fs_extra",
@@ -500,6 +500,17 @@ name = "fancy-regex"
 version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "998b056554fbe42e03ae0e152895cd1a7e1002aec800fdc6635d20270260c46f"
+dependencies = [
+ "bit-set",
+ "regex-automata",
+ "regex-syntax",
+]
+
+[[package]]
+name = "fancy-regex"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72cf461f865c862bb7dc573f643dd6a2b6842f7c30b07882b56bd148cc2761b8"
 dependencies = [
  "bit-set",
  "regex-automata",
@@ -1161,7 +1172,7 @@ version = "0.29.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3cff833e77e155d0ee3178abe4beed99fcabb8a59092aebc5d2f12958a2052db"
 dependencies = [
- "fancy-regex",
+ "fancy-regex 0.16.2",
  "libcnb-proc-macros",
  "serde",
  "thiserror",
@@ -1193,7 +1204,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f71aaae924ba3b27632124a18b13949722c07cf7cb2acd6c541c47e717f943ef"
 dependencies = [
  "cargo_metadata",
- "fancy-regex",
+ "fancy-regex 0.16.2",
  "quote",
  "syn 2.0.106",
 ]

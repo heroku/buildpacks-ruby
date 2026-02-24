@@ -133,7 +133,7 @@ fn download_url(
     version: impl std::fmt::Display,
 ) -> Result<Url, RubyInstallError> {
     let filename = format!("ruby-{version}.tgz");
-    let base = "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com";
+    let base = "https://heroku-buildpack-ruby.s3.dualstack.us-east-1.amazonaws.com";
     let mut url = Url::parse(base).map_err(RubyInstallError::UrlParseError)?;
     {
         let mut segments = url
@@ -232,7 +232,7 @@ version = "22.04"
         .unwrap();
         assert_eq!(
             out.as_ref(),
-            "https://heroku-buildpack-ruby.s3.us-east-1.amazonaws.com/heroku-22/ruby-2.7.4.tgz",
+            "https://heroku-buildpack-ruby.s3.dualstack.us-east-1.amazonaws.com/heroku-22/ruby-2.7.4.tgz",
         );
     }
 

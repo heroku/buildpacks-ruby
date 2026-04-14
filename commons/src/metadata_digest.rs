@@ -441,7 +441,14 @@ fn sha_from_env(env: &Env) -> ShaString {
 fn sha_from_string(str: &str) -> ShaString {
     let mut hasher = sha2::Sha256::new();
     hasher.update(str);
-    ShaString(format!("{:x}", hasher.finalize()))
+    ShaString(hasher.finalize().iter().fold(
+        String::new(),
+        |mut acc, b| {
+            use std::fmt::Write;
+            let _ = write!(acc, "{b:02x}");
+            acc
+        },
+    ))
 }
 
 #[cfg(test)]

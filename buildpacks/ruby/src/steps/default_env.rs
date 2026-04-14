@@ -7,7 +7,7 @@ use libcnb::{
     data::{layer_name, store::Store},
     layer_env::Scope,
 };
-use rand::Rng;
+use rand::distr::{Alphanumeric, Distribution};
 
 // Set default environment values
 pub(crate) fn default_env(
@@ -31,7 +31,7 @@ pub(crate) fn default_env(
             let mut rng = rand::rng();
 
             (0..64)
-                .map(|_| rng.sample(rand::distr::Alphanumeric) as char)
+                .map(|_| Alphanumeric.sample(&mut rng) as char)
                 .collect::<String>()
                 .into()
         })

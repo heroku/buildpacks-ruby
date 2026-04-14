@@ -309,6 +309,7 @@ dependencies = [
  "bullet_stream",
  "byte-unit",
  "cache_diff",
+ "const-hex",
  "fancy-regex",
  "filetime",
  "fs-err",

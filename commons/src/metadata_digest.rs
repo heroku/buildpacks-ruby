@@ -441,7 +441,7 @@ fn sha_from_env(env: &Env) -> ShaString {
 fn sha_from_string(str: &str) -> ShaString {
     let mut hasher = sha2::Sha256::new();
     hasher.update(str);
-    ShaString(format!("{:x}", hasher.finalize()))
+    ShaString(const_hex::encode(hasher.finalize()))
 }
 
 #[cfg(test)]

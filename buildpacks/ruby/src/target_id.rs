@@ -7,10 +7,11 @@ pub(crate) struct TargetId {
     pub(crate) distro_version: String,
     pub(crate) cpu_architecture: String,
 }
-const ARCH_AWARE_VERSIONS: &[&str] = &["24.04"];
+const ARCH_AWARE_VERSIONS: &[&str] = &["24.04", "26.04"];
 const DISTRO_VERSION_STACK: &[(&str, &str, &str)] = &[
     ("ubuntu", "22.04", "heroku-22"),
     ("ubuntu", "24.04", "heroku-24"),
+    ("ubuntu", "26.04", "heroku-26"),
 ];
 
 #[derive(Debug, thiserror::Error)]
@@ -80,6 +81,17 @@ mod test {
                 cpu_architecture: String::from("amd64"),
                 distro_name: String::from("ubuntu"),
                 distro_version: String::from("24.04"),
+            }
+            .stack_name()
+            .unwrap()
+        );
+
+        assert_eq!(
+            String::from("heroku-26"),
+            TargetId {
+                cpu_architecture: String::from("amd64"),
+                distro_name: String::from("ubuntu"),
+                distro_version: String::from("26.04"),
             }
             .stack_name()
             .unwrap()

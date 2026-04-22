@@ -234,6 +234,20 @@ version = "22.04"
             out.as_ref(),
             "https://heroku-buildpack-ruby.s3.dualstack.us-east-1.amazonaws.com/heroku-22/ruby-2.7.4.tgz",
         );
+
+        let out = download_url(
+            &TargetId {
+                cpu_architecture: String::from("amd64"),
+                distro_name: String::from("ubuntu"),
+                distro_version: String::from("26.04"),
+            },
+            "3.4.2",
+        )
+        .unwrap();
+        assert_eq!(
+            out.as_ref(),
+            "https://heroku-buildpack-ruby.s3.dualstack.us-east-1.amazonaws.com/heroku-26/amd64/ruby-3.4.2.tgz",
+        );
     }
 
     #[test]

@@ -33,8 +33,8 @@ pub(crate) fn detect_rake_tasks(
             None
         }
         RakeStatus::MissingRakefile => {
-            print::sub_bullet(format!("Skipping rake tasks ({rakefile} not found)",));
-            print::sub_bullet(format!("{help} Add {rakefile} to your project to enable",));
+            print::sub_bullet(format!("Skipping rake tasks ({rakefile} not found)"));
+            print::sub_bullet(format!("{help} Add {rakefile} to your project to enable"));
             None
         }
         RakeStatus::SkipManifestFound(paths) => {

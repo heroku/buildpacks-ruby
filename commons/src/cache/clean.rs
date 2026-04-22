@@ -58,7 +58,7 @@ fn lru_files_above_limit(cache_path: &Path, limit: Byte) -> Result<FilesWithSize
 
     if bytes >= max_bytes {
         let mut current_bytes = bytes;
-        files.sort_by(|a, b| a.modified.cmp(&b.modified));
+        files.sort_by_key(|a| a.modified);
 
         Ok(FilesWithSize {
             bytes,

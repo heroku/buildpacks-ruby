@@ -244,7 +244,7 @@ fn test_default_app_ubuntu24() {
 #[test]
 #[ignore = "integration test"]
 fn test_default_app_latest_distro() {
-    let config = amd_arm_builder_config("heroku/builder:24", "tests/fixtures/default_ruby");
+    let config = amd_arm_builder_config("heroku/builder:26", "tests/fixtures/default_ruby");
 
     TestRunner::default().build(
         config,
@@ -419,7 +419,7 @@ fn amd_arm_builder_config(builder_name: &str, app_dir: &str) -> libcnb_test::Bui
     let mut config = libcnb_test::BuildConfig::new(builder_name, app_dir);
 
     match builder_name {
-        "heroku/builder:24" if cfg!(target_arch = "aarch64") => {
+        "heroku/builder:24" | "heroku/builder:26" if cfg!(target_arch = "aarch64") => {
             config.target_triple("aarch64-unknown-linux-musl")
         }
         _ => config.target_triple("x86_64-unknown-linux-musl"),

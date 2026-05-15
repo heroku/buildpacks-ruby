@@ -11,7 +11,7 @@ cache_diff.workspace = true
 byte-unit = "5"
 const-hex = "1"
 # TODO: Consolidate on either the regex crate or the fancy-regex crate, since this repo currently uses both.
-fancy-regex = "0.17"
+fancy-regex = "0.18"
 fs_extra = "1"
 fs-err.workspace = true
 glob = "0.3"

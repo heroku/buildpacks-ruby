@@ -92,8 +92,8 @@ jobs:
         uses: buildpacks/github-actions/setup-pack@812ff667850b930be2217c48e1f980e71bd3e14f # v5.12.3
       - name: Pull builder and run images
         run: |
-          docker pull "heroku/builder:24"
-          docker pull "heroku/heroku:24"
+          docker pull "heroku/builder:26"
+          docker pull "heroku/heroku:26"
       - name: Clone ruby getting started guide
         uses: actions/checkout@v6
         with:
@@ -104,9 +104,9 @@ jobs:
       - name: Compile ruby buildpack
         run: cargo libcnb package --target ${{ matrix.target }}
       - name: "PRINT: Getting started guide output"
-        run: pack build my-image --force-color --builder heroku/builder:24 --trust-extra-buildpacks --buildpack packaged/${{ matrix.target }}/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
+        run: pack build my-image --force-color --builder heroku/builder:26 --trust-extra-buildpacks --buildpack packaged/${{ matrix.target }}/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
       - name: "PRINT: Cached getting started guide output"
-        run: pack build my-image --force-color --builder heroku/builder:24 --trust-extra-buildpacks --buildpack packaged/${{ matrix.target }}/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
+        run: pack build my-image --force-color --builder heroku/builder:26 --trust-extra-buildpacks --buildpack packaged/${{ matrix.target }}/debug/heroku_ruby --path tmp/ruby-getting-started --pull-policy never
 
   unit-test-coverage:
     name: Generate test coverage report

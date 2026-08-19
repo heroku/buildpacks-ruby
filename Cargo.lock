@@ -569,10 +569,11 @@ checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 
 [[package]]
 name = "fun_run"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3e351e36d8e11312b5afb4f03e5d2199cf9a79e7e1b5b0477bfbdc99d4c6364"
+checksum = "c39db9abfa5a1c84d92da994a33084308b3254566a3c0565e0533c5e71d4b45c"
 dependencies = [
+ "autocfg",
  "regex",
  "which_problem",
 ]

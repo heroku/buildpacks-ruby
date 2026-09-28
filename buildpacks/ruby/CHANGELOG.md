@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- No longer warns that the Rubygems cache directory could not be deleted when a cached build installed no new gems and the directory does not exist. ([#534](https://github.com/heroku/buildpacks-ruby/pull/534))
+
 ## [12.4.1] - 2026-07-08
 
 ### Changed

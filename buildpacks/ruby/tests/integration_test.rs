@@ -7,7 +7,7 @@ use fs_err as fs;
 use indoc::{formatdoc, indoc};
 use libcnb_test::{
     BuildpackReference, ContainerConfig, ContainerContext, TestRunner, assert_contains,
-    assert_contains_match, assert_empty,
+    assert_contains_match, assert_empty, assert_not_contains,
 };
 use pretty_assertions::assert_eq;
 use regex::Regex;
@@ -264,6 +264,12 @@ fn test_default_app_latest_distro() {
             let config = context.config.clone();
             context.rebuild(config, |rebuild_context| {
                 println!("{}", rebuild_context.pack_stdout);
+
+                // No gems were downloaded, so there is no Rubygems cache directory to delete
+                assert_not_contains!(
+                    rebuild_context.pack_stdout,
+                    "Could not delete Rubygems cache directory"
+                );
 
                 rebuild_context.start_container(
                     ContainerConfig::new()

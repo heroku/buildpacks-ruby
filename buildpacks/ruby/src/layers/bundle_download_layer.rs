@@ -116,7 +116,7 @@ mod test {
         let old = Metadata {
             version: ResolvedBundlerVersion("2.3.5".to_string()),
         };
-        assert!(old.diff(&old).is_empty());
+        assert_eq!(old.diff(&old), Vec::<String>::new());
 
         let diff = Metadata {
             version: ResolvedBundlerVersion("2.3.6".to_string()),

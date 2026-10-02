@@ -11,7 +11,7 @@ fs-err = { version = "3", features = ["debug"] }
 
 [workspace.package]
 edition = "2024"
-rust-version = "1.96"
+rust-version = "1.99"
 
 [workspace.lints.rust]
 unreachable_pub = "warn"

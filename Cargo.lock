@@ -1264,9 +1264,9 @@ dependencies = [
 
 [[package]]
 name = "path_facts"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9b66f6b972fe319c6911bb86fb9d9fc76558051d0fdcf5b8755c2cfbc79910a"
+checksum = "2c46cacc51baf55ea95a6192c4f06f96049bd5751392c49adaa1f4d023e53502"
 dependencies = [
  "faccess",
 ]

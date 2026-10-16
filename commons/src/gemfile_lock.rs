@@ -117,7 +117,7 @@ impl FromStr for GemfileLock {
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         let bundled_with_re =
-            Regex::new("BUNDLED WITH\\s {2,3}(\\d+\\.\\d+\\.\\d+)").expect("Clippy checked");
+            Regex::new("BUNDLED WITH\\s {2,3}(\\d+\\.\\d+\\.\\d+[.\\w]*)").expect("Clippy checked");
         let main_ruby_version_re =
             Regex::new("RUBY VERSION\\s {2,3}ruby (\\d+\\.\\d+\\.\\d+((-|\\.)\\S*\\d+)?)")
                 .expect("Clippy checked");
@@ -172,6 +172,25 @@ BUNDLED WITH
         assert_eq!(
             info.ruby_version,
             RubyVersion::Explicit("3.3.5".to_string())
+        );
+    }
+
+    #[test]
+    fn test_bundler_beta() {
+        let info = GemfileLock::from_str(
+            r"
+RUBY VERSION
+   ruby 3.4.0.rc1
+
+BUNDLED WITH
+   4.1.0.beta2
+",
+        )
+        .unwrap();
+
+        assert_eq!(
+            info.bundler_version,
+            BundlerVersion::Explicit("4.1.0.beta2".to_string())
         );
     }
 

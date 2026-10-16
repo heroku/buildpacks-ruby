@@ -117,7 +117,7 @@ impl FromStr for GemfileLock {
 
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         let bundled_with_re =
-            Regex::new("BUNDLED WITH\\s {2,3}(\\d+\\.\\d+\\.\\d+)").expect("Clippy checked");
+            Regex::new("BUNDLED WITH\\s {2,3}(\\d+\\.\\d+\\.\\d+[.\\w]*)").expect("Clippy checked");
         let main_ruby_version_re =
             Regex::new("RUBY VERSION\\s {2,3}ruby (\\d+\\.\\d+\\.\\d+((-|\\.)\\S*\\d+)?)")
                 .expect("Clippy checked");

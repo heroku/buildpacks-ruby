@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Support for beta Bundler versions such as `4.1.0.beta2`. ([#545](https://github.com/heroku/buildpacks-ruby/pull/545))
+
 ### Changed
 
 - Updated libcnb to 0.32.0, which includes OpenTelemetry crate upgrades. ([#542](https://github.com/heroku/buildpacks-ruby/pull/542))

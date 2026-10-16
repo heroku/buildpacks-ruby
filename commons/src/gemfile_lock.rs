@@ -176,6 +176,25 @@ BUNDLED WITH
     }
 
     #[test]
+    fn test_bundler_beta() {
+        let info = GemfileLock::from_str(
+            r"
+RUBY VERSION
+   ruby 3.4.0.rc1
+
+BUNDLED WITH
+   4.1.0.beta2
+",
+        )
+        .unwrap();
+
+        assert_eq!(
+            info.bundler_version,
+            BundlerVersion::Explicit("4.1.0.beta2".to_string())
+        );
+    }
+
+    #[test]
     fn test_rc_dot_version() {
         let info = GemfileLock::from_str(
             r"

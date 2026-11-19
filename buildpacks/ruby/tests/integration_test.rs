@@ -6,7 +6,7 @@
 use fs_err as fs;
 use indoc::{formatdoc, indoc};
 use libcnb_test::{
-    BuildpackReference, ContainerConfig, ContainerContext, TestRunner, assert_contains,
+    BuildpackReference, ContainerConfig, ContainerContext, PackResult, TestRunner, assert_contains,
     assert_contains_match, assert_empty, assert_not_contains,
 };
 use pretty_assertions::assert_eq;
@@ -66,6 +66,34 @@ fn test_migrating_metadata_or_layer_names() {
                 );
             },
         );
+    });
+}
+
+#[test]
+#[ignore = "integration test"]
+fn ssl_cert_file_is_respected() {
+    let mut empty_trust_store =
+        amd_arm_builder_config("heroku/builder:24", "tests/fixtures/default_ruby");
+    empty_trust_store
+        .env("SSL_CERT_FILE", "/dev/null")
+        .env("SSL_CERT_DIR", "/nonexistent")
+        .expected_pack_result(PackResult::Failure);
+    TestRunner::default().build(empty_trust_store, |context| {
+        println!("{}", context.pack_stdout);
+        assert_contains!(
+            context.pack_stdout,
+            "Error downloading: HTTP error while downloading file"
+        );
+    });
+
+    let mut stack_trust_store =
+        amd_arm_builder_config("heroku/builder:24", "tests/fixtures/default_ruby");
+    stack_trust_store
+        .env("SSL_CERT_FILE", "/etc/ssl/certs/ca-certificates.crt")
+        .env("SSL_CERT_DIR", "/nonexistent");
+    TestRunner::default().build(stack_trust_store, |context| {
+        println!("{}", context.pack_stdout);
+        assert_contains!(context.pack_stdout, "- Ruby version");
     });
 }
 

@@ -39,6 +39,9 @@ use ureq as _;
 
 use crate::target_id::OsDistribution;
 
+const DEFAULT_BUNDLER_VERSION: &str = "2.5.23";
+const DEFAULT_RUBY_VERSION: &str = "3.4.13";
+
 struct RubyBuildpack;
 
 #[derive(Debug, thiserror::Error)]
@@ -134,8 +137,8 @@ impl Buildpack for RubyBuildpack {
         let lockfile_contents = fs_err::read_to_string(&lockfile)
             .map_err(|error| RubyBuildpackError::MissingGemfileLock(lockfile, error))?;
         let gemfile_lock = GemfileLock::from_str(&lockfile_contents).expect("Infallible");
-        let bundler_version = gemfile_lock.resolve_bundler("2.5.23");
-        let ruby_version = gemfile_lock.resolve_ruby("3.4.12");
+        let bundler_version = gemfile_lock.resolve_bundler(DEFAULT_BUNDLER_VERSION);
+        let ruby_version = gemfile_lock.resolve_ruby(DEFAULT_RUBY_VERSION);
         tracing::info!(
             // Bundler version the app is asking for i.e. "2.6.7"
             cnb.ruby.bundler.version = bundler_version.to_string(),
